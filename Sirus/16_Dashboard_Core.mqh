@@ -977,6 +977,10 @@ void DrawDashboard()
       return;
    }
 
+   // SPEED: nobody can see a dashboard in a non-visual tester run - drawing it only slows the test.
+   if(MQLInfoInteger(MQL_TESTER) && !MQLInfoInteger(MQL_VISUAL_MODE))
+      return;
+
    datetime now = TimeLocal();
    if(G_LAST_DASHBOARD > 0 && (now - G_LAST_DASHBOARD) < DashboardRefreshSeconds)
       return;

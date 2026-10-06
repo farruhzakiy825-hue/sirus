@@ -51,16 +51,31 @@ color MBVisBlend(const color a, const color b, const double t)
    return (color)((uint)r | ((uint)g << 8) | ((uint)b2 << 16));
 }
 
+// SPEED: ChartGetInteger waits for the chart's command queue, and the colour helpers asked it about
+// two hundred times per redraw. The background is read once every few seconds instead.
+color G_MB_BG_COLOR = clrBlack;
+bool  G_MB_BG_DARK  = true;
+uint  G_MB_BG_MS    = 0;
+bool  G_MB_BG_READ  = false;
+
 color MBVisChartBg()
 {
-   return (color)ChartGetInteger(0, CHART_COLOR_BACKGROUND);
+   uint now = GetTickCount();
+   if(!G_MB_BG_READ || (now - G_MB_BG_MS) > 3000)
+   {
+      G_MB_BG_READ = true;
+      G_MB_BG_MS = now;
+      G_MB_BG_COLOR = (color)ChartGetInteger(0, CHART_COLOR_BACKGROUND);
+      uint c = (uint)G_MB_BG_COLOR;
+      G_MB_BG_DARK = ((0.299 * (c & 0xFF) + 0.587 * ((c >> 8) & 0xFF) + 0.114 * ((c >> 16) & 0xFF)) < 128.0);
+   }
+   return G_MB_BG_COLOR;
 }
 
 bool MBVisDark()
 {
-   uint c = (uint)MBVisChartBg();
-   double lum = 0.299 * (c & 0xFF) + 0.587 * ((c >> 8) & 0xFF) + 0.114 * ((c >> 16) & 0xFF);
-   return (lum < 128.0);
+   MBVisChartBg();
+   return G_MB_BG_DARK;
 }
 
 color MBVisInk()      { return MBVisDark() ? C'232,236,243' : C'24,29,38'; }
@@ -608,7 +623,7 @@ void MBDrawPanel()
       MBPanelLine("C5", StringFormat("TP %.0f pt  ·  %s  ·  tempo %s", RebateTargetPoints(), trail,
                                      (MBCashbackTempo() ? "TEZKOR" : "oddiy")), muted, false, x0, w, lh);
    }
-   else
+   else if(ObjectFind(0, MB_VIS_PREFIX + "C1") >= 0)
    {
       ObjectsDeleteAll(0, MB_VIS_PREFIX + "S_CB");
       ObjectsDeleteAll(0, MB_VIS_PREFIX + "C");
@@ -740,6 +755,7 @@ void MBDrawPanel()
 
    // Size the card to what was drawn.
    ObjectSetInteger(0, MB_VIS_PREFIX + "P_CARD", OBJPROP_YSIZE, G_MB_PANEL_Y - y0 + 8);
+   ChartRedraw(0);   // timer redraws otherwise wait for the next tick to show
 }
 
 void MBDeletePanel()

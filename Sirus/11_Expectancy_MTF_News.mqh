@@ -3280,7 +3280,7 @@ void ZoneMapScanTFSupport(const ENUM_TIMEFRAMES tf, const int lookback, const do
    }
 }
 
-double ZoneMapNearestResistance(const double price)
+double ZoneMapNearestResistanceCalc(const double price)
 {
    double best = 0.0;
 
@@ -3496,7 +3496,7 @@ double ZoneMapBestWeightedSupport(const double price, const double search_limit_
    return best_price;
 }
 
-double ZoneMapNearestSupport(const double price)
+double ZoneMapNearestSupportCalc(const double price)
 {
    double best = 0.0;
 
@@ -3557,6 +3557,42 @@ double ZoneMapNearestSupport(const double price)
 
    return best;
 }
+
+// SPEED: about 120 call sites ask for the nearest support / resistance, many of them with the same
+// price on the same tick, and each answer is a scan of seven timeframes plus the FVG list. The answer
+// cannot change inside one tick, so it is remembered per (tick, price). The strongest-nearby search
+// calls back in with its own guard set and gets a different answer on purpose - that path is never
+// cached.
+#define ZM_MEMO_SLOTS 6
+ulong  G_ZM_MEMO_TICK[2][ZM_MEMO_SLOTS];
+double G_ZM_MEMO_PX[2][ZM_MEMO_SLOTS];
+double G_ZM_MEMO_VAL[2][ZM_MEMO_SLOTS];
+int    G_ZM_MEMO_BAR[2][ZM_MEMO_SLOTS];   // swing-cache bar the answer was built from
+int    G_ZM_MEMO_NEXT[2] = {0, 0};
+
+double ZoneMapMemo(const int side, const double price)
+{
+   bool usable = (G_TICK_COUNT > 0 && !G_ZONE_LOOKUP_BUSY);
+   if(usable)
+      for(int i = 0; i < ZM_MEMO_SLOTS; i++)
+         if(G_ZM_MEMO_TICK[side][i] == G_TICK_COUNT && G_ZM_MEMO_PX[side][i] == price &&
+            G_ZM_MEMO_BAR[side][i] == G_ZMC_CACHE_BAR)
+            return G_ZM_MEMO_VAL[side][i];
+   double v = (side == 0) ? ZoneMapNearestSupportCalc(price) : ZoneMapNearestResistanceCalc(price);
+   if(usable)
+   {
+      int k = G_ZM_MEMO_NEXT[side];
+      G_ZM_MEMO_TICK[side][k] = G_TICK_COUNT;
+      G_ZM_MEMO_PX[side][k] = price;
+      G_ZM_MEMO_VAL[side][k] = v;
+      G_ZM_MEMO_BAR[side][k] = G_ZMC_CACHE_BAR;
+      G_ZM_MEMO_NEXT[side] = (k + 1) % ZM_MEMO_SLOTS;
+   }
+   return v;
+}
+
+double ZoneMapNearestSupport(const double price)    { return ZoneMapMemo(0, price); }
+double ZoneMapNearestResistance(const double price) { return ZoneMapMemo(1, price); }
 
 // V29 new (B-block): Zone Strength / Confluence. Given a level already found by the functions
 // above, scores how "real" it is - how many swing points across all included TFs cluster near
