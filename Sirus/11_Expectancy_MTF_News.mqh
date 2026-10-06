@@ -2802,9 +2802,13 @@ bool FVGDetectBearish(const ENUM_TIMEFRAMES tf, const int shift, double &gap_low
    return false;
 }
 
+// formed_shift is the gap's FIRST candle (c1); c2 is the displacement that made the gap and c3
+// closes it off. Only candles AFTER c3 can fill it. FIX(fvg-always-filled): the scan used to start
+// at c2 - the candle that spans the gap by definition - so every gap read as filled and the FVG
+// zones never existed.
 bool FVGIsFilled(const ENUM_TIMEFRAMES tf, const int formed_shift, const double gap_low, const double gap_high)
 {
-   for(int i = formed_shift - 1; i >= 1; i--)
+   for(int i = formed_shift - 3; i >= 1; i--)
    {
       double lo = CandleLow(tf, i);
       double hi = CandleHigh(tf, i);
@@ -2816,31 +2820,60 @@ bool FVGIsFilled(const ENUM_TIMEFRAMES tf, const int formed_shift, const double 
    return false;
 }
 
+// SPEED: the unfilled gaps depend only on closed FVGTimeframe candles, so the list is built once per
+// bar of that timeframe (it was a 100 x 100 candle scan on every lookup).
+#define FVG_CACHE_MAX 64
+double   G_FVG_BU_LO[FVG_CACHE_MAX], G_FVG_BU_HI[FVG_CACHE_MAX];
+double   G_FVG_BE_LO[FVG_CACHE_MAX], G_FVG_BE_HI[FVG_CACHE_MAX];
+int      G_FVG_BU_N = 0, G_FVG_BE_N = 0;
+datetime G_FVG_CACHE_BAR = 0;
+
+void FVGCacheRefresh()
+{
+   datetime t0 = iTime(_Symbol, FVGTimeframe, 0);
+   if(t0 > 0 && t0 == G_FVG_CACHE_BAR)
+      return;
+   G_FVG_CACHE_BAR = t0;
+   G_FVG_BU_N = 0;
+   G_FVG_BE_N = 0;
+   double min_gap = MathMax(1, FVGMinGapPoints) * _Point;
+   for(int shift = 1; shift <= FVGLookbackBars; shift++)
+   {
+      double gl = 0.0, gh = 0.0;
+      if(G_FVG_BU_N < FVG_CACHE_MAX && FVGDetectBullish(FVGTimeframe, shift, gl, gh) &&
+         (gh - gl) >= min_gap && !FVGIsFilled(FVGTimeframe, shift + 2, gl, gh))
+      {
+         G_FVG_BU_LO[G_FVG_BU_N] = gl;
+         G_FVG_BU_HI[G_FVG_BU_N] = gh;
+         G_FVG_BU_N++;
+      }
+      if(G_FVG_BE_N < FVG_CACHE_MAX && FVGDetectBearish(FVGTimeframe, shift, gl, gh) &&
+         (gh - gl) >= min_gap && !FVGIsFilled(FVGTimeframe, shift + 2, gl, gh))
+      {
+         G_FVG_BE_LO[G_FVG_BE_N] = gl;
+         G_FVG_BE_HI[G_FVG_BE_N] = gh;
+         G_FVG_BE_N++;
+      }
+   }
+}
+
 // Nearest unfilled BULLISH gap below price - formed during an up-move, left behind as a
 // potential support/magnet.
 double FVGNearestSupport(const double price)
 {
    if(!EnableFVGZones || price <= 0.0)
       return 0.0;
+   FVGCacheRefresh();
 
    double best = 0.0;
-   double min_gap = MathMax(1, FVGMinGapPoints) * _Point;
-
-   for(int shift = 1; shift <= FVGLookbackBars; shift++)
+   for(int i = 0; i < G_FVG_BU_N; i++)
    {
-      double gl = 0.0, gh = 0.0;
-      if(!FVGDetectBullish(FVGTimeframe, shift, gl, gh))
-         continue;
-      if((gh - gl) < min_gap)
-         continue;
+      double gh = G_FVG_BU_HI[i];
       if(gh >= price)
-         continue;
-      if(FVGIsFilled(FVGTimeframe, shift + 2, gl, gh))
          continue;
       if(best == 0.0 || gh > best)
          best = gh;
    }
-
    return best;
 }
 
@@ -2850,25 +2883,17 @@ double FVGNearestResistance(const double price)
 {
    if(!EnableFVGZones || price <= 0.0)
       return 0.0;
+   FVGCacheRefresh();
 
    double best = 0.0;
-   double min_gap = MathMax(1, FVGMinGapPoints) * _Point;
-
-   for(int shift = 1; shift <= FVGLookbackBars; shift++)
+   for(int i = 0; i < G_FVG_BE_N; i++)
    {
-      double gl = 0.0, gh = 0.0;
-      if(!FVGDetectBearish(FVGTimeframe, shift, gl, gh))
-         continue;
-      if((gh - gl) < min_gap)
-         continue;
+      double gl = G_FVG_BE_LO[i];
       if(gl <= price)
-         continue;
-      if(FVGIsFilled(FVGTimeframe, shift + 2, gl, gh))
          continue;
       if(best == 0.0 || gl < best)
          best = gl;
    }
-
    return best;
 }
 
@@ -3607,23 +3632,13 @@ int FVGClusterCount(const double level)
 
    int count = 0;
    double tol = MathMax(1, FVGClusterTolerancePoints) * _Point;
-
-   for(int shift = 1; shift <= FVGLookbackBars; shift++)
-   {
-      double gl = 0.0, gh = 0.0;
-
-      if(FVGDetectBullish(FVGTimeframe, shift, gl, gh) && !FVGIsFilled(FVGTimeframe, shift + 2, gl, gh))
-      {
-         if(level >= gl - tol && level <= gh + tol)
-            count++;
-      }
-
-      if(FVGDetectBearish(FVGTimeframe, shift, gl, gh) && !FVGIsFilled(FVGTimeframe, shift + 2, gl, gh))
-      {
-         if(level >= gl - tol && level <= gh + tol)
-            count++;
-      }
-   }
+   FVGCacheRefresh();   // the same unfilled gaps the nearest-zone lookups use
+   for(int i = 0; i < G_FVG_BU_N; i++)
+      if(level >= G_FVG_BU_LO[i] - tol && level <= G_FVG_BU_HI[i] + tol)
+         count++;
+   for(int i = 0; i < G_FVG_BE_N; i++)
+      if(level >= G_FVG_BE_LO[i] - tol && level <= G_FVG_BE_HI[i] + tol)
+         count++;
 
    return count;
 }

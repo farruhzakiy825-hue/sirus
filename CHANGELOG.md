@@ -1,5 +1,25 @@
 # CHANGELOG — Sirus Brain V8
 
+## Savdo soni va yo'nalish: ikki qatlam, FVG, sham aniqligi, tezlik
+
+- **Ikki qatlam muammosi hal qilindi** (`MBOwnsDuplicateGates`). Market Brain savdo tomonida bo'lsa, xuddi shu savolni beradigan eski filtrlar chetga turadi: joy himoyasi, Location Brain, impuls quvish, HTF bias, eski daraja, singan daraja va yo'nalish aniqligi. Javobni miya veto'si va hakami beradi.
+  - Miya neytral bo'lsa, faqat ball solig'i filtrlari chetga turadi. Joy va HTF filtrlari qoladi.
+  - Miya qarshi bo'lsa, ikkala qatlam ham ishlaydi.
+  - Tezkor kirishlarda eski filtrlar har doim chetga turadi.
+- **FVG xatosi tuzatildi.** Gap o'zining o'rta shami bilan "to'lgan" deb hisoblanardi, shuning uchun FVG zonalari umuman yo'q edi. Gaplar ro'yxati endi har M15 barda bir marta tuziladi.
+- **Sham dvigateli tuzatildi:**
+  - impuls tezligi so'nggi 30% pullbackdan o'lchanadi, endi trendda yolg'on "EXPIRED" chiqmaydi;
+  - "EARLY" holati endi haqiqatan chiqadi;
+  - to'lqinlar to'g'ri sanaladi;
+  - muvaffaqiyatsiz jonli sham faqat M1 triggerini bekor qiladi;
+  - BREAKOUT va CONTINUATION uchun sham tanasi kamida 0.3 ATR bo'lishi kerak;
+  - narx 0.5 ATR qaytsa, M5 trigger bekor bo'ladi.
+- **Tezlik:**
+  - eng yaqin support/resistance qidiruvi bir tik ichida bir marta hisoblanadi;
+  - panel chart rangini 3 soniyada bir marta o'qiydi;
+  - vizual bo'lmagan testerda panel chizilmaydi.
+- **Panel:** "Jimlik N daq" qatori bugun eng ko'p to'sgan filtrlar bilan chiqadi. Gate registry endi "signal yo'q", "miya taqiqi" va "hakam kutdi" holatlarini ham sanaydi.
+
 ## Cashback tempi va aylanma paneli
 
 - **Cashback tempi** (`EnableCashbackTempo`, faqat `EnableRebateMode` yoqilganda ishlaydi). Veto'lar o'zgarmaydi. O'zgarishlar:

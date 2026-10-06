@@ -397,6 +397,7 @@ double ZoneMapNearestResistance(const double price);
 double ZoneMapNearestSupport(const double price);
 double ZoneMapStrength(const double level);
 bool CloseNaviusBasket(const string reason);
+bool MBStandsInFor(const int dir, const bool location_gate);   // Market Brain owns the duplicate old gates - read by the entry gates before its definition
 bool MBCashbackTempo();   // cashback tempo switch - read by the entry judge before its definition
 bool RebateTrailingOn();   // cashback trailing switch - read by the basket trailing long before its definition
 double GridDistanceForNextOrder(const int current_orders);

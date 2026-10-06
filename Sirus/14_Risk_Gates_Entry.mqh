@@ -4064,6 +4064,15 @@ int G_LOCATION_BLOCKS_TODAY = 0;  // BOSQICH 4: bugun joy himoyasi necha M1 bar 
 // detector score they tax was never part of this entry. Risk, news, spread and cooldowns still apply.
 bool G_MB_FAST_ACTIVE = false;
 
+// An older gate stands aside when the Market Brain answers its question (see MBStandsInFor).
+bool MBOwnsGate(const bool location_gate)
+{
+   if(G_MB_FAST_ACTIVE)
+      return true;
+   int d = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
+   return MBStandsInFor(d, location_gate);
+}
+
 bool FirstEntryCanRun(string &reason)
 {
    G_MB_FAST_ACTIVE = false;
@@ -4304,7 +4313,7 @@ bool FirstEntryCanRun(string &reason)
    }
 
    // v291b: JOY HIMOYASI - ball o'tgandan keyin, savdo yuborilishidan oldin, oxirgi savol.
-   if(EnableLocationGuard && !G_MB_FAST_ACTIVE)
+   if(EnableLocationGuard && !MBOwnsGate(true))
    {
       int lg_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       string lg_why = "";
@@ -4480,7 +4489,7 @@ bool FirstEntryCanRun(string &reason)
    // DIRECTION CLARITY: how close the other side came. The engine knew both best scores all along
    // and never used the gap - a BUY at eight against a SELL at seven is a coin on its edge, and a
    // coin on its edge should cost something rather than nothing.
-   if(EnableDirectionClarity && !G_MB_FAST_ACTIVE && !ValveIsOff(VALVE_CLARITY) && G_OPP_DIR_CLARITY > 0.0 &&
+   if(EnableDirectionClarity && !MBOwnsGate(false) && !ValveIsOff(VALVE_CLARITY) && G_OPP_DIR_CLARITY > 0.0 &&
       G_OPP_DIR_CLARITY < ClarityLowBelow && ClarityScoreCost > 0)
    {
       if(G_SCORE_FINAL < G_SCORE_MIN_REQUIRED + ClarityScoreCost)
@@ -4524,7 +4533,7 @@ bool FirstEntryCanRun(string &reason)
 
    // FAILED BREAK: the impulse went through and the close came back. Selling under support that
    // just held is the trade everyone trapped under it already made.
-   if(EnableFailedBreakGuard && !G_MB_FAST_ACTIVE && !ValveIsOff(VALVE_FAILEDBREAK))
+   if(EnableFailedBreakGuard && !MBOwnsGate(false) && !ValveIsOff(VALVE_FAILEDBREAK))
    {
       int fb_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(fb_dir != 0)
@@ -4544,7 +4553,7 @@ bool FirstEntryCanRun(string &reason)
    // OLD LEVEL: a breakout heading into something from weeks ago. The recent high it just cleared
    // was never the destination - the stops above it were, and the level beyond is where the move
    // was always going to end.
-   if(EnableOldLevelGuard && !G_MB_FAST_ACTIVE && !ValveIsOff(VALVE_OLDLEVEL))
+   if(EnableOldLevelGuard && !MBOwnsGate(false) && !ValveIsOff(VALVE_OLDLEVEL))
    {
       int ol_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(ol_dir != 0)
@@ -4564,7 +4573,8 @@ bool FirstEntryCanRun(string &reason)
    // HTF BIAS: the score a counter-trend setup has to find. Not a refusal - a price, and one that
    // scales with how convincingly the larger timeframes have moved. A marginal daily costs almost
    // nothing; a daily that has run hard costs real score.
-   if(EnableHTFBias && !G_MB_FAST_ACTIVE && !ValveIsOff(VALVE_HTF))
+   // A direction question: kept unless the Market Brain is with the trade (MBOwnsGate(true)).
+   if(EnableHTFBias && !MBOwnsGate(true) && !ValveIsOff(VALVE_HTF))
    {
       int htf_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(htf_dir != 0)
@@ -4601,7 +4611,7 @@ bool FirstEntryCanRun(string &reason)
    //
    // Held, not refused. The arming engine releases it when price comes back to somewhere worth
    // paying, so the setup is bought cheaper rather than lost.
-   if(EnableLocationBrain && !G_MB_FAST_ACTIVE && !ValveIsOff(VALVE_LOCATION))
+   if(EnableLocationBrain && !MBOwnsGate(true) && !ValveIsOff(VALVE_LOCATION))
    {
       int lb_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(lb_dir != 0)

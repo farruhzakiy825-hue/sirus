@@ -45,6 +45,7 @@ input bool   MBVetoAcceleration       = true;   // V4: harakat hozir qarama-qars
 input bool   MBVetoPrintOnUse         = true;   // Veto'ni jurnalga yozish ([SIRUS VETO])
 input bool   EnableMBPermission       = true;   // V0: Market Brain yo'nalish ruxsati (BEARISH da BUY yo'q, TRANSITION da faqat reversal turi ...)
 input int    MBPermExceptionMargin    = 2;      // V0: zaif qarama-qarshi bias'da faqat reversal setup va ball >= minimum + shu
+input bool   MBOwnsDuplicateGates     = true;   // Miya savdo tomonida bo'lsa, xuddi shu savolni beradigan ESKI filtrlar (joy, impuls quvish, HTF, eski daraja, singan daraja, aniqlik) chetga turadi - javobni miya veto'si va hakami beradi. Miya qarshi bo'lsa ikkala qatlam ham ishlaydi
 
 int      G_MB_VETO_COUNT = 0;
 string   G_MB_VETO_LAST = "";
@@ -177,6 +178,30 @@ bool MBVetoAccelerationCheck(const int dir, string &why)
       why = StringFormat("V4 against: accelerating M1 displacement the other way (body %.1f ATR)", G_MB_LAST[0].body_atr);
       return true;
    }
+   return false;
+}
+
+// Does the Market Brain stand in for an older gate that asks the same question?
+//   with the trade (bias toward dir)  -> yes, for the score-cost gates and the location gates:
+//                                        the veto (V1-V4) and the judge (location, trigger,
+//                                        impulse speed) answer them with fresher evidence;
+//   neutral                           -> only the score-cost gates (clarity, old level, failed
+//                                        break); the old location guards and the HTF bias stay,
+//                                        because with no direction of its own the brain must not
+//                                        wave a trade past the larger timeframes or a bad place;
+//   against the trade                 -> never: both layers judge it.
+// Not before the brain has seen enough bars to have an opinion.
+bool MBStandsInFor(const int dir, const bool location_gate)
+{
+   if(!MBOwnsDuplicateGates || !EnableMarketBrain || !EnableMarketBrainEngines || !EnableMBVeto || dir == 0)
+      return false;
+   if(!G_MB_BRAIN_PRIMED)
+      return false;
+   int a = dir * G_MB_BIAS;
+   if(a >= 1)
+      return true;
+   if(a == 0)
+      return !location_gate;
    return false;
 }
 
