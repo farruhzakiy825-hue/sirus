@@ -1,5 +1,41 @@
 # CHANGELOG — Sirus Brain V8
 
+## Chuqur audit (savdodan oldin)
+
+To'rt yo'nalishda audit o'tkazildi: kompilyatsiya, mantiq, tezlik va pul xavfsizligi. Kompilyator xatosi topilmadi. Tuzatilganlar:
+
+- **Mantiq:**
+  - Likvidlik burilishining tasdig'i endi sweep bari yopilgandan keyin kelishi shart. M5 va undan katta sweep uchun tasdiq ham M5+ bo'lishi kerak. Avval deyarli har HTF sweep "tasdiqlangan" bo'lib, V1 veto va savat o'limi juda ko'p ishlardi.
+  - V1 endi BUY va SELL ni bir vaqtda to'smaydi.
+  - Ikkala tomonda ham HTF reversal bo'lsa, yangisi olinadi.
+  - Hodisa vaqti endi bar yopilishi bo'yicha solishtiriladi.
+  - Tezkor kirish HARD_BLOCK va bozor xaosi ustidan o'tmaydi.
+  - Tezkor kirish joy va HTF filtrlarini faqat miya tomonda bo'lsa chetlab o'tadi.
+  - Transition (a = 1) holatida tezkor kirish va miya yengilligi faqat reversal turiga beriladi.
+  - Trend kirishida ham sifat juda past bo'lsa, WAIT qaytariladi.
+  - Shamlar bid narxi bilan solishtiriladi.
+  - Grid javob kutishi narx qaytib kelganda qaytadan boshlanadi.
+  - Bir tikda yopilib, yangisi ochilgan savat ham hisobotga yoziladi.
+  - LIVE SWEEP daqiqa almashganda ham ko'rinadi.
+  - Kunlik hisobot soya natijalari nolga tushmasidan oldin yoziladi.
+- **Pul xavfsizligi:**
+  - "IMKONSIZ" holati har doim o'lgan g'oya yoki tasdiqlangan reversal talab qiladi. Chuqurlik belgilari (grid tugagan, BE uzoq) bitta belgi hisoblanadi.
+  - Yangilik faqat chiqqandan keyin va kutilmagan natija bo'lsa hisobga olinadi.
+  - Chiqish qurollangan bo'lsa, grid qo'shilmaydi.
+  - BE chiqishi pulda ham ≥ 0 bo'lishi kerak.
+  - `deep_back` faqat SHUBHALI deb topilgan savatga ishlaydi.
+  - Chiqishlar faqat baholangan savatga tegadi.
+  - Savat holati qayta ishga tushganda tiklanadi.
+  - Miya o'chirilsa, holat tozalanadi.
+- **Tezlik:**
+  - hodisa natijalari keshlanadi;
+  - savat o'limi M1 barda bir marta tekshiriladi;
+  - zona keshiga salbiy natijalar ham yoziladi;
+  - soya CSV buferlanadi;
+  - panelning doimiy xossalari faqat yaratilganda o'rnatiladi;
+  - profiler OnInit'ni hisobga olmaydi;
+  - veto qarorlari tik bo'yicha emas, qaror bo'yicha sanaladi.
+
 ## 18-bosqich: dalillar tablosi va kunlik hisobot
 
 - **B5. Dalillar tablosi:** panelda "Dalillar" qatori chiqadi: eng katta likvidlik hodisasi (H1/H4/KEY) va eng yangi M15+ struktura (MSS/BOS).

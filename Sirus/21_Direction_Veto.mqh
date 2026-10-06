@@ -55,24 +55,30 @@ datetime G_MB_VETO_LAST_PRINT = 0;
 bool MBVetoReversalFrom(const int dir, const int sw, string &why)
 {
    datetime t0 = G_MB_EV[sw].time;
+   datetime t0_close = t0 + PeriodSeconds(MBEventTF(G_MB_EV[sw].tfi));   // AUDIT FIX: after the sweep bar closed
    bool htf = (MBEventRank(G_MB_EV[sw].tfi) >= 3);
 
-   // The market answering back in our direction after it lifts the veto.
+   // The market answering back in our direction after it lifts the veto. AUDIT FIX: a newer liquidity
+   // sweep / failed break our way counts from M5 up, so two opposite sweeps cannot veto both sides.
    for(int idx = 0; idx < MB_EV_MAX; idx++)
    {
       if(G_MB_EV[idx].time <= t0 || G_MB_EV[idx].dir != dir) continue;
-      if(MBEventRank(G_MB_EV[idx].tfi) < 2) continue;
       int ty = G_MB_EV[idx].type;
-      if(ty == MB_EV_ACCEPTANCE || ty == MB_EV_MSS || ty == MB_EV_LIQ_SWEEP || ty == MB_EV_FAKE_BREAK)
+      int rk = MBEventRank(G_MB_EV[idx].tfi);
+      if((ty == MB_EV_ACCEPTANCE || ty == MB_EV_MSS) && rk >= 2)
+         return false;
+      if((ty == MB_EV_LIQ_SWEEP || ty == MB_EV_FAKE_BREAK) && rk >= 1)
          return false;
    }
 
    // Confirmations of the turn, after the sweep.
    bool disp = false, mss = false, reclaim = false;
    string conf = "";
+   int min_rank = (MBEventRank(G_MB_EV[sw].tfi) >= 1) ? 1 : 0;
    for(int idx = 0; idx < MB_EV_MAX; idx++)
    {
-      if(G_MB_EV[idx].time < t0 || G_MB_EV[idx].dir != -dir) continue;
+      if(G_MB_EV[idx].time < t0_close || G_MB_EV[idx].dir != -dir) continue;
+      if(MBEventRank(G_MB_EV[idx].tfi) < min_rank) continue;
       if(!MBEventRelevant(idx)) continue;
       int ty = G_MB_EV[idx].type;
       if(ty == MB_EV_DISPLACEMENT && !disp) { disp = true; conf += StringFormat(" + %s displacement", MBTFName(G_MB_EV[idx].tfi)); }
@@ -199,6 +205,11 @@ bool MBVetoAccelerationCheck(const int dir, string &why)
 //                                        wave a trade past the larger timeframes or a bad place;
 //   against the trade                 -> never: both layers judge it.
 // Not before the brain has seen enough bars to have an opinion.
+int MBBiasAlign(const int dir)
+{
+   return dir * G_MB_BIAS;
+}
+
 bool MBStandsInFor(const int dir, const bool location_gate)
 {
    if(!MBOwnsDuplicateGates || !EnableMarketBrain || !EnableMarketBrainEngines || !EnableMBVeto || dir == 0)

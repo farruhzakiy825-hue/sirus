@@ -340,6 +340,12 @@ void MBZoneReplay(const double level, const MqlRates &r[], const int n, const do
 }
 
 // The zone around `level`, replayed (cached per M5 bar). false when it cannot be read.
+// AUDIT FIX (speed): levels whose replay found no valid zone are remembered per M5 bar too - they
+// were re-replayed (CopyRates 576 + full pass) on every tick, from the veto and the judge both.
+double   G_MB_ZN_LV[MB_ZONE_CACHE];
+datetime G_MB_ZN_BAR[MB_ZONE_CACHE];
+int      G_MB_ZN_NEXT = 0;
+
 bool MBZoneRead(const double level, SMBZone &z)
 {
    if(!EnableZoneRoleEngine || level <= 0.0)
@@ -358,6 +364,10 @@ bool MBZoneRead(const double level, SMBZone &z)
          return true;
       }
 
+   for(int i = 0; i < MB_ZONE_CACHE; i++)
+      if(G_MB_ZN_BAR[i] == bar && MathAbs(G_MB_ZN_LV[i] - level) <= 0.05 * atr)
+         return false;
+
    MqlRates r[];
    ArraySetAsSeries(r, true);
    int n = CopyRates(_Symbol, PERIOD_M5, 0, MathMax(60, MBZoneLookbackM5), r);
@@ -366,7 +376,13 @@ bool MBZoneRead(const double level, SMBZone &z)
 
    MBZoneReplay(level, r, n, atr, z);
    if(!z.valid)
+   {
+      int ns = G_MB_ZN_NEXT % MB_ZONE_CACHE;
+      G_MB_ZN_LV[ns] = level;
+      G_MB_ZN_BAR[ns] = bar;
+      G_MB_ZN_NEXT++;
       return false;
+   }
 
    int slot = G_MB_ZC_NEXT % MB_ZONE_CACHE;
    G_MB_ZC[slot] = z;

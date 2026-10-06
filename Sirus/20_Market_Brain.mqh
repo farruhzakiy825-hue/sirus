@@ -150,7 +150,10 @@ bool MBReversalAfterCalc(const int dir, const int tf_lo, const int tf_hi, const 
       for(int idx = 0; idx < MB_EV_MAX; idx++)
       {
          if(used[idx] != 0) continue;
-         if(G_MB_EV[idx].time <= after || G_MB_EV[idx].dir != dir) continue;
+         // AUDIT FIX: an event belongs after `after` when its bar CLOSED after it (event time is the
+         // bar's open - an H4 sweep completing after a basket opened has an open time before it).
+         if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != dir) continue;
+         if(G_MB_EV[idx].time + PeriodSeconds(MBEventTF(G_MB_EV[idx].tfi)) <= after) continue;
          if(G_MB_EV[idx].type != MB_EV_LIQ_SWEEP && G_MB_EV[idx].type != MB_EV_FAKE_BREAK) continue;
          int tfi = G_MB_EV[idx].tfi;
          bool in_range = (tfi >= tf_lo && tfi <= tf_hi) || (key && tfi == MB_POOL_KEY);
@@ -163,9 +166,14 @@ bool MBReversalAfterCalc(const int dir, const int tf_lo, const int tf_hi, const 
          return false;
       used[sw] = 1;
 
+      // AUDIT FIX: a confirmation must come after the sweep's bar closed (an M1 displacement inside an
+      // H4 sweep bar may predate the pierce), and an M5+ sweep needs an M5+ confirmation.
+      datetime sw_close = G_MB_EV[sw].time + PeriodSeconds(MBEventTF(G_MB_EV[sw].tfi));
+      int min_rank = (MBEventRank(G_MB_EV[sw].tfi) >= 1) ? 1 : 0;
       for(int idx = 0; idx < MB_EV_MAX; idx++)
       {
-         if(G_MB_EV[idx].time < G_MB_EV[sw].time || G_MB_EV[idx].dir != dir) continue;
+         if(G_MB_EV[idx].time < sw_close || G_MB_EV[idx].dir != dir) continue;
+         if(MBEventRank(G_MB_EV[idx].tfi) < min_rank) continue;
          int ty = G_MB_EV[idx].type;
          if(ty == MB_EV_DISPLACEMENT || ty == MB_EV_MSS || ty == MB_EV_BOS || ty == MB_EV_RECLAIM)
          {
@@ -595,13 +603,16 @@ void MBBrainUpdate()
    // A fresh confirmed reversal at H1 / H4 / daily liquidity is a transition by itself - unless
    // M15 has since made structure the other way (the market already answered it).
    int le15 = MBLastStructureEvent(2);
+   // AUDIT FIX: when both sides have one, the newer reversal wins (the second pass used to overwrite).
+   datetime best_swt = 0;
    for(int d = -1; d <= 1; d += 2)
    {
       string w = "";
       datetime swt = 0;
       if(MBSign(bias) != d && MBReversalAfter(d, 3, 4, true, 0, w, swt) &&
-         !(le15 >= 0 && G_MB_EV[le15].dir == -d && G_MB_EV[le15].time > swt))
+         !(le15 >= 0 && G_MB_EV[le15].dir == -d && G_MB_EV[le15].time > swt) && swt > best_swt)
       {
+         best_swt = swt;
          bias = (d > 0) ? MB_BIAS_TRANSITION_UP : MB_BIAS_TRANSITION_DOWN;
          why = "HTF liquidity reversal: " + w;
       }

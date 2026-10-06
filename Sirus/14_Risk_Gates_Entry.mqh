@@ -4067,9 +4067,10 @@ bool G_MB_FAST_ACTIVE = false;
 // An older gate stands aside when the Market Brain answers its question (see MBStandsInFor).
 bool MBOwnsGate(const bool location_gate)
 {
-   if(G_MB_FAST_ACTIVE)
-      return true;
    int d = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
+   // AUDIT FIX: a fast entry skips the location / HTF gates only when the brain is with it.
+   if(G_MB_FAST_ACTIVE && (!location_gate || MBBiasAlign(d) >= 1))
+      return true;
    return MBStandsInFor(d, location_gate);
 }
 
@@ -4280,7 +4281,10 @@ bool FirstEntryCanRun(string &reason)
    // MARKET BRAIN FAST ENTRY (speed): no detector score yet, but a winning basket's thesis is still
    // open (re-entry) or a confirmed thesis has a trigger right now. Everything below - the remaining
    // gates, the veto and the Entry Judge - still decides.
-   if(G_SCORE_DECISION != SCORE_DECISION_PASS && G_SCORE_DECISION != SCORE_DECISION_MICRO_PASS)
+   // AUDIT FIX: only over a plain WAIT (or no setup outside market chaos) - never over a HARD_BLOCK
+   // (chaos, stale tick, extreme spread).
+   if(G_SCORE_DECISION == SCORE_DECISION_WAIT ||
+      (G_SCORE_DECISION == SCORE_DECISION_NONE && G_MARKET_STATE != MARKET_CHAOS))
    {
       int fe_dir = 0;
       string fe_why = "";

@@ -115,8 +115,11 @@ bool MBTriggerCandle(const SMBCandle &c, const int dir)
 //   - M5: price has not turned half an ATR against its close;
 //   - STAGE 13 (A5): a rejection / liquidity grab / exhaustion candle counts only once price has
 //     followed through past the middle of its body, and never after its wick extreme was taken out.
-bool MBCandleTriggerNow(const int tfi, const int dir, const double price)
+bool MBCandleTriggerNow(const int tfi, const int dir, const double price_in)
 {
+   // AUDIT FIX: candles are built from the bid - compare them with the bid, not the ask a BUY pays.
+   double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(price <= 0.0) price = price_in;
    if(!MBTriggerCandle(G_MB_LAST[tfi], dir))
       return false;
    if(tfi == 0 && G_MB_LIVE_FAILED == dir)
@@ -425,7 +428,16 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(StringLen(missing) > 0)
       decision = MB_ED_WAIT;
    else if(a >= 2 && loc_ok && trig_ok)
-      decision = (G_MB_ENTRY_QUALITY >= caution_q) ? MB_ED_EXECUTE : MB_ED_CAUTION;
+   {
+      // AUDIT FIX: favoured, but not immune - heavy decay / chase / contradiction still means WAIT.
+      if(G_MB_ENTRY_QUALITY >= caution_q)           decision = MB_ED_EXECUTE;
+      else if(G_MB_ENTRY_QUALITY >= caution_q - 10) decision = MB_ED_CAUTION;
+      else
+      {
+         decision = MB_ED_WAIT;
+         missing = StringFormat("trend entry quality %d far below %d", G_MB_ENTRY_QUALITY, caution_q);
+      }
+   }
    else if(G_MB_ENTRY_QUALITY >= exec_q)
       decision = MB_ED_EXECUTE;
    else if(G_MB_ENTRY_QUALITY >= caution_q)
@@ -537,7 +549,12 @@ bool MBFastEntryCandidate(int &dir, string &why)
       // Cashback tempo: the basket just paid this way and the thesis is still open - a neutral
       // bias (hysteresis catching up) does not stop the next one. Against-bias still does.
       int bias_min = MBCashbackTempo() ? 0 : 1;
-      if(rd * G_MB_BIAS >= bias_min && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBHasTriggerNow(rd))
+      // AUDIT FIX: at a transition (a == 1) V0 takes only reversal-type entries - a fast re-entry
+      // stamped TREND_RIDE there would always be vetoed.
+      int ra = rd * G_MB_BIAS;
+      bool ra_ok = (ra >= 2) || (ra == 0 && bias_min == 0) ||
+                   (ra == 1 && IsReversalOpportunityType(G_OPP_TYPE) && G_OPP_DIR == (rd > 0 ? OPP_DIR_BUY : OPP_DIR_SELL));
+      if(ra >= bias_min && ra_ok && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBHasTriggerNow(rd))
       {
          dir = rd;
          why = StringFormat("FAST RE-ENTRY %s: last basket won %d min ago, thesis still %s (%s)",
@@ -614,7 +631,8 @@ int MBBrainScoreRelief(const int dir, string &why)
                    G_MB_TH_CONTRA < 2);
    int r = 0;
    if(a >= 2 && th_with)      r = MathMax(0, MBReliefStrong);
-   else if(a >= 1)            r = MathMax(0, MBReliefWeak);
+   else if(a >= 2 || (a == 1 && IsReversalOpportunityType(G_OPP_TYPE)))
+      r = MathMax(0, MBReliefWeak);   // a == 1: V0 admits only reversal types there
    else if(a == 0 && th_with && MBCashbackTempo()) r = 1;
    if(r > 0)
       why = StringFormat("brain %s%s +%d", MBBiasName(G_MB_BIAS), (th_with ? ", thesis open" : ""), r);

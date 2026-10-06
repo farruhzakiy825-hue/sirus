@@ -56,6 +56,7 @@ string   G_MB_PB_DEAD_WHY  = "";
 bool     G_MB_PB_RESCUED   = false;
 int      G_MB_PB_WAIT_ORDERS = -1;  // grid response wait: rung being held
 datetime G_MB_PB_CHECK_BAR   = 0;   // M1 bar of the last death / rescue check
+datetime G_MB_PB_WAIT_LAST   = 0;   // last time the grid asked for this rung
 datetime G_MB_PB_WAIT_SINCE  = 0;
 
 // Stage 16: Recovery Judge state for the open basket.
@@ -167,7 +168,8 @@ string MBBasketDeathReason(const int dir, const datetime since)
 
    for(int idx = 0; idx < MB_EV_MAX; idx++)
    {
-      if(G_MB_EV[idx].time <= since || G_MB_EV[idx].dir != -dir) continue;
+      if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != -dir) continue;
+      if(G_MB_EV[idx].time + PeriodSeconds(MBEventTF(G_MB_EV[idx].tfi)) <= since) continue;   // AUDIT FIX: bar close vs basket open
       if(MBEventRank(G_MB_EV[idx].tfi) < 2) continue;
       int ty = G_MB_EV[idx].type;
       if(ty == MB_EV_MSS || ty == MB_EV_ACCEPTANCE)
@@ -421,6 +423,19 @@ string MBRecoveryText()
    return StringFormat("Qutqarish: %s (qarshi %d / yonida %d) · %s", st, G_MB_RC_NEG, G_MB_RC_POS, G_MB_RC_WHY);
 }
 
+// How the watched basket ended: the fast re-entry path, Memory and the recovery log read it.
+void MBPBCloseBookkeeping()
+{
+   int outs = 0;
+   double res = MBBasketResult(G_MB_PB_BASKET, outs);
+   G_MB_LAST_CLOSE_DIR = G_MB_PB_DIR;
+   G_MB_LAST_CLOSE_WIN = (res > 0.0);
+   G_MB_LAST_CLOSE_TIME = TimeCurrent();
+   MBMemoryOnBasketClosed(G_MB_PB_BASKET);   // Memory (phase 8): write the result next to the Entry DNA
+   MBRecoveryLog(G_MB_PB_BASKET, G_MB_PB_DIR, res);   // stage 16 (E8)
+   MBRecoveryForget();
+}
+
 // Called every tick from CoreUpdate.
 void MBPositionBrainUpdate()
 {
@@ -440,17 +455,7 @@ void MBPositionBrainUpdate()
    if(opened == 0)
    {
       if(G_MB_PB_BASKET != 0)
-      {
-         // Remember how it ended - the fast re-entry path reads it.
-         int outs = 0;
-         double res = MBBasketResult(G_MB_PB_BASKET, outs);
-         G_MB_LAST_CLOSE_DIR = G_MB_PB_DIR;
-         G_MB_LAST_CLOSE_WIN = (res > 0.0);
-         G_MB_LAST_CLOSE_TIME = TimeCurrent();
-         MBMemoryOnBasketClosed(G_MB_PB_BASKET);   // Memory (phase 8): write the result next to the Entry DNA
-         MBRecoveryLog(G_MB_PB_BASKET, G_MB_PB_DIR, res);   // stage 16 (E8)
-         MBRecoveryForget();
-      }
+         MBPBCloseBookkeeping();
       MBRecoveryReset();
       G_MB_PB_BASKET = 0;
       G_MB_PB_DIR = 0;
@@ -468,6 +473,10 @@ void MBPositionBrainUpdate()
 
    if(opened != G_MB_PB_BASKET || dir != G_MB_PB_DIR)
    {
+      // AUDIT FIX: the old basket closed and a new one opened on the same tick - the old one still
+      // gets its bookkeeping (result, last close, recovery log) before the state moves on.
+      if(G_MB_PB_BASKET != 0 && opened != G_MB_PB_BASKET)
+         MBPBCloseBookkeeping();
       G_MB_PB_BASKET = opened;
       G_MB_PB_DIR = dir;
       G_MB_PB_DEAD = false;
@@ -637,7 +646,11 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
       return true;
    }
 
-   // No response yet: wait a while for one, then add anyway.
+   // No response yet: wait a while for one, then add anyway. AUDIT FIX: the wait restarts when price
+   // left the rung and came back (no call for over a minute) - time spent away is not waiting.
+   if(G_MB_PB_WAIT_ORDERS == orders && G_MB_PB_WAIT_LAST > 0 && (TimeCurrent() - G_MB_PB_WAIT_LAST) > 60)
+      G_MB_PB_WAIT_ORDERS = -1;
+   G_MB_PB_WAIT_LAST = TimeCurrent();
    if(G_MB_PB_WAIT_ORDERS != orders)
    {
       G_MB_PB_WAIT_ORDERS = orders;
