@@ -672,7 +672,11 @@ void MBDrawPanel()
    MBPanelBar("E_Q", qx, G_MB_PANEL_Y + lh / 2 - 3, qw, G_MB_ENTRY_QUALITY, dec_tone);
    MBVisText("E_Q_TX", StringFormat("sifat %d", G_MB_ENTRY_QUALITY), x0 + w - 12, G_MB_PANEL_Y + 1, muted, PanelFontSize - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
    G_MB_PANEL_Y += lh + 2;
-   MBPanelLine("E_WHY", "Sabab: " + MBReasonUz(G_ENTRY_REASON), ink, false, x0, w, lh);
+   string why_txt = MBReasonUz(G_ENTRY_REASON);
+   if(G_ENTRY_REASON == "score not passed" && G_OPP_DIR != OPP_DIR_NONE && G_SCORE_MIN_REQUIRED > 0)
+      why_txt = StringFormat("%s signal kuchsiz: ball %d / kerak %d", (G_OPP_DIR == OPP_DIR_BUY ? "BUY" : "SELL"),
+                             G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
+   MBPanelLine("E_WHY", "Sabab: " + why_txt, ink, false, x0, w, lh);
    if(G_BASKET_ORDERS <= 0 && G_QUIET_BARS >= 5)
       MBPanelLine("E_QUIET", StringFormat("Jimlik %d daq  ·  %s", G_QUIET_BARS, MBGateTopUz(3)),
                   (G_QUIET_BARS >= 30 ? MBVisAmber() : muted), false, x0, w, lh);

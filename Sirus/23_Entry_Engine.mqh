@@ -51,6 +51,9 @@ input int    MBFastEntryScoreMargin   = 2;      // Tezkor kirishga beriladigan b
 input bool   EnableCashbackTempo      = true;   // CASHBACK TEMPI: faqat cashback rejimida - kirish talablari biroz yumshoq (veto'lar o'zgarmaydi), chunki daromad aylanmadan
 input int    CashbackTempoQualityCut  = 10;     // Cashback tempida EHTIYOT / OCHISH sifat chegaralari shuncha pastroq
 input int    CashbackReentryBars      = 40;     // Cashback tempida tezkor re-entry oynasi (M1 bar)
+input bool   EnableMBScoreRelief      = true;   // MIYA YENGILLIGI: eski detektor balli yetmasa, lekin Market Brain shu yo'nalishni tasdiqlasa - yetishmagan ball to'ldiriladi. Keyin veto va hakam (joy + trigger) baribir tekshiradi. Miya qarshi yoki neytral bo'lsa yengillik yo'q
+input int    MBReliefStrong           = 4;      // Miya kuchli tomonda (ustun/hukmron) va g'oya ochiq: shuncha ball
+input int    MBReliefWeak             = 2;      // Miya uyg'onmoqda (transition) yoki g'oya yo'q: shuncha ball
 
 #define MB_ED_EXECUTE   0
 #define MB_ED_CAUTION   1
@@ -457,6 +460,31 @@ void MBFastEntryFilled()
    // paying.
    G_MB_SIG_PRICE = SymbolInfoDouble(_Symbol, (G_OPP_DIR == OPP_DIR_BUY ? SYMBOL_ASK : SYMBOL_BID));
    G_MB_SIG_TIME = TimeCurrent();
+}
+
+// MARKET BRAIN SCORE RELIEF. The old detectors found a direction but their score fell short. When
+// the brain reads the same direction, it lends score: a strong aligned bias with an open thesis that
+// way lends MBReliefStrong, a weaker alignment MBReliefWeak. Neutral or against lends nothing - the
+// relief can only add trades in the direction the brain already holds, and the veto and the judge
+// (location + trigger + impulse speed) still decide after it. In cashback tempo a neutral brain lends
+// one point when a thesis is open that way.
+int MBBrainScoreRelief(const int dir, string &why)
+{
+   why = "";
+   if(!EnableMBScoreRelief || !EnableMarketBrain || !EnableMarketBrainEngines || !G_MB_BRAIN_PRIMED || dir == 0)
+      return 0;
+   if(G_MB_DEAD_DIR == dir && TimeCurrent() < G_MB_DEAD_UNTIL)
+      return 0;   // that thesis just died - no loans on it
+   int a = dir * G_MB_BIAS;
+   bool th_with = (G_MB_TH_DIR == dir && (G_MB_TH_STATE == MB_TH_ACTIVATED || G_MB_TH_STATE == MB_TH_CONFIRMED) &&
+                   G_MB_TH_CONTRA < 2);
+   int r = 0;
+   if(a >= 2 && th_with)      r = MathMax(0, MBReliefStrong);
+   else if(a >= 1)            r = MathMax(0, MBReliefWeak);
+   else if(a == 0 && th_with && MBCashbackTempo()) r = 1;
+   if(r > 0)
+      why = StringFormat("brain %s%s +%d", MBBiasName(G_MB_BIAS), (th_with ? ", thesis open" : ""), r);
+   return r;
 }
 
 // Cashback tempo is on: rebate mode with the tempo switch.

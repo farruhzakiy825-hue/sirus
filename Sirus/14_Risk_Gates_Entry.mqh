@@ -4262,6 +4262,21 @@ bool FirstEntryCanRun(string &reason)
       }
    }
 
+   // MARKET BRAIN SCORE RELIEF: the detectors found a direction but fell short, and the brain reads
+   // the same way. Only toward the brain's side; the veto and the judge still decide below.
+   if(G_SCORE_DECISION == SCORE_DECISION_WAIT && G_ARM_DIR == 0 && G_OPP_DIR != OPP_DIR_NONE &&
+      G_SCORE_MIN_REQUIRED > 0 && G_SCORE_FINAL < G_SCORE_MIN_REQUIRED)
+   {
+      int br_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : -1;
+      string br_why = "";
+      int br = MBBrainScoreRelief(br_dir, br_why);
+      if(br > 0 && G_SCORE_FINAL + br >= G_SCORE_MIN_REQUIRED)
+      {
+         G_SCORE_DECISION = G_SCORE_IS_MICRO ? SCORE_DECISION_MICRO_PASS : SCORE_DECISION_PASS;
+         DecisionLog("BRAIN", StringFormat("score %d/%d passed with %s", G_SCORE_FINAL, G_SCORE_MIN_REQUIRED, br_why));
+      }
+   }
+
    // MARKET BRAIN FAST ENTRY (speed): no detector score yet, but a winning basket's thesis is still
    // open (re-entry) or a confirmed thesis has a trigger right now. Everything below - the remaining
    // gates, the veto and the Entry Judge - still decides.
