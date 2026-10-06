@@ -497,3 +497,132 @@ Bu esa invalidation degani.
 - 3-bosqich: dealing range, DOL, kutilgan yo'l.
 - 4-bosqich: HTF sweep veto.
 - 0-bosqich: 4126 holati regression test sifatida (2026-10-06 06:15, tester'da real tick'lar bilan).
+
+---
+
+## 13. Ikkinchi bosqich: yo'nalish × sham, haqiqiy tezlik va aniqlik
+
+Maqsad o'zgarmagan: **kuniga 250–450 savdo** va **yo'nalishda adashmaslik**. Bu bo'limdagi har bir
+band ikkalasidan biriga xizmat qiladi va qaysi biriga ekani yozilgan. Kod hali yozilmagan.
+
+### 13.1. Qabul qilingan sukut qarorlar (egasi "hammasi yoqdi" dedi)
+| # | Savol | Qaror |
+|---|---|---|
+| 1 | Kuchli sham bo'lsa, yo'nalish darhol almashadimi? | **Ha, darhol**: yangi tomonda displacement, rejection yoki liq-grab + struktura hodisasi. Sham qarshi bo'lsa, almashuv kutadi |
+| 2 | Trend charchaganda | O'sha tomonga **yangi birinchi kirish yo'q**. Sog'lom pullback (tezlik qayta EARLY bo'lishi) bilan yana ochiladi |
+| 3 | G'oya "xavf ostida" | **Grid to'xtaydi** (qadam kengaymaydi), savat BE'ga tayyorlanadi. Hedge va REDUCE yo'q (7-bo'lim) |
+| 4 | B g'oyalari | Hammasi qabul qilindi |
+
+### 13.2. A guruhi: yo'nalish bilan shamni bog'lash
+- **A1. Almashuvni sham tasdiqlaydi.** Hozir almashuvni 2 ta M1 bar kutish tasdiqlaydi. Yangi qoida:
+  - kuchli tasdiqlovchi sham bo'lsa, almashuv darhol;
+  - sham qarshi bo'lsa, almashuv kutadi.
+  Tezlik ↑, aniqlik ↑. Fayl: `20_Market_Brain.mqh`, hysteresis bo'limi.
+- **A2. Uch timeframe bosimi.** M1/M5/M15 bosimi solishtiriladi va natija hakam sifatiga ta'sir qiladi:
+  - uchalasi ham tomonda: ishonch va ball oshadi (+6 gacha);
+  - M15 tomonda, M1/M5 qarshi: bu pullback, `loc_ok` hisoblanadi;
+  - M15 ham qarshi: trend charchagan, faqat EHTIYOT lot.
+  Aniqlik ↑, savdo ↑. Fayllar: `17`, `23`.
+- **A3. Ketma-ketlik.** Ketma-ketlik hikoyalari ishga tushiriladi:
+  - "pauzadan keyin bosim davom etyapti" → trigger;
+  - "burilish shakllanyapti" → savat uchun ogohlantirish, grid sekinlaydi.
+  Ikkalasi ham hozir hisoblanadi, lekin ishlatilmaydi. Fayllar: `23`, `24`.
+- **A4. Charchoq detektori.** Uchta belgi birga bo'lsa, o'sha tomonga yangi kirish yo'q:
+  3-to'lqin, LATE yoki EXPIRED tezlik, charchoq yoki absorbsiya shami. Aniqlik ↑↑. Fayllar: `17`, `21`.
+- **A5. Rejection tasdig'i.** Rejection triggeri keyingi sham u bilan bir tomonda, tanasining yarmidan narida
+  yopilsa kuchli hisoblanadi; teskari yopilsa, bekor. Aniqlik ↑. Fayllar: `17`, `23`.
+- **A6. Displacement + FVG.**
+  - Displacement shami FVG qoldirsa, "kuchli niyat" hisoblanadi va bias ishonchini oshiradi.
+  - Yangi kirish turi **FVG RETEST**: narx o'sha FVG'ga qaytdi va trigger bor.
+  Savdo ↑↑, aniqlik ↑. Fayllar: `17`, `18`, `23`.
+- **A7. G'oya sham bilan xavf ostiga tushadi.**
+  - Xavf belgilari: invalidation tomonga kuchli M5 displacement yoki ketma-ket 2 ta kuchli teskari sham.
+  - Oqibat: `THREATENED` holati, grid to'xtaydi.
+  - Invalidation darajasidan o'tib yopilsa, g'oya o'ladi (eski qoida).
+  DD ↓. Fayllar: `20`, `24`.
+
+### 13.3. B guruhi: to'ldirish
+- **B1. Tick hajmi.**
+  - Displacement va sweep tick_volume bilan baholanadi.
+  - 20 bar o'rtacha hajmidan ×1.5 baland bo'lsa, haqiqiy.
+  - ×0.7 dan past bo'lsa, ehtimol soxta: trigger kuchsiz hisoblanadi.
+- **B2. Sessiya likvidligi.**
+  - Osiyo high/low va London/NY ochilish vaqtlari.
+  - "Ochilishda Osiyo darajasi yechildi va qaytdi" = kuchli reversal hodisasi (`SESSION_SWEEP`).
+- **B3. Yumaloq narxlar.** XX00 va XX50 likvidlik hovuzi sifatida qo'shiladi (`MB_POOL_ROUND`).
+- **B4. Sessiyaga moslashuv.** Trigger chegaralari, TP va grid qadami ATR × sessiya koeffitsiyenti bilan hisoblanadi.
+  Koeffitsiyentlar: Osiyo 0.8, London 1.0, NY 1.1, oraliq 0.9.
+- **B5. Yo'nalish tablosi.** Panelda bir qatorda yo'nalish sabablari chiqadi: HTF yechish, M15 struktura, uch TF bosimi.
+- **B6. Kunlik hisobot.** Kun oxirida `Sirus_DailyReport_*.csv` yoziladi: kirish turi × joy × trigger × sessiya bo'yicha
+  yutuq foizi va o'rtacha natija.
+
+### 13.4. C guruhi: haqiqiy tezlik (chuqurroq)
+- **C1. Tick darajasida likvidlik yechish.**
+  - Hozir sweep va reclaim bar yopilganda ko'rinadi: M1 da 60 soniyagacha, M5 da 5 daqiqagacha kechikish.
+  - Yangi: hovuz darajasi tik oqimida kuzatiladi. Narx darajadan ≥0.15 ATR o'tib, 30 soniya ichida orqaga qaytsa, darhol
+    `LIVE_SWEEP` hodisasi va trigger hosil bo'ladi.
+  - Bar yopilgach, hodisa oddiy SWEEP sifatida tasdiqlanadi yoki bekor bo'ladi.
+  Bu eng katta tezlik yutug'i.
+- **C2. Oldindan tayyor kirish (pre-arm).**
+  - Yo'nalish, joy va veto tayyor bo'lsa, lot, TP va filtrlar oldindan hisoblab qo'yiladi.
+  - Trigger kelgan tikning o'zida buyruq yuboriladi.
+- **C3. Limit order bilan kirish (ixtiyoriy kalit).**
+  - Tayyor joy (FVG, ushlab turgan zona) ma'lum bo'lsa, o'sha narxga limit order qo'yiladi. Muddati 5–15 daqiqa.
+  - Veto yoki yo'nalish o'zgarsa, order darhol olib tashlanadi.
+  - Spread va kechikish yutilmaydi, fill yaxshiroq bo'ladi.
+  - Mumkin bo'lgan joyda bu SmartFill kutishining o'rnini oladi.
+- **C4. SmartFill aqlli bo'ladi.** Momentum triggeri (jonli displacement, LIVE_SWEEP) kelsa, kutmasdan kiradi.
+  Pullback kutish faqat qolgan holatlar uchun.
+- **C5. Eski skaner jilovlanadi.**
+  - 46 detektor har tikda ishlaydi.
+  - Yangi: yangi barda, narx oxirgi baholashdan ≥0.1 ATR(M1) siljiganda yoki savat yopilganda ishlaydi.
+  - CPU yuki 5–10 barobar kamayadi.
+- **C6. O'rnatilgan profiler.**
+  - Har dvigatel atrofida `GetMicrosecondCount` o'lchanadi.
+  - Panelda "tik: 1.8 ms (eng og'iri: skaner 1.1 ms)" chiqadi.
+  - Tezlik taxmin bilan emas, o'lchov bilan boshqariladi.
+- **C7. Filtrlar tartibi.** Arzon va narxga bog'liq bo'lmagan filtrlar barga bir marta hisoblanib keshlanadi.
+  Miya veto'si (arzon) og'ir eski filtrlardan oldin tekshiriladi va ularni kerakmas qiladi.
+
+### 13.5. D guruhi: haqiqiy aniqlik (chuqurroq)
+- **D1. Bozor rejimi va o'yin kitobi.** H1/M15 rejimi aniqlanadi: TREND, RANGE, EXPANSION, COMPRESSION.
+  Har rejimga o'z kirish turlari:
+  - **TREND:** pullback + davom etish, FVG retest.
+  - **RANGE:** chegarada yechish + reclaim (fade). O'rtada kirish yo'q.
+  - **EXPANSION:** faqat momentum yo'nalishida, faqat EARLY tezlikda.
+  - **COMPRESSION:** kutish, release shami bilan kirish.
+  Rejimga mos kelmagan kirish turi rad etiladi. Yo'nalishda adashishning eng katta manbai shu yo'l bilan yopiladi.
+- **D2. Tik oqimi nomutanosibligi (order-flow proksisi).**
+  - Oxirgi 10–30 soniyada yuqoriga va pastga tiklar soni, spread o'zgarishi va tik tezligi (`CopyTicks`) o'lchanadi.
+  - Trigger va V4 veto uchun tasdiq: BUY trigger + pastga tik ustunligi = kutish.
+- **D3. Likvidlik reaksiyasi statistikasi.**
+  - Hodisalar shu turlar bo'yicha guruhlanadi: hovuz turi, TF, sessiya, yechish chuqurligi.
+  - Har bir guruh uchun eslab qolinadi: keyin narx qaysi tomonga va necha ATR yurdi.
+  - Yetarli namuna (≥30) bo'lsa, bu yo'nalish ehtimoli sifatida miyaga beriladi.
+  Bu 8-bosqich Memory'ning kengaytmasi.
+- **D4. Soya buxgalteriyasi (shadow ledger).**
+  - Har rad etilgan setup yashirin kuzatiladi: TP'ga yetarmidi yoki grid kerak bo'larmidi.
+  - Kun oxirida har filtr uchun hisob chiqadi: "N ta yaxshi savdoni to'sdi, M ta yomonini to'sdi".
+  - Shunda "qaysi filtr foydali, qaysi biri faqat jim qiladi" savoliga raqam bilan javob olinadi.
+  Bu 9-bosqich tozalashning asosi bo'ladi.
+- **D5. Ko'p qatlamli premium/discount.** H1 dealing range'ga qo'shimcha M15 mikro va H4 diapazonlari.
+  Uchalasi ham "arzon" bo'lgan BUY eng yuqori sifat oladi; bittasi "qimmat" bo'lsa, EHTIYOT.
+- **D6. Aqlli grid joylashuvi.** Grid qadami qat'iy masofa emas, keyingi struktura bo'ladi: ushlab turgan zona, FVG,
+  likvidlik hovuzi. Grid orderi narx o'sha joyga yetib, reaksiya shami bilan qo'yiladi
+  (10-bo'limdagi sham javobi qoidasi bilan birga).
+- **D7. Volatillik foiziga moslashgan chegaralar.** Qat'iy "1.2 ATR" o'rniga oxirgi 5 kunlik ATR taqsimotidagi foiz
+  ishlatiladi. Tinch va shiddatli kunlarda bir xil ma'noni beradi.
+
+### 13.6. Bosqichlar tartibi
+| Bosqich | Tarkib | Asosiy foyda |
+|---|---|---|
+| 12 | C6 profiler + D4 soya buxgalteriyasi | O'lchov: keyingi har qadamni raqam bilan baholaymiz |
+| 13 | A1 + A2 + A4 + A5 | Yo'nalish × sham asosi: aniqlik ↑↑ |
+| 14 | C1 + C2 + C4 + C5 | Haqiqiy tezlik: kechikish soniyalardan millisekundlarga |
+| 15 | D1 rejim + A6 FVG retest + A3 ketma-ketlik | Savdo soni ↑↑, adashish ↓ |
+| 16 | A7 + D6 aqlli grid | DD ↓, savat himoyasi |
+| 17 | B1–B4 + D2 + D3 + D5 + D7 | Nozik aniqlik |
+| 18 | B5 + B6 + C3 limit order + tozalash (D4 natijasiga ko'ra) | Yakun |
+
+Har bosqichdan keyin: kompilyatsiya, 4126 regression testi, 3 kunlik backtest (savdo/kun, max DD, yutuq foizi)
+va soya buxgalteriyasi hisoboti.
