@@ -1,5 +1,18 @@
 # CHANGELOG — Sirus Brain V8
 
+## Cashback rejimida trailing o'chirildi
+
+- **Muammo:** cashback rejimida alohida "rebate trailing" yoqilgan edi (TP ga yetganda yopmasdan, TP × 0.75 qulf bilan kuzatardi). Broker stopi sirpanish va spred bilan ishlagani uchun savatlar mayda zararda yopilib qolardi.
+- **Endi:**
+  - cashback rejimida savat eski qat'iy TP da yopiladi;
+  - birinchi orderga broker TP yana qo'yiladi.
+- **Trailing faqat oddiy rejimda ishlaydi:**
+  - aqlli yuguruvchi;
+  - Pack2 savat trailingi endi cashback rejimida hech qachon ishlamaydi.
+- **Sozlamalar:**
+  - `EnableRebateTrailing` o'rniga `EnableRebateTrailingMode = false`. Nomi o'zgargani uchun eski presetdagi `true` qiymati o'qilmaydi;
+  - `RebateDisableTrailing` olib tashlandi, endi u har doim amalda.
+
 ## Shamga qarshi kirmaslik, uzoq DD ga qarshi choralar, SIRUS rejim nomlari
 
 - **Topilgan teshik:** M5 va M15 shamlari kirishga qarshi bo'lsa ("charchagan harakat"), hakam faqat CAUTION berardi. CAUTION lot esa kichraymaydi (`MinFirstEntryLotFactor = 1.0`), shuning uchun bullish M5/M15 da SELL to'liq lot bilan ochilardi.

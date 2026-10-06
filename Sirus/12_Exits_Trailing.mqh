@@ -1282,7 +1282,7 @@ void CheckNewsAutoFlat()
 //---------------------------------------------------------------------
 // Rebate mode closes a basket the moment it reaches its target - a target built from the spread, a
 // few hundred points at most. The ordinary basket trailing cannot help there (its 2300/300/2000 points
-// are ten times the target, which is why RebateDisableTrailing exists). So in rebate mode the target
+// are ten times the target, which is why it never runs in rebate mode). So in rebate mode the target
 // becomes the point where trailing ARMS instead of where the basket closes: a reversal right after it
 // still closes in profit (at least TP x RebateTrailLockFraction), and a move that keeps going is
 // followed instead of being cut at the target.
@@ -1303,7 +1303,7 @@ double   G_BROKER_TRAIL_LAST_LOCK = 0.0;
 
 bool RebateTrailingOn()
 {
-   return (EnableRebateMode && EnableRebateTrailing && RebateTargetPoints() > 0.0);
+   return (EnableRebateMode && EnableRebateTrailingMode && RebateTargetPoints() > 0.0);
 }
 
 void RebateTrailReset()

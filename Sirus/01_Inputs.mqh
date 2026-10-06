@@ -394,8 +394,7 @@ input int    RebateTPMaxSpreadPoints     = 350;    // S-FIX: spread above which 
 input bool   RebateTPCapPrintOnUse       = true;   // Log when the target is held
 input double RebateGridSpacingMultiple   = 3.0;
 // ---- BOSQICH 17: CASHBACK REJIMINI KUCHAYTIRISH ----
-input bool   RebateDisableTrailing    = true;   // Cashback rejimida savat trailingi o'chadi. Sabab: trailing qadami (300 pt) va qulfi (2000 pt) cashback TP sidan (~236 pt) KATTA - u TP ga xalaqit beradi va savatni keraksiz ushlab turadi
-input bool   EnableRebateTrailing     = true;   // Cashback: savat TP ga yetganda darhol yopilmaydi - trailing'ga o'tadi. Narx qaytsa kamida qulf (TP x LockFraction) bilan yopiladi, davom etsa foyda o'sadi. Shu rejimda birinchi kirishga broker TP qo'yilmaydi (u trailing'dan oldin yopib qo'yardi)
+input bool   EnableRebateTrailingMode = false;  // OFF (egasi qarori): cashback rejimida trailing YO'Q - savat eski qat'iy TP da yopiladi. Trailing faqat oddiy rejimda (aqlli yuguruvchi). true = eski cashback trailing (TP x LockFraction qulf)
 input double RebateTrailLockFraction  = 0.75;   // Qulf = TP x shu. TP ga yetgandan keyin savat kamida shuncha foyda bilan yopiladi (0.10-0.95)
 input double RebateTrailStepFraction  = 0.50;   // Kuzatish masofasi = TP x shu: cho'qqidan shuncha qaytsa savat yopiladi
 input int    RebateTrailMinStepPoints = 120;    // Kuzatish masofasi bundan kichik bo'lmaydi (3 xonali: 120 = $0.12)
