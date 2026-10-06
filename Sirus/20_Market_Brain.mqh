@@ -34,7 +34,7 @@
 input group "44 — MARKET BRAIN: BIAS + THESIS"
 input bool   EnableMarketBrain        = true;   // Bozor haqida yagona fikr: 7 holatli bias, dealing range, likvidlik maqsadi, thesis
 input double MBPressureWeakGap        = 20.0;   // Bias WEAK bo'ladi: qarama-qarshi sham bosimi shuncha ko'p bo'lsa (0-100 shkala)
-input int    MBInvalidationMemoryM5   = 24;     // O'lgan thesis yo'nalishi shuncha M5 bar (2 soat) kuchli bias'siz qayta tirilmaydi
+input int    MBInvalidationMemoryM5   = 12;     // O'lgan thesis yo'nalishi ko'pi bilan shuncha M5 bar (1 soat) bloklanadi. HIDDEN-BUG FIX: 24 -> 12, va bozor shu yo'nalishni yangi struktura bilan qayta tasdiqlasa blok darhol ochiladi
 input bool   MBThesisPrintOnUse       = true;   // Thesis o'zgarishlarini jurnalga yozish ([SIRUS THESIS])
 input bool   EnableRegimePlaybook     = true;   // 15-BOSQICH (D1): M15 bozor rejimi (TREND / DIAPAZON / PORTLASH / SIQILISH) va har biriga o'z kirish qoidasi
 input int    RegimeLookbackM15        = 20;     // Rejim shuncha M15 bar bo'yicha o'qiladi
@@ -82,6 +82,7 @@ double   G_MB_TH_TARGET  = 0.0;
 int      G_MB_TH_CONTRA  = 0;             // 0 low, 1 medium, 2 high
 string   G_MB_TH_TEXT    = "";
 int      G_MB_DEAD_DIR   = 0;             // invalidation memory
+datetime G_MB_DEAD_TIME  = 0;             // when that thesis died
 datetime G_MB_DEAD_UNTIL = 0;
 
 string MBBiasName(const int b)
@@ -516,10 +517,14 @@ double MBThesisInvalidation(const int dir, const double price)
    if(inv > 0.0)
       return inv;
 
+   // HIDDEN-BUG FIX: the nearest M15 swing could sit a few dozen points away, so an ordinary pullback
+   // "killed" the thesis. The line must be at least 0.8 ATR(M15) from price - a level a pullback does
+   // not reach unless the story really changed.
    MqlRates r[];
    ArraySetAsSeries(r, true);
    int n = CopyRates(_Symbol, PERIOD_M15, 0, 120, r);
    int len = MathMax(1, MBSwingLenHTF);
+   double min_d = 0.8 * ((G_MB_ATR[2] > 0.0) ? G_MB_ATR[2] : 2.0 * G_MB_ATR[1]) * _Point;
    for(int k = 1 + len; k <= n - 1 - len; k++)
    {
       bool is_hi = true, is_lo = true;
@@ -528,8 +533,8 @@ double MBThesisInvalidation(const int dir, const double price)
          if(r[k].high <= r[k - j].high || r[k].high < r[k + j].high) is_hi = false;
          if(r[k].low  >= r[k - j].low  || r[k].low  > r[k + j].low)  is_lo = false;
       }
-      if(dir > 0 && is_lo && r[k].low < price) return r[k].low;
-      if(dir < 0 && is_hi && r[k].high > price) return r[k].high;
+      if(dir > 0 && is_lo && r[k].low < price - min_d) return r[k].low;
+      if(dir < 0 && is_hi && r[k].high > price + min_d) return r[k].high;
    }
    return 0.0;
 }
@@ -701,8 +706,11 @@ void MBBrainUpdate()
 
    if(G_MB_TH_DIR != 0 && (G_MB_TH_STATE == MB_TH_ACTIVATED || G_MB_TH_STATE == MB_TH_CONFIRMED))
    {
+      // HIDDEN-BUG FIX: a close a hair beyond the line is noise, not a dead story - it must clear it by
+      // 0.15 ATR(M5).
+      double inv_buf = 0.15 * G_MB_ATR[1] * _Point;
       bool invalid = (G_MB_TH_INVALID > 0.0 && c1 > 0.0) &&
-                     ((G_MB_TH_DIR > 0 && c1 < G_MB_TH_INVALID) || (G_MB_TH_DIR < 0 && c1 > G_MB_TH_INVALID));
+                     ((G_MB_TH_DIR > 0 && c1 < G_MB_TH_INVALID - inv_buf) || (G_MB_TH_DIR < 0 && c1 > G_MB_TH_INVALID + inv_buf));
       bool done = (G_MB_TH_TARGET > 0.0) &&
                   ((G_MB_TH_DIR > 0 && iHigh(_Symbol, PERIOD_M1, 1) >= G_MB_TH_TARGET) ||
                    (G_MB_TH_DIR < 0 && iLow(_Symbol, PERIOD_M1, 1) <= G_MB_TH_TARGET));
@@ -710,6 +718,7 @@ void MBBrainUpdate()
       {
          G_MB_TH_STATE = MB_TH_INVALIDATED;
          G_MB_DEAD_DIR = G_MB_TH_DIR;
+         G_MB_DEAD_TIME = now;
          G_MB_DEAD_UNTIL = now + MathMax(1, MBInvalidationMemoryM5) * PeriodSeconds(PERIOD_M5);
          if((MBThesisPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS THESIS] %s thesis INVALIDATED: M5 closed %s beyond %s - that story is dead",
@@ -727,6 +736,40 @@ void MBBrainUpdate()
          G_MB_TH_STATE = MB_TH_CONFIRMED;
          if((MBThesisPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS THESIS] %s thesis CONFIRMED (%s)", (G_MB_TH_DIR > 0 ? "BULLISH" : "BEARISH"), MBBiasName(bias));
+      }
+   }
+
+   // HIDDEN-BUG FIX: the invalidation memory used to lock a direction for two hours unless the bias
+   // reached its strongest grade - in a market that kept falling after one noisy M5 close, every SELL
+   // was vetoed and no new bearish thesis could open. The lock now lifts as soon as the market
+   // re-confirms that direction: the bias back to at least weak-trend AND a new M5+ BOS / MSS /
+   // displacement / acceptance that way after the death, or a live M5+ liquidity sweep that way.
+   if(G_MB_DEAD_DIR != 0 && now < G_MB_DEAD_UNTIL)
+   {
+      int dd = G_MB_DEAD_DIR;
+      string lift = "";
+      if(dd * bias >= 2)
+      {
+         for(int idx = 0; idx < MB_EV_MAX && StringLen(lift) == 0; idx++)
+         {
+            if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != dd) continue;
+            if(MBEventRank(G_MB_EV[idx].tfi) < 1) continue;
+            int ty = G_MB_EV[idx].type;
+            if(ty != MB_EV_BOS && ty != MB_EV_MSS && ty != MB_EV_DISPLACEMENT && ty != MB_EV_ACCEPTANCE) continue;
+            if(G_MB_EV[idx].time + PeriodSeconds(MBEventTF(G_MB_EV[idx].tfi)) <= G_MB_DEAD_TIME) continue;
+            lift = StringFormat("%s %s after the death", MBTFName(G_MB_EV[idx].tfi), MBEventName(ty));
+         }
+      }
+      string lw = "";
+      if(StringLen(lift) == 0 && G_MB_LSW_TFI >= 1 && G_MB_LSW_TIME > G_MB_DEAD_TIME && MBLiveSweepFresh(dd, lw))
+         lift = lw;
+      if(StringLen(lift) > 0)
+      {
+         G_MB_DEAD_UNTIL = 0;
+         G_MB_DEAD_DIR = 0;
+         if((MBThesisPrintOnUse && VerboseLogs))
+            PrintFormat("[SIRUS THESIS] %s lock lifted - the market re-confirmed it (%s, %s)",
+                        (dd > 0 ? "BULLISH" : "BEARISH"), MBBiasName(bias), lift);
       }
    }
 

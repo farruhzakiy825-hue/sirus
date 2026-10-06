@@ -177,8 +177,8 @@ string MBBasketDeathReason(const int dir, const datetime since)
                              DoubleToString(G_MB_EV[idx].level, _Digits));
    }
 
-   datetime th_died = G_MB_DEAD_UNTIL - MathMax(1, MBInvalidationMemoryM5) * PeriodSeconds(PERIOD_M5);
-   if(EnableMarketBrain && G_MB_TH_DIR == dir && G_MB_TH_STATE == MB_TH_INVALIDATED && G_MB_DEAD_DIR == dir && th_died > since)
+   datetime th_died = G_MB_DEAD_TIME;
+   if(EnableMarketBrain && G_MB_TH_DIR == dir && G_MB_TH_STATE == MB_TH_INVALIDATED && th_died > since)
       return StringFormat("Market Brain %s thesis invalidated (beyond %s)", (dir > 0 ? "bullish" : "bearish"),
                           DoubleToString(G_MB_TH_INVALID, _Digits));
    return "";

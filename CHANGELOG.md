@@ -1,5 +1,19 @@
 # CHANGELOG — Sirus Brain V8
 
+## Yashirin xato: yo'nalish qulfi
+
+- **Xato:**
+  - G'oyaning bekor qilish chegarasi eng yaqin kichik M15 swing'ga qo'yilardi.
+  - Shu sabab oddiy pullbackdagi bitta M5 yopilish g'oyani "o'ldirardi".
+  - Keyin o'sha yo'nalish **2 soat** qulflanardi va faqat eng kuchli bias (±3) bilan ochilardi.
+  - Bozor shu yo'nalishda davom etsa ham, har bir kirish "V0 invalidation memory" bilan to'silardi. O'sha tomonda yangi g'oya ham ochilmasdi, shuning uchun miya kirishlari va yengillik ham ishlamasdi.
+- **Tuzatildi:**
+  - bekor qilish chegarasi narxdan kamida 0.8 ATR(M15) uzoqda bo'ladi;
+  - g'oya o'lishi uchun M5 yopilish chegaradan 0.15 ATR(M5) narida bo'lishi kerak;
+  - qulf ko'pi bilan 1 soat;
+  - bozor yo'nalishni qayta tasdiqlasa, qulf **darhol ochiladi**: bias kamida "ustun" bo'lsa va o'limdan keyin M5+ BOS / MSS / displacement / acceptance yoki LIVE SWEEP bo'lsa.
+  - panelda qulf "Qulf: SELL N daq" deb ko'rinadi.
+
 ## Tezlik va trend savdosi: skaner jilovi, "uyg'onish + harakat = trend", pullback, hakam
 
 - **D. Tezlik** (`EnableScannerThrottle`):

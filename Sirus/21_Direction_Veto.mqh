@@ -238,7 +238,7 @@ bool MBPermissionCheck(const int dir, string &why)
    {
       why = StringFormat("V0 invalidation memory: the %s thesis died %d min ago - no %s without a strong bias",
                          (dir > 0 ? "bullish" : "bearish"),
-                         (int)((TimeCurrent() - (G_MB_DEAD_UNTIL - MathMax(1, MBInvalidationMemoryM5) * PeriodSeconds(PERIOD_M5))) / 60), side);
+                         (int)((TimeCurrent() - G_MB_DEAD_TIME) / 60), side);
       return true;
    }
    if(a == -3)

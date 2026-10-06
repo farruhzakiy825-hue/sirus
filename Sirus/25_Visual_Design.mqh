@@ -701,6 +701,12 @@ void MBDrawPanel()
                                         (MBSessionOpenWindow() ? " (ochilish)" : ""),
                                         (G_MB_VOL_PCT >= 0.0 ? StringFormat("%.0f-foiz", G_MB_VOL_PCT) : "-"), flow_txt),
                   muted, false, x0, w, lh);
+      if(G_MB_DEAD_DIR != 0 && TimeCurrent() < G_MB_DEAD_UNTIL)
+         MBPanelLine("B_LOCK", StringFormat("Qulf: %s %d daq (g'oya yiqildi) - yangi struktura bilan ochiladi",
+                                            (G_MB_DEAD_DIR > 0 ? "BUY" : "SELL"), (int)((G_MB_DEAD_UNTIL - TimeCurrent()) / 60)),
+                     MBVisAmber(), false, x0, w, lh);
+      else
+         ObjectDelete(0, MB_VIS_PREFIX + "B_LOCK");
       MBPanelLine("B_TGT", StringFormat("Nishon %s  ·  G'oya chegarasi %s",
                                         (G_MB_TH_TARGET > 0.0 ? DoubleToString(G_MB_TH_TARGET, _Digits) : "-"),
                                         (G_MB_TH_INVALID > 0.0 ? DoubleToString(G_MB_TH_INVALID, _Digits) : "-")), muted, false, x0, w, lh);
