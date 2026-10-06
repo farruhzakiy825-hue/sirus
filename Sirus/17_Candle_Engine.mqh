@@ -47,6 +47,12 @@ input bool   MBCandlePrintOnUse       = false;  // Har yangi M5 / M15 / H1 / H4 
 input bool   EnableCandleDirectionLink = true;  // 13-BOSQICH: yo'nalish va sham bog'lanadi - almashuvni sham tasdiqlaydi (A1), M1/M5/M15 bosimi hakamga (A2)
 input double MBPressureSideMin        = 15.0;   // Bosim tomoni: |buqa - ayiq| >= shu bo'lsa o'sha tomon (0..100 shkala)
 input bool   EnableExhaustionVeto     = true;   // A4: charchagan impuls (3-to'lqin yoki EXPIRED + charchoq / absorbsiya / rejection shami) tomoniga yangi kirish yo'q
+input bool   EnableTickVolume         = true;   // 17-BOSQICH (B1): sham tick hajmi - o'rtachadan x0.7 past displacement / breakout / continuation trigger emas, x1.5 baland - kuchli
+input double VolumeWeakRatio          = 0.70;
+input double VolumeStrongRatio        = 1.50;
+input bool   EnableTickFlow           = true;   // 17-BOSQICH (D2): oxirgi soniyalardagi yuqoriga / pastga tiklar nomutanosibligi - kirishga qarshi kuchli oqim bo'lsa kutish
+input int    TickFlowSeconds          = 30;     // Oqim shuncha soniya bo'yicha o'lchanadi
+input double TickFlowBlock            = 0.40;   // Nomutanosiblik (-1..+1) kirishga qarshi shundan kuchli bo'lsa (va >= 20 tik) - kutish
 input bool   EnableRejectionConfirm   = true;   // A5: rejection / liq-grab / exhaustion shami trigger bo'lishi uchun narx uning tanasi o'rtasidan o'tgan va soyasini buzmagan bo'lishi kerak
 
 #define MB_TF_COUNT          5      // M1, M5, M15, H1, H4
@@ -85,6 +91,7 @@ struct SMBCandle
    double   open;
    double   high;
    double   low;
+   double   vol_ratio;    // tick volume / average of the 20 candles before it (0 = unknown)
 };
 
 SMBCandle G_MB_LAST[MB_TF_COUNT];        // last closed candle per timeframe
@@ -208,6 +215,14 @@ void MBReadCandle(const MqlRates &r[], const int n, const int s, const double at
    out.open = r[s].open;
    out.high = r[s].high;
    out.low = r[s].low;
+   out.vol_ratio = 0.0;
+   {
+      double vs = 0.0;
+      int vn = 0;
+      for(int j = s + 1; j <= s + 20 && j < n; j++) { vs += (double)r[j].tick_volume; vn++; }
+      if(vn >= 5 && vs > 0.0)
+         out.vol_ratio = (double)r[s].tick_volume / (vs / vn);
+   }
    out.intent = MB_CI_NONE;
    out.dir = 0;
    out.candle_color = MBColor(r[s]);
@@ -566,6 +581,33 @@ bool MBExhausted(const int dir, string &why)
    return false;
 }
 
+// STAGE 17 (D2): tick flow - up-ticks against down-ticks of the bid over the last TickFlowSeconds,
+// -1 (all down) .. +1 (all up). Read at most once a second.
+double G_MB_FLOW_IMB = 0.0;
+int    G_MB_FLOW_N   = 0;
+uint   G_MB_FLOW_MS  = 0;
+
+void MBTickFlowUpdate()
+{
+   if(!EnableTickFlow)
+      return;
+   uint now_ms = GetTickCount();
+   if(G_MB_FLOW_MS != 0 && (now_ms - G_MB_FLOW_MS) < 1000)
+      return;
+   G_MB_FLOW_MS = now_ms;
+   MqlTick ticks[];
+   ulong from = (ulong)((long)TimeCurrent() - MathMax(5, TickFlowSeconds)) * 1000;
+   int n = CopyTicks(_Symbol, ticks, COPY_TICKS_INFO, from, 3000);
+   int up = 0, dn = 0;
+   for(int i = 1; i < n; i++)
+   {
+      if(ticks[i].bid > ticks[i - 1].bid) up++;
+      else if(ticks[i].bid < ticks[i - 1].bid) dn++;
+   }
+   G_MB_FLOW_N = up + dn;
+   G_MB_FLOW_IMB = (G_MB_FLOW_N > 0) ? (double)(up - dn) / (double)G_MB_FLOW_N : 0.0;
+}
+
 void MBCandleEngineUpdate()
 {
    if(!EnableMarketBrainEngines)
@@ -656,6 +698,7 @@ void MBCandleEngineUpdate()
    }
 
    MBLiveCandleUpdate();
+   MBTickFlowUpdate();   // stage 17 (D2)
 }
 
 // One line for the journal / Reason Code.

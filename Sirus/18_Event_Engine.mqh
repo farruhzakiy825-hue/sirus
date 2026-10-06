@@ -49,7 +49,12 @@ input bool   MBEventPrintOnUse        = true;   // Har yangi hodisani jurnalga y
 input bool   EnableLiveSweep          = true;   // 14-BOSQICH (C1): likvidlik yechilishini TIKDA ko'rish - bar yopilishini kutmasdan (M5 / M15 / H1 swing, PDH / PDL, Osiyo)
 input double LiveSweepPierceATR       = 0.15;   // Darajadan kamida ATR(M1) x shu (va 1 spread) o'tishi kerak
 input int    LiveSweepReclaimSec      = 45;     // Shuncha soniya ichida darajaning ichiga qaytsa - LIVE SWEEP
-input int    LiveSweepValidSec        = 120;    // LIVE SWEEP shuncha soniya trigger bo'lib turadi (narx qaytgan tomonda qolsa)
+input int    LiveSweepValidSec        = 120;
+input bool   EnableRoundLevels        = true;   // 17-BOSQICH (B3): yumaloq narxlar (XX00 / XX50) likvidlik hovuzi sifatida
+input double RoundLevelStep           = 50.0;   // Yumaloq daraja qadami (narx birligida, oltin uchun $50)
+input int    NYOpenHour               = 13;     // 17-BOSQICH (B2): Nyu-York ochilishi (server vaqti). London = MBAsiaEndHour
+input int    SessionOpenWindowH       = 2;      // Ochilishdan keyin shuncha soat - "sessiya ochilishi" oynasi
+input bool   EnableSweepStats         = true;   // 17-BOSQICH (D3): har LIVE SWEEP natijasi (hovuz turi x sessiya) eslab qolinadi; >= 30 namunada yo'nalish ehtimoli sifatida ishlatiladi    // LIVE SWEEP shuncha soniya trigger bo'lib turadi (narx qaytgan tomonda qolsa)
 
 #define MB_EV_NONE           0
 #define MB_EV_LIQ_SWEEP      1
@@ -707,6 +712,7 @@ int      G_MB_LP_TFI[MB_LP_MAX];        // pool timeframe slot (KEY for daily / 
 datetime G_MB_LP_PIERCE[MB_LP_MAX];     // when price went through, 0 = not yet
 double   G_MB_LP_EXT[MB_LP_MAX];
 bool     G_MB_LP_DONE[MB_LP_MAX];
+int      G_MB_LP_KIND[MB_LP_MAX];       // 0 swing, 1 key (PDH/PDL/Asia), 2 round number
 int      G_MB_LP_N = 0;
 datetime G_MB_LP_BAR = 0;
 
@@ -715,9 +721,10 @@ datetime G_MB_LSW_TIME  = 0;
 double   G_MB_LSW_LEVEL = 0.0;
 double   G_MB_LSW_EXT   = 0.0;
 int      G_MB_LSW_TFI   = 0;
+int      G_MB_LSW_KIND  = 0;
 int      G_MB_LSW_COUNT = 0;
 
-void MBLivePoolPut(const double level, const int side, const int tfi, const double merge_tol)
+void MBLivePoolPut(const double level, const int side, const int tfi, const double merge_tol, const int kind = 0)
 {
    if(level <= 0.0)
       return;
@@ -735,6 +742,7 @@ void MBLivePoolPut(const double level, const int side, const int tfi, const doub
    G_MB_LP_PIERCE[G_MB_LP_N] = 0;
    G_MB_LP_EXT[G_MB_LP_N] = 0.0;
    G_MB_LP_DONE[G_MB_LP_N] = false;
+   G_MB_LP_KIND[G_MB_LP_N] = kind;
    G_MB_LP_N++;
 }
 
@@ -796,7 +804,134 @@ void MBLivePoolsRebuild(const double price)
          if((ksd[p] > 0 && a[k].high > klv[p]) || (ksd[p] < 0 && a[k].low < klv[p]))
             intact = false;
       if(intact)
-         MBLivePoolPut(klv[p], ksd[p], MB_POOL_KEY, merge);
+         MBLivePoolPut(klv[p], ksd[p], MB_POOL_KEY, merge, 1);
+   }
+
+   // Stage 17 (B3): round numbers within reach that the last hour has not touched.
+   if(EnableRoundLevels && RoundLevelStep > 0.0)
+   {
+      MqlRates m[];
+      ArraySetAsSeries(m, true);
+      int nm = CopyRates(_Symbol, PERIOD_M1, 1, 60, m);
+      double base = MathFloor(price / RoundLevelStep) * RoundLevelStep;
+      for(int k = -1; k <= 2; k++)
+      {
+         double lvl = base + k * RoundLevelStep;
+         if(lvl <= 0.0 || MathAbs(lvl - price) > reach || MathAbs(lvl - price) < merge)
+            continue;
+         int side = (lvl > price) ? 1 : -1;
+         bool touched = false;
+         for(int j = 0; j < nm && !touched; j++)
+            if(m[j].high >= lvl && m[j].low <= lvl)
+               touched = true;
+         if(!touched)
+            MBLivePoolPut(lvl, side, MB_POOL_KEY, merge, 2);
+      }
+   }
+}
+
+//---------------------------------------------------------------------
+// STAGE 17 (B2): sessions on the server clock. 0 Asia, 1 London, 2 New York, 3 late.
+//---------------------------------------------------------------------
+int MBSessionNow()
+{
+   MqlDateTime dt;
+   TimeToStruct(TimeTradeServer(), dt);
+   int lon = MathMax(0, MBAsiaEndHour), ny = MathMax(lon + 1, NYOpenHour);
+   if(dt.hour < lon) return 0;
+   if(dt.hour < ny)  return 1;
+   if(dt.hour < ny + 4) return 2;
+   return 3;
+}
+
+string MBSessionUz(const int s)
+{
+   switch(s)
+   {
+      case 0: return "Osiyo";
+      case 1: return "London";
+      case 2: return "Nyu-York";
+   }
+   return "kechki";
+}
+
+// In the first SessionOpenWindowH hours of London or New York.
+bool MBSessionOpenWindow()
+{
+   MqlDateTime dt;
+   TimeToStruct(TimeTradeServer(), dt);
+   int lon = MathMax(0, MBAsiaEndHour);
+   int w = MathMax(1, SessionOpenWindowH);
+   return ((dt.hour >= lon && dt.hour < lon + w) || (dt.hour >= NYOpenHour && dt.hour < NYOpenHour + w));
+}
+
+//---------------------------------------------------------------------
+// STAGE 17 (D3): what live sweeps of each kind, in each session, went on to do. A sweep "works" when
+// price then travels 1 ATR(M5) its way before 1 ATR(M5) back through its extreme; 30 minutes without
+// either is not counted. Kept in terminal global variables so the record survives restarts.
+//---------------------------------------------------------------------
+#define MB_SS_PEND 16
+datetime G_MB_SS_T[MB_SS_PEND];
+int      G_MB_SS_DIR[MB_SS_PEND];
+int      G_MB_SS_KIND[MB_SS_PEND];
+int      G_MB_SS_SESS[MB_SS_PEND];
+double   G_MB_SS_ENTRY[MB_SS_PEND];
+double   G_MB_SS_ATR[MB_SS_PEND];
+int      G_MB_SS_NEXT = 0;
+
+string MBSweepStatKey(const int kind, const int sess, const bool won)
+{
+   return StringFormat("SIRUS_SWS_%s_%I64d_%d_%d_%s", _Symbol, MagicNumber, kind, sess, (won ? "W" : "L"));
+}
+
+double MBSweepStatGet(const int kind, const int sess, const bool won)
+{
+   string k = MBSweepStatKey(kind, sess, won);
+   return GlobalVariableCheck(k) ? GlobalVariableGet(k) : 0.0;
+}
+
+// Win rate of live sweeps of this kind in this session, -1 below 30 samples.
+double MBSweepEdge(const int kind, const int sess, int &n)
+{
+   double w = MBSweepStatGet(kind, sess, true), l = MBSweepStatGet(kind, sess, false);
+   n = (int)(w + l);
+   if(n < 30)
+      return -1.0;
+   return w / (w + l);
+}
+
+void MBSweepStatPush(const int dir, const int kind, const double entry)
+{
+   if(!EnableSweepStats)
+      return;
+   int k = G_MB_SS_NEXT;
+   G_MB_SS_NEXT = (G_MB_SS_NEXT + 1) % MB_SS_PEND;
+   G_MB_SS_T[k] = TimeCurrent();
+   G_MB_SS_DIR[k] = dir;
+   G_MB_SS_KIND[k] = kind;
+   G_MB_SS_SESS[k] = MBSessionNow();
+   G_MB_SS_ENTRY[k] = entry;
+   G_MB_SS_ATR[k] = G_MB_ATR[1] * _Point;
+}
+
+void MBSweepStatUpdate(const double bid)
+{
+   if(!EnableSweepStats)
+      return;
+   for(int k = 0; k < MB_SS_PEND; k++)
+   {
+      if(G_MB_SS_T[k] <= 0 || G_MB_SS_ATR[k] <= 0.0)
+         continue;
+      double move = G_MB_SS_DIR[k] * (bid - G_MB_SS_ENTRY[k]);
+      int res = -1;
+      if(move >= G_MB_SS_ATR[k]) res = 1;
+      else if(move <= -G_MB_SS_ATR[k]) res = 0;
+      else if((TimeCurrent() - G_MB_SS_T[k]) > 1800) { G_MB_SS_T[k] = 0; continue; }
+      if(res < 0)
+         continue;
+      string key = MBSweepStatKey(G_MB_SS_KIND[k], G_MB_SS_SESS[k], res == 1);
+      GlobalVariableSet(key, MBSweepStatGet(G_MB_SS_KIND[k], G_MB_SS_SESS[k], res == 1) + 1.0);
+      G_MB_SS_T[k] = 0;
    }
 }
 
@@ -814,6 +949,7 @@ void MBLiveSweepUpdate()
       G_MB_LP_BAR = m1;
       MBLivePoolsRebuild(bid);
    }
+   MBSweepStatUpdate(bid);
    double atr1 = G_MB_ATR[0] * _Point;
    if(atr1 <= 0.0)
       return;
@@ -854,7 +990,9 @@ void MBLiveSweepUpdate()
          G_MB_LSW_LEVEL = lvl;
          G_MB_LSW_EXT = G_MB_LP_EXT[i];
          G_MB_LSW_TFI = G_MB_LP_TFI[i];
+         G_MB_LSW_KIND = G_MB_LP_KIND[i];
          G_MB_LSW_COUNT++;
+         MBSweepStatPush(G_MB_LSW_DIR, G_MB_LSW_KIND, bid);
          if(MBEventPrintOnUse && VerboseLogs)
             PrintFormat("[SIRUS EVENT] LIVE SWEEP %s: %s %s pool %s taken to %s and reclaimed in %d s",
                         (G_MB_LSW_DIR > 0 ? "BULLISH" : "BEARISH"), MBTFName(G_MB_LSW_TFI),
@@ -878,7 +1016,8 @@ bool MBLiveSweepFresh(const int dir, string &what)
    double slack = 0.25 * G_MB_ATR[0] * _Point;
    if(dir > 0 ? (bid < G_MB_LSW_LEVEL - slack) : (bid > G_MB_LSW_LEVEL + slack))
       return false;
-   what = StringFormat("LIVE %s sweep @ %s", MBTFName(G_MB_LSW_TFI), DoubleToString(G_MB_LSW_LEVEL, _Digits));
+   what = StringFormat("LIVE %s%s sweep @ %s", MBTFName(G_MB_LSW_TFI), (G_MB_LSW_KIND == 2 ? " round" : ""),
+                       DoubleToString(G_MB_LSW_LEVEL, _Digits));
    return true;
 }
 

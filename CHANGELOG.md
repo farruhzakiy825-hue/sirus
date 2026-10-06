@@ -1,5 +1,17 @@
 # CHANGELOG — Sirus Brain V8
 
+## 17-bosqich: nozik aniqlik
+
+- **B1. Tick hajmi:** o'rtacha hajmdan ×0.7 dan past bo'lgan displacement, breakout yoki continuation shami trigger hisoblanmaydi. ×1.5 dan baland hajmda sifat +3.
+- **B2. Sessiya:** Osiyo, London, Nyu-York. London yoki NY ochilishining birinchi 2 soatida Osiyo / PDH / PDL darajasining LIVE SWEEP'i +6 sifat oladi.
+- **B3. Yumaloq narxlar:** XX00 va XX50 darajalari LIVE SWEEP hovuzi sifatida ishlatiladi. Faqat oxirgi bir soatda tegilmagan bo'lsa.
+- **D2. Tik oqimi:** oxirgi 30 soniyada tiklarning ≥40% kirishga qarshi bo'lsa (kamida 20 tik), kirish kutiladi. ≥30% tomonda bo'lsa, sifat +3.
+- **D3. Sweep statistikasi:** har LIVE SWEEP natijasi (hovuz turi × sessiya) terminal global o'zgaruvchilarida saqlanadi. 30 namunadan keyin ishlatiladi: yutuq ≥60% bo'lsa sifat +4, <40% bo'lsa −6.
+- **D5. Uch qatlamli diapazon:** H1, M15 va H4 diapazonlarining uchalasida ham arzon bo'lsa, sifat +5. Uchalasida ham qimmat bo'lsa, faqat EHTIYOT lot.
+- **D7. Volatillik foizi:** joriy M5 ATR oxirgi 5 kunga nisbatan baholanadi. <10-foiz (o'lik bozor) bo'lsa sifat −4. ≥92-foiz (vahshiy bozor) bo'lsa, faqat EHTIYOT lot.
+- **Panel:** "Sessiya · Volatillik · Oqim" qatori qo'shildi.
+- **B4:** TP va grid o'zgartirilmadi. Sessiya farqini D7 volatillik foizi qoplaydi.
+
 ## 16-bosqich: aqlli grid va aqlli chiqish (25% → 50%)
 
 - **A7. G'oya xavf ostida:** g'oyaga qarshi kuchli M5 displacement bo'lsa yoki M1 va M5 shamlari bilan M5 bosimi qarshi bo'lsa, `THREATENED` holati yoqiladi. Grid to'xtaydi. G'oyani tasdiqlovchi sham kelganda holat yechiladi.

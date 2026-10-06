@@ -231,6 +231,9 @@ double   G_MB_RG_LO   = 0.0;
 double   G_MB_RG_ER   = 0.0;
 double   G_MB_RG_RATIO = 0.0;
 datetime G_MB_RG_BAR  = 0;
+double   G_MB_H4_HI   = 0.0;   // stage 17 (D5): the H4 box (last 20 H4 bars)
+double   G_MB_H4_LO   = 0.0;
+double   G_MB_VOL_PCT = -1.0;  // stage 17 (D7): where today's M5 ATR sits in the last 5 days, 0..100
 
 string MBRegimeName(const int rg)
 {
@@ -306,6 +309,44 @@ void MBRegimeUpdate()
    G_MB_RG_DIR = dir;
    G_MB_RG_HI = hi;
    G_MB_RG_LO = lo;
+
+   // Stage 17 (D5): the H4 box, for the three-layer cheap / expensive reading.
+   MqlRates h4[];
+   ArraySetAsSeries(h4, true);
+   int n4 = CopyRates(_Symbol, PERIOD_H4, 1, 20, h4);
+   if(n4 >= 10)
+   {
+      double hh = -DBL_MAX, ll = DBL_MAX;
+      for(int i = 0; i < n4; i++) { hh = MathMax(hh, h4[i].high); ll = MathMin(ll, h4[i].low); }
+      G_MB_H4_HI = hh;
+      G_MB_H4_LO = ll;
+   }
+
+   // Stage 17 (D7): volatility percentile - the current 14-bar M5 ATR against every 14-bar M5 ATR of
+   // the last five days. The same "1.2 ATR" means different things on a dead day and on a wild one;
+   // the percentile says which day this is.
+   MqlRates m5[];
+   ArraySetAsSeries(m5, true);
+   int n5 = CopyRates(_Symbol, PERIOD_M5, 1, 1460, m5);
+   if(n5 >= 300)
+   {
+      int cnt = n5 - 1;
+      double trs[];
+      ArrayResize(trs, cnt);
+      for(int i = 0; i < cnt; i++)
+         trs[i] = MathMax(m5[i].high, m5[i + 1].close) - MathMin(m5[i].low, m5[i + 1].close);
+      double run = 0.0;
+      for(int i = 0; i < 14; i++) run += trs[i];
+      double cur = run / 14.0;
+      int below = 0, total = 0;
+      for(int i = 14; i < cnt; i++)
+      {
+         run += trs[i] - trs[i - 14];
+         if(run / 14.0 < cur) below++;
+         total++;
+      }
+      G_MB_VOL_PCT = (total > 0) ? 100.0 * below / total : -1.0;
+   }
 }
 
 void MBDealingRangeUpdate(const double price)

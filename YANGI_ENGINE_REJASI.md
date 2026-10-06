@@ -684,7 +684,7 @@ ishlaydi. Basket SL 50%, Emergency 50% va Force close 52% o'zgarmaydi.
 | 14 🟡 | C1 ✅ + C2 ✅ (quvur har tikda ishlaydi, trigger tikda keladi) + C4 ✅ + C5 (profiler raqamlari kelgach) | Haqiqiy tezlik: kechikish soniyalardan millisekundlarga |
 | 15 ✅ | D1 rejim + A6 FVG retest + A3 ketma-ketlik | Savdo soni ↑↑, adashish ↓ |
 | 16 ✅ | A7 + E1–E9 aqlli grid va aqlli chiqish (25% → 50%) | DD ↓, savat himoyasi |
-| 17 | B1–B4 + D2 + D3 + D5 + D7 | Nozik aniqlik |
+| 17 ✅ | B1–B3 + D2 + D3 + D5 + D7 (B4 o'rniga D7: sessiya koeffitsiyenti o'rniga volatillik foizi; TP / grid o'zgartirilmadi) | Nozik aniqlik |
 | 18 | B5 + B6 + C3 limit order + tozalash (D4 natijasiga ko'ra) | Yakun |
 
 Har bosqichdan keyin: kompilyatsiya, 4126 regression testi, 3 kunlik backtest (savdo/kun, max DD, yutuq foizi)

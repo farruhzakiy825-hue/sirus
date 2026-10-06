@@ -667,6 +667,13 @@ void MBDrawPanel()
       }
       else
          ObjectDelete(0, MB_VIS_PREFIX + "B_RG");
+      // Stage 17: session, volatility percentile and tick flow.
+      string flow_txt = (EnableTickFlow && G_MB_FLOW_N >= 20)
+                        ? StringFormat("Oqim %s %.0f%%", (G_MB_FLOW_IMB >= 0.0 ? "▲" : "▼"), MathAbs(G_MB_FLOW_IMB) * 100.0) : "Oqim -";
+      MBPanelLine("B_SES", StringFormat("Sessiya: %s%s  ·  Volatillik %s  ·  %s", MBSessionUz(MBSessionNow()),
+                                        (MBSessionOpenWindow() ? " (ochilish)" : ""),
+                                        (G_MB_VOL_PCT >= 0.0 ? StringFormat("%.0f-foiz", G_MB_VOL_PCT) : "-"), flow_txt),
+                  muted, false, x0, w, lh);
       MBPanelLine("B_TGT", StringFormat("Nishon %s  ·  G'oya chegarasi %s",
                                         (G_MB_TH_TARGET > 0.0 ? DoubleToString(G_MB_TH_TARGET, _Digits) : "-"),
                                         (G_MB_TH_INVALID > 0.0 ? DoubleToString(G_MB_TH_INVALID, _Digits) : "-")), muted, false, x0, w, lh);

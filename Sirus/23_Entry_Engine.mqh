@@ -128,6 +128,10 @@ bool MBCandleTriggerNow(const int tfi, const int dir, const double price)
          return false;
    }
    int it = G_MB_LAST[tfi].intent;
+   // Stage 17 (B1): a push candle on thin volume is not a trigger.
+   if(EnableTickVolume && (it == MB_CI_DISPLACEMENT || it == MB_CI_BREAKOUT || it == MB_CI_CONTINUATION) &&
+      G_MB_LAST[tfi].vol_ratio > 0.0 && G_MB_LAST[tfi].vol_ratio < VolumeWeakRatio)
+      return false;
    if(EnableRejectionConfirm && (it == MB_CI_REJECTION || it == MB_CI_LIQ_GRAB || it == MB_CI_EXHAUSTION) &&
       G_MB_LAST[tfi].high > G_MB_LAST[tfi].low)
    {
@@ -336,6 +340,34 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    else if(rg == MB_RG_RANGE)       q += range_edge ? 5.0 : (range_mid ? -8.0 : 0.0);
    else if(rg == MB_RG_EXPANSION)   q += (dir == G_MB_RG_DIR) ? 4.0 : 0.0;
    else if(rg == MB_RG_COMPRESSION) q += rg_live_break ? 4.0 : -6.0;
+
+   // STAGE 17: volume, tick flow, session sweeps, sweep statistics, three-layer location, volatility.
+   bool vol_strong = EnableTickVolume && ((trig_m1 && G_MB_LAST[0].vol_ratio >= VolumeStrongRatio) ||
+                                          (trig_m5 && G_MB_LAST[1].vol_ratio >= VolumeStrongRatio));
+   if(vol_strong) q += 3.0;
+   double flow = dir * G_MB_FLOW_IMB;
+   bool flow_against = EnableTickFlow && G_MB_FLOW_N >= 20 && flow <= -TickFlowBlock;
+   if(EnableTickFlow && G_MB_FLOW_N >= 20 && flow >= 0.30) q += 3.0;
+   string lsw_w = "";
+   bool lsw_trig = MBLiveSweepFresh(dir, lsw_w);
+   if(lsw_trig && G_MB_LSW_KIND == 1 && MBSessionOpenWindow()) q += 6.0;   // B2: Asia / PDH / PDL taken at a session open
+   int ss_n = 0;
+   double ss_edge = lsw_trig ? MBSweepEdge(G_MB_LSW_KIND, MBSessionNow(), ss_n) : -1.0;
+   if(ss_edge >= 0.60) q += 4.0;
+   else if(ss_edge >= 0.0 && ss_edge < 0.40) q -= 6.0;                     // D3: this kind of sweep here usually fails
+   int cheap = 0, layers = 0;
+   if(G_MB_DR_HI > G_MB_DR_LO) { layers++; if((dir > 0 && G_MB_DR_POS <= 0.5) || (dir < 0 && G_MB_DR_POS >= 0.5)) cheap++; }
+   if(G_MB_RG_HI > G_MB_RG_LO) { layers++; if((dir > 0 && rg_pos <= 0.5) || (dir < 0 && rg_pos >= 0.5)) cheap++; }
+   if(G_MB_H4_HI > G_MB_H4_LO)
+   {
+      double p4 = (price - G_MB_H4_LO) / (G_MB_H4_HI - G_MB_H4_LO);
+      layers++;
+      if((dir > 0 && p4 <= 0.5) || (dir < 0 && p4 >= 0.5)) cheap++;
+   }
+   bool all_cheap = (layers >= 3 && cheap == layers);
+   bool all_dear = (layers >= 3 && cheap == 0);
+   if(all_cheap) q += 5.0;
+   if(G_MB_VOL_PCT >= 0.0 && G_MB_VOL_PCT < 10.0) q -= 4.0;                // a dead market: the spread is the move
    if(EnableCandleDirectionLink)
    {
       if(press_aligned) q += 6.0;
@@ -353,7 +385,9 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    string missing = "";
    // STAGE 15 (D1): the playbook's hard lines - never against an expansion, and never against a
    // trend regime the brain does not side with, without a confirmed liquidity reversal.
-   if(rg == MB_RG_EXPANSION && dir == -G_MB_RG_DIR && !rev_ok)
+   if(flow_against)
+      missing = StringFormat("tick flow against: %.0f%% of the last %d ticks the other way", -flow * 100.0, G_MB_FLOW_N);
+   else if(rg == MB_RG_EXPANSION && dir == -G_MB_RG_DIR && !rev_ok)
       missing = "playbook: against an M15 expansion without a confirmed reversal";
    else if(rg == MB_RG_TREND && dir == -G_MB_RG_DIR && a <= 0 && !rev_ok)
       missing = "playbook: against the M15 trend regime without a confirmed reversal";
@@ -406,6 +440,9 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       decision = MB_ED_CAUTION;
    // Middle of a range, or inside a compression without a break: a coin flip is never full size.
    if(decision == MB_ED_EXECUTE && (range_mid || (rg == MB_RG_COMPRESSION && !rg_live_break)))
+      decision = MB_ED_CAUTION;
+   // Stage 17: buying the top of every range (H1, M15, H4) or trading a wild market is never full size.
+   if(decision == MB_ED_EXECUTE && (all_dear || (G_MB_VOL_PCT >= 92.0)))
       decision = MB_ED_CAUTION;
    G_MB_ENTRY_DECISION = decision;
 
