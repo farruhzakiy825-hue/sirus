@@ -250,9 +250,27 @@ grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saql
   spread, natija → faylga yoziladi.
 - Keyinchalik o'xshash setup'lar statistikasi qarorga qo'shiladi.
 
-### 9-bosqich: Tozalash
+### 9-bosqich: Tozalash — 🟡 tayyorlandi: nomzodlar ro'yxati, o'chirish backtest natijasiga qarab
 - Yangi engine bilan takrorlanib qolgan eski filtrlar va detektorlarni bosqichma-bosqich o'chirish,
   inputlarni qisqartirish.
+- Egasining qarori (7-savol): eski modullar avval qoladi, natijaga qarab kamaytiriladi. Shuning
+  uchun kod hozir o'chirilmadi. Har biri inputdan o'chiriladi, tester'da A/B qilinadi:
+
+| Eski modul (input) | Yangi engine'dagi o'rinbosari |
+|---|---|
+| `EnableLocationBrain`, `EnableLateEntryHold`, `EnableSetupArming` | Entry Judge: chase / speed budget / quality decay |
+| `EnableCounterZoneFirstEntryBlock`, `EnableCounterZoneCluster`, `EnableZoneWallHardBlock` | Veto V2 (zona roli), V3 (joy yo'q) |
+| `EnableZonePolarityFlip`, `EnableFailedBreakRead` | Zone Role Engine (haqiqiy / soxta break, retest) |
+| `EnableNearZoneReaction`, `EnableZoneRetestTrigger` (detektorlar) | Qoladi, lekin V2 zona roli bilan himoyalangan |
+| `EnableMarketStructure`, `EnableMarketVerdict`, `EnableReversalContext`, `EnableDirectionConsensus` | Market Brain bias + thesis |
+| `EnableStructureBasketExit`, `EnableBasketStaleness`, `EnableSmartEarlyExit` | Position Brain (thesis o'limi → BE chiqish) |
+| `EnableGridIntelligence`, `EnableGridQualityLot` | Position Brain aqlli grid (candle response) |
+| `EnableCandleSequence`, `EnableCandleConflict`, `EnableSingleCandleGuard`, `EnableSingleCandleContext` | Candle Engine |
+| `EnableImpulseEndHardBlock`, `EnableBlowOffHardBlock` | Veto V4 + Entry Judge chase |
+| `EnableLiveNewsRead` | Qoladi (kalendar ko'rmaydigan yangiliklar) |
+
+Tartib: 4126 testi va 1–2 haftalik backtest'dan keyin har guruhni o'chirib solishtiramiz.
+Natija yomonlashmasa, kod va inputlar olib tashlanadi.
 
 ### 10-bosqich: Vizual dizayn (watermark + dashboard)
 Egasining so'rovi: chartdagi watermark oddiy bo'lmasin, chiroyli dizayn va shriftlar bo'lsin;
