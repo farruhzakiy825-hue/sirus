@@ -421,7 +421,8 @@ void MBShadowUpdate();
 void MBDailyReportCheck();
 void MBShadowFlush();
 string MBShadowPanelText();
-int MBBiasAlign(const int dir);   // dir x Market Brain bias (+3 with ... -3 against)
+int MBBiasAlign(const int dir);
+int MBFastEntryType();   // opportunity type of the brain / fast entry just found   // dir x Market Brain bias (+3 with ... -3 against)
 bool MBStandsInFor(const int dir, const bool location_gate);   // Market Brain owns the duplicate old gates - read by the entry gates before its definition
 int MBBrainScoreRelief(const int dir, string &why);   // score the Market Brain adds to a detector setup it agrees with
 bool MBCashbackTempo();   // cashback tempo switch - read by the entry judge before its definition

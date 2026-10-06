@@ -257,7 +257,11 @@ bool MBPermissionCheck(const int dir, string &why)
       why = StringFormat("V0 permission: market is %s - no %s while it turns away", MBBiasName(G_MB_BIAS), side);
       return true;
    }
-   if(a == 1 && !reversal_type)
+   // A displacement the new way IS the transition confirming itself - a momentum entry with it is
+   // allowed alongside reversal / reclaim types.
+   bool momentum_confirms = (G_OPP_TYPE == OPP_TYPE_MOMENTUM_SCALP) &&
+                            (G_MB_LIVE_DIR == dir || MBCandleConfirms(0, dir) || MBCandleConfirms(1, dir));
+   if(a == 1 && !reversal_type && !momentum_confirms)
    {
       why = StringFormat("V0 permission: %s - only reversal / reclaim %s entries (this is %s)",
                          MBBiasName(G_MB_BIAS), side, OpportunityTypeToString(G_OPP_TYPE));

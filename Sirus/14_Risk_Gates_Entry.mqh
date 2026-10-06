@@ -4068,9 +4068,16 @@ bool G_MB_FAST_ACTIVE = false;
 bool MBOwnsGate(const bool location_gate)
 {
    int d = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
-   // AUDIT FIX: a fast entry skips the location / HTF gates only when the brain is with it.
-   if(G_MB_FAST_ACTIVE && (!location_gate || MBBiasAlign(d) >= 1))
-      return true;
+   // AUDIT FIX: a fast entry skips the location / HTF gates only when the brain is with it - or, with
+   // a neutral brain, when the entry carries its own place: a swept level, a range edge or the start
+   // of a live impulse (the old "chasing" guards read that last one as buying high).
+   if(G_MB_FAST_ACTIVE)
+   {
+      bool own_place = (G_OPP_TYPE == OPP_TYPE_SWEEP_REJECTION || G_OPP_TYPE == OPP_TYPE_RANGE_EDGE ||
+                        G_OPP_TYPE == OPP_TYPE_MOMENTUM_SCALP);
+      if(!location_gate || MBBiasAlign(d) >= 1 || (MBBiasAlign(d) == 0 && own_place))
+         return true;
+   }
    return MBStandsInFor(d, location_gate);
 }
 
@@ -4291,8 +4298,7 @@ bool FirstEntryCanRun(string &reason)
       if(MBFastEntryCandidate(fe_dir, fe_why))
       {
          ENUM_OPPORTUNITY_DIR fe_opp = (fe_dir > 0) ? OPP_DIR_BUY : OPP_DIR_SELL;
-         if(G_OPP_DIR != fe_opp || G_OPP_TYPE == OPP_TYPE_NONE)
-            G_OPP_TYPE = OPP_TYPE_TREND_RIDE;
+         G_OPP_TYPE = (ENUM_OPPORTUNITY_TYPE)MBFastEntryType();   // the brain entry's own kind (V0 reads it)
          G_OPP_DIR = fe_opp;
          G_OPP_REASON = fe_why;
          G_SCORE_FINAL = MathMax(G_SCORE_FINAL, MBFastEntryScore(G_SCORE_MIN_REQUIRED));

@@ -284,7 +284,7 @@ input group "03 — SL / LOSS PROTECTION (ALL LIMITS, ONE PLACE)"
 input bool              UseRiskEngine            = true;     // Master switch for ALL loss protection below. OFF = no SL / no limits at all (dangerous). Keep this ON.
 input bool              UseBasketSL              = true;     // The MAIN stop loss. Closes the WHOLE basket when its loss reaches BasketSLPercent of balance. This is your primary SL.
 input double            BasketSLPercent          = 50.0;     // [SL CHECKLIST STEP 1] >>> THE MAIN SL (this is the one you set) <<< Closes the basket when floating loss = this % of BALANCE. Example: balance $1000, value 50 => closes at -$500. To allow a 70% loss before closing, set this to 70 (then match the STEP-2 backups below).
-input bool              EnableSmartEarlyExit     = true;    // Optional EARLY exit BEFORE the main SL, only when many signals strongly agree the basket won't recover. Cuts some losses short. The main SL above still applies as the final backstop.
+input bool              EnableSmartEarlyExit     = false;   // Optional EARLY exit BEFORE the main SL, only when many signals strongly agree the basket won't recover. Cuts some losses short. The main SL above still applies as the final backstop.
 input bool              EnableDDWarningPush      = true;    // Send phone/push alerts as the loss grows (does NOT close anything - just warns you). Uses the three thresholds below.
 input double            DDWarningThreshold1      = 25.0;    // Send 1st alert when basket loss reaches this % of balance (early heads-up).
 input double            DDWarningThreshold2      = 35.0;    // Send 2nd alert at this % (loss is growing).
@@ -298,7 +298,7 @@ input int               SmartEarlyExitPersistBars = 30;     // V249fix: 3 -> 30.
 input bool              UseDailyLossLimit        = true;     // Stop trading for the rest of the day once the day's total loss hits the cap below.
 input double            DailyLossPercent         = 50.0;    // [SL CHECKLIST STEP 2] Daily loss cap as % of balance. Set = BasketSLPercent (e.g. both 70), or a smaller value would close the basket before the main SL.
 input double            DailyLossMoney           = 0.0;      // Daily loss cap as a FIXED MONEY amount instead of %. 0 = off (use DailyLossPercent above). Set e.g. 200 to stop the day at -$200 regardless of balance.
-input bool              CloseBasketOnDailyLoss   = true;     // When the daily loss cap is hit: also close the open basket (true) or just stop opening new ones (false).
+input bool              CloseBasketOnDailyLoss   = false;    // When the daily loss cap is hit: also close the open basket (true) or just stop opening new ones (false).
 
 input bool              UseEquityStop            = true;     // Extra safety based on ACCOUNT EQUITY (whole account), not just the one basket.
 input double            EquityStopPercent        = 50.0;    // [SL CHECKLIST STEP 2] Trigger when account EQUITY has dropped this % from balance. Set = BasketSLPercent (e.g. 70). A whole-account safety net.

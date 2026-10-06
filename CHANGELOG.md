@@ -1,5 +1,19 @@
 # CHANGELOG — Sirus Brain V8
 
+## Miya kirishlari: jimlikka qarshi oddiy mantiq
+
+- **Muammo:** kirish faqat eski detektorlar balli o'tganda boshlanardi (to'xtashlarning 86% i "ball yetmadi"). Miyaning tezkor kirishi esa juda tor edi: tasdiqlangan g'oya, kuchli bias, qarama-qarshilik yo'q. Natijada bozor harakatlansa ham robot jim turardi.
+- **Yechim** (`EnableBrainEntries`): miya o'zi 4 xil oddiy kirishni topadi. Har biri V0 tushunadigan kirish turi bilan beriladi.
+  1. **TREND** (`TREND_RIDE` / `PULLBACK_CONTINUATION`): miya kuchli tomonda, g'oya ochiq, impuls kech emas, trigger bor.
+  2. **LIKVIDLIK OVI** (`SWEEP_REJECTION`): yangi LIVE SWEEP yoki so'nggi 30 daqiqadagi M5/M15/KEY sweep + tasdiq. Qaytish tomonga kiriladi, miya qarshi bo'lmasa.
+  3. **DIAPAZON CHEKKASI** (`RANGE_EDGE`): M15 diapazonining 20% chekkasida qaytish shami.
+  4. **MOMENTUM** (`MOMENTUM_SCALP`): jonli yoki hozirgina yopilgan displacement, M5 bosimi shu tomonda, impuls erta, miya qarshi emas.
+- Keyin baribir tekshiriladi: V0–V5 veto, hakam (joy + trigger + tezlik + rejim + oqim), risk / yangilik / spread / marja / pauza.
+- **V0:** transition holatida o'sha tomonga displacement bilan kelgan momentum ham qabul qilinadi.
+- **Hakam:** yechilgan likvidlik darajasi va jonli impulsning boshlanishi joy hisoblanadi.
+- **Eski joy filtrlari:** miya neytral bo'lsa ham, o'z joyini olib kelgan kirishni (sweep, diapazon chekkasi, momentum) to'xtatmaydi.
+- **O'chirildi:** `EnableSmartEarlyExit` va `CloseBasketOnDailyLoss`. Savatni endi faqat aqlli chiqish yoki 50% SL yopadi.
+
 ## Chuqur audit (savdodan oldin)
 
 To'rt yo'nalishda audit o'tkazildi: kompilyatsiya, mantiq, tezlik va pul xavfsizligi. Kompilyator xatosi topilmadi. Tuzatilganlar:

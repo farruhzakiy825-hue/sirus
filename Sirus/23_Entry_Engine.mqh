@@ -54,6 +54,11 @@ input int    CashbackReentryBars      = 40;     // Cashback tempida tezkor re-en
 input bool   EnableMBScoreRelief      = true;   // MIYA YENGILLIGI: eski detektor balli yetmasa, lekin Market Brain shu yo'nalishni tasdiqlasa - yetishmagan ball to'ldiriladi. Keyin veto va hakam (joy + trigger) baribir tekshiradi. Miya qarshi yoki neytral bo'lsa yengillik yo'q
 input int    MBReliefStrong           = 4;      // Miya kuchli tomonda (ustun/hukmron) va g'oya ochiq: shuncha ball
 input int    MBReliefWeak             = 2;      // Miya uyg'onmoqda (transition) yoki g'oya yo'q: shuncha ball
+input bool   EnableBrainEntries       = true;   // MIYA KIRISHLARI: eski detektor balliga bog'liq bo'lmagan oddiy mantiq - trend g'oyasi, likvidlik ovi (sweep), diapazon chekkasi, momentum. Veto, hakam va risk filtrlari baribir tekshiradi
+input bool   BrainEntryTrend          = true;   // Trend: miya tomonda (ustun/hukmron), g'oya ochiq, trigger bor, impuls kech emas
+input bool   BrainEntrySweep          = true;   // Likvidlik ovi: LIVE SWEEP yoki yangi M5+ sweep / fake break qaytishi - qaytish tomonga
+input bool   BrainEntryRange          = true;   // Diapazon (M15 rejimi): chekkada qaytish shami
+input bool   BrainEntryMomentum       = true;   // Momentum: jonli yoki hozirgina yopilgan displacement + M5 bosimi shu tomonda, impuls erta
 input bool   SmartFillMomentumSkip    = true;   // 14-BOSQICH (C4): momentum lahzasida (jonli displacement, LIVE SWEEP, hozirgina yopilgan M1 displacement) SmartFill pullback kutmaydi - darhol kiradi
 
 #define MB_ED_EXECUTE   0
@@ -260,7 +265,15 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    bool range_mid = (rg == MB_RG_RANGE) && !range_edge && rg_pos > RegimeRangeEdge && rg_pos < 1.0 - RegimeRangeEdge;
    if(range_edge)
       loc += StringFormat("%srange edge %.2f", (StringLen(loc) > 0 ? ", " : ""), rg_pos);
-   int loc_n = (disc_ok ? 1 : 0) + (zone_ok ? 1 : 0) + (pullback_ok ? 1 : 0) + (fvg_ok ? 1 : 0) + (range_edge ? 1 : 0);
+   // The level that was just swept and reclaimed is a location by definition; so is the start of a
+   // live impulse (EARLY speed).
+   string lsw_loc = "";
+   bool swept_loc = MBLiveSweepFresh(dir, lsw_loc);
+   bool early_loc = (G_MB_LIVE_DIR == dir && !(G_MB_IMP_DIR[0] == dir && G_MB_SPEED[0] >= MB_SPEED_NORMAL));
+   if(swept_loc) loc += StringFormat("%sswept pool", (StringLen(loc) > 0 ? ", " : ""));
+   if(early_loc) loc += StringFormat("%searly live impulse", (StringLen(loc) > 0 ? ", " : ""));
+   int loc_n = (disc_ok ? 1 : 0) + (zone_ok ? 1 : 0) + (pullback_ok ? 1 : 0) + (fvg_ok ? 1 : 0) + (range_edge ? 1 : 0) +
+               (swept_loc ? 1 : 0) + (early_loc ? 1 : 0);
    bool loc_ok = (loc_n > 0);
    if(!loc_ok) loc = "none";
 
@@ -521,6 +534,7 @@ int      G_MB_LAST_CLOSE_DIR  = 0;     // set by the Position Brain when a baske
 bool     G_MB_LAST_CLOSE_WIN  = false;
 datetime G_MB_LAST_CLOSE_TIME = 0;
 int      G_MB_FAST_TODAY      = 0;
+int      G_MB_FAST_TYPE       = 0;     // ENUM_OPPORTUNITY_TYPE the brain entry carries (V0 reads the type)
 int      G_MB_FAST_DAY        = -1;
 
 bool MBHasTriggerNow(const int dir)
@@ -563,20 +577,89 @@ bool MBFastEntryCandidate(int &dir, string &why)
       }
    }
 
-   // Thesis entry.
-   if(dir == 0)
+   G_MB_FAST_TYPE = (int)OPP_TYPE_TREND_RIDE;
+   if(dir != 0 && IsReversalOpportunityType(G_OPP_TYPE) && G_OPP_DIR == (dir > 0 ? OPP_DIR_BUY : OPP_DIR_SELL))
+      G_MB_FAST_TYPE = (int)G_OPP_TYPE;
+
+   // BRAIN ENTRIES - simple market logic that does not wait for the old detectors' score. Each one
+   // carries an opportunity type the V0 permission understands; the veto, the Entry Judge and every
+   // risk gate still decide after it.
+   if(dir == 0 && EnableBrainEntries)
    {
+      double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+
+      // 1. TREND: the brain holds a direction (weak or strong), a thesis is open that way, the
+      //    impulse is not late, and something triggers now.
       int d = MBSign(G_MB_BIAS);
-      bool not_late = !(G_MB_IMP_DIR[0] == d && G_MB_SPEED[0] >= MB_SPEED_LATE);
-      // Cashback tempo also takes a freshly ACTIVATED thesis and tolerates a medium contradiction.
-      bool th_ok = (G_MB_TH_STATE == MB_TH_CONFIRMED) || (MBCashbackTempo() && G_MB_TH_STATE == MB_TH_ACTIVATED);
-      int contra_max = MBCashbackTempo() ? 1 : 0;
-      if(d != 0 && d * G_MB_BIAS >= 2 && G_MB_TH_DIR == d && th_ok &&
-         G_MB_TH_CONTRA <= contra_max && not_late && MBHasTriggerNow(d))
+      if(BrainEntryTrend && d != 0 && d * G_MB_BIAS >= 2 && G_MB_TH_DIR == d && thesis_open && G_MB_TH_CONTRA <= 1 &&
+         !(G_MB_IMP_DIR[0] == d && G_MB_SPEED[0] >= MB_SPEED_LATE) && MBHasTriggerNow(d))
       {
          dir = d;
-         why = StringFormat("FAST THESIS %s: %s thesis confirmed (%s %d%%), trigger now",
-                            (d > 0 ? "BUY" : "SELL"), (d > 0 ? "bullish" : "bearish"), MBBiasName(G_MB_BIAS), G_MB_BIAS_CONF);
+         G_MB_FAST_TYPE = (MBPressureSide(2) == d && MBPressureSide(0) == -d) ? (int)OPP_TYPE_PULLBACK_CONTINUATION : (int)OPP_TYPE_TREND_RIDE;
+         why = StringFormat("BRAIN TREND %s: %s, thesis %s, trigger now", (d > 0 ? "BUY" : "SELL"),
+                            MBBiasName(G_MB_BIAS), MBThesisStateName(G_MB_TH_STATE));
+      }
+
+      // 2. LIQUIDITY HUNT: liquidity was just taken and reclaimed - trade the return. Not against a
+      //    strong brain (V0 would refuse it anyway).
+      if(dir == 0 && BrainEntrySweep)
+      {
+         for(int sd = -1; sd <= 1 && dir == 0; sd += 2)
+         {
+            if(sd * G_MB_BIAS < 0)
+               continue;   // V0 would refuse it - leave room for the other candidates
+            string w = "";
+            bool live = MBLiveSweepFresh(sd, w) && (TimeCurrent() - G_MB_LSW_TIME) <= 60;
+            if(!live)
+            {
+               // A fresh confirmed M5+ sweep / fake break with a reclaim.
+               datetime swt = 0;
+               if(MBReversalAfter(sd, 1, 2, true, TimeCurrent() - 1800, w, swt))
+                  live = true;
+            }
+            if(live)
+            {
+               dir = sd;
+               G_MB_FAST_TYPE = (int)OPP_TYPE_SWEEP_REJECTION;
+               why = StringFormat("BRAIN SWEEP %s: %s", (sd > 0 ? "BUY" : "SELL"), w);
+            }
+         }
+      }
+
+      // 3. RANGE EDGE: the M15 regime is a range and price is at its edge with a turning candle.
+      if(dir == 0 && BrainEntryRange && EnableRegimePlaybook && G_MB_RG == MB_RG_RANGE && G_MB_RG_HI > G_MB_RG_LO)
+      {
+         double pos = (bid - G_MB_RG_LO) / (G_MB_RG_HI - G_MB_RG_LO);
+         int rd2 = (pos <= 0.20) ? 1 : ((pos >= 0.80) ? -1 : 0);
+         if(rd2 != 0 && rd2 * G_MB_BIAS >= 0 && MBHasTriggerNow(rd2))
+         {
+            dir = rd2;
+            G_MB_FAST_TYPE = (int)OPP_TYPE_RANGE_EDGE;
+            why = StringFormat("BRAIN RANGE %s: %.0f%% of the M15 range %s-%s, turning candle", (rd2 > 0 ? "BUY" : "SELL"),
+                               pos * 100.0, DoubleToString(G_MB_RG_LO, _Digits), DoubleToString(G_MB_RG_HI, _Digits));
+         }
+      }
+
+      // 4. MOMENTUM: a displacement is happening (live) or just closed, M5 pressure agrees, the
+      //    impulse is early, and the brain is not against it. The scalper's bread and butter.
+      if(dir == 0 && BrainEntryMomentum)
+      {
+         for(int md = -1; md <= 1 && dir == 0; md += 2)
+         {
+            bool disp = (G_MB_LIVE_DIR == md) ||
+                        (G_MB_LAST[0].intent == MB_CI_DISPLACEMENT && G_MB_LAST[0].dir == md &&
+                         G_MB_LAST[0].time == iTime(_Symbol, PERIOD_M1, 1));
+            bool early = !(G_MB_IMP_DIR[0] == md && G_MB_SPEED[0] >= MB_SPEED_LATE) &&
+                         !(G_MB_IMP_DIR[1] == md && G_MB_SPEED[1] >= MB_SPEED_EXPIRED);
+            bool in_box = (EnableRegimePlaybook && G_MB_RG == MB_RG_COMPRESSION && G_MB_LIVE_DIR != md);
+            if(disp && early && !in_box && md * G_MB_BIAS >= 0 && MBPressureSide(1) == md)
+            {
+               dir = md;
+               G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;
+               why = StringFormat("BRAIN MOMENTUM %s: %s displacement, M5 pressure with it (%s)", (md > 0 ? "BUY" : "SELL"),
+                                  (G_MB_LIVE_DIR == md ? "live" : "fresh M1"), MBBiasName(G_MB_BIAS));
+            }
+         }
       }
    }
 
@@ -593,6 +676,11 @@ bool MBFastEntryCandidate(int &dir, string &why)
    return true;
 }
 
+int MBFastEntryType()
+{
+   return G_MB_FAST_TYPE;
+}
+
 // Score given to a fast entry so the score-cost gates after the score check judge it fairly.
 int MBFastEntryScore(const int min_required)
 {
@@ -602,7 +690,7 @@ int MBFastEntryScore(const int min_required)
 // Called by the first-entry engine after a fill: counts fast entries for the panel.
 void MBFastEntryFilled()
 {
-   if(StringFind(G_OPP_REASON, "FAST ") == 0)
+   if(StringFind(G_OPP_REASON, "FAST ") == 0 || StringFind(G_OPP_REASON, "BRAIN ") == 0)
       G_MB_FAST_TODAY++;
    // The signal was taken. Decay measures a signal price ran away from WITHOUT us; after a fill the
    // next entry is a fresh decision from here. FIX(reentry-decay): the anchor used to stay at the
