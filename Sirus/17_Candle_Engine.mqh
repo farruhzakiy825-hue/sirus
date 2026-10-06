@@ -283,7 +283,9 @@ void MBReadCandle(const MqlRates &r[], const int n, const int s, const double at
    }
 
    // 7. Breakout: closes beyond the prior extreme with a body (smaller than a displacement).
-   if(intent == MB_CI_NONE && have_prior && out.body_ratio >= 0.5)
+   // A body under 0.3 ATR is noise on gold (smaller than two spreads), not a breakout or continuation.
+   bool real_body = (body >= 0.3 * atr);
+   if(intent == MB_CI_NONE && have_prior && out.body_ratio >= 0.5 && real_body)
    {
       if(cdir > 0 && c > ph) { intent = MB_CI_BREAKOUT; idir = 1; }
       else if(cdir < 0 && c < pl) { intent = MB_CI_BREAKOUT; idir = -1; }
@@ -294,7 +296,7 @@ void MBReadCandle(const MqlRates &r[], const int n, const int s, const double at
    { intent = MB_CI_INDECISION; idir = 0; }
 
    // 9. Continuation: a real body in the same colour as the candle before.
-   if(intent == MB_CI_NONE && have_prev && cdir != 0 && out.body_ratio >= 0.5 && MBColor(r[s + 1]) == cdir)
+   if(intent == MB_CI_NONE && have_prev && cdir != 0 && out.body_ratio >= 0.5 && real_body && MBColor(r[s + 1]) == cdir)
    { intent = MB_CI_CONTINUATION; idir = cdir; }
 
    out.intent = intent;
@@ -363,44 +365,62 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
    if(d > 0)
    {
       int dir = cd.dir;
-      double origin = (dir > 0) ? MathMin(r[d].low, MathMin(r[d + 1].low, r[d + 2].low))
-                                : MathMax(r[d].high, MathMax(r[d + 1].high, r[d + 2].high));
-      // Same-direction displacements since the start.
-      int waves = 0;
+      // The impulse starts at the oldest same-direction displacement of the run: walk back past d
+      // until an opposite displacement, a bar beyond the run's start (price came INTO the start from
+      // the other side - a different move), or 15 bars without another displacement.
+      int start = d;
+      int waves = 1;
       SMBCandle cw;
-      for(int s = 1; s <= d; s++)
+      for(int s = d + 1; s <= limit; s++)
       {
          MBReadCandle(r, n, s, atr, cw);
+         if(cw.intent == MB_CI_DISPLACEMENT && cw.dir == -dir)
+            break;
+         if(dir > 0 ? (r[s].high > r[start].high) : (r[s].low < r[start].low))
+            break;
+         if(s - start > 15)
+            break;
          if(cw.intent == MB_CI_DISPLACEMENT && cw.dir == dir)
-            waves++;
-      }
-      // The extreme reached since the start, and the deepest pullback after it.
-      int peak_i = d;
-      double peak = (dir > 0) ? r[d].high : r[d].low;
-      for(int s = 1; s <= d; s++)
-      {
-         if(dir > 0 && r[s].high > peak) { peak = r[s].high; peak_i = s; }
-         if(dir < 0 && r[s].low  < peak) { peak = r[s].low;  peak_i = s; }
-      }
-      double base = origin;
-      double move = MathAbs(peak - origin);
-      if(peak_i > 1 && move > 0.0)
-      {
-         double pb_extreme = (dir > 0) ? DBL_MAX : -DBL_MAX;
-         for(int s = 1; s < peak_i; s++)
          {
-            if(dir > 0) pb_extreme = MathMin(pb_extreme, r[s].low);
-            else        pb_extreme = MathMax(pb_extreme, r[s].high);
+            waves++;
+            start = s;
          }
-         double retrace = MathAbs(peak - pb_extreme) / move;
-         if(retrace >= 0.30)
-            base = pb_extreme;   // a healthy pullback restarts the clock
+      }
+      double origin = r[start].open;
+
+      // Speed is measured from the last healthy pullback. Walk forward from the start, tracking the
+      // running extreme; a pullback of 30% of the leg so far restarts the clock at its extreme.
+      double base = origin;
+      double ext = origin;
+      double pb = (dir > 0) ? DBL_MAX : -DBL_MAX;
+      for(int s = start; s >= 1; s--)
+      {
+         if(dir > 0)
+         {
+            if(r[s].high > ext) { ext = r[s].high; pb = DBL_MAX; }
+            else
+            {
+               pb = MathMin(pb, r[s].low);
+               if(ext - base > 0.0 && (ext - pb) >= 0.30 * (ext - base))
+               { base = pb; ext = pb; pb = DBL_MAX; }
+            }
+         }
+         else
+         {
+            if(r[s].low < ext) { ext = r[s].low; pb = -DBL_MAX; }
+            else
+            {
+               pb = MathMax(pb, r[s].high);
+               if(base - ext > 0.0 && (pb - ext) >= 0.30 * (base - ext))
+               { base = pb; ext = pb; pb = -DBL_MAX; }
+            }
+         }
       }
       double travel = (dir > 0) ? (r[1].close - base) / atr : (base - r[1].close) / atr;
       travel = MathMax(0.0, travel);
 
       G_MB_IMP_DIR[k] = dir;
-      G_MB_IMP_AGE[k] = d;
+      G_MB_IMP_AGE[k] = start;
       G_MB_IMP_WAVES[k] = waves;
       G_MB_IMP_ORIGIN[k] = origin;
       G_MB_IMP_TRAVEL[k] = travel;
@@ -457,6 +477,8 @@ void MBLiveCandleUpdate()
       {
          if(c > o && pos >= 0.75 && c > ph) G_MB_LIVE_DIR = 1;
          else if(c < o && pos <= 0.25 && c < pl) G_MB_LIVE_DIR = -1;
+         if(G_MB_LIVE_DIR != 0 && G_MB_LIVE_FAILED == G_MB_LIVE_DIR)
+            G_MB_LIVE_FAILED = 0;   // the strength came back the same way - the failure is over
       }
    }
    else

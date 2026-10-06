@@ -184,6 +184,9 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    string trig = "";
    bool trig_m1 = MBTriggerCandle(G_MB_LAST[0], dir);
    bool trig_m5 = MBTriggerCandle(G_MB_LAST[1], dir);
+   // An M5 trigger is good for its whole bar only while price has not turned half an ATR against it.
+   if(trig_m5 && dir * (price - G_MB_LAST[1].close) < -0.5 * atr5)
+      trig_m5 = false;
    bool trig_live = (G_MB_LIVE_DIR == dir);
    string ev_what = "";
    bool trig_event = MBFreshTriggerEvent(dir, ev_what);
@@ -192,11 +195,13 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(trig_live) trig += StringFormat("%slive early displacement", (StringLen(trig) > 0 ? ", " : ""));
    if(trig_event) trig += StringFormat("%s%s", (StringLen(trig) > 0 ? ", " : ""), ev_what);
    bool trig_ok = trig_m1 || trig_m5 || trig_live || trig_event;
-   // A live displacement this way that just gave its strength back invalidates the candle trigger.
-   if(G_MB_LIVE_FAILED == dir && !trig_event)
+   // A live displacement this way that just gave its strength back cancels the M1 reading (the same
+   // minute said the opposite); a closed M5 candle or a fresh event still stands.
+   if(G_MB_LIVE_FAILED == dir)
    {
-      trig_ok = false;
-      trig = "live displacement failed";
+      trig_m1 = false;
+      trig_ok = trig_m5 || trig_live || trig_event;
+      if(!trig_ok) trig = "live displacement failed";
    }
    if(StringLen(trig) == 0) trig = "none";
 
@@ -368,10 +373,11 @@ int      G_MB_FAST_DAY        = -1;
 bool MBHasTriggerNow(const int dir)
 {
    string w = "";
-   if(G_MB_LIVE_FAILED == dir)
-      return MBFreshTriggerEvent(dir, w);
-   return MBTriggerCandle(G_MB_LAST[0], dir) || MBTriggerCandle(G_MB_LAST[1], dir) ||
-          (G_MB_LIVE_DIR == dir) || MBFreshTriggerEvent(dir, w);
+   double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double atr5 = G_MB_ATR[1] * _Point;
+   bool m5 = MBTriggerCandle(G_MB_LAST[1], dir) && !(atr5 > 0.0 && dir * (px - G_MB_LAST[1].close) < -0.5 * atr5);
+   bool m1 = MBTriggerCandle(G_MB_LAST[0], dir) && G_MB_LIVE_FAILED != dir;
+   return m1 || m5 || (G_MB_LIVE_DIR == dir) || MBFreshTriggerEvent(dir, w);
 }
 
 bool MBFastEntryCandidate(int &dir, string &why)

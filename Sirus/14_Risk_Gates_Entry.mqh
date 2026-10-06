@@ -2036,7 +2036,7 @@ bool NewsOwnerBlocksGrid(string &why)
 // nobody trusts. This costs one assignment per refusal.
 //=====================================================================
 
-#define GATE_COUNT               26
+#define GATE_COUNT               29
 
 #define GATE_NONE                0
 #define GATE_ENGINE              1
@@ -2064,6 +2064,9 @@ bool NewsOwnerBlocksGrid(string &why)
 #define GATE_LOCATION            23
 #define GATE_REGIME              24
 #define GATE_DRIFT               25
+#define GATE_NOSETUP             26   // no detector opportunity and no brain fast entry
+#define GATE_MBVETO              27   // Market Brain direction veto
+#define GATE_MBJUDGE             28   // Market Brain entry judge said WAIT
 
 int      G_GATE[GATE_COUNT];
 int      G_GATE_LAST = GATE_NONE;
@@ -2098,6 +2101,9 @@ string GateName(const int id)
       case GATE_LOCATION:  return "location";
       case GATE_REGIME:    return "regime";
       case GATE_DRIFT:     return "drift";
+      case GATE_NOSETUP:   return "noSetup";
+      case GATE_MBVETO:    return "brainVeto";
+      case GATE_MBJUDGE:   return "brainWait";
    }
    return "other";
 }
@@ -2108,6 +2114,10 @@ string GateName(const int id)
 int GateClassify(const string why)
 {
    if(StringLen(why) == 0)                         return GATE_NONE;
+
+   if(StringFind(why, "no setup") == 0)            return GATE_NOSETUP;
+   if(StringFind(why, "market brain veto") == 0)   return GATE_MBVETO;
+   if(StringFind(why, "entry judge") == 0)         return GATE_MBJUDGE;
 
    if(StringFind(why, "better place") >= 0)        return GATE_LOCATION;
    if(StringFind(why, "score") >= 0)               return GATE_SCORE;
@@ -2232,7 +2242,7 @@ void QuietTick(const bool entry_allowed)
       G_QUIET_PEAK = 0;
    }
 
-   if(entry_allowed)
+   if(entry_allowed || G_BASKET_ORDERS > 0)   // a basket at work is not silence
    {
       G_QUIET_BARS = 0;
       G_QUIET_LAST = G_BARS_SEEN;
@@ -4048,8 +4058,15 @@ bool TryLocationRedirect(const int from_dir, string &why)
 int G_NEAR_MISS_TODAY = 0;        // BOSQICH 4: bugun nechta setup 1-2 ballga yetmadi (M1 bar bo'yicha)
 int G_LOCATION_BLOCKS_TODAY = 0;  // BOSQICH 4: bugun joy himoyasi necha M1 bar davomida kirishni to'sdi
 
+// True while the entry being judged came from the Market Brain fast path. The brain's veto and
+// judge already ask the location, impulse, failed-break and HTF questions with fresher evidence, so
+// the older score-cost and location gates that ask the same questions stand aside for it - the
+// detector score they tax was never part of this entry. Risk, news, spread and cooldowns still apply.
+bool G_MB_FAST_ACTIVE = false;
+
 bool FirstEntryCanRun(string &reason)
 {
+   G_MB_FAST_ACTIVE = false;
    // BOSQICH 4: kun almashganda kechagi hisob logga yoziladi va nolga qaytadi
    {
       static int fe_day = -1;
@@ -4252,6 +4269,7 @@ bool FirstEntryCanRun(string &reason)
          G_OPP_REASON = fe_why;
          G_SCORE_FINAL = MathMax(G_SCORE_FINAL, MBFastEntryScore(G_SCORE_MIN_REQUIRED));
          G_SCORE_DECISION = SCORE_DECISION_PASS;
+         G_MB_FAST_ACTIVE = true;
          DecisionLog("FAST", fe_why);
       }
    }
@@ -4286,7 +4304,7 @@ bool FirstEntryCanRun(string &reason)
    }
 
    // v291b: JOY HIMOYASI - ball o'tgandan keyin, savdo yuborilishidan oldin, oxirgi savol.
-   if(EnableLocationGuard)
+   if(EnableLocationGuard && !G_MB_FAST_ACTIVE)
    {
       int lg_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       string lg_why = "";
@@ -4462,7 +4480,7 @@ bool FirstEntryCanRun(string &reason)
    // DIRECTION CLARITY: how close the other side came. The engine knew both best scores all along
    // and never used the gap - a BUY at eight against a SELL at seven is a coin on its edge, and a
    // coin on its edge should cost something rather than nothing.
-   if(EnableDirectionClarity && !ValveIsOff(VALVE_CLARITY) && G_OPP_DIR_CLARITY > 0.0 &&
+   if(EnableDirectionClarity && !G_MB_FAST_ACTIVE && !ValveIsOff(VALVE_CLARITY) && G_OPP_DIR_CLARITY > 0.0 &&
       G_OPP_DIR_CLARITY < ClarityLowBelow && ClarityScoreCost > 0)
    {
       if(G_SCORE_FINAL < G_SCORE_MIN_REQUIRED + ClarityScoreCost)
@@ -4506,7 +4524,7 @@ bool FirstEntryCanRun(string &reason)
 
    // FAILED BREAK: the impulse went through and the close came back. Selling under support that
    // just held is the trade everyone trapped under it already made.
-   if(EnableFailedBreakGuard && !ValveIsOff(VALVE_FAILEDBREAK))
+   if(EnableFailedBreakGuard && !G_MB_FAST_ACTIVE && !ValveIsOff(VALVE_FAILEDBREAK))
    {
       int fb_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(fb_dir != 0)
@@ -4526,7 +4544,7 @@ bool FirstEntryCanRun(string &reason)
    // OLD LEVEL: a breakout heading into something from weeks ago. The recent high it just cleared
    // was never the destination - the stops above it were, and the level beyond is where the move
    // was always going to end.
-   if(EnableOldLevelGuard && !ValveIsOff(VALVE_OLDLEVEL))
+   if(EnableOldLevelGuard && !G_MB_FAST_ACTIVE && !ValveIsOff(VALVE_OLDLEVEL))
    {
       int ol_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(ol_dir != 0)
@@ -4546,7 +4564,7 @@ bool FirstEntryCanRun(string &reason)
    // HTF BIAS: the score a counter-trend setup has to find. Not a refusal - a price, and one that
    // scales with how convincingly the larger timeframes have moved. A marginal daily costs almost
    // nothing; a daily that has run hard costs real score.
-   if(EnableHTFBias && !ValveIsOff(VALVE_HTF))
+   if(EnableHTFBias && !G_MB_FAST_ACTIVE && !ValveIsOff(VALVE_HTF))
    {
       int htf_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(htf_dir != 0)
@@ -4583,7 +4601,7 @@ bool FirstEntryCanRun(string &reason)
    //
    // Held, not refused. The arming engine releases it when price comes back to somewhere worth
    // paying, so the setup is bought cheaper rather than lost.
-   if(EnableLocationBrain && !ValveIsOff(VALVE_LOCATION))
+   if(EnableLocationBrain && !G_MB_FAST_ACTIVE && !ValveIsOff(VALVE_LOCATION))
    {
       int lb_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(lb_dir != 0)
@@ -4643,8 +4661,8 @@ void UpdateFirstEntryEngine(const string source)
    // GATE REGISTRY: every refusal passes through here, which is what makes one line worth more
    // than seventy-one scattered ones. The reason text is already written; this turns it into a
    // name and a counter.
-   if(!G_ENTRY_READY && G_OPP_DIR != OPP_DIR_NONE)
-      GateRecord(reason);
+   if(!G_ENTRY_READY)
+      GateRecord(G_OPP_DIR != OPP_DIR_NONE ? reason : "no setup: " + reason);
 
    // And how long it has been since anything got through. Eleven guards that do not know about
    // each other can add up to silence without any one of them being wrong.

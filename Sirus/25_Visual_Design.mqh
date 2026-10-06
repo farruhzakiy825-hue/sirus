@@ -334,6 +334,53 @@ string MBTurnoverText(const string label, const int k)
    return s;
 }
 
+// The day's busiest entry blockers, in plain words, for the silence line.
+string MBGateUz(const int id)
+{
+   switch(id)
+   {
+      case GATE_NOSETUP:   return "signal yo'q";
+      case GATE_SCORE:     return "ball yetmadi";
+      case GATE_MBVETO:    return "miya taqiqi";
+      case GATE_MBJUDGE:   return "hakam kutdi";
+      case GATE_LOCATION:  return "joy yomon";
+      case GATE_ZONE:      return "zona to'sdi";
+      case GATE_REGIME:    return "HTF qarshi";
+      case GATE_NEWS:      return "yangilik";
+      case GATE_CALENDAR:  return "kalendar";
+      case GATE_SPREAD:    return "spread";
+      case GATE_VELOCITY:  return "tezlik";
+      case GATE_RISK:      return "risk";
+      case GATE_COOLDOWN:  return "pauza";
+      case GATE_SESSION:   return "sessiya";
+      case GATE_DIRECTION: return "yo'nalish";
+   }
+   return GateName(id);
+}
+
+string MBGateTopUz(const int top)
+{
+   int used[3] = {0, 0, 0};
+   int total = 0;
+   for(int i = 1; i < GATE_COUNT; i++) total += G_GATE[i];
+   if(total <= 0) return "bugun to'siq yo'q";
+   string t = "";
+   for(int k = 0; k < MathMin(3, top); k++)
+   {
+      int best = 0;
+      for(int i = 1; i < GATE_COUNT; i++)
+      {
+         bool taken = false;
+         for(int j = 0; j < k; j++) if(used[j] == i) taken = true;
+         if(!taken && G_GATE[i] > 0 && (best == 0 || G_GATE[i] > G_GATE[best])) best = i;
+      }
+      if(best == 0) break;
+      used[k] = best;
+      t += StringFormat("%s%s %d%%", (k > 0 ? " · " : ""), MBGateUz(best), (int)MathRound(100.0 * G_GATE[best] / total));
+   }
+   return t;
+}
+
 string MBBiasUz(const int b)
 {
    switch(b)
@@ -611,6 +658,11 @@ void MBDrawPanel()
    MBVisText("E_Q_TX", StringFormat("sifat %d", G_MB_ENTRY_QUALITY), x0 + w - 12, G_MB_PANEL_Y + 1, muted, PanelFontSize - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
    G_MB_PANEL_Y += lh + 2;
    MBPanelLine("E_WHY", "Sabab: " + MBReasonUz(G_ENTRY_REASON), ink, false, x0, w, lh);
+   if(G_BASKET_ORDERS <= 0 && G_QUIET_BARS >= 5)
+      MBPanelLine("E_QUIET", StringFormat("Jimlik %d daq  ·  %s", G_QUIET_BARS, MBGateTopUz(3)),
+                  (G_QUIET_BARS >= 30 ? MBVisAmber() : muted), false, x0, w, lh);
+   else
+      MBPanelLine("E_QUIET", "To'siqlar bugun: " + MBGateTopUz(3), muted, false, x0, w, lh);
 
    // --- basket ---
    MBPanelSection("S_BASKET", "SAVAT", x0, w, lh);
