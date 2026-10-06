@@ -75,6 +75,8 @@ string   G_MB_DOL_WHAT = "";
 int      G_MB_TH_DIR     = 0;
 int      G_MB_TH_STATE   = MB_TH_NONE;
 datetime G_MB_TH_SINCE   = 0;
+bool     G_MB_TH_THREAT  = false;         // stage 16 (A7): candles say the open thesis is in danger
+string   G_MB_TH_THREAT_WHY = "";
 double   G_MB_TH_INVALID = 0.0;
 double   G_MB_TH_TARGET  = 0.0;
 int      G_MB_TH_CONTRA  = 0;             // 0 low, 1 medium, 2 high
@@ -617,6 +619,7 @@ void MBBrainUpdate()
          G_MB_TH_DIR = bdir;
          G_MB_TH_STATE = (MathAbs(bias) >= 2) ? MB_TH_CONFIRMED : MB_TH_ACTIVATED;
          G_MB_TH_SINCE = now;
+         G_MB_TH_THREAT = false;
          G_MB_TH_INVALID = MBThesisInvalidation(bdir, price);
          G_MB_TH_TARGET = G_MB_DOL;
          if((MBThesisPrintOnUse && VerboseLogs))
@@ -625,6 +628,34 @@ void MBBrainUpdate()
                         (G_MB_TH_TARGET > 0.0 ? DoubleToString(G_MB_TH_TARGET, _Digits) : "-"), G_MB_DOL_WHAT,
                         (G_MB_TH_INVALID > 0.0 ? DoubleToString(G_MB_TH_INVALID, _Digits) : "-"));
       }
+   }
+
+   // STAGE 16 (A7): THREATENED - before the invalidation close, the candles already warn. A strong M5
+   // displacement against the thesis, or M1 and M5 both pushing against it with M5 pressure the
+   // other way. A candle confirming the thesis again lifts it. The Position Brain stops the grid
+   // while it stands.
+   {
+      bool open_th = (G_MB_TH_DIR != 0 && (G_MB_TH_STATE == MB_TH_ACTIVATED || G_MB_TH_STATE == MB_TH_CONFIRMED));
+      bool was = G_MB_TH_THREAT;
+      if(!open_th || !EnableCandleDirectionLink)
+         G_MB_TH_THREAT = false;
+      else
+      {
+         int td = G_MB_TH_DIR;
+         bool m5_disp_against = (G_MB_LAST[1].intent == MB_CI_DISPLACEMENT && G_MB_LAST[1].dir == -td);
+         bool both_against = MBCandleOpposes(0, td) && MBCandleOpposes(1, td) && MBPressureSide(1) == -td;
+         if(m5_disp_against || both_against)
+         {
+            G_MB_TH_THREAT = true;
+            G_MB_TH_THREAT_WHY = m5_disp_against ? StringFormat("M5 displacement against (%.1f ATR)", G_MB_LAST[1].body_atr)
+                                                 : "M1 and M5 candles and M5 pressure against";
+         }
+         else if(MBCandleConfirms(1, td) || (MBCandleConfirms(0, td) && MBPressureSide(1) != -td))
+            G_MB_TH_THREAT = false;
+      }
+      if(G_MB_TH_THREAT != was && (MBThesisPrintOnUse && VerboseLogs))
+         PrintFormat("[SIRUS THESIS] %s thesis %s%s", (G_MB_TH_DIR > 0 ? "BULLISH" : "BEARISH"),
+                     (G_MB_TH_THREAT ? "THREATENED: " : "no longer threatened"), (G_MB_TH_THREAT ? G_MB_TH_THREAT_WHY : ""));
    }
 
    G_MB_TH_CONTRA = (G_MB_TH_DIR != 0) ? MBContradiction(G_MB_TH_DIR, G_MB_TH_SINCE) : 0;

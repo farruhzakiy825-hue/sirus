@@ -1522,6 +1522,12 @@ bool CheckBasketExit()
          CloseNaviusBasket(be_why);
          return true;
       }
+      // Stage 16 (E6): a basket the Recovery Judge gave up on, closed at its exit moment.
+      if(MBRecoveryExit(be_why))
+      {
+         CloseNaviusBasket(be_why);
+         return true;
+      }
    }
 
    if(RebateTrailingOn())

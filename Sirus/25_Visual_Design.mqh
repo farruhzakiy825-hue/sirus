@@ -715,11 +715,18 @@ void MBDrawPanel()
       MBPanelLine("K2", StringFormat("BE narx %s   TP narx %s   DD %.2f%%", DoubleToString(G_BASKET_AVG_PRICE, _Digits),
                                      DoubleToString(tp_price, _Digits), G_BASKET_DD_PERCENT), ink, true, x0, w, lh);
       string state = "G'oya tirik - grid aqlli rejimda";
+      if(G_MB_TH_THREAT && G_MB_TH_DIR == (buy ? 1 : -1)) state = "G'oya xavf ostida - grid to'xtadi (" + G_MB_TH_THREAT_WHY + ")";
       if(G_MB_PB_DEAD) state = "G'oya yiqildi - grid to'xtadi, BE'da chiqamiz";
       else if(G_MB_PB_RESCUED) state = "Qutqaruv rejimi - yangi g'oya savat tomonida";
       MBPanelLine("K3", state, (G_MB_PB_DEAD ? MBVisAmber() : muted), false, x0, w, lh);
       MBPanelLine("K4", StringFormat("Keyingi grid: %.0f pt narida, lot %.2f", G_NEXT_GRID_DISTANCE, G_NEXT_GRID_LOT),
                   muted, false, x0, w, lh);
+      string rc = MBRecoveryText();
+      if(StringLen(rc) > 0)
+         MBPanelLine("K5", rc, (G_MB_RC_STATE == MB_RC_IMPOSSIBLE ? MBVisRed() : (G_MB_RC_STATE == MB_RC_DOUBTFUL ? MBVisAmber() : muted)),
+                     false, x0, w, lh);
+      else
+         ObjectDelete(0, MB_VIS_PREFIX + "K5");
    }
    else
    {
@@ -727,6 +734,7 @@ void MBDrawPanel()
       ObjectDelete(0, MB_VIS_PREFIX + "K2");
       ObjectDelete(0, MB_VIS_PREFIX + "K3");
       ObjectDelete(0, MB_VIS_PREFIX + "K4");
+      ObjectDelete(0, MB_VIS_PREFIX + "K5");
    }
 
    // --- events ---

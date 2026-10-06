@@ -1,5 +1,21 @@
 # CHANGELOG — Sirus Brain V8
 
+## 16-bosqich: aqlli grid va aqlli chiqish (25% → 50%)
+
+- **A7. G'oya xavf ostida:** g'oyaga qarshi kuchli M5 displacement bo'lsa yoki M1 va M5 shamlari bilan M5 bosimi qarshi bo'lsa, `THREATENED` holati yoqiladi. Grid to'xtaydi. G'oyani tasdiqlovchi sham kelganda holat yechiladi.
+- **E1. Qutqarish bahosi** (`EnableRecoveryJudge`, `RecoveryStartDD=25`):
+  - 25% DD dan boshlab har M1 barda 9 belgi tekshiriladi: g'oya, miya, M15+ reversal, qarshi harakat holati, yaqin zona yoki FVG, grid zaxirasi va marja, BE masofasi, H1 va H4, yangilik.
+  - **IMKON BOR:** savat 50% gacha ushlanadi.
+  - **SHUBHALI:** grid qo'shilmaydi, savat BE'da yopiladi.
+  - **IMKONSIZ:** kerakli qarshi belgilar soni 25–35% DD da 4 ta (g'oya o'limi yoki reversal shart), 35–45% da 3 ta, 45% dan yuqorida 2 ta. Holat 3 bar saqlansa, chiqish qurollanadi.
+- **E6. Chiqish lahzasi:** savat birinchi 0.3 ATR(M1) qaytishda yopiladi. DD yana +3% oshsa, darhol yopiladi. G'oya qaytsa, chiqish bekor qilinadi.
+- **E2/E3. Grid tuzilmada:** sham javobi zona yoki FVG yonida bo'lishi kerak. Havoda bo'lsa, javob kutish vaqti ichida kutadi.
+- **E5. Zaxira pog'onalar:** oxirgi 2 pog'ona faqat tuzilma, charchagan qarshi harakat va sham javobi uchalasi bo'lganda ochiladi. Vaqt o'tishi bilan ochilmaydi.
+- **E7. Chiqish maqsadi:** chuqur DD dan qaytgan savat o'z tomonida tirik g'oya bo'lmasa, BE + qoplama bilan yopiladi.
+- **E8. Hisobot:** chuqur savatlar `Sirus_Recovery_<symbol>_<magic>.csv` fayliga yoziladi.
+- **E9. Panel:** SAVAT bo'limida "Qutqarish: …" qatori chiqadi.
+- O'zgarmaganlar: Basket SL 50%, favqulodda yopish 50% / 52%, eski Smart Early Exit (42%).
+
 ## 15-bosqich: bozor rejimi, FVG retest, sham ketma-ketligi
 
 - **D1. M15 rejimi** (`EnableRegimePlaybook`): TREND, DIAPAZON, PORTLASH yoki SIQILISH. Har M15 barda bir marta o'qiladi. Hakamdagi o'yin kitobi:
