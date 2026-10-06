@@ -397,6 +397,7 @@ double ZoneMapNearestResistance(const double price);
 double ZoneMapNearestSupport(const double price);
 double ZoneMapStrength(const double level);
 bool CloseNaviusBasket(const string reason);
+bool MBCashbackTempo();   // cashback tempo switch - read by the entry judge before its definition
 bool RebateTrailingOn();   // cashback trailing switch - read by the basket trailing long before its definition
 double GridDistanceForNextOrder(const int current_orders);
 void PremiumVisualDeleteExact(const string suffix);

@@ -1,5 +1,17 @@
 # CHANGELOG — Sirus Brain V8
 
+## Cashback tempi va aylanma paneli
+
+- **Cashback tempi** (`EnableCashbackTempo`, faqat `EnableRebateMode` yoqilganda ishlaydi). Veto'lar o'zgarmaydi. O'zgarishlar:
+  - Neytral bozorda kirish uchun joy YOKI trigger yetarli (oddiy rejimda ikkalasi ham kerak).
+  - EHTIYOT va OCHISH sifat chegaralari `CashbackTempoQualityCut` (10) ga pasaytirildi.
+  - Yutuqdan keyingi re-entry oynasi `CashbackReentryBars` (40 M1 bar) ga uzaytirildi.
+  - Tezkor tezis kirishi endi FAOLLASHGAN tezisni ham qabul qiladi, 1 ta qarama-qarshilikka chidaydi.
+- **Panelda "CASHBACK AYLANMASI" bo'limi**, faqat cashback rejimida ko'rinadi:
+  - bugun, hafta, oy va jami lot aylanmasi hamda savdolar soni;
+  - `CashbackPerLot` > 0 bo'lsa, taxminiy cashback $;
+  - TP point, trailing holati va tempo.
+
 ## v31.68
 
 - **Yangiliklar kalendari:** voqealar keshlanadi va oyna har tikda jonli vaqt bilan baholanadi. "Surprise" kengaytmasi endi ishlaydi. Auto-flat voqea ID'si bo'yicha ishlaydi. Rejalashtirilgan yangilik grid'ni har doim to'xtatadi.

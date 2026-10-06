@@ -48,6 +48,9 @@ input bool   MBEntryPrintOnUse        = true;   // Qarorlarni jurnalga yozish ([
 input bool   EnableMBFastEntry        = true;   // TEZKOR KIRISH: detektor signali kutilmaydi - Market Brain thesis + hozirgi trigger yetarli (veto va judge baribir tekshiradi)
 input int    MBReentryWindowBars      = 20;     // Yutgan savat yopilgandan keyin shuncha M1 bar ichida o'sha yo'nalishda tezkor re-entry
 input int    MBFastEntryScoreMargin   = 2;      // Tezkor kirishga beriladigan ball: minimum + shu (keyingi ball filtrlaridan o'tishi uchun)
+input bool   EnableCashbackTempo      = true;   // CASHBACK TEMPI: faqat cashback rejimida - kirish talablari biroz yumshoq (veto'lar o'zgarmaydi), chunki daromad aylanmadan
+input int    CashbackTempoQualityCut  = 10;     // Cashback tempida EHTIYOT / OCHISH sifat chegaralari shuncha pastroq
+input int    CashbackReentryBars      = 40;     // Cashback tempida tezkor re-entry oynasi (M1 bar)
 
 #define MB_ED_EXECUTE   0
 #define MB_ED_CAUTION   1
@@ -260,7 +263,10 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    }
    else if(a == 0)
    {
-      if(!(loc_ok && trig_ok))
+      // Cashback tempo: the target is a few points of spread, so a neutral market needs only a
+      // location OR a trigger - the turnover is the income.
+      bool neutral_ok = MBCashbackTempo() ? (loc_ok || trig_ok) : (loc_ok && trig_ok);
+      if(!neutral_ok)
          missing = StringFormat("neutral market needs location AND trigger (location %s, trigger %s)",
                                 (loc_ok ? "ok" : "none"), (trig_ok ? "ok" : "none"));
    }
@@ -276,19 +282,21 @@ bool MBEntryJudgeAllows(const int dir, string &why)
          missing = "counter-bias entry needs location, trigger and a confirmed liquidity reversal";
    }
 
+   int exec_q = MBEntryExecuteQuality - (MBCashbackTempo() ? MathMax(0, CashbackTempoQualityCut) : 0);
+   int caution_q = MBEntryCautionQuality - (MBCashbackTempo() ? MathMax(0, CashbackTempoQualityCut) : 0);
    int decision;
    if(StringLen(missing) > 0)
       decision = MB_ED_WAIT;
    else if(a >= 2 && loc_ok && trig_ok)
-      decision = (G_MB_ENTRY_QUALITY >= MBEntryCautionQuality) ? MB_ED_EXECUTE : MB_ED_CAUTION;
-   else if(G_MB_ENTRY_QUALITY >= MBEntryExecuteQuality)
+      decision = (G_MB_ENTRY_QUALITY >= caution_q) ? MB_ED_EXECUTE : MB_ED_CAUTION;
+   else if(G_MB_ENTRY_QUALITY >= exec_q)
       decision = MB_ED_EXECUTE;
-   else if(G_MB_ENTRY_QUALITY >= MBEntryCautionQuality)
+   else if(G_MB_ENTRY_QUALITY >= caution_q)
       decision = MB_ED_CAUTION;
    else
    {
       decision = MB_ED_WAIT;
-      missing = StringFormat("quality %d below %d", G_MB_ENTRY_QUALITY, MBEntryCautionQuality);
+      missing = StringFormat("quality %d below %d", G_MB_ENTRY_QUALITY, caution_q);
    }
    G_MB_ENTRY_DECISION = decision;
 
@@ -377,7 +385,8 @@ bool MBFastEntryCandidate(int &dir, string &why)
 
    // Re-entry after a win.
    int rd = G_MB_LAST_CLOSE_DIR;
-   if(G_MB_LAST_CLOSE_WIN && rd != 0 && (TimeCurrent() - G_MB_LAST_CLOSE_TIME) <= (long)MathMax(1, MBReentryWindowBars) * 60)
+   int reentry_bars = MBCashbackTempo() ? MathMax(MBReentryWindowBars, CashbackReentryBars) : MBReentryWindowBars;
+   if(G_MB_LAST_CLOSE_WIN && rd != 0 && (TimeCurrent() - G_MB_LAST_CLOSE_TIME) <= (long)MathMax(1, reentry_bars) * 60)
    {
       bool not_expired = !(G_MB_IMP_DIR[0] == rd && G_MB_SPEED[0] == MB_SPEED_EXPIRED);
       if(rd * G_MB_BIAS >= 1 && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBHasTriggerNow(rd))
@@ -394,8 +403,11 @@ bool MBFastEntryCandidate(int &dir, string &why)
    {
       int d = MBSign(G_MB_BIAS);
       bool not_late = !(G_MB_IMP_DIR[0] == d && G_MB_SPEED[0] >= MB_SPEED_LATE);
-      if(d != 0 && d * G_MB_BIAS >= 2 && G_MB_TH_DIR == d && G_MB_TH_STATE == MB_TH_CONFIRMED &&
-         G_MB_TH_CONTRA == 0 && not_late && MBHasTriggerNow(d))
+      // Cashback tempo also takes a freshly ACTIVATED thesis and tolerates a medium contradiction.
+      bool th_ok = (G_MB_TH_STATE == MB_TH_CONFIRMED) || (MBCashbackTempo() && G_MB_TH_STATE == MB_TH_ACTIVATED);
+      int contra_max = MBCashbackTempo() ? 1 : 0;
+      if(d != 0 && d * G_MB_BIAS >= 2 && G_MB_TH_DIR == d && th_ok &&
+         G_MB_TH_CONTRA <= contra_max && not_late && MBHasTriggerNow(d))
       {
          dir = d;
          why = StringFormat("FAST THESIS %s: %s thesis confirmed (%s %d%%), trigger now",
@@ -427,6 +439,12 @@ void MBFastEntryFilled()
 {
    if(StringFind(G_OPP_REASON, "FAST ") == 0)
       G_MB_FAST_TODAY++;
+}
+
+// Cashback tempo is on: rebate mode with the tempo switch.
+bool MBCashbackTempo()
+{
+   return (EnableRebateMode && EnableCashbackTempo);
 }
 
 // Lot step for the first entry: CAUTION trims it.

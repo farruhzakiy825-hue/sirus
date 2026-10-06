@@ -34,6 +34,7 @@ input string PanelFont                = "Segoe UI";
 input string PanelFontBold            = "Segoe UI Semibold";
 input string PanelFontMono            = "Consolas";
 input int    PanelFontSize            = 9;
+input double CashbackPerLot           = 0.0;                // CASHBACK bo'limi: 1 lot uchun qaytadigan $ (0 = taxminiy cashback ko'rsatilmaydi). Bo'lim faqat cashback rejimida chiqadi
 
 #define MB_VIS_PREFIX   "SIRUS_UI_"
 
@@ -285,6 +286,54 @@ int MBTodayEntries()
    return count;
 }
 
+// Lot turnover of this EA (symbol + magic, opening volume only) for today / week / month / all
+// time. Cached for two minutes - the full-history pass is too heavy for every panel redraw.
+double   G_MB_TURN_LOTS[4];
+int      G_MB_TURN_DEALS[4];
+datetime G_MB_TURN_TIME = 0;
+
+void MBTurnoverUpdate()
+{
+   if(G_MB_TURN_TIME > 0 && (TimeCurrent() - G_MB_TURN_TIME) < 120)
+      return;
+   G_MB_TURN_TIME = TimeCurrent();
+   ArrayInitialize(G_MB_TURN_LOTS, 0.0);
+   ArrayInitialize(G_MB_TURN_DEALS, 0);
+
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   datetime day0 = TimeCurrent() - (dt.hour * 3600 + dt.min * 60 + dt.sec);
+   datetime week0 = day0 - (datetime)(((dt.day_of_week + 6) % 7) * 86400);   // Monday
+   datetime month0 = day0 - (datetime)((dt.day - 1) * 86400);
+   if(!HistorySelect(0, TimeCurrent() + 60))
+      return;
+
+   int n = HistoryDealsTotal();
+   for(int i = 0; i < n; i++)
+   {
+      ulong d = HistoryDealGetTicket(i);
+      if(d == 0) continue;
+      if(HistoryDealGetString(d, DEAL_SYMBOL) != _Symbol) continue;
+      if(HistoryDealGetInteger(d, DEAL_MAGIC) != MagicNumber) continue;
+      if((ENUM_DEAL_ENTRY)HistoryDealGetInteger(d, DEAL_ENTRY) != DEAL_ENTRY_IN) continue;
+      double vol = HistoryDealGetDouble(d, DEAL_VOLUME);
+      datetime t = (datetime)HistoryDealGetInteger(d, DEAL_TIME);
+      G_MB_TURN_LOTS[3] += vol;  G_MB_TURN_DEALS[3]++;
+      if(t >= month0) { G_MB_TURN_LOTS[2] += vol;  G_MB_TURN_DEALS[2]++; }
+      if(t >= week0)  { G_MB_TURN_LOTS[1] += vol;  G_MB_TURN_DEALS[1]++; }
+      if(t >= day0)   { G_MB_TURN_LOTS[0] += vol;  G_MB_TURN_DEALS[0]++; }
+   }
+}
+
+// Turnover with the estimated cashback when a rate per lot is set.
+string MBTurnoverText(const string label, const int k)
+{
+   string s = StringFormat("%-6s %8.2f lot  %5d savdo", label, G_MB_TURN_LOTS[k], G_MB_TURN_DEALS[k]);
+   if(CashbackPerLot > 0.0)
+      s += StringFormat("  ≈ %.2f $", G_MB_TURN_LOTS[k] * CashbackPerLot);
+   return s;
+}
+
 string MBBiasUz(const int b)
 {
    switch(b)
@@ -497,6 +546,27 @@ void MBDrawPanel()
    MBPanelLine("A4", StringFormat("Eng chuqur DD: balans tarixida %.2f%%, ochiq savatda %.2f%%", hist_dd, G_ALL_TIME_MAX_DD_PCT),
                muted, false, x0, w, lh);
 
+   // --- cashback (only in rebate mode) ---
+   if(EnableRebateMode)
+   {
+      MBPanelSection("S_CB", "CASHBACK AYLANMASI", x0, w, lh);
+      MBTurnoverUpdate();
+      MBPanelLine("C1", MBTurnoverText("Bugun", 0), MBVisGold(), true, x0, w, lh);
+      MBPanelLine("C2", MBTurnoverText("Hafta", 1), ink, true, x0, w, lh);
+      MBPanelLine("C3", MBTurnoverText("Oy", 2), ink, true, x0, w, lh);
+      MBPanelLine("C4", MBTurnoverText("Jami", 3), ink, true, x0, w, lh);
+      string trail = "trailing o'chiq";
+      if(RebateTrailingOn())
+         trail = G_RB_TRAIL_ACTIVE ? StringFormat("trailing FAOL, qulf %.0f pt", G_RB_TRAIL_LOCK) : "trailing TP da yoqiladi";
+      MBPanelLine("C5", StringFormat("TP %.0f pt  ·  %s  ·  tempo %s", RebateTargetPoints(), trail,
+                                     (MBCashbackTempo() ? "TEZKOR" : "oddiy")), muted, false, x0, w, lh);
+   }
+   else
+   {
+      ObjectsDeleteAll(0, MB_VIS_PREFIX + "S_CB");
+      ObjectsDeleteAll(0, MB_VIS_PREFIX + "C");
+   }
+
    // --- market brain ---
    MBPanelSection("S_BRAIN", "BOZOR NAFASI", x0, w, lh);
    if(EnableMarketBrain && EnableMarketBrainEngines)
@@ -631,6 +701,7 @@ void MBDeletePanel()
    ObjectsDeleteAll(0, MB_VIS_PREFIX + "V");
    ObjectsDeleteAll(0, MB_VIS_PREFIX + "F");
    ObjectsDeleteAll(0, MB_VIS_PREFIX + "N");
+   ObjectsDeleteAll(0, MB_VIS_PREFIX + "C");
 }
 
 void MBDeleteAllVisuals()
