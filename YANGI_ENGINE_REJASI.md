@@ -241,3 +241,110 @@ tester'da yonma-yon solishtirish mumkin. Har bosqichdan keyin: kompilyatsiya →
 4-bosqichni (veto) 3-bosqichdan oldin, faqat Event Engine va Zone Role ustida qilsak, DD'ga
 olib kelgan 4142 / 4126 turidagi xatolar eng tez yopiladi. To'liq Market Brain esa undan keyin
 quriladi.
+
+---
+
+## 7. Kelishilgan qarorlar (egasi bilan)
+
+| # | Savol | Qaror |
+|---|---|---|
+| 1 | Aniq raqamlar | Claude XAUUSD scalping uchun taklif qiladi. Hammasi ATR'ga nisbatan (8-bo'lim) |
+| 2 | Timeframe'lar | Scalping asosida, lekin bozorni keng qamrab oladi (9-bo'lim) |
+| 3 | Savdolar soni | **Kuniga 250–450 ta**. Veto tor bo'ladi, faqat kuchli qarama-qarshi dalil bloklaydi |
+| 4 | REVERSE / hedge | **Yo'q.** Qutqarish aqlli grid orqali bo'ladi |
+| 5 | REDUCE | **Yo'q.** Zarardagi savat qisman yopilmaydi |
+| 6 | Thesis o'lsa | Grid to'xtaydi, savat **break-even'da chiqadi** (10-bo'lim) |
+| 7 | Eski detektorlar | Nomzod sifatida qoladi. Yangi engine ruxsat va veto beradi, keyin natijaga qarab kamaytiriladi |
+| 8 | Ball og'irliklari | Boshida qat'iy. O'rganish 8-bosqichda, chegaralangan holda (11-bo'lim) |
+| 9 | Test holati | Broker vaqti bilan 06:15. Sana aniqlanishi kerak |
+| 10 | Entry competition | Bitta eng yaxshi nomzod tanlanadi |
+
+---
+
+## 8. Ta'riflar (XAUUSD, scalping)
+
+Hammasi ATR(14) ga nisbatan. Shunda Osiyo sessiyasining sokin bozori ham, NY'ning tez bozori
+ham avtomatik hisobga olinadi. `ATR1` = M1 ATR, `ATR5` = M5 ATR.
+
+| Tushuncha | Ta'rif (boshlang'ich qiymat) |
+|---|---|
+| **Swing (fractal)** | M1: har tomonda 3 bar; M5 / M15 / H1: har tomonda 2 bar |
+| **Likvidlik havzasi** | Buzilmagan swing high / low; teng high / low (farq ≤ 0.15 × ATR o'sha TF); PDH / PDL; Osiyo sessiyasi high / low; yumaloq darajalar (xx00, xx50) |
+| **Sweep** | Narx havzadan ≥ max(0.10 × ATR1, 1 × spread) o'tadi va ≤ 3 M1 bar ichida orqaga yopiladi. Agar o'tish > 1 × ATR1 bo'lsa, bu sweep emas, break |
+| **Displacement** | Bitta sham: tanasi ≥ 1.2 × ATR1, tana / diapazon ≥ 0.6, yopilish diapazonning chetki 25% ida. Yoki 2–3 shamlik bir tomonli harakat ≥ 2 × ATR1. **Kuchli**: tana ≥ 1.8 × ATR1 yoki FVG qoldiradi |
+| **BOS** | Trend yo'nalishidagi oxirgi swing'dan ≥ 0.05 × ATR o'tib yopilish |
+| **MSS / CHoCH** | Oxirgi harakatni boshlagan qarama-qarshi swing'dan o'tib yopilish. M1 = mikro (trigger), M5 = lokal (bias o'tishi), M15 = struktura |
+| **Rejection** | Daraja tomonidagi wick ≥ 50% diapazon, yopilish qarama-qarshi 40% ichida |
+| **Reclaim** | Darajadan o'tgandan keyin ≤ 5 M1 bar ichida qaytib yopilish va ≥ 2 yopilish ushlab turish |
+| **Acceptance (haqiqiy break)** | Break displacement bilan bo'lgan + ≥ 3 ketma-ket M1 yopilish (yoki 1 M5 yopilish) darajadan ≥ 0.25 × ATR1 narida + 5 bar ichida reclaim yo'q |
+| **Soxta break** | Break bor, lekin 5 bar ichida reclaim. Qarama-qarshi tomon uchun dalil |
+| **Freshness** | Yangi: ≤ 10 M1 bar. Dolzarb: ≤ 45 bar. Undan keyin faqat kontekst, og'irlik 1.0 dan 0.3 gacha kamayadi. M5 hodisalari uchun ×5 |
+| **Impulse age** | Impulse boshlanishidan beri o'tgan bar va bir tomonli to'lqinlar soni. 1-to'lqin "yosh", 3-dan keyin "qari" |
+| **Chase / Speed budget** | Impulse boshidan ≥ 30% pullback'siz yurilgan masofa: < 1.5 × ATR1 = `EARLY`; < 2.5 × ATR1 = `NORMAL`; < 4 × ATR1 = `LATE`; undan ko'p = `EXPIRED` (continuation kirish uchun) |
+| **Compression** | Oxirgi 10 M1 bar diapazoni ≤ 1.5 × ATR1. Undan displacement bilan chiqish = "compression release" |
+| **Structural room** | Qarama-qarshi kuchli zonagacha ≥ max(1.5 × savat TP, 1 × ATR5) |
+
+Bu qiymatlar input sifatida chiqariladi va tester'da sozlanadi.
+
+---
+
+## 9. Timeframe sxemasi (scalping, keng qamrov)
+
+| Qatlam | TF | Vazifasi |
+|---|---|---|
+| **Trigger** | M1 + jonli sham | Kirish vaqti: mikro MSS, rejection, displacement |
+| **Lokal struktura** | M5 | Bias o'tishi (`TRANSITION_UP / DOWN`), pullback va reclaim |
+| **Yo'nalish** | M15 | Asosiy bias holati (7 holat) |
+| **Joylashuv va maqsadlar** | H1, H4, PDH / PDL, Osiyo high / low | Likvidlik xaritasi, katta zonalar, premium / discount. **Hard veto emas**, faqat location sifati va ruxsat kuchiga ta'sir qiladi |
+
+Kelishmovchilik qoidasi:
+- M15 yo'nalishni beradi.
+- M5 qarama-qarshi tomonga sweep + displacement + MSS qilsa → `TRANSITION`. Shunda
+  faqat reversal yoki reclaim turidagi kirish mumkin.
+- M1 faqat vaqtni beradi, yo'nalishni o'zgartirmaydi.
+- H1 / H4 zonasiga to'g'ridan-to'g'ri kirish → location "yomon", ball pasayadi.
+
+Kuniga 250–450 savdo uchun: trend tomonidagi kirishga minimal dalil yetarli
+(direction + location + trigger). Qattiq talab faqat trendga qarshi va reversal kirishlarga
+qo'yiladi.
+
+---
+
+## 10. Aqlli grid va break-even chiqish
+
+```
+Savat ochiq
+   │
+   ├─ Thesis tirik ─► masofa yetdi + zonada candle response bor ─► ADD
+   │                  masofa yetdi, lekin response yo'q          ─► WAIT
+   │
+   └─ Thesis O'LDI (invalidation)
+         │
+         ├─ Grid to'xtaydi (o'lik yo'nalishga qo'shilmaydi)
+         ├─ Savat TP → break-even (+ spread qoplami). Narx qaytsa, BE'da chiqiladi
+         │
+         └─ QUTQARISH: savat yo'nalishida YANGI thesis paydo bo'lsa
+            (masalan sweep + reclaim + mikro MSS), "rescue add" ruxsat etiladi.
+            Ko'r-ko'rona o'rtachalash emas, faqat dalil bilan.
+```
+
+- REVERSE (hedge) va REDUCE (qisman yopish) ishlatilmaydi.
+- Basket SL (balansning 50%) oxirgi himoya bo'lib qoladi.
+
+---
+
+## 11. Bayes o'rganish qanday ishlaydi (8-bosqich)
+
+Robotda bu tizim allaqachon bor: har detektor va har soat bo'yicha yutgan va yutqazgan
+savatlar sanaladi.
+
+Yangi engine'da:
+1. Har dalilning boshlang'ich og'irligi bor. Masalan "sweep + displacement" = 25.
+2. Har savat yopilganda robot qaysi dalillar bo'lganini va natijani yozadi.
+3. Kamida 30 ta misol yig'ilgach, og'irlik moslanadi. Yutganlarda tez-tez uchragan dalil
+   biroz kuchayadi, yutqazganlarda uchragani susayadi.
+4. O'zgarish chegaralangan: boshlang'ich qiymatdan ±30% dan ko'p emas.
+5. **Hard veto'lar hech qachon o'rganish orqali o'chirilmaydi.**
+
+Misol: "sweep + displacement" 40 marta uchragan, 32 tasi yutgan (80%) → 25 dan 29 ga ko'tariladi.
+"Faqat rejection" 40 marta uchragan, 18 tasi yutgan (45%) → 10 dan 8 ga tushadi.
