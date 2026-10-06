@@ -140,7 +140,7 @@ tester'da yonma-yon solishtirish mumkin. Har bosqichdan keyin: kompilyatsiya →
 ### 1-bosqich: Event Engine (A: faktlar)
 - Hodisalar halqa buferi (oxirgi ~50 hodisa), har biri: turi, yo'nalishi, darajasi, TF, kuchi,
   yaratilgan bar, yoshi.
-- Hodisa turlari: `LIQ_SWEEP` (buy-side / sell-side), `DISPLACEMENT`, `BOS`, `MSS/CHoCH`,
+- Hodisa turlari: `LIQ_SWEEP` (buy-side / sell-side, **har TF: M1…H4**), `DISPLACEMENT`, `BOS`, `MSS/CHoCH`,
   `RECLAIM`, `ACCEPTANCE`, `REJECTION`, `COMPRESSION_RELEASE`.
 - Mavjud `DetectSweep*`, `MarketStructureRead`, `EventChain` dan foydalaniladi, lekin natija
   signal emas, **hodisa** bo'lib yoziladi.
@@ -197,6 +197,8 @@ grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saql
 ### 3-bosqich: Market Brain + Thesis (C)
 - TF bo'yicha bias holati: `BULLISH, BULLISH_WEAK, TRANSITION_UP, NEUTRAL, TRANSITION_DOWN,
   BEARISH_WEAK, BEARISH`.
+- **Draw on Liquidity + keyingi qadam:** bozor qaysi likvidlikni oldi va endi qaysisiga boryapti
+  (12-bo'lim).
 - Thesis obyekti: yo'nalish, confidence, phase, liquidity target, **invalidation level**,
   afzal entry turi, holati (`ACTIVATED / CONFIRMED / ACTIVE / FAILED / INVALIDATED`).
 - Evidence ladder: observation < reaction < event < structure < confirmation.
@@ -319,7 +321,8 @@ ham avtomatik hisobga olinadi. `ATR1` = M1 ATR, `ATR5` = M5 ATR.
 |---|---|
 | **Swing (fractal)** | M1: har tomonda 3 bar; M5 / M15 / H1: har tomonda 2 bar |
 | **Likvidlik havzasi** | Buzilmagan swing high / low; teng high / low (farq ≤ 0.15 × ATR o'sha TF); PDH / PDL; Osiyo sessiyasi high / low; yumaloq darajalar (xx00, xx50) |
-| **Sweep** | Narx havzadan ≥ max(0.10 × ATR1, 1 × spread) o'tadi va ≤ 3 M1 bar ichida orqaga yopiladi. Agar o'tish > 1 × ATR1 bo'lsa, bu sweep emas, break |
+| **Sweep (har TF)** | Narx o'sha TF havzasidan ≥ max(0.10 × ATR(TF), 1 × spread) o'tadi va ≤ 3 bar (o'sha TF) ichida orqaga yopiladi. O'tish > 1 × ATR(TF) bo'lsa, bu sweep emas, break. M1, M5, M15, H1, **H4** bo'yicha alohida kuzatiladi |
+| **HTF sweep og'irligi** | H4 sweep > H1 > M15 > M5 > M1. H4 / H1 sweep + reclaim faktlar qatlamida eng kuchli dalillardan biri |
 | **Displacement** | Bitta sham: tanasi ≥ 1.2 × ATR1, tana / diapazon ≥ 0.6, yopilish diapazonning chetki 25% ida. Yoki 2–3 shamlik bir tomonli harakat ≥ 2 × ATR1. **Kuchli**: tana ≥ 1.8 × ATR1 yoki FVG qoldiradi |
 | **BOS** | Trend yo'nalishidagi oxirgi swing'dan ≥ 0.05 × ATR o'tib yopilish |
 | **MSS / CHoCH** | Oxirgi harakatni boshlagan qarama-qarshi swing'dan o'tib yopilish. M1 = mikro (trigger), M5 = lokal (bias o'tishi), M15 = struktura |
@@ -327,7 +330,7 @@ ham avtomatik hisobga olinadi. `ATR1` = M1 ATR, `ATR5` = M5 ATR.
 | **Reclaim** | Darajadan o'tgandan keyin ≤ 5 M1 bar ichida qaytib yopilish va ≥ 2 yopilish ushlab turish |
 | **Acceptance (haqiqiy break)** | Break displacement bilan bo'lgan + ≥ 3 ketma-ket M1 yopilish (yoki 1 M5 yopilish) darajadan ≥ 0.25 × ATR1 narida + 5 bar ichida reclaim yo'q |
 | **Soxta break** | Break bor, lekin 5 bar ichida reclaim. Qarama-qarshi tomon uchun dalil |
-| **Freshness** | Yangi: ≤ 10 M1 bar. Dolzarb: ≤ 45 bar. Undan keyin faqat kontekst, og'irlik 1.0 dan 0.3 gacha kamayadi. M5 hodisalari uchun ×5 |
+| **Freshness** | O'sha TF barlarida: yangi ≤ 3 bar, dolzarb ≤ 12 bar, keyin faqat kontekst (og'irlik 1.0 → 0.3). M1 uchun: yangi ≤ 10, dolzarb ≤ 45. HTF hodisasi narx "draw on liquidity" maqsadiga yetguncha yoki invalidation bo'lguncha dolzarb qoladi |
 | **Impulse age** | Impulse boshlanishidan beri o'tgan bar va bir tomonli to'lqinlar soni. 1-to'lqin "yosh", 3-dan keyin "qari" |
 | **Chase / Speed budget** | Impulse boshidan ≥ 30% pullback'siz yurilgan masofa: < 1.5 × ATR1 = `EARLY`; < 2.5 × ATR1 = `NORMAL`; < 4 × ATR1 = `LATE`; undan ko'p = `EXPIRED` (continuation kirish uchun) |
 | **Compression** | Oxirgi 10 M1 bar diapazoni ≤ 1.5 × ATR1. Undan displacement bilan chiqish = "compression release" |
@@ -351,7 +354,7 @@ Bu qiymatlar input sifatida chiqariladi va tester'da sozlanadi.
 | **Trigger** | M1 + jonli sham | Kirish vaqti: mikro MSS, rejection, displacement |
 | **Lokal struktura** | M5 | Bias o'tishi (`TRANSITION_UP / DOWN`), pullback va reclaim |
 | **Yo'nalish** | M15 | Asosiy bias holati (7 holat) |
-| **Joylashuv va maqsadlar** | H1, H4, PDH / PDL, Osiyo high / low | Likvidlik xaritasi, katta zonalar, premium / discount. **Hard veto emas**, faqat location sifati va ruxsat kuchiga ta'sir qiladi |
+| **Joylashuv va maqsadlar** | H1, H4, PDH / PDL, Osiyo high / low | Likvidlik xaritasi, dealing range, premium / discount, draw on liquidity. Oddiy HTF zona hard veto emas, faqat location sifatiga ta'sir qiladi. **Istisno:** yangi H1 / H4 likvidlik sweep + reclaim, bu fakt (12-bo'lim) |
 
 Kelishmovchilik qoidasi:
 - M15 yo'nalishni beradi.
@@ -404,3 +407,59 @@ Yangi engine'da:
 
 Misol: "sweep + displacement" 40 marta uchragan, 32 tasi yutgan (80%) → 25 dan 29 ga ko'tariladi.
 "Faqat rejection" 40 marta uchragan, 18 tasi yutgan (45%) → 10 dan 8 ga tushadi.
+
+---
+
+## 12. HTF likvidlik va "keyingi qadam" (Draw on Liquidity)
+
+> Egasining kuzatuvi (XAUUSD H4, 2026-10-06): narx H4 dealing range'ning past likvidligini
+> (≈ 4110.5 dagi past, undan ostiga ≈ 4105 gacha wick) yechib oldi, 4125 ustiga qaytdi va kuchli
+> bullish H4 shamlar bilan 4160–4175 supply zonasigacha ko'tarildi. Robot esa 06:15 da **4126
+> da SELL** ochdi, ya'ni H4 sell-side sweep + reclaim'dan keyin, dealing range'ning eng pastki
+> (discount) qismida, bozor yuqoriga borishga tayyorlanayotgan joyda.
+
+**Qoida:** zonaga kelish = entry emas. Robot avval bozor **oldin nima qilganini** va **keyin
+nima qilishi ehtimolini** hisoblaydi.
+
+### 12.1. Ko'p TF'li likvidlik xaritasi
+- H4 / H1 / M15 swing high / low, teng high / low, dealing range chetlari, PDH / PDL, haftalik
+  high / low, Osiyo sessiyasi high / low, yumaloq darajalar.
+- Har havza holati: `INTACT` (hali olinmagan) / `SWEPT` (olindi va qaytdi) / `BROKEN`
+  (olindi va qabul qilindi).
+
+### 12.2. Dealing range va joylashuv
+- Joriy H4 (yoki H1) dealing range: oxirgi muhim swing high va swing low orasi (misolda ≈ 4110–4192).
+- 50% chizig'i: yuqorisi **premium**, pasti **discount**.
+- Discount'da SELL va premium'da BUY: faqat yangi qarama-qarshi likvidlik olinib, MSS bo'lgan
+  bo'lsa ruxsat. Aks holda location "yomon".
+
+### 12.3. Draw on Liquidity (DOL) va keyingi qadam
+Har likvidlik hodisasidan keyin Market Brain kutilgan yo'lni tuzadi:
+
+```
+Sell-side H4 havzasi olindi (sweep)
+   ↓ reclaim (havza ustiga qaytish)
+   ↓ bullish displacement / MSS
+KUTILGAN YO'L:  pullback / retest (reclaim darajasi) → yuqoriga
+DOL (maqsad):   eng yaqin INTACT buy-side havza yoki to'ldirilmagan supply (misolda 4160–4192)
+INVALIDATION:   sweep shamining past nuqtasi ostida acceptance (≈ 4105 ostida)
+```
+
+- Kutilgan yo'l tasdiqlansa, thesis kuchayadi. Pullback BUY imkoniyatlari ustun bo'ladi.
+- Narx DOL'ga yetsa, thesis "bajarildi". O'sha joyda qarama-qarshi likvidlik va reaksiya
+  qidiriladi. Misolda 4160–4175 supply'da SELL faqat buy-side olinib, bearish MSS bo'lsa.
+- Invalidation bo'lsa, thesis o'ladi va invalidation memory'ga yoziladi.
+
+### 12.4. Veto (4126 holati uchun)
+**HTF sweep veto:** yangi (dolzarb) H1 / H4 sell-side sweep + reclaim bo'lgan bo'lsa va narx hali
+DOL'ga yetmagan yoki invalidation bo'lmagan bo'lsa, **discount'da SELL bloklanadi**.
+Buy-side uchun teskarisi.
+Faqat quyidagi holatda istisno: bearish displacement + reclaim darajasi ostida acceptance.
+Bu esa invalidation degani.
+
+### 12.5. Qaysi bosqichlarga kiradi
+- 1-bosqich: HTF sweep hodisalari.
+- 2-bosqich: zona holatiga HTF likvidlik bog'lanadi.
+- 3-bosqich: dealing range, DOL, kutilgan yo'l.
+- 4-bosqich: HTF sweep veto.
+- 0-bosqich: 4126 holati regression test sifatida (2026-10-06 06:15, tester'da real tick'lar bilan).
