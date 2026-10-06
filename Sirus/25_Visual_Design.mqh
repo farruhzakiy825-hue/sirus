@@ -29,7 +29,7 @@ input string WatermarkSubFont         = "Segoe UI Semibold";
 input int    WatermarkTitleSize       = 66;                 // Sarlavha o'lchami (pt)
 input int    WatermarkOpacity         = 14;                 // Ko'rinish kuchi: fon rangiga qancha aralashadi (%, 5-40)
 input bool   EnableNewDashboard       = true;               // Yangi "karta" dashboard (false = eski batafsil matnli dashboard)
-input int    PanelWidth               = 390;                // Panel kengligi (px)
+input int    PanelWidth               = 430;                // Panel kengligi (px)
 input string PanelFont                = "Segoe UI";
 input string PanelFontBold            = "Segoe UI Semibold";
 input string PanelFontMono            = "Consolas";
@@ -215,11 +215,177 @@ color MBBiasTone(const int b)
    return MBVisMuted();
 }
 
+// --- panel data helpers -----------------------------------------------------------------------
+
+// Largest drawdown of the account's closed-balance curve over its whole history (deposits and
+// withdrawals move the peak with the balance, so they are not counted as drawdown). Cached.
+double   G_MB_HIST_DD_PCT  = 0.0;
+datetime G_MB_HIST_DD_TIME = 0;
+
+double MBHistoryMaxDDPercent()
+{
+   if(G_MB_HIST_DD_TIME > 0 && (TimeCurrent() - G_MB_HIST_DD_TIME) < 600)
+      return G_MB_HIST_DD_PCT;
+   G_MB_HIST_DD_TIME = TimeCurrent();
+   if(!HistorySelect(0, TimeCurrent() + 60))
+      return G_MB_HIST_DD_PCT;
+
+   double bal = 0.0, peak = 0.0, worst = 0.0;
+   int n = HistoryDealsTotal();
+   for(int i = 0; i < n; i++)
+   {
+      ulong d = HistoryDealGetTicket(i);
+      if(d == 0) continue;
+      ENUM_DEAL_TYPE ty = (ENUM_DEAL_TYPE)HistoryDealGetInteger(d, DEAL_TYPE);
+      double amount = HistoryDealGetDouble(d, DEAL_PROFIT) + HistoryDealGetDouble(d, DEAL_SWAP) +
+                      HistoryDealGetDouble(d, DEAL_COMMISSION);
+      if(ty == DEAL_TYPE_BALANCE || ty == DEAL_TYPE_CREDIT || ty == DEAL_TYPE_BONUS || ty == DEAL_TYPE_CORRECTION)
+      {
+         bal += amount;
+         peak += amount;
+         if(peak < bal) peak = bal;
+         continue;
+      }
+      bal += amount;
+      if(bal > peak) peak = bal;
+      if(peak > 0.0)
+         worst = MathMax(worst, (peak - bal) / peak * 100.0);
+   }
+   G_MB_HIST_DD_PCT = worst;
+   return worst;
+}
+
+// Entries this EA opened today (first entries and grid additions). Cached for 30 seconds.
+int      G_MB_TODAY_ENTRIES = 0;
+datetime G_MB_TODAY_TIME    = 0;
+
+int MBTodayEntries()
+{
+   if(G_MB_TODAY_TIME > 0 && (TimeCurrent() - G_MB_TODAY_TIME) < 30)
+      return G_MB_TODAY_ENTRIES;
+   G_MB_TODAY_TIME = TimeCurrent();
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   datetime day0 = TimeCurrent() - (dt.hour * 3600 + dt.min * 60 + dt.sec);
+   int count = 0;
+   if(HistorySelect(day0, TimeCurrent() + 60))
+   {
+      int n = HistoryDealsTotal();
+      for(int i = 0; i < n; i++)
+      {
+         ulong d = HistoryDealGetTicket(i);
+         if(d == 0) continue;
+         if(HistoryDealGetString(d, DEAL_SYMBOL) != _Symbol) continue;
+         if(HistoryDealGetInteger(d, DEAL_MAGIC) != MagicNumber) continue;
+         if((ENUM_DEAL_ENTRY)HistoryDealGetInteger(d, DEAL_ENTRY) == DEAL_ENTRY_IN)
+            count++;
+      }
+   }
+   G_MB_TODAY_ENTRIES = count;
+   return count;
+}
+
+string MBBiasUz(const int b)
+{
+   switch(b)
+   {
+      case MB_BIAS_BULLISH:         return "KUCHLI O'SISH";
+      case MB_BIAS_BULLISH_WEAK:    return "O'SISH (ZAIF)";
+      case MB_BIAS_TRANSITION_UP:   return "O'SISHGA BURILISH";
+      case MB_BIAS_NEUTRAL:         return "NEYTRAL";
+      case MB_BIAS_TRANSITION_DOWN: return "PASAYISHGA BURILISH";
+      case MB_BIAS_BEARISH_WEAK:    return "PASAYISH (ZAIF)";
+      case MB_BIAS_BEARISH:         return "KUCHLI PASAYISH";
+   }
+   return "?";
+}
+
+string MBBiasArrow(const int b)
+{
+   switch(b)
+   {
+      case MB_BIAS_BULLISH:         return "▲▲";
+      case MB_BIAS_BULLISH_WEAK:    return "▲";
+      case MB_BIAS_TRANSITION_UP:   return "↗";
+      case MB_BIAS_NEUTRAL:         return "●";
+      case MB_BIAS_TRANSITION_DOWN: return "↘";
+      case MB_BIAS_BEARISH_WEAK:    return "▼";
+      case MB_BIAS_BEARISH:         return "▼▼";
+   }
+   return "?";
+}
+
+string MBEventUz(const int type)
+{
+   switch(type)
+   {
+      case MB_EV_LIQ_SWEEP:    return "likvidlik olindi";
+      case MB_EV_FAKE_BREAK:   return "soxta break";
+      case MB_EV_RECLAIM:      return "daraja qaytarildi";
+      case MB_EV_ACCEPTANCE:   return "haqiqiy break";
+      case MB_EV_DISPLACEMENT: return "kuchli sham";
+      case MB_EV_BOS:          return "struktura davom";
+      case MB_EV_MSS:          return "struktura burildi";
+      case MB_EV_REJECTION:    return "rad etish";
+      case MB_EV_COMP_RELEASE: return "siqilishdan chiqish";
+   }
+   return "?";
+}
+
+// The n-th newest relevant event (M1 displacement / BOS left out). -1 when none.
+int MBEventNth(const int nth)
+{
+   int used[];
+   ArrayResize(used, MB_EV_MAX);
+   ArrayInitialize(used, 0);
+   int best = -1;
+   for(int k = 0; k <= nth; k++)
+   {
+      best = -1;
+      for(int idx = 0; idx < MB_EV_MAX; idx++)
+      {
+         if(used[idx] != 0 || G_MB_EV[idx].time <= 0) continue;
+         if(G_MB_EV[idx].tfi == 0 && (G_MB_EV[idx].type == MB_EV_DISPLACEMENT || G_MB_EV[idx].type == MB_EV_BOS)) continue;
+         if(MBEventWeight(G_MB_EV[idx]) <= 0.0) continue;
+         if(best < 0 || G_MB_EV[idx].time > G_MB_EV[best].time)
+            best = idx;
+      }
+      if(best < 0)
+         return -1;
+      used[best] = 1;
+   }
+   return best;
+}
+
+string MBWhyUz(const string why)
+{
+   string t = why;
+   StringReplace(t, "HTF liquidity reversal: ", "Katta TF likvidligi olinib qaytdi: ");
+   StringReplace(t, "sell-side", "pastki");
+   StringReplace(t, "buy-side", "yuqori");
+   StringReplace(t, "M15 neutral, M5 ", "M15 neytral, M5 ");
+   StringReplace(t, ", but M5 ", ", lekin M5 ");
+   return t;
+}
+
+string MBReasonUz(const string reason)
+{
+   if(StringLen(reason) == 0) return "-";
+   if(reason == "score not passed") return "Signal kuchsiz (ball yetmadi)";
+   if(reason == "entry allowed") return "Barcha filtrlar o'tdi";
+   string t = reason;
+   if(StringFind(t, "market brain veto: ") == 0) t = "VETO: " + StringSubstr(t, 19);
+   if(StringFind(t, "entry judge: wait - ") == 0) t = "KUTISH: " + StringSubstr(t, 20);
+   if(StringFind(t, "waiting for a better place: ") == 0) t = "Yaxshiroq joy kutilmoqda: " + StringSubstr(t, 28);
+   return t;
+}
+
+// --- panel ------------------------------------------------------------------------------------
 void MBDrawPanel()
 {
    int x0 = MathMax(0, DashboardX);
    int y0 = MathMax(0, DashboardY);
-   int w = MathMax(300, PanelWidth);
+   int w = MathMax(320, PanelWidth);
    int lh = (int)MathRound(PanelFontSize * 1.95);
    color ink = MBVisInk(), muted = MBVisMuted();
 
@@ -229,110 +395,127 @@ void MBDrawPanel()
    G_MB_PANEL_Y = y0 + 12;
 
    // --- header ---
-   MBVisText("P_BRAND", "SIRUS", x0 + 12, G_MB_PANEL_Y, MBVisGold(), PanelFontSize + 5, WatermarkFont, ANCHOR_LEFT_UPPER, false);
-   MBVisText("P_BRAND2", "BRAIN  " + G_VERSION, x0 + 12 + (PanelFontSize + 5) * 5, G_MB_PANEL_Y + 6, muted, PanelFontSize - 1, PanelFontBold, ANCHOR_LEFT_UPPER, false);
+   MBVisText("P_BRAND", "SIRUS", x0 + 12, G_MB_PANEL_Y, MBVisGold(), PanelFontSize + 6, WatermarkFont, ANCHOR_LEFT_UPPER, false);
+   ObjectDelete(0, MB_VIS_PREFIX + "P_BRAND2");
 
-   string status = "SCANNING";
+   string status = "SKANER";
    color status_tone = muted;
-   if(G_BASKET_ORDERS > 0)                              { status = "IN TRADE"; status_tone = MBVisBlue(); }
-   else if(StringFind(G_ENTRY_REASON, "veto") >= 0)     { status = "VETO";     status_tone = MBVisRed(); }
-   else if(StringFind(G_ENTRY_REASON, "judge") >= 0)    { status = "WAIT";     status_tone = MBVisAmber(); }
-   else if(G_ENTRY_READY)                               { status = "READY";    status_tone = MBVisGreen(); }
+   if(G_BASKET_ORDERS > 0)                              { status = "SAVDODA";   status_tone = MBVisBlue(); }
+   else if(StringFind(G_ENTRY_REASON, "veto") >= 0)     { status = "VETO";      status_tone = MBVisRed(); }
+   else if(StringFind(G_ENTRY_REASON, "judge") >= 0)    { status = "KUTISH";    status_tone = MBVisAmber(); }
+   else if(G_ENTRY_READY)                               { status = "TAYYOR";    status_tone = MBVisGreen(); }
    if(G_RISK_HARD_BLOCK)                                { status = "RISK STOP"; status_tone = MBVisRed(); }
    int pill_w = StringLen(status) * (PanelFontSize - 1) + 18;
-   MBPanelPill("P_STATUS", status, x0 + w - 12 - pill_w, G_MB_PANEL_Y + 2, lh - 2, status_tone);
-   G_MB_PANEL_Y += lh + 6;
+   MBPanelPill("P_STATUS", status, x0 + w - 12 - pill_w, G_MB_PANEL_Y + 3, lh - 2, status_tone);
+   G_MB_PANEL_Y += lh + 8;
 
    // --- account ---
-   MBPanelSection("S_ACC", "ACCOUNT", x0, w, lh);
+   MBPanelSection("S_ACC", "HISOB", x0, w, lh);
    double bal = AccountInfoDouble(ACCOUNT_BALANCE);
    double eq = AccountInfoDouble(ACCOUNT_EQUITY);
    double today = (G_RISK_DAY_START_EQUITY > 0.0) ? eq - G_RISK_DAY_START_EQUITY : 0.0;
-   MBPanelLine("A1", StringFormat("Balance %11.2f   Equity %11.2f", bal, eq), ink, true, x0, w, lh);
-   MBPanelLine("A2", StringFormat("Today   %+11.2f   DD %5.2f%% / worst %5.2f%%", today, G_RISK_EQUITY_DD_PCT, G_ALL_TIME_MAX_DD_PCT),
+   double hist_dd = MBHistoryMaxDDPercent();
+   double max_dd = MathMax(hist_dd, G_ALL_TIME_MAX_DD_PCT);
+   MBPanelLine("A1", StringFormat("Balans %10.2f    Equity %10.2f", bal, eq), ink, true, x0, w, lh);
+   MBPanelLine("A2", StringFormat("Bugun  %+10.2f    Kirish %4d (tezkor %d)", today, MBTodayEntries(), G_MB_FAST_TODAY),
                (today < 0.0 ? MBVisRed() : (today > 0.0 ? MBVisGreen() : ink)), true, x0, w, lh);
+   MBPanelLine("A3", StringFormat("DD hozir %5.2f%%     Max DD %5.2f%%", G_RISK_EQUITY_DD_PCT, max_dd),
+               DDSeverityColor(G_RISK_EQUITY_DD_PCT, EmergencyDDPercent * 0.3, EmergencyDDPercent * 0.6), true, x0, w, lh);
+   MBPanelLine("A4", StringFormat("Max DD: balans tarixi %.2f%%, suzuvchi (floating) %.2f%%", hist_dd, G_ALL_TIME_MAX_DD_PCT),
+               muted, false, x0, w, lh);
 
    // --- market brain ---
-   MBPanelSection("S_BRAIN", "MARKET BRAIN", x0, w, lh);
+   MBPanelSection("S_BRAIN", "BOZOR FIKRI (MARKET BRAIN)", x0, w, lh);
    if(EnableMarketBrain && EnableMarketBrainEngines)
    {
       color tone = MBBiasTone(G_MB_BIAS);
-      string bias = MBBiasName(G_MB_BIAS);
+      string bias = MBBiasUz(G_MB_BIAS);
       MBPanelPill("B_BIAS", bias, x0 + 12, G_MB_PANEL_Y, lh - 2, tone);
       int bar_x = x0 + 12 + StringLen(bias) * (PanelFontSize - 1) + 30;
-      int bar_w = MathMax(40, w - (bar_x - x0) - 60);
+      int bar_w = MathMax(40, w - (bar_x - x0) - 64);
       MBPanelBar("B_CONF", bar_x, G_MB_PANEL_Y + lh / 2 - 3, bar_w, G_MB_BIAS_CONF, tone);
-      MBVisText("B_CONF_TX", StringFormat("%d%%", G_MB_BIAS_CONF), x0 + w - 12, G_MB_PANEL_Y + 1, muted, PanelFontSize, PanelFontMono, ANCHOR_RIGHT_UPPER, false);
+      MBVisText("B_CONF_TX", StringFormat("ishonch %d%%", G_MB_BIAS_CONF), x0 + w - 12, G_MB_PANEL_Y + 1, muted, PanelFontSize - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
       G_MB_PANEL_Y += lh + 2;
-      MBPanelLine("B_WHY", G_MB_BIAS_WHY, ink, false, x0, w, lh);
-      MBPanelLine("B_TF", StringFormat("M5 %s · M15 %s · H1 %s · H4 %s", MBBiasName(G_MB_TF_STATE[1]), MBBiasName(G_MB_TF_STATE[2]),
-                                       MBBiasName(G_MB_TF_STATE[3]), MBBiasName(G_MB_TF_STATE[4])), muted, false, x0, w, lh);
-      string loc = "No H1 range";
+      MBPanelLine("B_WHY", "Nega: " + MBWhyUz(G_MB_BIAS_WHY), ink, false, x0, w, lh);
+      MBPanelLine("B_TF", StringFormat("TF:  M5 %s   M15 %s   H1 %s   H4 %s",
+                                       MBBiasArrow(G_MB_TF_STATE[1]), MBBiasArrow(G_MB_TF_STATE[2]),
+                                       MBBiasArrow(G_MB_TF_STATE[3]), MBBiasArrow(G_MB_TF_STATE[4])), muted, false, x0, w, lh);
+      string loc = "Narx joyi: H1 diapazon aniqlanmadi";
       if(G_MB_DR_HI > G_MB_DR_LO)
-         loc = StringFormat("%s %.2f  ·  range %s – %s",
-                            (G_MB_DR_POS >= 0.55 ? "PREMIUM" : (G_MB_DR_POS <= 0.45 ? "DISCOUNT" : "EQUILIBRIUM")), G_MB_DR_POS,
+         loc = StringFormat("Narx joyi: %s (%.0f%%)  ·  diapazon %s – %s",
+                            (G_MB_DR_POS >= 0.55 ? "QIMMAT zona" : (G_MB_DR_POS <= 0.45 ? "ARZON zona" : "O'RTADA")), G_MB_DR_POS * 100.0,
                             DoubleToString(G_MB_DR_LO, _Digits), DoubleToString(G_MB_DR_HI, _Digits));
       MBPanelLine("B_LOC", loc, ink, false, x0, w, lh);
-      MBPanelLine("B_TGT", StringFormat("Target %s %s  ·  Invalid %s  ·  %s",
-                                        (G_MB_TH_TARGET > 0.0 ? DoubleToString(G_MB_TH_TARGET, _Digits) : "-"), G_MB_DOL_WHAT,
-                                        (G_MB_TH_INVALID > 0.0 ? DoubleToString(G_MB_TH_INVALID, _Digits) : "-"),
-                                        MBThesisStateName(G_MB_TH_STATE)), muted, false, x0, w, lh);
+      MBPanelLine("B_TGT", StringFormat("Maqsad %s  ·  Fikr bekor bo'ladi %s",
+                                        (G_MB_TH_TARGET > 0.0 ? DoubleToString(G_MB_TH_TARGET, _Digits) : "-"),
+                                        (G_MB_TH_INVALID > 0.0 ? DoubleToString(G_MB_TH_INVALID, _Digits) : "-")), muted, false, x0, w, lh);
    }
    else
-      MBPanelLine("B_OFF", "Market Brain is off", muted, false, x0, w, lh);
+      MBPanelLine("B_OFF", "Market Brain o'chirilgan", muted, false, x0, w, lh);
 
    // --- entry ---
-   MBPanelSection("S_ENTRY", "ENTRY", x0, w, lh);
-   string dec = "IDLE";
+   MBPanelSection("S_ENTRY", "KIRISH QARORI", x0, w, lh);
+   string dec = "SIGNAL YO'Q";
    color dec_tone = muted;
-   if(StringFind(G_ENTRY_REASON, "veto") >= 0)           { dec = "VETO";    dec_tone = MBVisRed(); }
-   else if(StringFind(G_ENTRY_REASON, "judge") >= 0)     { dec = "WAIT";    dec_tone = MBVisAmber(); }
-   else if(G_ENTRY_READY && G_MB_ENTRY_DECISION == MB_ED_CAUTION) { dec = "CAUTION"; dec_tone = MBVisAmber(); }
-   else if(G_ENTRY_READY)                                { dec = "EXECUTE"; dec_tone = MBVisGreen(); }
+   if(StringFind(G_ENTRY_REASON, "veto") >= 0)           { dec = "VETO";     dec_tone = MBVisRed(); }
+   else if(StringFind(G_ENTRY_REASON, "judge") >= 0)     { dec = "KUTISH";   dec_tone = MBVisAmber(); }
+   else if(G_ENTRY_READY && G_MB_ENTRY_DECISION == MB_ED_CAUTION) { dec = "EHTIYOT"; dec_tone = MBVisAmber(); }
+   else if(G_ENTRY_READY)                                { dec = "OCHILADI"; dec_tone = MBVisGreen(); }
    MBPanelPill("E_DEC", dec, x0 + 12, G_MB_PANEL_Y, lh - 2, dec_tone);
    int qx = x0 + 12 + StringLen(dec) * (PanelFontSize - 1) + 30;
-   int qw = MathMax(40, w - (qx - x0) - 60);
+   int qw = MathMax(40, w - (qx - x0) - 64);
    MBPanelBar("E_Q", qx, G_MB_PANEL_Y + lh / 2 - 3, qw, G_MB_ENTRY_QUALITY, dec_tone);
-   MBVisText("E_Q_TX", StringFormat("q%d", G_MB_ENTRY_QUALITY), x0 + w - 12, G_MB_PANEL_Y + 1, muted, PanelFontSize, PanelFontMono, ANCHOR_RIGHT_UPPER, false);
+   MBVisText("E_Q_TX", StringFormat("sifat %d", G_MB_ENTRY_QUALITY), x0 + w - 12, G_MB_PANEL_Y + 1, muted, PanelFontSize - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
    G_MB_PANEL_Y += lh + 2;
-   MBPanelLine("E_WHY", (StringLen(G_ENTRY_REASON) > 0 ? G_ENTRY_REASON : "-"), ink, false, x0, w, lh);
+   MBPanelLine("E_WHY", "Sabab: " + MBReasonUz(G_ENTRY_REASON), ink, false, x0, w, lh);
 
    // --- basket ---
-   MBPanelSection("S_BASKET", "BASKET", x0, w, lh);
+   MBPanelSection("S_BASKET", "SAVAT", x0, w, lh);
    if(G_BASKET_ORDERS > 0)
    {
       bool buy = (G_BASKET_DIRECTION == POSITION_TYPE_BUY);
-      MBPanelLine("K1", StringFormat("%s x%d  avg %s  %+6.0f pts  DD %5.2f%%", (buy ? "BUY " : "SELL"), G_BASKET_ORDERS,
-                                     DoubleToString(G_BASKET_AVG_PRICE, _Digits), G_BASKET_POINTS, G_BASKET_DD_PERCENT),
-                  (G_BASKET_POINTS >= 0.0 ? MBVisGreen() : MBVisRed()), true, x0, w, lh);
-      MBPanelLine("K2", StringFormat("%s  ·  next rung %.0f pts, lot %.2f", MBPositionText(), G_NEXT_GRID_DISTANCE, G_NEXT_GRID_LOT),
-                  (G_MB_PB_DEAD ? MBVisAmber() : muted), false, x0, w, lh);
+      double tp_pts = BasketTPForOrderCount(G_BASKET_ORDERS);
+      double tp_price = buy ? G_BASKET_AVG_PRICE + tp_pts * _Point : G_BASKET_AVG_PRICE - tp_pts * _Point;
+      MBPanelLine("K1", StringFormat("%s x%d   foyda %+.2f $   (%+.0f pt)", (buy ? "BUY" : "SELL"), G_BASKET_ORDERS,
+                                     G_BASKET_PROFIT, G_BASKET_POINTS),
+                  (G_BASKET_PROFIT >= 0.0 ? MBVisGreen() : MBVisRed()), true, x0, w, lh);
+      MBPanelLine("K2", StringFormat("BE narx %s   TP narx %s   DD %.2f%%", DoubleToString(G_BASKET_AVG_PRICE, _Digits),
+                                     DoubleToString(tp_price, _Digits), G_BASKET_DD_PERCENT), ink, true, x0, w, lh);
+      string state = "Fikr tirik - grid aqlli rejimda";
+      if(G_MB_PB_DEAD) state = "Fikr O'LDI - grid to'xtadi, BE'da yopiladi";
+      else if(G_MB_PB_RESCUED) state = "Qutqaruv - yangi fikr savat tomonida";
+      MBPanelLine("K3", state, (G_MB_PB_DEAD ? MBVisAmber() : muted), false, x0, w, lh);
+      MBPanelLine("K4", StringFormat("Keyingi grid: %.0f pt narida, lot %.2f", G_NEXT_GRID_DISTANCE, G_NEXT_GRID_LOT),
+                  muted, false, x0, w, lh);
    }
    else
    {
-      MBPanelLine("K1", "Flat - waiting for the next setup", muted, false, x0, w, lh);
-      MBPanelLine("K2", " ", muted, false, x0, w, lh);
+      MBPanelLine("K1", "Savat yo'q - keyingi imkoniyat kutilmoqda", muted, false, x0, w, lh);
+      ObjectDelete(0, MB_VIS_PREFIX + "K2");
+      ObjectDelete(0, MB_VIS_PREFIX + "K3");
+      ObjectDelete(0, MB_VIS_PREFIX + "K4");
    }
 
    // --- events ---
-   MBPanelSection("S_EV", "EVENTS", x0, w, lh);
-   string ev = MBEventText(3);
-   string parts[];
-   int np = StringSplit(ev, '|', parts);
+   MBPanelSection("S_EV", "SO'NGGI HODISALAR", x0, w, lh);
    for(int i = 0; i < 3; i++)
    {
-      string t = (i < np) ? parts[i] : " ";
-      StringTrimLeft(t);
-      StringTrimRight(t);
-      color c = muted;
-      if(StringFind(t, " bull ") >= 0) c = MBVisGreen();
-      if(StringFind(t, " bear ") >= 0) c = MBVisRed();
-      MBPanelLine("V" + IntegerToString(i), t, c, false, x0, w, lh);
+      int idx = MBEventNth(i);
+      if(idx < 0)
+      {
+         MBPanelLine("V" + IntegerToString(i), (i == 0 ? "Muhim hodisa yo'q" : " "), muted, false, x0, w, lh);
+         continue;
+      }
+      string t = StringFormat("%s  %s %s  %s  ·  %d bar oldin",
+                              MBTFName(G_MB_EV[idx].tfi), (G_MB_EV[idx].dir > 0 ? "▲" : "▼"),
+                              MBEventUz(G_MB_EV[idx].type), DoubleToString(G_MB_EV[idx].level, _Digits),
+                              MBEventAgeBars(G_MB_EV[idx]));
+      MBPanelLine("V" + IntegerToString(i), t, (G_MB_EV[idx].dir > 0 ? MBVisGreen() : MBVisRed()), false, x0, w, lh);
    }
 
    // --- footer ---
    G_MB_PANEL_Y += 2;
-   string news = (EnableEconomicCalendarGuard && G_CAL_ACTIVE) ? StringFormat("NEWS %s (%d min)", G_CAL_EVENT_NAME, G_CAL_MINUTES_FROM_EVENT) : "News clear";
+   string news = (EnableEconomicCalendarGuard && G_CAL_ACTIVE) ? StringFormat("YANGILIK: %s (%d daq)", G_CAL_EVENT_NAME, G_CAL_MINUTES_FROM_EVENT) : "Yangilik yo'q";
    MBPanelLine("F1", StringFormat("%s  ·  spread %d  ·  %s", news, G_LAST_SPREAD_POINTS, TimeToString(TimeCurrent(), TIME_MINUTES)),
                (G_CAL_ACTIVE ? MBVisAmber() : muted), false, x0, w, lh);
 

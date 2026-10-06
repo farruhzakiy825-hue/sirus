@@ -4236,6 +4236,26 @@ bool FirstEntryCanRun(string &reason)
       }
    }
 
+   // MARKET BRAIN FAST ENTRY (speed): no detector score yet, but a winning basket's thesis is still
+   // open (re-entry) or a confirmed thesis has a trigger right now. Everything below - the remaining
+   // gates, the veto and the Entry Judge - still decides.
+   if(G_SCORE_DECISION != SCORE_DECISION_PASS && G_SCORE_DECISION != SCORE_DECISION_MICRO_PASS)
+   {
+      int fe_dir = 0;
+      string fe_why = "";
+      if(MBFastEntryCandidate(fe_dir, fe_why))
+      {
+         ENUM_OPPORTUNITY_DIR fe_opp = (fe_dir > 0) ? OPP_DIR_BUY : OPP_DIR_SELL;
+         if(G_OPP_DIR != fe_opp || G_OPP_TYPE == OPP_TYPE_NONE)
+            G_OPP_TYPE = OPP_TYPE_TREND_RIDE;
+         G_OPP_DIR = fe_opp;
+         G_OPP_REASON = fe_why;
+         G_SCORE_FINAL = MathMax(G_SCORE_FINAL, MBFastEntryScore(G_SCORE_MIN_REQUIRED));
+         G_SCORE_DECISION = SCORE_DECISION_PASS;
+         DecisionLog("FAST", fe_why);
+      }
+   }
+
    if(G_SCORE_DECISION != SCORE_DECISION_PASS && G_SCORE_DECISION != SCORE_DECISION_MICRO_PASS)
    {
       reason = "score not passed";
@@ -4955,6 +4975,7 @@ void UpdateFirstEntryEngine(const string source)
       G_LAST_ENTRY_TICKET = G_TRADE.ResultOrder();
       ReasonCodeEntry("FIRST", order_type, lot, G_TRADE.ResultPrice(), G_LAST_ENTRY_TICKET);
       MBMemoryOnEntry((order_type == ORDER_TYPE_BUY ? 1 : -1), G_TRADE.ResultPrice());
+      MBFastEntryFilled();
       if(EnableSlippageTracking)
       {
          double slip_filled = G_TRADE.ResultPrice();

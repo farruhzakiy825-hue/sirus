@@ -45,6 +45,9 @@ input double MBCautionLotFactor       = 0.75;   // CAUTION bo'lganda lot x shu
 input double MBEntryDecayPerATR       = 20.0;   // Signal paydo bo'lgandan beri narx har 1 ATR(M1) qochganda sifat shuncha pasayadi
 input double MBMaxInvalidationATR5    = 3.0;    // Invalidation darajasi ATR(M5) x shudan uzoq bo'lsa: sifat pasayadi
 input bool   MBEntryPrintOnUse        = true;   // Qarorlarni jurnalga yozish ([SIRUS JUDGE])
+input bool   EnableMBFastEntry        = true;   // TEZKOR KIRISH: detektor signali kutilmaydi - Market Brain thesis + hozirgi trigger yetarli (veto va judge baribir tekshiradi)
+input int    MBReentryWindowBars      = 20;     // Yutgan savat yopilgandan keyin shuncha M1 bar ichida o'sha yo'nalishda tezkor re-entry
+input int    MBFastEntryScoreMargin   = 2;      // Tezkor kirishga beriladigan ball: minimum + shu (keyingi ball filtrlaridan o'tishi uchun)
 
 #define MB_ED_EXECUTE   0
 #define MB_ED_CAUTION   1
@@ -335,6 +338,95 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       return false;
    }
    return true;
+}
+
+//---------------------------------------------------------------------
+// FAST ENTRY - the Market Brain as an entry source (speed).
+// The old pipeline waits for a detector to fire and for its score to pass, so after a basket
+// closes in profit the next one waits for a brand-new signal even though nothing about the market
+// has changed. Two fast paths, both still judged by every gate after the score, the veto and the
+// Entry Judge:
+//   RE-ENTRY  a basket closed in profit within MBReentryWindowBars, its thesis is still open and
+//             not contradicted, and there is a trigger now -> same direction again.
+//   THESIS    a CONFIRMED thesis with a trend-strength bias, no contradiction, not late, and a
+//             trigger now.
+//---------------------------------------------------------------------
+int      G_MB_LAST_CLOSE_DIR  = 0;     // set by the Position Brain when a basket ends
+bool     G_MB_LAST_CLOSE_WIN  = false;
+datetime G_MB_LAST_CLOSE_TIME = 0;
+int      G_MB_FAST_TODAY      = 0;
+int      G_MB_FAST_DAY        = -1;
+
+bool MBHasTriggerNow(const int dir)
+{
+   string w = "";
+   if(G_MB_LIVE_FAILED == dir)
+      return MBFreshTriggerEvent(dir, w);
+   return MBTriggerCandle(G_MB_LAST[0], dir) || MBTriggerCandle(G_MB_LAST[1], dir) ||
+          (G_MB_LIVE_DIR == dir) || MBFreshTriggerEvent(dir, w);
+}
+
+bool MBFastEntryCandidate(int &dir, string &why)
+{
+   dir = 0;
+   why = "";
+   if(!EnableMBFastEntry || !EnableMarketBrain || !EnableMarketBrainEngines || G_BASKET_ORDERS > 0)
+      return false;
+
+   bool thesis_open = (G_MB_TH_STATE == MB_TH_ACTIVATED || G_MB_TH_STATE == MB_TH_CONFIRMED);
+
+   // Re-entry after a win.
+   int rd = G_MB_LAST_CLOSE_DIR;
+   if(G_MB_LAST_CLOSE_WIN && rd != 0 && (TimeCurrent() - G_MB_LAST_CLOSE_TIME) <= (long)MathMax(1, MBReentryWindowBars) * 60)
+   {
+      bool not_expired = !(G_MB_IMP_DIR[0] == rd && G_MB_SPEED[0] == MB_SPEED_EXPIRED);
+      if(rd * G_MB_BIAS >= 1 && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBHasTriggerNow(rd))
+      {
+         dir = rd;
+         why = StringFormat("FAST RE-ENTRY %s: last basket won %d min ago, thesis still %s (%s)",
+                            (rd > 0 ? "BUY" : "SELL"), (int)((TimeCurrent() - G_MB_LAST_CLOSE_TIME) / 60),
+                            MBThesisStateName(G_MB_TH_STATE), MBBiasName(G_MB_BIAS));
+      }
+   }
+
+   // Thesis entry.
+   if(dir == 0)
+   {
+      int d = MBSign(G_MB_BIAS);
+      bool not_late = !(G_MB_IMP_DIR[0] == d && G_MB_SPEED[0] >= MB_SPEED_LATE);
+      if(d != 0 && d * G_MB_BIAS >= 2 && G_MB_TH_DIR == d && G_MB_TH_STATE == MB_TH_CONFIRMED &&
+         G_MB_TH_CONTRA == 0 && not_late && MBHasTriggerNow(d))
+      {
+         dir = d;
+         why = StringFormat("FAST THESIS %s: %s thesis confirmed (%s %d%%), trigger now",
+                            (d > 0 ? "BUY" : "SELL"), (d > 0 ? "bullish" : "bearish"), MBBiasName(G_MB_BIAS), G_MB_BIAS_CONF);
+      }
+   }
+
+   if(dir == 0)
+      return false;
+
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   if(dt.day_of_year != G_MB_FAST_DAY)
+   {
+      G_MB_FAST_DAY = dt.day_of_year;
+      G_MB_FAST_TODAY = 0;
+   }
+   return true;
+}
+
+// Score given to a fast entry so the score-cost gates after the score check judge it fairly.
+int MBFastEntryScore(const int min_required)
+{
+   return min_required + MathMax(0, MBFastEntryScoreMargin);
+}
+
+// Called by the first-entry engine after a fill: counts fast entries for the panel.
+void MBFastEntryFilled()
+{
+   if(StringFind(G_OPP_REASON, "FAST ") == 0)
+      G_MB_FAST_TODAY++;
 }
 
 // Lot step for the first entry: CAUTION trims it.

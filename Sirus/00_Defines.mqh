@@ -521,6 +521,9 @@ void MBDeleteWatermark();
 void MBDrawPanel();
 void MBDeletePanel();
 void MBDeleteAllVisuals();
+bool MBFastEntryCandidate(int &dir, string &why);
+void MBFastEntryFilled();
+int MBFastEntryScore(const int min_required);   // 23_Entry_Engine
 void ReasonCodeEntry(const string kind, const ENUM_ORDER_TYPE type, const double lot, const double fill_price, const ulong ticket);   // 90_Reason_Code
 void ReasonCodeGrid(const ENUM_ORDER_TYPE type, const double lot, const double fill_price, const ulong ticket, const int orders_before);
 int NewsOwnerState(string &why);

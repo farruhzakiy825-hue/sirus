@@ -99,7 +99,15 @@ void MBPositionBrainUpdate()
    if(opened == 0)
    {
       if(G_MB_PB_BASKET != 0)
+      {
+         // Remember how it ended - the fast re-entry path reads it.
+         int outs = 0;
+         double res = MBBasketResult(G_MB_PB_BASKET, outs);
+         G_MB_LAST_CLOSE_DIR = G_MB_PB_DIR;
+         G_MB_LAST_CLOSE_WIN = (res > 0.0);
+         G_MB_LAST_CLOSE_TIME = TimeCurrent();
          MBMemoryOnBasketClosed(G_MB_PB_BASKET);   // Memory (phase 8): write the result next to the Entry DNA
+      }
       G_MB_PB_BASKET = 0;
       G_MB_PB_DIR = 0;
       G_MB_PB_DEAD = false;
