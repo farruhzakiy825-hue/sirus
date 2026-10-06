@@ -194,7 +194,7 @@ double SelectedPositionNetProfit()
         + PositionCommissionCached((ulong)PositionGetInteger(POSITION_IDENTIFIER));
 }
 
-bool GetNaviusBasketStats(int &orders,
+bool GetSirusBasketStats(int &orders,
                           double &total_volume,
                           double &avg_price,
                           double &profit,
@@ -235,7 +235,7 @@ bool GetNaviusBasketStats(int &orders,
       double open_price = PositionGetDouble(POSITION_PRICE_OPEN);
 
       // V31.6z70 fix: real accounting bug found via audit of the trading path. This read
-      // POSITION_PROFIT only - excluding SWAP - while CloseNaviusBasket and the independent
+      // POSITION_PROFIT only - excluding SWAP - while CloseSirusBasket and the independent
       // Emergency Force-Close net both include it. So G_BASKET_PROFIT, the figure that drives
       // basket DD%, Basket SL, TP and every risk decision, systematically UNDER-reported the
       // real loss. That matters most in exactly the scenario this whole session has been about:
@@ -409,7 +409,7 @@ double CurrentBasketPoints(const long direction, const double avg_price)
 // ============================================================================
 // Zone-map swing cache dimensions. These are preprocessor defines, so unlike functions they must
 // appear BEFORE the first line that uses them - the zone-band reader below is the earliest user.
-// (NAVIUS_ZM_CACHE_* defines live at the top of the file, with the other structural defines)
+// (SIRUS_ZM_CACHE_* defines live at the top of the file, with the other structural defines)
 
 // ============================================================================
 // V119: ZONE BANDS - group nearby swings into ONE zone, sized by the market.
@@ -469,7 +469,7 @@ double CurrentBasketPoints(const long direction, const double avg_price)
 // the following link instead of reacting to each one after the fact.
 // ============================================================================
 
-#define NAVIUS_EVENT_MAX 24
+#define SIRUS_EVENT_MAX 24
 
 // (CHAIN_PAT_* defines live at the top of the file - see below #property block)
 
@@ -483,10 +483,10 @@ double CurrentBasketPoints(const long direction, const double avg_price)
 #define EVT_SWEEP           5   // liquidity taken beyond an extreme
 #define EVT_RANGE_BREAK     6   // a range gave way
 
-int      G_EVT_KIND[NAVIUS_EVENT_MAX];
-int      G_EVT_DIR[NAVIUS_EVENT_MAX];      // +1 up, -1 down
-int      G_EVT_BAR[NAVIUS_EVENT_MAX];      // G_BARS_SEEN when recorded
-double   G_EVT_PRICE[NAVIUS_EVENT_MAX];
+int      G_EVT_KIND[SIRUS_EVENT_MAX];
+int      G_EVT_DIR[SIRUS_EVENT_MAX];      // +1 up, -1 down
+int      G_EVT_BAR[SIRUS_EVENT_MAX];      // G_BARS_SEEN when recorded
+double   G_EVT_PRICE[SIRUS_EVENT_MAX];
 int      G_EVT_COUNT = 0;                  // total recorded (may exceed the ring size)
 
 string EventKindName(const int kind)
@@ -507,10 +507,10 @@ string EventKindName(const int kind)
 int EventAt(const int back, int &dir, int &bar, double &price)
 {
    dir = 0; bar = 0; price = 0.0;
-   if(back < 0 || back >= MathMin(G_EVT_COUNT, NAVIUS_EVENT_MAX))
+   if(back < 0 || back >= MathMin(G_EVT_COUNT, SIRUS_EVENT_MAX))
       return EVT_NONE;
 
-   int idx = ((G_EVT_COUNT - 1 - back) % NAVIUS_EVENT_MAX + NAVIUS_EVENT_MAX) % NAVIUS_EVENT_MAX;
+   int idx = ((G_EVT_COUNT - 1 - back) % SIRUS_EVENT_MAX + SIRUS_EVENT_MAX) % SIRUS_EVENT_MAX;
    dir   = G_EVT_DIR[idx];
    bar   = G_EVT_BAR[idx];
    price = G_EVT_PRICE[idx];
@@ -530,7 +530,7 @@ void RecordEvent(const int kind, const int dir, const double price)
       (G_BARS_SEEN - last_bar) < MathMax(1, EventChainDedupeBars))
       return;
 
-   int idx = G_EVT_COUNT % NAVIUS_EVENT_MAX;
+   int idx = G_EVT_COUNT % SIRUS_EVENT_MAX;
    G_EVT_KIND[idx]  = kind;
    G_EVT_DIR[idx]   = dir;
    G_EVT_BAR[idx]   = G_BARS_SEEN;
@@ -540,7 +540,7 @@ void RecordEvent(const int kind, const int dir, const double price)
    if((EventChainPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v142 EVENT] %s %s at %.2f (chain length %d)",
                   EventKindName(kind), (dir > 0 ? "up" : (dir < 0 ? "down" : "-")),
-                  price, MathMin(G_EVT_COUNT, NAVIUS_EVENT_MAX));
+                  price, MathMin(G_EVT_COUNT, SIRUS_EVENT_MAX));
 }
 
 // Scans the current state once per bar and appends anything new to the chain.
@@ -1010,7 +1010,7 @@ string EventChainText(const int max_links)
       return "chain: (empty)";
 
    string out = "chain:";
-   int shown = MathMin(MathMin(max_links, NAVIUS_EVENT_MAX), G_EVT_COUNT);
+   int shown = MathMin(MathMin(max_links, SIRUS_EVENT_MAX), G_EVT_COUNT);
    for(int b = shown - 1; b >= 0; b--)
    {
       int d = 0, bar = 0; double pr = 0.0;
@@ -1060,7 +1060,7 @@ double LiquidityPoolAhead(const int entry_dir, int &pool_dir, double &pool_price
    ZoneMapRefreshSwingCache();
 
    int t = ZMTFIndex(LiquidityMapTF);
-   if(t < 0 || t >= NAVIUS_ZM_CACHE_TF_COUNT)
+   if(t < 0 || t >= SIRUS_ZM_CACHE_TF_COUNT)
       return 0.0;
 
    // V170f: what counts as "the same shelf" and how far ahead to look are both structural
@@ -1173,7 +1173,7 @@ bool ZoneBandOnTF(const ENUM_TIMEFRAMES tf, const double mid,
    band_lo = 0.0; band_hi = 0.0; band_count = 0;
 
    int t = ZMTFIndex(tf);
-   if(t < 0 || t >= NAVIUS_ZM_CACHE_TF_COUNT || _Point <= 0.0)
+   if(t < 0 || t >= SIRUS_ZM_CACHE_TF_COUNT || _Point <= 0.0)
       return false;
 
    // Tolerance from this timeframe's own volatility, clamped so a dead or wild
@@ -2199,9 +2199,9 @@ double VolumeDivergence(int &fading_dir, string &detail)
 // history, not a filter, and a run of bad luck should not disable a sound setup.
 // ============================================================================
 
-double G_OTS_WINS[NAVIUS_OPP_TYPE_COUNT];
-double G_OTS_LOSSES[NAVIUS_OPP_TYPE_COUNT];
-double G_OTS_PROFIT[NAVIUS_OPP_TYPE_COUNT];
+double G_OTS_WINS[SIRUS_OPP_TYPE_COUNT];
+double G_OTS_LOSSES[SIRUS_OPP_TYPE_COUNT];
+double G_OTS_PROFIT[SIRUS_OPP_TYPE_COUNT];
 
 string OppTypeGVKey(const int t)
 {
@@ -2212,7 +2212,7 @@ void OppTypeStatsSave()
 {
    if(!EnableSetupLearning || !PersistSetupLearning)
       return;
-   for(int t = 0; t < NAVIUS_OPP_TYPE_COUNT; t++)
+   for(int t = 0; t < SIRUS_OPP_TYPE_COUNT; t++)
    {
       GlobalVariableSet(OppTypeGVKey(t) + "W", G_OTS_WINS[t]);
       GlobalVariableSet(OppTypeGVKey(t) + "L", G_OTS_LOSSES[t]);
@@ -2224,7 +2224,7 @@ void OppTypeStatsRestore()
 {
    if(!EnableSetupLearning || !PersistSetupLearning)
       return;
-   for(int t = 0; t < NAVIUS_OPP_TYPE_COUNT; t++)
+   for(int t = 0; t < SIRUS_OPP_TYPE_COUNT; t++)
    {
       string k = OppTypeGVKey(t);
       if(GlobalVariableCheck(k + "W")) G_OTS_WINS[t]   = GlobalVariableGet(k + "W");
@@ -2236,7 +2236,7 @@ void OppTypeStatsRestore()
 // Called when a basket closes, with the type that opened it.
 void OppTypeRecord(const int t, const double profit)
 {
-   if(!EnableSetupLearning || t <= 0 || t >= NAVIUS_OPP_TYPE_COUNT)
+   if(!EnableSetupLearning || t <= 0 || t >= SIRUS_OPP_TYPE_COUNT)
       return;
 
    if(profit > 0.0)
@@ -2265,7 +2265,7 @@ void OppTypeRecord(const int t, const double profit)
 int SetupTypeAdjustment(const int t, string &detail)
 {
    detail = "";
-   if(!EnableSetupLearning || t <= 0 || t >= NAVIUS_OPP_TYPE_COUNT)
+   if(!EnableSetupLearning || t <= 0 || t >= SIRUS_OPP_TYPE_COUNT)
       return 0;
 
    double wins = G_OTS_WINS[t];
@@ -2316,7 +2316,7 @@ string SetupLearningText()
    double best_rate = 0.0, worst_rate = 2.0;
    double rated = 0.0;
 
-   for(int t = 1; t < NAVIUS_OPP_TYPE_COUNT; t++)
+   for(int t = 1; t < SIRUS_OPP_TYPE_COUNT; t++)
    {
       double total = G_OTS_WINS[t] + G_OTS_LOSSES[t];
       if(total < (double)SetupLearningMinSamples)

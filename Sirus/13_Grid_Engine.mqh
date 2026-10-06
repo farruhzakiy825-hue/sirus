@@ -152,9 +152,9 @@ double TrendQualityScoreRaw(const int direction, string &detail)
    int factors = 0;
 
    // --- Factor 1: ADX strength + direction ---
-   double adx      = NaviusADX(TrendQualityTF, TrendStrengthPeriod, 0, 1);
-   double plus_di   = NaviusADX(TrendQualityTF, TrendStrengthPeriod, 1, 1);
-   double minus_di  = NaviusADX(TrendQualityTF, TrendStrengthPeriod, 2, 1);
+   double adx      = SirusADX(TrendQualityTF, TrendStrengthPeriod, 0, 1);
+   double plus_di   = SirusADX(TrendQualityTF, TrendStrengthPeriod, 1, 1);
+   double minus_di  = SirusADX(TrendQualityTF, TrendStrengthPeriod, 2, 1);
    if(adx > 0.0 && plus_di > 0.0 && minus_di > 0.0)
    {
       int adx_dir = (plus_di > minus_di) ? 1 : -1;
@@ -1335,7 +1335,7 @@ double EffectiveLastLot(const double last_lot, const int raw_orders)
       int orders = 0;
       long direction = 0;
       datetime last_time = 0;
-      if(GetNaviusBasketStats(orders, vol, avg, profit, direction, last_price, last_lot_x, last_time) && vol > 0.0)
+      if(GetSirusBasketStats(orders, vol, avg, profit, direction, last_price, last_lot_x, last_time) && vol > 0.0)
          return vol;      // the combined first entry
    }
    return last_lot;
@@ -1881,7 +1881,7 @@ bool GridCanOpen(string &reason)
    double last_lot = 0.0;
    datetime last_time = 0;
 
-   if(!GetNaviusBasketStats(orders, vol, avg, profit, direction, last_price, last_lot, last_time))
+   if(!GetSirusBasketStats(orders, vol, avg, profit, direction, last_price, last_lot, last_time))
    {
       reason = "no basket";
       return false;
@@ -2522,7 +2522,7 @@ void RefreshGridDashboardStats()
    double last_lot = 0.0;
    datetime last_time = 0;
 
-   if(GetNaviusBasketStats(orders, vol, avg, profit, direction, last_price, last_lot, last_time))
+   if(GetSirusBasketStats(orders, vol, avg, profit, direction, last_price, last_lot, last_time))
    {
       G_BASKET_ORDERS = orders;
       G_BASKET_VOLUME = vol;
@@ -2622,7 +2622,7 @@ void UpdateGridRecoveryEngine(const string source)
    RefreshGridDashboardStats();
 
    // FIX(close-remnant-never-retried): the G_BASKET_CLOSE_PENDING latch stops the grid ADDING to a
-   // remnant, but on its own it also freezes it: all three retry passes inside CloseNaviusBasket()
+   // remnant, but on its own it also freezes it: all three retry passes inside CloseSirusBasket()
    // run within one tick at the same quote, so a requote or off-quotes rejects all three
    // identically. The real retry has to be a later tick, and nothing was re-invoking the close.
    // Meanwhile the refresh above recomputes the remnant's DD against its own (much smaller)
@@ -2635,7 +2635,7 @@ void UpdateGridRecoveryEngine(const string source)
       if(rr_now - last_remnant_retry >= 5 || last_remnant_retry > rr_now)
       {
          last_remnant_retry = rr_now;
-         CloseNaviusBasket("remnant retry - a previous close left positions open");
+         CloseSirusBasket("remnant retry - a previous close left positions open");
          RefreshGridDashboardStats();
       }
    }

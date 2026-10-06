@@ -1431,7 +1431,7 @@ void RebateTimeFlatManage()
 
    PrintFormat("[SIRUS REBATE FLAT] basket %d bars old, profit %.2f - closing to free the slot",
                age_bars, G_BASKET_PROFIT);
-   CloseNaviusBasket(StringFormat("Rebate turnover flat (%d bars, %.2f)", age_bars, G_BASKET_PROFIT));
+   CloseSirusBasket(StringFormat("Rebate turnover flat (%d bars, %.2f)", age_bars, G_BASKET_PROFIT));
 }
 
 void WeekendGuardManage()
@@ -1446,12 +1446,12 @@ void WeekendGuardManage()
    {
       if((WeekendGuardPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v30.4 WEEKEND] Friday %02d:00 flat: closing basket before weekend", dt.hour);
-      CloseNaviusBasket(StringFormat("Weekend guard Friday flat (hour=%d)", dt.hour));
+      CloseSirusBasket(StringFormat("Weekend guard Friday flat (hour=%d)", dt.hour));
    }
 }
 
 // --- V30.4 new: PUSH NOTIFICATIONS ---
-void NaviusNotify(const string msg)
+void SirusNotify(const string msg)
 {
    if(!EnablePushNotifications)
       return;
@@ -1593,7 +1593,7 @@ void UpdateSelfDefense()
             if((SelfDefensePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31 SELF-DEFENSE] ON: %d ketma-ket zarar basket | lot x%.2f | minScore +%d",
                            G_SD_LOSS_STREAK, SelfDefenseLotFactor, SelfDefenseMinScoreAdd);
-            NaviusNotify(StringFormat("SELF-DEFENSE ON (%d loss streak): lot x%.2f", G_SD_LOSS_STREAK, SelfDefenseLotFactor));
+            SirusNotify(StringFormat("SELF-DEFENSE ON (%d loss streak): lot x%.2f", G_SD_LOSS_STREAK, SelfDefenseLotFactor));
          }
          else if((SelfDefensePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31 SELF-DEFENSE] loss basket, streak=%d/%d", G_SD_LOSS_STREAK, SelfDefenseLossStreak);
@@ -1610,7 +1610,7 @@ void UpdateSelfDefense()
                G_SD_RECOVER_WINS = 0;
                if((SelfDefensePrintOnUse && VerboseLogs))
                   Print("[SIRUS v31 SELF-DEFENSE] OFF: tiklanish yakunlandi, normal rejim");
-               NaviusNotify("SELF-DEFENSE OFF: recovered");
+               SirusNotify("SELF-DEFENSE OFF: recovered");
             }
             else if((SelfDefensePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31 SELF-DEFENSE] win basket, recovery %d/%d", G_SD_RECOVER_WINS, SelfDefenseRecoverWins);
@@ -1695,7 +1695,7 @@ double HourBayesWinRate(const int h)
 // differently from mid-week, a distinction Hour-Bayes alone can't capture.
 void DayOfWeekBayesRecord(const int dow, const bool won)
 {
-   if(!EnableDayOfWeekBayes || dow < 0 || dow >= NAVIUS_DOW_COUNT)
+   if(!EnableDayOfWeekBayes || dow < 0 || dow >= SIRUS_DOW_COUNT)
       return;
 
    if(won) G_DOW_WINS[dow] += 1.0;
@@ -1718,7 +1718,7 @@ void DayOfWeekBayesRecord(const int dow, const bool won)
 
 double DayOfWeekBayesWinRate(const int dow)
 {
-   if(dow < 0 || dow >= NAVIUS_DOW_COUNT)
+   if(dow < 0 || dow >= SIRUS_DOW_COUNT)
       return 0.5;
    double total = G_DOW_WINS[dow] + G_DOW_LOSSES[dow];
    if(total < MathMax(1, DayOfWeekBayesMinSamples))
@@ -1741,7 +1741,7 @@ double HourBayesSampleCount(const int h)
 }
 double DayOfWeekBayesSampleCount(const int dow)
 {
-   if(dow < 0 || dow >= NAVIUS_DOW_COUNT) return 0.0;
+   if(dow < 0 || dow >= SIRUS_DOW_COUNT) return 0.0;
    return G_DOW_WINS[dow] + G_DOW_LOSSES[dow];
 }
 
@@ -1772,7 +1772,7 @@ bool SmartTimeFilterAllowsEntry(string &reason)
          if(stf_day >= 0)
          {
             for(int i = 0; i < 24; i++) { G_HB_WINS[i] *= 0.9; G_HB_LOSSES[i] *= 0.9; }
-            for(int i = 0; i < NAVIUS_DOW_COUNT; i++) { G_DOW_WINS[i] *= 0.9; G_DOW_LOSSES[i] *= 0.9; }
+            for(int i = 0; i < SIRUS_DOW_COUNT; i++) { G_DOW_WINS[i] *= 0.9; G_DOW_LOSSES[i] *= 0.9; }
          }
          stf_day = dt.day_of_year;
       }
@@ -1821,7 +1821,7 @@ void DayOfWeekBayesLoad()
    if(!EnablePersistentState)
       return;
    int restored = 0;
-   for(int d = 0; d < NAVIUS_DOW_COUNT; d++)
+   for(int d = 0; d < SIRUS_DOW_COUNT; d++)
    {
       string kw = StringFormat("NAVIUS_%I64d_%s_DOWW%d", MagicNumber, _Symbol, d);
       string kl = StringFormat("NAVIUS_%I64d_%s_DOWL%d", MagicNumber, _Symbol, d);
@@ -1942,7 +1942,7 @@ void TickVelocityUpdate()
          if((VelocityPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31.1 VELOCITY] SPIKE: tick rate x%.1f baseline, move=%.0f pts/%ds -> yangi savdo %ds bloklanadi",
                         ratio, move_points, win, VelocityHoldSec);
-         NaviusNotify(StringFormat("VELOCITY SPIKE: %.0f pts/%ds, new trades paused %ds", move_points, win, VelocityHoldSec));
+         SirusNotify(StringFormat("VELOCITY SPIKE: %.0f pts/%ds, new trades paused %ds", move_points, win, VelocityHoldSec));
       }
    }
 }
@@ -2407,8 +2407,8 @@ int TrendReversalDirectionRaw(string &reason, bool &divergence_confirmed)
    // stopped renewing the minimum), confirmed by price breaking above the most recent swing high.
    if(got_lows && low1 > low2 && got_highs && mid > high1)
    {
-      double rsi1 = NaviusRSI(TrendReversalTF, TrendReversalRSIPeriod, low1_shift);
-      double rsi2 = NaviusRSI(TrendReversalTF, TrendReversalRSIPeriod, low2_shift);
+      double rsi1 = SirusRSI(TrendReversalTF, TrendReversalRSIPeriod, low1_shift);
+      double rsi2 = SirusRSI(TrendReversalTF, TrendReversalRSIPeriod, low2_shift);
       if(rsi1 > 0.0 && rsi2 > 0.0 && rsi1 > rsi2)
          divergence_confirmed = true;
 
@@ -2427,8 +2427,8 @@ int TrendReversalDirectionRaw(string &reason, bool &divergence_confirmed)
    // confirmed by price breaking below the most recent swing low.
    if(got_highs && high1 < high2 && got_lows && mid < low1)
    {
-      double rsi1 = NaviusRSI(TrendReversalTF, TrendReversalRSIPeriod, high1_shift);
-      double rsi2 = NaviusRSI(TrendReversalTF, TrendReversalRSIPeriod, high2_shift);
+      double rsi1 = SirusRSI(TrendReversalTF, TrendReversalRSIPeriod, high1_shift);
+      double rsi2 = SirusRSI(TrendReversalTF, TrendReversalRSIPeriod, high2_shift);
       if(rsi1 > 0.0 && rsi2 > 0.0 && rsi1 < rsi2)
          divergence_confirmed = true;
 
@@ -3035,7 +3035,7 @@ double ZoneMapRawNearestSupport(const double price)
 // on every tick - even though swing points only change once a NEW bar closes. This caches the
 // expensive part (finding every confirmed swing point) once per bar; the "nearest to this
 // price" search below becomes a cheap array scan instead of a full re-scan.
-// (NAVIUS_ZM_CACHE_TF_COUNT / NAVIUS_ZM_CACHE_MAX moved above ZoneBandOnTF - preprocessor defines must precede first use)
+// (SIRUS_ZM_CACHE_TF_COUNT / SIRUS_ZM_CACHE_MAX moved above ZoneBandOnTF - preprocessor defines must precede first use)
 // (the G_ZMC_* swing cache arrays are declared with the other engine state near the top - the
 // liquidity, path-density, scale and zone-edge modules all read them from well above this point)
 
@@ -3063,7 +3063,7 @@ void ZoneMapRefreshSwingCache()
                                  ZoneMapLookbackH1, ZoneMapLookbackH4, ZoneMapLookbackD1, ZoneMapLookbackM1};
    bool tf_enabled[7]        = {EnableZoneMapM5, true, EnableZoneMapM30, true, EnableZoneMapH4, EnableZoneMapD1, EnableZoneMapM1};
 
-   for(int t = 0; t < NAVIUS_ZM_CACHE_TF_COUNT; t++)
+   for(int t = 0; t < SIRUS_ZM_CACHE_TF_COUNT; t++)
    {
       G_ZMC_HIGH_COUNT[t] = 0;
       G_ZMC_LOW_COUNT[t] = 0;
@@ -3071,7 +3071,7 @@ void ZoneMapRefreshSwingCache()
       if(!tf_enabled[t])
          continue;
 
-      for(int i = depth + 1; i <= lookbacks[t] && G_ZMC_HIGH_COUNT[t] < NAVIUS_ZM_CACHE_MAX; i++)
+      for(int i = depth + 1; i <= lookbacks[t] && G_ZMC_HIGH_COUNT[t] < SIRUS_ZM_CACHE_MAX; i++)
       {
          if(LegacyIsSwingHigh(tfs[t], i, depth))
          {
@@ -3081,7 +3081,7 @@ void ZoneMapRefreshSwingCache()
          }
       }
 
-      for(int i = depth + 1; i <= lookbacks[t] && G_ZMC_LOW_COUNT[t] < NAVIUS_ZM_CACHE_MAX; i++)
+      for(int i = depth + 1; i <= lookbacks[t] && G_ZMC_LOW_COUNT[t] < SIRUS_ZM_CACHE_MAX; i++)
       {
          if(LegacyIsSwingLow(tfs[t], i, depth))
          {
@@ -3123,7 +3123,7 @@ void StructureReadTF(const ENUM_TIMEFRAMES tf,
    dir = 0; steps = 0; invalidation = 0.0; continuation = 0.0; event = 0; event_txt = "";
 
    int t = ZMTFIndex(tf);
-   if(t < 0 || t >= NAVIUS_ZM_CACHE_TF_COUNT)
+   if(t < 0 || t >= SIRUS_ZM_CACHE_TF_COUNT)
       return;
 
    // Need three of each to see two consecutive steps in both the highs and the lows.
@@ -3691,11 +3691,11 @@ double ZoneMapCountTouches(const ENUM_TIMEFRAMES tf, const int lookback, const d
 
    // Merge the cached highs/lows (both individually sorted by ascending shift already) into
    // one ascending-shift touch list, keeping only those within tolerance of this level.
-   int touch_shifts[NAVIUS_ZM_CACHE_MAX * 2];
+   int touch_shifts[SIRUS_ZM_CACHE_MAX * 2];
    int touch_count = 0;
    int hi = 0, li = 0;
 
-   while((hi < G_ZMC_HIGH_COUNT[t] || li < G_ZMC_LOW_COUNT[t]) && touch_count < NAVIUS_ZM_CACHE_MAX * 2)
+   while((hi < G_ZMC_HIGH_COUNT[t] || li < G_ZMC_LOW_COUNT[t]) && touch_count < SIRUS_ZM_CACHE_MAX * 2)
    {
       bool take_high;
       if(hi >= G_ZMC_HIGH_COUNT[t]) take_high = false;
@@ -3831,7 +3831,7 @@ int ZoneReliabilityBucketIndex(const double level, const bool create_if_missing)
          return i;
    }
 
-   if(!create_if_missing || G_ZONE_RELIABILITY_COUNT >= NAVIUS_ZONE_RELIABILITY_BUCKETS)
+   if(!create_if_missing || G_ZONE_RELIABILITY_COUNT >= SIRUS_ZONE_RELIABILITY_BUCKETS)
       return -1;
 
    G_ZONE_RELIABILITY_KEY[G_ZONE_RELIABILITY_COUNT] = level;

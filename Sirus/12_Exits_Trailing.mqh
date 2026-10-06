@@ -634,7 +634,7 @@ string ScoreCalibrationText()
 // with older outcomes fading out via a rolling-window decay (no per-trade array needed). ---
 void BayesRecordOutcome(const int opp_type, const bool won)
 {
-   if(opp_type < 0 || opp_type >= NAVIUS_OPP_TYPE_COUNT)
+   if(opp_type < 0 || opp_type >= SIRUS_OPP_TYPE_COUNT)
       return;
 
    if(won)
@@ -666,7 +666,7 @@ void BayesSaveState()
 {
    if(!EnablePersistentState)
       return;
-   for(int i = 0; i < NAVIUS_OPP_TYPE_COUNT; i++)
+   for(int i = 0; i < SIRUS_OPP_TYPE_COUNT; i++)
    {
       GlobalVariableSet(BayesGVKey("BW", i), G_BAYES_WINS[i]);
       GlobalVariableSet(BayesGVKey("BL", i), G_BAYES_LOSSES[i]);
@@ -678,7 +678,7 @@ void BayesLoadState()
    if(!EnablePersistentState)
       return;
    int restored = 0;
-   for(int i = 0; i < NAVIUS_OPP_TYPE_COUNT; i++)
+   for(int i = 0; i < SIRUS_OPP_TYPE_COUNT; i++)
    {
       string kw = BayesGVKey("BW", i);
       string kl = BayesGVKey("BL", i);
@@ -727,7 +727,7 @@ void PostLossCooldownLoad()
 
 double BayesWinRate(const int opp_type)
 {
-   if(opp_type < 0 || opp_type >= NAVIUS_OPP_TYPE_COUNT)
+   if(opp_type < 0 || opp_type >= SIRUS_OPP_TYPE_COUNT)
       return 0.5;
 
    double total = G_BAYES_WINS[opp_type] + G_BAYES_LOSSES[opp_type];
@@ -762,7 +762,7 @@ double BayesScore(const int opp_type)
 // FEATURE(bayes-auto-disable): total closed-trade sample count for a detector type.
 double BayesSampleCount(const int opp_type)
 {
-   if(opp_type < 0 || opp_type >= NAVIUS_OPP_TYPE_COUNT)
+   if(opp_type < 0 || opp_type >= SIRUS_OPP_TYPE_COUNT)
       return 0.0;
    return G_BAYES_WINS[opp_type] + G_BAYES_LOSSES[opp_type];
 }
@@ -776,7 +776,7 @@ bool BayesDetectorDisabled(const int opp_type)
 {
    if(!EnableBayesAutoDisable)
       return false;
-   if(opp_type <= 0 || opp_type >= NAVIUS_OPP_TYPE_COUNT)   // never disable OPP_TYPE_NONE(0)
+   if(opp_type <= 0 || opp_type >= SIRUS_OPP_TYPE_COUNT)   // never disable OPP_TYPE_NONE(0)
       return false;
 
    double samples = BayesSampleCount(opp_type);
@@ -812,11 +812,11 @@ double MarketConfidenceLotAdjust(const double lot, const int opp_type)
 
 // V31.6z23 NEW: INDEPENDENT EMERGENCY FORCE-CLOSE. Found via user report - a basket exceeded
 // 50% DD (confirmed by the user's own manual calculation) yet did NOT close, despite BOTH
-// existing safety layers (BasketSL via CheckBasketExit/GetNaviusBasketStats, and Emergency/
+// existing safety layers (BasketSL via CheckBasketExit/GetSirusBasketStats, and Emergency/
 // Equity DD via UpdateRiskEngine/RiskHardBlockCheck) appearing structurally correct on review.
 // Rather than continue chasing a possibly rare, hard-to-reproduce edge case in either chain,
 // this is a genuinely INDEPENDENT, minimal-dependency safety net: it scans positions directly
-// (no reliance on GetNaviusBasketStats' aggregation logic or on G_RISK_EQUITY_DD_PCT being
+// (no reliance on GetSirusBasketStats' aggregation logic or on G_RISK_EQUITY_DD_PCT being
 // fresh from a separate function), includes swap, and force-closes on its own. Designed to be
 // the simplest possible correct implementation - the last line of defense.
 void EmergencyBasketForceCloseCheck()
@@ -875,7 +875,7 @@ void EmergencyBasketForceCloseCheck()
       {
          if(thresholds[wi] > 0.0 && dd_pct >= thresholds[wi] && G_LAST_DD_WARNING_LEVEL < thresholds[wi])
          {
-            NaviusNotify(StringFormat("DD WARNING: basket at %.1f%% (crossed %.0f%% threshold, floating=%.2f)",
+            SirusNotify(StringFormat("DD WARNING: basket at %.1f%% (crossed %.0f%% threshold, floating=%.2f)",
                                       dd_pct, thresholds[wi], total_floating));
             G_LAST_DD_WARNING_LEVEL = thresholds[wi];
             break;
@@ -887,7 +887,7 @@ void EmergencyBasketForceCloseCheck()
    {
       PrintFormat("[SIRUS v31.6z23 EMERGENCY FORCE CLOSE] Independent safety net triggered: DD=%.2f%% >= %.2f%% (floating=%.2f, balance=%.2f, positions=%d)",
                   dd_pct, EmergencyForceCloseDDPercent, total_floating, balance, position_count);
-      CloseNaviusBasket(StringFormat("EMERGENCY FORCE CLOSE (independent) DD %.2f%%/%.2f%%", dd_pct, EmergencyForceCloseDDPercent));
+      CloseSirusBasket(StringFormat("EMERGENCY FORCE CLOSE (independent) DD %.2f%%/%.2f%%", dd_pct, EmergencyForceCloseDDPercent));
    }
 }
 
@@ -1002,7 +1002,7 @@ bool CloseRetcodeIsRetryable(const uint rc)
    return false;
 }
 
-bool CloseNaviusBasket(const string reason)
+bool CloseSirusBasket(const string reason)
 {
    bool all_ok = true;
    int closed = 0;
@@ -1038,7 +1038,7 @@ bool CloseNaviusBasket(const string reason)
    // FIX(bayes-double-count): capture the detector type BUT do NOT record the outcome or clear
    // the type yet. The old code recorded Bayes and zeroed G_BASKET_OPENING_TYPE here, BEFORE the
    // close loop. If any PositionClose() below failed (requote/no-connection), the basket stayed
-   // open, the next tick called CloseNaviusBasket() again - and with the type already zeroed it
+   // open, the next tick called CloseSirusBasket() again - and with the type already zeroed it
    // recorded a SECOND outcome, wrongly attributed to OPP_TYPE_NONE (0). One basket could poison
    // two Bayes buckets. Now the outcome is recorded only once the basket is confirmed fully gone.
    int opening_type_snapshot = G_BASKET_OPENING_TYPE;
@@ -1220,7 +1220,7 @@ bool CloseNaviusBasket(const string reason)
       DrawBasketCloseMarker(reason, pre_close_profit);
 
    if(PushOnBasketClose && closed > 0)
-      NaviusNotify(StringFormat("BASKET CLOSED x%d | profit=%.2f | %s", closed, pre_close_profit, reason)); // V30.4
+      SirusNotify(StringFormat("BASKET CLOSED x%d | profit=%.2f | %s", closed, pre_close_profit, reason)); // V30.4
 
    return all_ok;
 }
@@ -1262,13 +1262,13 @@ void CheckNewsAutoFlat()
    long direction = -1;
    datetime last_time = 0;
 
-   if(!GetNaviusBasketStats(orders, vol, avg, profit, direction, last_price, last_lot, last_time))
+   if(!GetSirusBasketStats(orders, vol, avg, profit, direction, last_price, last_lot, last_time))
       return;
 
    if(NewsAutoFlatOnlyIfProfit && profit <= 0.0)
       return;
 
-   if(CloseNaviusBasket(StringFormat("Auto-flat before news: %s (%d min)", ev_name, ev_min)))
+   if(CloseSirusBasket(StringFormat("Auto-flat before news: %s (%d min)", ev_name, ev_min)))
    {
       G_NEWS_FLAT_LAST_EVENT = G_CAL_EV_ID[ev];
       if((NewsAutoFlatPrintOnUse && VerboseLogs))
@@ -1347,7 +1347,7 @@ bool RebateTrailManage(const double basket_points, const double tp_points, const
 
    if(basket_points <= G_RB_TRAIL_LOCK)
    {
-      return CloseNaviusBasket(StringFormat("Rebate trailing lock %.0f <= %.0f peak %.0f (TP %.0f, orders=%d)",
+      return CloseSirusBasket(StringFormat("Rebate trailing lock %.0f <= %.0f peak %.0f (TP %.0f, orders=%d)",
                                             basket_points, G_RB_TRAIL_LOCK, G_RB_TRAIL_PEAK, tp_points, orders));
    }
    return false;
@@ -1462,7 +1462,7 @@ bool CheckBasketExit()
    double last_lot = 0.0;
    datetime last_time = 0;
 
-   if(!GetNaviusBasketStats(orders, vol, avg, profit, direction, last_price, last_lot, last_time))
+   if(!GetSirusBasketStats(orders, vol, avg, profit, direction, last_price, last_lot, last_time))
    {
       if(G_TRAIL_PEAK_POINTS > 0.0 && EnablePersistentState)
          GlobalVariableSet(StringFormat("NAVIUS_%I64d_%s_TRAILPEAK", MagicNumber, _Symbol), 0.0); // V30.4
@@ -1471,7 +1471,7 @@ bool CheckBasketExit()
       RebateTrailReset();
       // FIX(scalein-orphan): this "the basket is gone" branch already clears the other per-basket
       // lifecycle state, but scale-in was never wired into it - ScaleInReset() was only reachable
-      // from inside CloseNaviusBasket(), so a basket closed by the broker's own TP, by hand, or by
+      // from inside CloseSirusBasket(), so a basket closed by the broker's own TP, by hand, or by
       // a stop-out left an armed completion behind. Cleared here, where every ending is seen.
       // Same in-flight guard as ScaleInDueLot(): an entry that is PLACED but not yet visible in
       // PositionsTotal() must not be mistaken for a basket that has ended.
@@ -1499,19 +1499,19 @@ bool CheckBasketExit()
    // a small positive result. No loss is ever taken here; this only fires in profit.
    if(EnableSZREscapeMode && G_SZR_ESCAPE_MODE && basket_points >= (double)SZREscapePlusPoints && profit > 0.0)
    {
-      CloseNaviusBasket(StringFormat("SZR escape: fast DD release at +%.0f pts", basket_points));
+      CloseSirusBasket(StringFormat("SZR escape: fast DD release at +%.0f pts", basket_points));
       return true;
    }
 
    if(UseBasketTPMoney && BasketTPMoney > 0.0 && profit >= BasketTPMoney)
    {
-      CloseNaviusBasket(StringFormat("Basket TP money %.2f/%.2f", profit, BasketTPMoney));
+      CloseSirusBasket(StringFormat("Basket TP money %.2f/%.2f", profit, BasketTPMoney));
       return true;
    }
 
    if(UseBasketSLMoney && BasketSLMoney > 0.0 && profit <= -MathAbs(BasketSLMoney))
    {
-      CloseNaviusBasket(StringFormat("Basket SL money %.2f/%.2f", profit, -MathAbs(BasketSLMoney)));
+      CloseSirusBasket(StringFormat("Basket SL money %.2f/%.2f", profit, -MathAbs(BasketSLMoney)));
       return true;
    }
 
@@ -1520,19 +1520,19 @@ bool CheckBasketExit()
       string be_why = "";
       if(MBBasketBreakEvenExit(basket_points, profit, be_why))
       {
-         CloseNaviusBasket(be_why);
+         CloseSirusBasket(be_why);
          return true;
       }
       // Stage 16 (E6): a basket the Recovery Judge gave up on, closed at its exit moment.
       if(MBRecoveryExit(be_why))
       {
-         CloseNaviusBasket(be_why);
+         CloseSirusBasket(be_why);
          return true;
       }
       // Local basket: a short visit against the global bias, closed at break-even or better.
       if(MBLocalBasketExit(profit, be_why))
       {
-         CloseNaviusBasket(be_why);
+         CloseSirusBasket(be_why);
          return true;
       }
    }
@@ -1542,7 +1542,7 @@ bool CheckBasketExit()
       string run_why = "";
       if(!RebateTrailingOn() && MBRunnerManage(basket_points, tp_points, run_why))
       {
-         CloseNaviusBasket(run_why);
+         CloseSirusBasket(run_why);
          return true;
       }
    }
@@ -1555,7 +1555,7 @@ bool CheckBasketExit()
    }
    else if(UseBasketTPPoints && basket_points >= tp_points && !MBRunnerActive())
    {
-      CloseNaviusBasket(StringFormat("Basket TP points %.0f/%.0f orders=%d", basket_points, tp_points, orders));
+      CloseSirusBasket(StringFormat("Basket TP points %.0f/%.0f orders=%d", basket_points, tp_points, orders));
       return true;
    }
 
@@ -1567,7 +1567,7 @@ bool CheckBasketExit()
       double dd = BasketDDPercentApprox(profit);
       if(dd >= BasketSLPercent)
       {
-         CloseNaviusBasket(StringFormat("Basket SL percent DD %.2f/%.2f", dd, BasketSLPercent));
+         CloseSirusBasket(StringFormat("Basket SL percent DD %.2f/%.2f", dd, BasketSLPercent));
          return true;
       }
    }
@@ -1581,7 +1581,7 @@ bool CheckBasketExit()
       string see_reason = "";
       if(SmartEarlyExitShouldTrigger(see_reason))
       {
-         CloseNaviusBasket(see_reason);
+         CloseSirusBasket(see_reason);
          return true;
       }
    }
@@ -1668,9 +1668,9 @@ bool CheckBasketExit()
 
 bool AutoGridHunterMode()
 {
-   ENUM_NAVIUS_MODE effective_mode = (G_BASKET_MODE_FROZEN ? G_BASKET_FROZEN_MODE : G_ACTIVE_MODE);
+   ENUM_SIRUS_MODE effective_mode = (G_BASKET_MODE_FROZEN ? G_BASKET_FROZEN_MODE : G_ACTIVE_MODE);
 
-   if(effective_mode == NAVIUS_MODE_HIGH_HUNTER)
+   if(effective_mode == SIRUS_MODE_HIGH_HUNTER)
       return true;
 
    return false;
@@ -2045,7 +2045,7 @@ double TrendStrengthAgainst(const int dir_i)
    if(!EnableTrendStrength)
       return 0.0;
 
-   // V31.6w speed fix: NaviusADX's handle is cached, but CopyBuffer itself still ran every
+   // V31.6w speed fix: SirusADX's handle is cached, but CopyBuffer itself still ran every
    // call - and this function is called from both Grid Intelligence (twice per grid cycle)
    // and First Entry (every tick). Cache the raw indicator reads per bar, same pattern as
    // ADR/DXY/TrendReversal established earlier - direction comparison below stays live/cheap.
@@ -2055,9 +2055,9 @@ double TrendStrengthAgainst(const int dir_i)
 
    if(ts_cache_bar != G_BARS_SEEN)
    {
-      ts_adx      = NaviusADX(TrendStrengthTF, TrendStrengthPeriod, 0, 1);
-      ts_plus_di  = NaviusADX(TrendStrengthTF, TrendStrengthPeriod, 1, 1);
-      ts_minus_di = NaviusADX(TrendStrengthTF, TrendStrengthPeriod, 2, 1);
+      ts_adx      = SirusADX(TrendStrengthTF, TrendStrengthPeriod, 0, 1);
+      ts_plus_di  = SirusADX(TrendStrengthTF, TrendStrengthPeriod, 1, 1);
+      ts_minus_di = SirusADX(TrendStrengthTF, TrendStrengthPeriod, 2, 1);
       ts_cache_bar = G_BARS_SEEN;
    }
 

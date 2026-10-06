@@ -45,6 +45,7 @@ input double MBSpeedNormalATR         = 2.5;    // < shu = NORMAL
 input double MBSpeedLateATR           = 4.0;    // < shu = LATE, undan ko'p = EXPIRED
 input bool   MBCandlePrintOnUse       = false;  // Har yangi M5 / M15 / H1 / H4 sham o'qilishini jurnalga yozish
 input bool   EnableCandleDirectionLink = true;  // 13-BOSQICH: yo'nalish va sham bog'lanadi - almashuvni sham tasdiqlaydi (A1), M1/M5/M15 bosimi hakamga (A2)
+input bool   EnableCandleReadingGate  = true;   // Shamni o'qish: M5+M15 qarshi bo'lsa yoki qarshi harakat M1+M5 da davom etsa - burilish shamini kutadi (bullishda SELL / bearishda BUY yo'q)
 input double MBPressureSideMin        = 15.0;   // Bosim tomoni: |buqa - ayiq| >= shu bo'lsa o'sha tomon (0..100 shkala)
 input bool   EnableExhaustionVeto     = true;   // A4: charchagan impuls (3-to'lqin yoki EXPIRED + charchoq / absorbsiya / rejection shami) tomoniga yangi kirish yo'q
 input bool   EnableTickVolume         = true;   // 17-BOSQICH (B1): sham tick hajmi - o'rtachadan x0.7 past displacement / breakout / continuation trigger emas, x1.5 baland - kuchli

@@ -1,5 +1,20 @@
 # CHANGELOG — Sirus Brain V8
 
+## Shamga qarshi kirmaslik, uzoq DD ga qarshi choralar, SIRUS rejim nomlari
+
+- **Topilgan teshik:** M5 va M15 shamlari kirishga qarshi bo'lsa ("charchagan harakat"), hakam faqat CAUTION berardi. CAUTION lot esa kichraymaydi (`MinFirstEntryLotFactor = 1.0`), shuning uchun bullish M5/M15 da SELL to'liq lot bilan ochilardi.
+- **Hakam (`EnableCandleReadingGate`):**
+  - M5 va M15 bosimi qarshi bo'lsa: M5 burilish shami (yoki tasdiqlangan reversal + reaksiya shami) chiqmaguncha kutadi;
+  - qarshi harakat M1 va M5 da hali davom etsa: M1 burilish shamini kutadi.
+- **V4 veto:** shakllanayotgan M5 shami qarshi tomonga kuchli yursa (tanasi ≥ 0.8 ATR(M5), yopilish chekkada), kirish yo'q. Avval faqat M1 sham ko'rilardi.
+- **Grid (`GridHoldOnCandlesAgainst`):** M5 va M15 shamlari savatga qarshi bosayotgan va harakat charchamagan bo'lsa, grid qo'shilmaydi. Katta lotlar yugurayotgan harakatga qo'shilmaydi.
+- **Uzoq DD (`EnableStaleBasketBE`):** savat 90 daqiqadan beri ochiq bo'lsa, DD kamida 8% bo'lgan bo'lsa va M5+M15 shamlari uning tomonida bo'lmasa, break-even + qoplamada yopiladi. Zararga yopmaydi.
+- **SIRUS nomlari:**
+  - sozlamalardagi rejim endi "SIRUS AUTO / SIRUS BALANCED / SIRUS HIGH HUNTER";
+  - `NaviusMode` o'rniga `SirusMode`, `NaviusBuildName` o'rniga `SirusBuildName`;
+  - koddagi barcha Navius nomlari SIRUS ga almashtirildi.
+  - Terminal global o'zgaruvchilari kalitlari o'zgarmadi, yig'ilgan statistika saqlanadi.
+
 ## Aqlli TP (yuguruvchi) va SIRUS brendi
 
 - **Topilgan ziddiyat:** TP 2500 × TPScale 0.85 ≈ 2125 pt, trailing esa 2300 da boshlanardi. Savat TP da yopilib ketar, trailing hech qachon ishlamasdi.

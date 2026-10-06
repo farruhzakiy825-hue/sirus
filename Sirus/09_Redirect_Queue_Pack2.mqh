@@ -1255,7 +1255,7 @@ void ReplayQueuedSignal()
    // Deliberately NOT a refusal: re-test it against the bar actually in force. A genuinely good
    // signal still trades, a marginal one that only ever cleared the looser bar does not - which is
    // the honest answer and costs nothing that deserved to be taken.
-   if(NaviusMode == NAVIUS_MODE_AUTO && G_QUEUE_MODE != G_ACTIVE_MODE)
+   if(SirusMode == SIRUS_MODE_AUTO && G_QUEUE_MODE != G_ACTIVE_MODE)
    {
       // Re-BASE, do not recompute: the stored G_QUEUE_SCORE_MIN already carries every adjustment
       // the original scan applied (regime offset, reversal-type extra, dead/range +-1, self-defence,
@@ -1263,7 +1263,7 @@ void ReplayQueuedSignal()
       // those away - loosening the test in the Balanced->Hunter direction, and corrupting the
       // margin that G_BASKET_OPENING_MARGIN and the confidence-lot span are measured against.
       // Swap only the mode component and keep the rest.
-      int saved_base = (G_QUEUE_MODE == NAVIUS_MODE_HIGH_HUNTER)
+      int saved_base = (G_QUEUE_MODE == SIRUS_MODE_HIGH_HUNTER)
                        ? (G_OPP_IS_MICRO ? MinScoreMicroHighHunter : MinScoreHighHunter)
                        : (G_OPP_IS_MICRO ? MinScoreMicroBalanced   : MinScoreBalanced);
       int replay_bar = MathMax(1, G_QUEUE_SCORE_MIN - saved_base + MinScoreForContext(G_OPP_IS_MICRO));
@@ -1866,7 +1866,7 @@ bool IsMicroFriendlyOpportunityType()
 
 double MicroLotFactor()
 {
-   double factor = (G_ACTIVE_MODE == NAVIUS_MODE_HIGH_HUNTER ? MicroLotFactorHighHunter : MicroLotFactorBalanced);
+   double factor = (G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER ? MicroLotFactorHighHunter : MicroLotFactorBalanced);
    if(factor <= 0.0)
       factor = 0.50;
 
@@ -2113,7 +2113,7 @@ void Pack3UpdateNewsGuard()
 
       if(NewsGuardCloseBasket && G_BASKET_ORDERS > 0)
       {
-         if(CloseNaviusBasket("PACK3 news guard close: " + reason))
+         if(CloseSirusBasket("PACK3 news guard close: " + reason))
             G_PACK3_CLOSE_REQUEST = true;
       }
    }
@@ -2305,7 +2305,7 @@ void Pack3ServerDisasterSL()
 
       if(ServerDisasterCloseBasket && G_BASKET_ORDERS > 0)
       {
-         CloseNaviusBasket("PACK3 server disaster SL");
+         CloseSirusBasket("PACK3 server disaster SL");
          G_PACK3_CLOSE_REQUEST = true;
       }
    }
@@ -2868,7 +2868,7 @@ bool Pack2CheckBasketBreakEvenOrTrail()
 
       if(G_BASKET_BE_ACTIVE && G_BASKET_POINTS > 0.0 && G_BASKET_POINTS <= BasketBEPlusPoints)
       {
-         closed = CloseNaviusBasket(StringFormat("Pack2 Basket BE lock %.0f <= +%.0f (armed at %.0f)",
+         closed = CloseSirusBasket(StringFormat("Pack2 Basket BE lock %.0f <= +%.0f (armed at %.0f)",
                                                  G_BASKET_POINTS, (double)BasketBEPlusPoints, (double)BasketBEStartPoints));
          if(closed)
             G_PACK2_TRAIL_CLOSES++;
@@ -2948,7 +2948,7 @@ bool Pack2CheckBasketBreakEvenOrTrail()
 
       if(G_BASKET_POINTS <= G_BASKET_TRAIL_LOCK)
       {
-         closed = CloseNaviusBasket(StringFormat("Pack2 Basket trailing lock %.0f <= %.0f peak %.0f (armed at %.0f)",
+         closed = CloseSirusBasket(StringFormat("Pack2 Basket trailing lock %.0f <= %.0f peak %.0f (armed at %.0f)",
                                                  G_BASKET_POINTS,
                                                  G_BASKET_TRAIL_LOCK,
                                                  G_BASKET_TRAIL_PEAK,

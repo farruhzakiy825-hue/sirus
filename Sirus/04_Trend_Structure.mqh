@@ -48,7 +48,7 @@ double GlobalTFConfidence(const ENUM_TIMEFRAMES tf, const int direction, const i
       // precedes the big reversals. Only measured / flagged on the primary global TF.
       if(EnableGlobalTrendMomentum && tf == GlobalTrendPrimaryTF)
       {
-         double adx_prev = NaviusADX(tf, GlobalTrendADXPeriod, 0, 1 + MathMax(1, GlobalTrendADXSlopeBars));
+         double adx_prev = SirusADX(tf, GlobalTrendADXPeriod, 0, 1 + MathMax(1, GlobalTrendADXSlopeBars));
          if(adx_prev > 0.0 && (adx_prev - adx) >= GlobalTrendADXFadeDelta)
          {
             G_GLOBAL_TREND_FADING = true;
@@ -175,7 +175,7 @@ double LocalTFConfidence(const ENUM_TIMEFRAMES tf, const int direction, const in
       // Only evaluated / flagged on the primary local TF so the global flag stays coherent.
       if(EnableLocalTrendMomentum && tf == LocalTrendTF)
       {
-         double adx_prev = NaviusADX(tf, LocalTrendADXPeriod, 0, 1 + MathMax(1, LocalTrendADXSlopeBars));
+         double adx_prev = SirusADX(tf, LocalTrendADXPeriod, 0, 1 + MathMax(1, LocalTrendADXSlopeBars));
          if(adx_prev > 0.0 && (adx_prev - adx) >= LocalTrendADXFadeDelta)
          {
             G_LOCAL_TREND_FADING = true;
@@ -367,11 +367,11 @@ void RecordBasketDDHistory()
    if(G_BASKET_DD_HISTORY_BAR == G_BARS_SEEN)
       return;
 
-   for(int i = NAVIUS_DD_HISTORY_SIZE - 1; i > 0; i--)
+   for(int i = SIRUS_DD_HISTORY_SIZE - 1; i > 0; i--)
       G_BASKET_DD_HISTORY[i] = G_BASKET_DD_HISTORY[i - 1];
    G_BASKET_DD_HISTORY[0] = G_BASKET_DD_PERCENT;
 
-   if(G_BASKET_DD_HISTORY_COUNT < NAVIUS_DD_HISTORY_SIZE)
+   if(G_BASKET_DD_HISTORY_COUNT < SIRUS_DD_HISTORY_SIZE)
       G_BASKET_DD_HISTORY_COUNT++;
 
    G_BASKET_DD_HISTORY_BAR = G_BARS_SEEN;
@@ -388,13 +388,13 @@ double BasketDDAccelerationFactor(string &detail)
    // that's a fragile, non-obvious invariant. Clamping w explicitly makes the array access
    // provably safe regardless of what value the user sets, and regardless of future changes
    // to how COUNT is maintained.
-   int w = MathMax(1, MathMin(BasketDDAccelWindowBars, (NAVIUS_DD_HISTORY_SIZE - 1) / 2));
+   int w = MathMax(1, MathMin(BasketDDAccelWindowBars, (SIRUS_DD_HISTORY_SIZE - 1) / 2));
    if(G_BASKET_DD_HISTORY_COUNT < w * 2)
       return 0.0;
 
    double dd_now = G_BASKET_DD_HISTORY[0];
    double dd_mid = G_BASKET_DD_HISTORY[w];
-   double dd_old = G_BASKET_DD_HISTORY[MathMin(NAVIUS_DD_HISTORY_SIZE - 1, w * 2)];
+   double dd_old = G_BASKET_DD_HISTORY[MathMin(SIRUS_DD_HISTORY_SIZE - 1, w * 2)];
 
    double rate_recent = (dd_now - dd_mid) / (double)w;
    double rate_older  = (dd_mid - dd_old) / (double)w;
@@ -430,8 +430,8 @@ double RSICoolingFactor(const int direction, const ENUM_TIMEFRAMES tf, const int
    if(!EnableRSICooling)
       return 0.0;
 
-   double rsi_now = NaviusRSI(tf, period, 1);
-   double rsi_prior = NaviusRSI(tf, period, MathMax(2, lookback_bars + 1));
+   double rsi_now = SirusRSI(tf, period, 1);
+   double rsi_prior = SirusRSI(tf, period, MathMax(2, lookback_bars + 1));
 
    if(rsi_now <= 0.0 || rsi_prior <= 0.0)
       return 0.0;
@@ -893,9 +893,9 @@ double ExhaustionConsensusScoreRaw(const int direction, string &detail)
    // 1. ADX deceleration, only counted if ADX is actually confirming OUR direction right now.
    if(EnableADXDeceleration)
    {
-      double adx_val = NaviusADX(TrendQualityTF, TrendStrengthPeriod, 0, 1);
-      double plus_di = NaviusADX(TrendQualityTF, TrendStrengthPeriod, 1, 1);
-      double minus_di = NaviusADX(TrendQualityTF, TrendStrengthPeriod, 2, 1);
+      double adx_val = SirusADX(TrendQualityTF, TrendStrengthPeriod, 0, 1);
+      double plus_di = SirusADX(TrendQualityTF, TrendStrengthPeriod, 1, 1);
+      double minus_di = SirusADX(TrendQualityTF, TrendStrengthPeriod, 2, 1);
       int adx_dir = (plus_di > minus_di) ? 1 : ((minus_di > plus_di) ? -1 : 0);
       if(adx_dir == direction && adx_val > 0.0)
       {
@@ -1038,17 +1038,17 @@ double LowestLow(const ENUM_TIMEFRAMES tf, const int lookback, const int start_s
 // V29 upgrade: was a manual simple-average-of-True-Range loop (choppy, drops old bars abruptly).
 // Now uses MT5's native iATR (proper Wilder smoothing - the real, standard ATR) via a small
 // handle cache, since MQL5 requires one handle per unique (symbol, timeframe, period) combo.
-#define NAVIUS_ATR_CACHE_SIZE 12
-int G_ATR_CACHE_TF[NAVIUS_ATR_CACHE_SIZE];
-int G_ATR_CACHE_PERIOD[NAVIUS_ATR_CACHE_SIZE];
-int G_ATR_CACHE_HANDLE[NAVIUS_ATR_CACHE_SIZE];
+#define SIRUS_ATR_CACHE_SIZE 12
+int G_ATR_CACHE_TF[SIRUS_ATR_CACHE_SIZE];
+int G_ATR_CACHE_PERIOD[SIRUS_ATR_CACHE_SIZE];
+int G_ATR_CACHE_HANDLE[SIRUS_ATR_CACHE_SIZE];
 int G_ATR_CACHE_COUNT = 0;
 
 // V30 fix: round-robin eviction when the cache is full (old code created a brand-new
 // handle on EVERY call once full and never released it -> indicator handle leak).
 int G_ATR_CACHE_EVICT_NEXT = 0;
 
-int NaviusGetATRHandle(const ENUM_TIMEFRAMES tf, const int period)
+int SirusGetATRHandle(const ENUM_TIMEFRAMES tf, const int period)
 {
    for(int i = 0; i < G_ATR_CACHE_COUNT; i++)
    {
@@ -1060,7 +1060,7 @@ int NaviusGetATRHandle(const ENUM_TIMEFRAMES tf, const int period)
    if(h == INVALID_HANDLE)
       return INVALID_HANDLE;
 
-   if(G_ATR_CACHE_COUNT < NAVIUS_ATR_CACHE_SIZE)
+   if(G_ATR_CACHE_COUNT < SIRUS_ATR_CACHE_SIZE)
    {
       G_ATR_CACHE_TF[G_ATR_CACHE_COUNT] = (int)tf;
       G_ATR_CACHE_PERIOD[G_ATR_CACHE_COUNT] = period;
@@ -1077,13 +1077,13 @@ int NaviusGetATRHandle(const ENUM_TIMEFRAMES tf, const int period)
       G_ATR_CACHE_TF[slot] = (int)tf;
       G_ATR_CACHE_PERIOD[slot] = period;
       G_ATR_CACHE_HANDLE[slot] = h;
-      G_ATR_CACHE_EVICT_NEXT = (slot + 1) % NAVIUS_ATR_CACHE_SIZE;
+      G_ATR_CACHE_EVICT_NEXT = (slot + 1) % SIRUS_ATR_CACHE_SIZE;
    }
    return h;
 }
 
 // V30 new: release all cached ATR handles (called from OnDeinit).
-void NaviusReleaseATRHandles()
+void SirusReleaseATRHandles()
 {
    for(int i = 0; i < G_ATR_CACHE_COUNT; i++)
    {
@@ -1102,7 +1102,7 @@ double ATRPointsManual(const ENUM_TIMEFRAMES tf, const int period, const int sta
    if(period <= 0 || _Point <= 0.0)
       return 0.0;
 
-   int handle = NaviusGetATRHandle(tf, period);
+   int handle = SirusGetATRHandle(tf, period);
    if(handle == INVALID_HANDLE)
       return 0.0;
 
@@ -1120,11 +1120,11 @@ double ATRPointsManual(const ENUM_TIMEFRAMES tf, const int period, const int sta
 //==================================================================//
 //  PHASE 21.3 MODE MANAGER
 //==================================================================//
-ENUM_NAVIUS_MODE ResolveDefaultAutoMode()
+ENUM_SIRUS_MODE ResolveDefaultAutoMode()
 {
    if(IsValidTradingMode(DefaultAutoMode))
       return DefaultAutoMode;
-   return NAVIUS_MODE_BALANCED;
+   return SIRUS_MODE_BALANCED;
 }
 
 double VolatilityRegimeScore();
@@ -1249,14 +1249,14 @@ bool AutoHunterMarketConditionOK(string &reason)
    return ok;
 }
 
-ENUM_NAVIUS_MODE EvaluateAutoModeCandidate(string &reason)
+ENUM_SIRUS_MODE EvaluateAutoModeCandidate(string &reason)
 {
-   ENUM_NAVIUS_MODE safe_default = ResolveDefaultAutoMode();
+   ENUM_SIRUS_MODE safe_default = ResolveDefaultAutoMode();
 
    if(!G_ENV_READY)
    {
       reason = "ENV not ready -> BALANCED";
-      return NAVIUS_MODE_BALANCED;
+      return SIRUS_MODE_BALANCED;
    }
 
    int tick_age = TickAgeSeconds();
@@ -1270,7 +1270,7 @@ ENUM_NAVIUS_MODE EvaluateAutoModeCandidate(string &reason)
    if(G_LAST_SPREAD_POINTS < 0)
    {
       reason = "spread unreadable -> BALANCED";
-      return NAVIUS_MODE_BALANCED;
+      return SIRUS_MODE_BALANCED;
    }
 
    // FIX(hunter-spread-order): this reject-gate gates on AutoBalancedSpreadLimit alone, then the
@@ -1287,13 +1287,13 @@ ENUM_NAVIUS_MODE EvaluateAutoModeCandidate(string &reason)
       reason = StringFormat("spread above auto-mode ceiling %d/%d -> BALANCED",
                             G_LAST_SPREAD_POINTS,
                             EffSpread(auto_mode_spread_ceiling));
-      return NAVIUS_MODE_BALANCED;
+      return SIRUS_MODE_BALANCED;
    }
 
    if(tick_age < 0)
    {
       reason = "no tick yet -> BALANCED";
-      return NAVIUS_MODE_BALANCED;
+      return SIRUS_MODE_BALANCED;
    }
 
    if(tick_age > AutoHighHunterMaxTickAge)
@@ -1301,7 +1301,7 @@ ENUM_NAVIUS_MODE EvaluateAutoModeCandidate(string &reason)
       reason = StringFormat("tick age high %ds/%d -> BALANCED",
                             tick_age,
                             AutoHighHunterMaxTickAge);
-      return NAVIUS_MODE_BALANCED;
+      return SIRUS_MODE_BALANCED;
    }
 
    // FIX(hunter-spread-discriminator-dead): this test used EffSpread(AutoHighHunterMaxSpread), and
@@ -1324,7 +1324,7 @@ ENUM_NAVIUS_MODE EvaluateAutoModeCandidate(string &reason)
       if(!AutoHunterMarketConditionOK(market_reason))
       {
          reason = StringFormat("spread clean but %s -> BALANCED", market_reason);
-         return NAVIUS_MODE_BALANCED;
+         return SIRUS_MODE_BALANCED;
       }
 
       reason = StringFormat("clean technical state: spread %d/%d + tick age %ds/%d + %s -> HIGH_HUNTER",
@@ -1333,13 +1333,13 @@ ENUM_NAVIUS_MODE EvaluateAutoModeCandidate(string &reason)
                             tick_age,
                             AutoHighHunterMaxTickAge,
                             market_reason);
-      return NAVIUS_MODE_HIGH_HUNTER;
+      return SIRUS_MODE_HIGH_HUNTER;
    }
 
    reason = StringFormat("spread not clean enough for hunter %d/%d -> BALANCED",
                          G_LAST_SPREAD_POINTS,
                          hunter_spread_limit);
-   return NAVIUS_MODE_BALANCED;
+   return SIRUS_MODE_BALANCED;
 }
 
 void UpdateModeManager(const string source)
@@ -1349,12 +1349,12 @@ void UpdateModeManager(const string source)
 
    G_MODE_EVAL_BAR = G_BARS_SEEN;
 
-   ENUM_NAVIUS_MODE wanted = NAVIUS_MODE_BALANCED;
+   ENUM_SIRUS_MODE wanted = SIRUS_MODE_BALANCED;
    string reason = "";
 
    if(IsForcedMode())
    {
-      wanted = NaviusMode;
+      wanted = SirusMode;
       reason = "manual fixed mode";
    }
    else
@@ -1364,7 +1364,7 @@ void UpdateModeManager(const string source)
 
    if(!IsValidTradingMode(wanted))
    {
-      wanted = NAVIUS_MODE_BALANCED;
+      wanted = SIRUS_MODE_BALANCED;
       reason = "invalid candidate -> BALANCED";
    }
 
@@ -1402,7 +1402,7 @@ void UpdateModeManager(const string source)
    }
 
    G_MODE_STATUS = StringFormat("MODE: %s -> %s | candidate=%s | reason=%s",
-                                ModeToString(NaviusMode),
+                                ModeToString(SirusMode),
                                 ModeToString(G_ACTIVE_MODE),
                                 ModeToString(G_MODE_CANDIDATE),
                                 G_MODE_REASON);
@@ -1568,7 +1568,7 @@ bool DetectRangeState(string &reason)
 
    G_MARKET_RANGE_POINTS = (high - low) / _Point;
 
-   int max_range = (G_ACTIVE_MODE == NAVIUS_MODE_HIGH_HUNTER ? RangeMaxPointsHunter : RangeMaxPointsBalanced);
+   int max_range = (G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER ? RangeMaxPointsHunter : RangeMaxPointsBalanced);
 
    // FEATURE(range-breakout): remember the range boundaries whenever a range is confirmed, so the
    // breakout detector can tell when price later escapes them. Only stored on a real range so a

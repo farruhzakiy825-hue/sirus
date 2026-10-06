@@ -96,9 +96,9 @@ string   G_ENV_LEVEL_STATUS    = "LEVELS: waiting";
 //==================================================================//
 //  GLOBAL MODE MANAGER STATE
 //==================================================================//
-ENUM_NAVIUS_MODE G_ACTIVE_MODE          = NAVIUS_MODE_BALANCED;
-ENUM_NAVIUS_MODE G_PREVIOUS_MODE        = NAVIUS_MODE_BALANCED;
-ENUM_NAVIUS_MODE G_MODE_CANDIDATE       = NAVIUS_MODE_BALANCED;
+ENUM_SIRUS_MODE G_ACTIVE_MODE          = SIRUS_MODE_BALANCED;
+ENUM_SIRUS_MODE G_PREVIOUS_MODE        = SIRUS_MODE_BALANCED;
+ENUM_SIRUS_MODE G_MODE_CANDIDATE       = SIRUS_MODE_BALANCED;
 string           G_MODE_STATUS          = "MODE: waiting";
 string           G_MODE_REASON          = "initializing";
 string           G_MODE_LAST_SIGNATURE  = "";
@@ -226,12 +226,12 @@ int                     G_LAST_ENTRY_ALLOWED_BAR = 0;    // V180: last bar on wh
 // Zone-map swing cache. Declared here rather than beside the zone map itself because the modules
 // that read it - liquidity pools, path density, market scale, zone edges - are defined earlier in
 // the file, and MQL5 does not hoist variable declarations the way it hoists function ones.
-double G_ZMC_HIGH_PRICE[NAVIUS_ZM_CACHE_TF_COUNT][NAVIUS_ZM_CACHE_MAX];
-double G_ZMC_LOW_PRICE[NAVIUS_ZM_CACHE_TF_COUNT][NAVIUS_ZM_CACHE_MAX];
-int    G_ZMC_HIGH_SHIFT[NAVIUS_ZM_CACHE_TF_COUNT][NAVIUS_ZM_CACHE_MAX];
-int    G_ZMC_LOW_SHIFT[NAVIUS_ZM_CACHE_TF_COUNT][NAVIUS_ZM_CACHE_MAX];
-int    G_ZMC_HIGH_COUNT[NAVIUS_ZM_CACHE_TF_COUNT];
-int    G_ZMC_LOW_COUNT[NAVIUS_ZM_CACHE_TF_COUNT];
+double G_ZMC_HIGH_PRICE[SIRUS_ZM_CACHE_TF_COUNT][SIRUS_ZM_CACHE_MAX];
+double G_ZMC_LOW_PRICE[SIRUS_ZM_CACHE_TF_COUNT][SIRUS_ZM_CACHE_MAX];
+int    G_ZMC_HIGH_SHIFT[SIRUS_ZM_CACHE_TF_COUNT][SIRUS_ZM_CACHE_MAX];
+int    G_ZMC_LOW_SHIFT[SIRUS_ZM_CACHE_TF_COUNT][SIRUS_ZM_CACHE_MAX];
+int    G_ZMC_HIGH_COUNT[SIRUS_ZM_CACHE_TF_COUNT];
+int    G_ZMC_LOW_COUNT[SIRUS_ZM_CACHE_TF_COUNT];
 int    G_ZMC_CACHE_BAR = -100000;
 
 
@@ -351,7 +351,7 @@ ENUM_MARKET_STATE       G_QUEUE_MARKET_STATE    = MARKET_UNKNOWN;
 int                     G_QUEUE_OPP_SCORE       = 0;
 int                     G_QUEUE_SCORE_FINAL     = 0;
 int                     G_QUEUE_SCORE_MIN       = 0;
-ENUM_NAVIUS_MODE        G_QUEUE_MODE            = NAVIUS_MODE_BALANCED;   // V249fix(auto-mode): the mode the queued signal was authorised under
+ENUM_SIRUS_MODE        G_QUEUE_MODE            = SIRUS_MODE_BALANCED;   // V249fix(auto-mode): the mode the queued signal was authorised under
 bool                    G_QUEUE_IS_MICRO        = false;
 double                  G_QUEUE_TP_TARGET       = 0.0;
 double                  G_QUEUE_ROOM_POINTS     = 0.0;
@@ -389,8 +389,8 @@ string                  G_GRID_LAST_SIGNATURE   = "";
 datetime                G_LAST_GRID_TIME        = 0;
 int                     G_LAST_GRID_BAR         = -100000;
 int                     G_GRID_ATTEMPTS         = 0;
-#define NAVIUS_DD_HISTORY_SIZE 16
-double                  G_BASKET_DD_HISTORY[NAVIUS_DD_HISTORY_SIZE];
+#define SIRUS_DD_HISTORY_SIZE 16
+double                  G_BASKET_DD_HISTORY[SIRUS_DD_HISTORY_SIZE];
 int                     G_BASKET_DD_HISTORY_COUNT = 0;
 int                     G_BASKET_DD_HISTORY_BAR   = -1;
 double                  G_BASKET_LAST_GRID_PRICE = 0.0;   // V31.6z20 NEW: price of the most recent grid addition, for adverse-streak tracking
@@ -454,7 +454,7 @@ datetime                G_KALMAN_LAST_BAR_TIME   = 0;
 
 // --- V29 fix: freeze the grid profile mode for the lifetime of an open basket, so AUTO mode
 // switching mid-basket can't mix Hunter-distance and Balanced-distance grid orders together. ---
-ENUM_NAVIUS_MODE        G_BASKET_FROZEN_MODE        = NAVIUS_MODE_BALANCED;
+ENUM_SIRUS_MODE        G_BASKET_FROZEN_MODE        = SIRUS_MODE_BALANCED;
 bool                    G_BASKET_MODE_FROZEN        = false;
 bool                    G_LAST_IMPULSE_TREND_ALIGNED = false;
 int                     G_LAST_IMPULSE_DIRECTION     = 0;      // V31.6f: +1 up, -1 down
@@ -494,9 +494,9 @@ int                     G_PARTIAL_CLOSE_STAGE    = 0;      // V29: 0=none, 1=sta
 ulong                   G_NEWS_FLAT_LAST_EVENT   = 0;      // V29: avoids re-triggering auto-flat for the same event. FIX(autoflat-by-id): calendar value id, not the name - a weekly release (Jobless Claims) has the same name every week, so the name-based latch silently disabled auto-flat for it after the first time.
 
 // --- V29 new (D-block): Market Confidence Score state ---
-#define NAVIUS_OPP_TYPE_COUNT 22
-double                  G_BAYES_WINS[NAVIUS_OPP_TYPE_COUNT];
-double                  G_BAYES_LOSSES[NAVIUS_OPP_TYPE_COUNT];
+#define SIRUS_OPP_TYPE_COUNT 22
+double                  G_BAYES_WINS[SIRUS_OPP_TYPE_COUNT];
+double                  G_BAYES_LOSSES[SIRUS_OPP_TYPE_COUNT];
 int                     G_BASKET_OPENING_TYPE   = 0;      // OPP_TYPE_NONE; records which detector opened the current basket
 
 // --- V31.6e new: M1 entry-close confirmation gate state ---
@@ -507,9 +507,9 @@ int                     G_M1_GATE_LAST_DIR      = 0;
 bool                    G_DUP_INSTANCE_WARNED   = false;
 
 // --- V31.6j new: Day-of-Week Bayes tracking (0=Sunday..6=Saturday) ---
-#define NAVIUS_DOW_COUNT 7
-double                  G_DOW_WINS[NAVIUS_DOW_COUNT];
-double                  G_DOW_LOSSES[NAVIUS_DOW_COUNT];
+#define SIRUS_DOW_COUNT 7
+double                  G_DOW_WINS[SIRUS_DOW_COUNT];
+double                  G_DOW_LOSSES[SIRUS_DOW_COUNT];
 int                     G_BASKET_OPENING_DOW    = -1;
 
 // --- V31.6j new: Post-SL same-direction cooldown ---
@@ -517,10 +517,10 @@ int                     G_LAST_SL_DIRECTION     = 0;      // POSITION_TYPE_BUY/S
 int                     G_LAST_SL_BAR           = -100000;
 
 // --- V31.6j new: Per-zone historical reliability (bucketed by price) ---
-#define NAVIUS_ZONE_RELIABILITY_BUCKETS 40
-double                  G_ZONE_RELIABILITY_KEY[NAVIUS_ZONE_RELIABILITY_BUCKETS];
-double                  G_ZONE_RELIABILITY_HOLDS[NAVIUS_ZONE_RELIABILITY_BUCKETS];
-double                  G_ZONE_RELIABILITY_BREAKS[NAVIUS_ZONE_RELIABILITY_BUCKETS];
+#define SIRUS_ZONE_RELIABILITY_BUCKETS 40
+double                  G_ZONE_RELIABILITY_KEY[SIRUS_ZONE_RELIABILITY_BUCKETS];
+double                  G_ZONE_RELIABILITY_HOLDS[SIRUS_ZONE_RELIABILITY_BUCKETS];
+double                  G_ZONE_RELIABILITY_BREAKS[SIRUS_ZONE_RELIABILITY_BUCKETS];
 int                     G_ZONE_RELIABILITY_COUNT = 0;
 double                  G_BASKET_OPENING_ZONE_LEVEL = 0.0;
 

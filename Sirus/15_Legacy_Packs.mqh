@@ -982,7 +982,7 @@ void UpdatePack4MiniLicense(const string source)
    G_P4M_VALID = (!G_P4M_HARD_BLOCK && !G_P4M_ENTRY_BLOCK && !G_P4M_GRID_BLOCK);
 
    if(G_P4M_HARD_BLOCK && P4MiniCloseBasketInvalid && G_BASKET_ORDERS > 0)
-      CloseNaviusBasket("P4M invalid: " + G_P4M_REASON);
+      CloseSirusBasket("P4M invalid: " + G_P4M_REASON);
 
    G_P4M_STATUS = StringFormat("P4M: valid=%s license=%s symbol=%s spread=%s",
                                BoolText(G_P4M_VALID),
@@ -1936,15 +1936,15 @@ void UpdatePremiumVisualEngine(const string source)
 //==================================================================//
 string RCBPreset()
 {
-   // V249fix(auto-mode): under NaviusMode = AUTO the live mode is decided per scan, but this preset
+   // V249fix(auto-mode): under SirusMode = AUTO the live mode is decided per scan, but this preset
    // is a STRING INPUT that never moves - so the HIGH_HUNTER limits were unreachable: the EA could
    // run in HIGH_HUNTER all session while this governor kept applying BALANCED caps (7 orders vs 9,
    // 0.25 first lot vs 0.50). That is a brake nobody asked for, and it hides itself - the two
    // branches currently return the same spread number, so you cannot see the mode being ignored.
    // In AUTO the governor now follows the mode actually in force (frozen per basket once one is
-   // open, live otherwise). An EXPLICIT NaviusMode still uses the string, so nothing changes for a
+   // open, live otherwise). An EXPLICIT SirusMode still uses the string, so nothing changes for a
    // user who set the mode by hand.
-   if(NaviusMode == NAVIUS_MODE_AUTO)
+   if(SirusMode == SIRUS_MODE_AUTO)
    {
       // An explicitly chosen SAFE preset is a deliberate instruction and outranks the live mode -
       // otherwise following the mode would silently delete the tightest caps the user asked for.
@@ -1954,8 +1954,8 @@ string RCBPreset()
       if(sp == "SAFE" || sp == "safe" || sp == "Safe")
          return "SAFE";
 
-      ENUM_NAVIUS_MODE eff = (G_BASKET_MODE_FROZEN ? G_BASKET_FROZEN_MODE : G_ACTIVE_MODE);
-      if(eff == NAVIUS_MODE_HIGH_HUNTER)
+      ENUM_SIRUS_MODE eff = (G_BASKET_MODE_FROZEN ? G_BASKET_FROZEN_MODE : G_ACTIVE_MODE);
+      if(eff == SIRUS_MODE_HIGH_HUNTER)
          return "HIGH_HUNTER";
       return "BALANCED";
    }
@@ -2325,7 +2325,7 @@ int DeepHTFTrendDirection()
             htf_dir = 1;
          else if(close_now < fast_now && fast_now < slow_now && slope_points < 0.0)
             htf_dir = -1;
-         // Softer fallback: old Navius commander idea reads large-flow direction even when MA stack is not perfect.
+         // Softer fallback: old Sirus commander idea reads large-flow direction even when MA stack is not perfect.
          else if(close_now > fast_now && fast_now >= slow_now)
             htf_dir = 1;
          else if(close_now < fast_now && fast_now <= slow_now)
@@ -4189,7 +4189,7 @@ void UpdateProfitExtractionSmartExit(const string source)
       G_DXB_CLOSE_SENT = true;
       G_DXB_APPLIED = true;
 
-      bool closed = CloseNaviusBasket("Deep Smart Exit: " + reason);
+      bool closed = CloseSirusBasket("Deep Smart Exit: " + reason);
       RefreshGridDashboardStats();
 
       if(closed)
@@ -4557,15 +4557,15 @@ bool MarketRegimeAutoTuneAllowsGrid(string &reason)
 //==================================================================//
 string ClientSafetyProfile()
 {
-   // V249fix(auto-mode): under NaviusMode = AUTO the live mode is decided per scan, but this preset
+   // V249fix(auto-mode): under SirusMode = AUTO the live mode is decided per scan, but this preset
    // is a STRING INPUT that never moves - so the HIGH_HUNTER limits were unreachable: the EA could
    // run in HIGH_HUNTER all session while this governor kept applying BALANCED caps (7 orders vs 9,
    // 0.25 first lot vs 0.50). That is a brake nobody asked for, and it hides itself - the two
    // branches currently return the same spread number, so you cannot see the mode being ignored.
    // In AUTO the governor now follows the mode actually in force (frozen per basket once one is
-   // open, live otherwise). An EXPLICIT NaviusMode still uses the string, so nothing changes for a
+   // open, live otherwise). An EXPLICIT SirusMode still uses the string, so nothing changes for a
    // user who set the mode by hand.
-   if(NaviusMode == NAVIUS_MODE_AUTO)
+   if(SirusMode == SIRUS_MODE_AUTO)
    {
       // Same rule: an explicit CONSERVATIVE choice outranks the live mode.
       string cp = P4MiniClientRiskProfile;
@@ -4574,8 +4574,8 @@ string ClientSafetyProfile()
       if(cp == "CONSERVATIVE" || cp == "SAFE" || cp == "safe" || cp == "conservative")
          return "SAFE";
 
-      ENUM_NAVIUS_MODE eff = (G_BASKET_MODE_FROZEN ? G_BASKET_FROZEN_MODE : G_ACTIVE_MODE);
-      if(eff == NAVIUS_MODE_HIGH_HUNTER)
+      ENUM_SIRUS_MODE eff = (G_BASKET_MODE_FROZEN ? G_BASKET_FROZEN_MODE : G_ACTIVE_MODE);
+      if(eff == SIRUS_MODE_HIGH_HUNTER)
          return "HIGH_HUNTER";
       return "BALANCED";
    }

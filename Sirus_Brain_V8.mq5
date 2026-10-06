@@ -695,9 +695,9 @@ int OnInit()
    G_TRADE.SetTypeFillingBySymbol(_Symbol);
 
    PrintFormat("[SIRUS v31.6 PHASE 22.9] INIT OK | build=%s | version=%s | mode=%s | symbol=%s | chartTF=%s | coreTF=%s | timer=%ds | local=%s | current=%s",
-               NaviusBuildName,
+               SirusBuildName,
                G_VERSION,
-               ModeToString(NaviusMode),
+               ModeToString(SirusMode),
                _Symbol,
                TFToString((ENUM_TIMEFRAMES)_Period),
                TFToString(CoreBarTF),
@@ -771,10 +771,10 @@ void OnDeinit(const int reason)
    FollowRecordSave();
 
    EventKillTimer();
-   NaviusReleaseATRHandles(); // V30: free cached indicator handles
-   NaviusReleaseSMAHandles(); // FIX(handle-leak): SMA cache was never released
-   NaviusReleaseRSIHandles(); // FIX(handle-leak): RSI cache was never released
-   NaviusReleaseADXHandles(); // FIX(handle-leak): ADX cache was never released
+   SirusReleaseATRHandles(); // V30: free cached indicator handles
+   SirusReleaseSMAHandles(); // FIX(handle-leak): SMA cache was never released
+   SirusReleaseRSIHandles(); // FIX(handle-leak): RSI cache was never released
+   SirusReleaseADXHandles(); // FIX(handle-leak): ADX cache was never released
    Comment("");               // FIX(input-validation): clear any INIT-abort message from the chart
    DeleteDashboard();
    MBDeleteAllVisuals();   // watermark + Sirus panel

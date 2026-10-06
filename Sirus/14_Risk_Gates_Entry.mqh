@@ -410,7 +410,7 @@ bool RiskCloseBasketIfNeeded(const string reason)
    if(G_BASKET_ORDERS <= 0)
       return false;
 
-   bool ok = CloseNaviusBasket("RISK: " + reason);
+   bool ok = CloseSirusBasket("RISK: " + reason);
    if(ok)
       G_RISK_CLOSE_COUNT++;
 
@@ -887,10 +887,10 @@ double LotForCurrentEntry(const bool apply_side_effects)
    }
    else
    {
-      if(G_ACTIVE_MODE == NAVIUS_MODE_BALANCED && LotForBalancedMode > 0.0)
+      if(G_ACTIVE_MODE == SIRUS_MODE_BALANCED && LotForBalancedMode > 0.0)
          lot = LotForBalancedMode;
 
-      if(G_ACTIVE_MODE == NAVIUS_MODE_HIGH_HUNTER && LotForHighHunterMode > 0.0)
+      if(G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER && LotForHighHunterMode > 0.0)
          lot = LotForHighHunterMode;
    }
 
@@ -934,9 +934,9 @@ double LotForCurrentEntry(const bool apply_side_effects)
    if(MinFirstEntryLotFactor > 0.0)
    {
       double lot_floor = StartLot * MinFirstEntryLotFactor;
-      if(G_ACTIVE_MODE == NAVIUS_MODE_BALANCED && LotForBalancedMode > 0.0)
+      if(G_ACTIVE_MODE == SIRUS_MODE_BALANCED && LotForBalancedMode > 0.0)
          lot_floor = LotForBalancedMode * MinFirstEntryLotFactor;
-      if(G_ACTIVE_MODE == NAVIUS_MODE_HIGH_HUNTER && LotForHighHunterMode > 0.0)
+      if(G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER && LotForHighHunterMode > 0.0)
          lot_floor = LotForHighHunterMode * MinFirstEntryLotFactor;
 
       // FIX(micro-floor): a MICRO entry is deliberately smaller (StartLot x MicroLotFactor), but the
@@ -1166,7 +1166,7 @@ string BuildOrderComment()
    return SirusOrderComment(SirusEntryKindShort());
 }
 
-int CountNaviusPositions()
+int CountSirusPositions()
 {
    int count = 0;
    int total = PositionsTotal();
@@ -1190,9 +1190,9 @@ int CountNaviusPositions()
    return count;
 }
 
-bool HasOpenNaviusPosition()
+bool HasOpenSirusPosition()
 {
-   return (CountNaviusPositions() > 0);
+   return (CountSirusPositions() > 0);
 }
 
 double EntryTPPoints()
@@ -4456,9 +4456,9 @@ bool FirstEntryCanRun(string &reason)
       return false;
    }
 
-   if(OneBasketAtATime && HasOpenNaviusPosition())
+   if(OneBasketAtATime && HasOpenSirusPosition())
    {
-      reason = StringFormat("existing SIRUS position count=%d", CountNaviusPositions());
+      reason = StringFormat("existing SIRUS position count=%d", CountSirusPositions());
       return false;
    }
 
@@ -4844,7 +4844,7 @@ void UpdateFirstEntryEngine(const string source)
                                     G_ENTRY_SUCCESSES,
                                     G_ENTRY_FAILS,
                                     G_FRESHBAR_DEFER_COUNT,
-                                    CountNaviusPositions());
+                                    CountSirusPositions());
 
       string signature_wait = G_ENTRY_STATUS + "|" + IntegerToString(G_BARS_SEEN);
       if(PrintEntryDecision && signature_wait != G_ENTRY_LAST_SIGNATURE)
@@ -5203,7 +5203,7 @@ void UpdateFirstEntryEngine(const string source)
       }
 
       if(PushOnEntry)
-         NaviusNotify(G_ENTRY_STATUS); // V30.4
+         SirusNotify(G_ENTRY_STATUS); // V30.4
 
       SetStatus("ENTRY SENT: first entry only, grid not active yet", "FirstEntryEngine");
    }

@@ -459,10 +459,21 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    bool reaction = MBReactionCandle(dir) ||
                    (trig_event && (StringFind(ev_what, "REJECTION") >= 0 || StringFind(ev_what, "SWEEP") >= 0 ||
                                    StringFind(ev_what, "FAKE") >= 0 || StringFind(ev_what, "RECLAIM") >= 0));
+   // FIX(sell-into-bull): a tired move (M5 AND M15 pressure the other way) only downgraded the entry
+   // to CAUTION, and CAUTION trades full size (MinFirstEntryLotFactor = 1.0) - so a SELL went in while
+   // the M5 and M15 candles were bullish. Now it waits for an M5 candle that turns, or a confirmed
+   // reversal with a reaction candle. And a pullback still running on M1 AND M5 waits for M1 to turn.
+   bool turn5 = MBCandleConfirms(1, dir) || (rev_ok && MBReactionCandle(dir));
+   bool tired_block = EnableCandleReadingGate && press_tired && !turn5;
+   bool pb_running = EnableCandleReadingGate && p5 == -dir && p1 == -dir && !rev_candle;
    if(leg_against)
       missing = "a local leg is running against this entry (local layer and M1/M5 pressure the other way, not spent)";
    else if(candles_against)
       missing = "the last candles still push the other way - waiting for them to turn";
+   else if(tired_block)
+      missing = "M5 and M15 candles both push the other way - waiting for an M5 candle that turns";
+   else if(pb_running)
+      missing = "the move against is still running on M1 and M5 - waiting for the M1 candle to turn";
    else if(zone_only && !reaction)
       missing = "at the zone - waiting for a reaction candle (rejection / grab / displacement)";
    else if(flow_against)

@@ -12,25 +12,25 @@
 // a function to be defined before its first use in the same file).
 string YesNoV29(const bool v) { return (v ? "YES" : "NO"); }
 
-string ModeToString(ENUM_NAVIUS_MODE mode)
+string ModeToString(ENUM_SIRUS_MODE mode)
 {
    switch(mode)
    {
-      case NAVIUS_MODE_AUTO:        return "AUTO";
-      case NAVIUS_MODE_BALANCED:    return "BALANCED";
-      case NAVIUS_MODE_HIGH_HUNTER: return "HIGH_HUNTER";
+      case SIRUS_MODE_AUTO:        return "AUTO";
+      case SIRUS_MODE_BALANCED:    return "BALANCED";
+      case SIRUS_MODE_HIGH_HUNTER: return "HIGH_HUNTER";
    }
    return "UNKNOWN";
 }
 
 // Compact mode tag for order comments, which MT5 caps near 31 chars.
-string ModeToShortString(ENUM_NAVIUS_MODE mode)
+string ModeToShortString(ENUM_SIRUS_MODE mode)
 {
    switch(mode)
    {
-      case NAVIUS_MODE_AUTO:        return "AUTO";
-      case NAVIUS_MODE_BALANCED:    return "BAL";
-      case NAVIUS_MODE_HIGH_HUNTER: return "HUNT";
+      case SIRUS_MODE_AUTO:        return "AUTO";
+      case SIRUS_MODE_BALANCED:    return "BAL";
+      case SIRUS_MODE_HIGH_HUNTER: return "HUNT";
    }
    return "UNK";
 }
@@ -38,12 +38,12 @@ string ModeToShortString(ENUM_NAVIUS_MODE mode)
 
 bool IsForcedMode()
 {
-   return (NaviusMode == NAVIUS_MODE_BALANCED || NaviusMode == NAVIUS_MODE_HIGH_HUNTER);
+   return (SirusMode == SIRUS_MODE_BALANCED || SirusMode == SIRUS_MODE_HIGH_HUNTER);
 }
 
-bool IsValidTradingMode(ENUM_NAVIUS_MODE mode)
+bool IsValidTradingMode(ENUM_SIRUS_MODE mode)
 {
-   return (mode == NAVIUS_MODE_BALANCED || mode == NAVIUS_MODE_HIGH_HUNTER);
+   return (mode == SIRUS_MODE_BALANCED || mode == SIRUS_MODE_HIGH_HUNTER);
 }
 
 
@@ -852,14 +852,14 @@ bool IsWickSweepHigh(const ENUM_TIMEFRAMES tf, const int shift, const double lev
 // V31.6d upgrade: was a manual close-sum loop; now uses MT5's native iMA (SMA method) via a
 // small handle cache, same pattern as the ATR upgrade earlier. Directly improves accuracy/speed
 // for every consumer: DetectTrendState's SMA fallback, and the Deep HTF Commander cross-check.
-#define NAVIUS_SMA_CACHE_SIZE 12
-int G_SMA_CACHE_TF[NAVIUS_SMA_CACHE_SIZE];
-int G_SMA_CACHE_PERIOD[NAVIUS_SMA_CACHE_SIZE];
-int G_SMA_CACHE_HANDLE[NAVIUS_SMA_CACHE_SIZE];
+#define SIRUS_SMA_CACHE_SIZE 12
+int G_SMA_CACHE_TF[SIRUS_SMA_CACHE_SIZE];
+int G_SMA_CACHE_PERIOD[SIRUS_SMA_CACHE_SIZE];
+int G_SMA_CACHE_HANDLE[SIRUS_SMA_CACHE_SIZE];
 int G_SMA_CACHE_COUNT = 0;
 int G_SMA_CACHE_EVICT_NEXT = 0;   // FIX(handle-leak): cache full -> release evicted slot, reuse it
 
-int NaviusGetSMAHandle(const ENUM_TIMEFRAMES tf, const int period)
+int SirusGetSMAHandle(const ENUM_TIMEFRAMES tf, const int period)
 {
    for(int i = 0; i < G_SMA_CACHE_COUNT; i++)
    {
@@ -871,7 +871,7 @@ int NaviusGetSMAHandle(const ENUM_TIMEFRAMES tf, const int period)
    if(h == INVALID_HANDLE)
       return INVALID_HANDLE;
 
-   if(G_SMA_CACHE_COUNT < NAVIUS_SMA_CACHE_SIZE)
+   if(G_SMA_CACHE_COUNT < SIRUS_SMA_CACHE_SIZE)
    {
       G_SMA_CACHE_TF[G_SMA_CACHE_COUNT] = (int)tf;
       G_SMA_CACHE_PERIOD[G_SMA_CACHE_COUNT] = period;
@@ -888,12 +888,12 @@ int NaviusGetSMAHandle(const ENUM_TIMEFRAMES tf, const int period)
       G_SMA_CACHE_TF[slot] = (int)tf;
       G_SMA_CACHE_PERIOD[slot] = period;
       G_SMA_CACHE_HANDLE[slot] = h;
-      G_SMA_CACHE_EVICT_NEXT = (slot + 1) % NAVIUS_SMA_CACHE_SIZE;
+      G_SMA_CACHE_EVICT_NEXT = (slot + 1) % SIRUS_SMA_CACHE_SIZE;
    }
    return h;
 }
 
-void NaviusReleaseSMAHandles()
+void SirusReleaseSMAHandles()
 {
    for(int i = 0; i < G_SMA_CACHE_COUNT; i++)
    {
@@ -912,7 +912,7 @@ double SMA(const ENUM_TIMEFRAMES tf, const int period, const int start_shift)
    if(period <= 0)
       return 0.0;
 
-   int handle = NaviusGetSMAHandle(tf, period);
+   int handle = SirusGetSMAHandle(tf, period);
    if(handle == INVALID_HANDLE)
       return 0.0;
 
@@ -926,14 +926,14 @@ double SMA(const ENUM_TIMEFRAMES tf, const int period, const int start_shift)
 
 // V31.6i new: native RSI, same handle-cache pattern as SMA/ATR. Used by the new Trend Reversal
 // / Divergence detector - momentum divergence needs a real oscillator, not a price-only proxy.
-#define NAVIUS_RSI_CACHE_SIZE 8
-int G_RSI_CACHE_TF[NAVIUS_RSI_CACHE_SIZE];
-int G_RSI_CACHE_PERIOD[NAVIUS_RSI_CACHE_SIZE];
-int G_RSI_CACHE_HANDLE[NAVIUS_RSI_CACHE_SIZE];
+#define SIRUS_RSI_CACHE_SIZE 8
+int G_RSI_CACHE_TF[SIRUS_RSI_CACHE_SIZE];
+int G_RSI_CACHE_PERIOD[SIRUS_RSI_CACHE_SIZE];
+int G_RSI_CACHE_HANDLE[SIRUS_RSI_CACHE_SIZE];
 int G_RSI_CACHE_COUNT = 0;
 int G_RSI_CACHE_EVICT_NEXT = 0;   // FIX(handle-leak)
 
-int NaviusGetRSIHandle(const ENUM_TIMEFRAMES tf, const int period)
+int SirusGetRSIHandle(const ENUM_TIMEFRAMES tf, const int period)
 {
    for(int i = 0; i < G_RSI_CACHE_COUNT; i++)
    {
@@ -945,7 +945,7 @@ int NaviusGetRSIHandle(const ENUM_TIMEFRAMES tf, const int period)
    if(h == INVALID_HANDLE)
       return INVALID_HANDLE;
 
-   if(G_RSI_CACHE_COUNT < NAVIUS_RSI_CACHE_SIZE)
+   if(G_RSI_CACHE_COUNT < SIRUS_RSI_CACHE_SIZE)
    {
       G_RSI_CACHE_TF[G_RSI_CACHE_COUNT] = (int)tf;
       G_RSI_CACHE_PERIOD[G_RSI_CACHE_COUNT] = period;
@@ -961,12 +961,12 @@ int NaviusGetRSIHandle(const ENUM_TIMEFRAMES tf, const int period)
       G_RSI_CACHE_TF[slot] = (int)tf;
       G_RSI_CACHE_PERIOD[slot] = period;
       G_RSI_CACHE_HANDLE[slot] = h;
-      G_RSI_CACHE_EVICT_NEXT = (slot + 1) % NAVIUS_RSI_CACHE_SIZE;
+      G_RSI_CACHE_EVICT_NEXT = (slot + 1) % SIRUS_RSI_CACHE_SIZE;
    }
    return h;
 }
 
-void NaviusReleaseRSIHandles()
+void SirusReleaseRSIHandles()
 {
    for(int i = 0; i < G_RSI_CACHE_COUNT; i++)
    {
@@ -980,12 +980,12 @@ void NaviusReleaseRSIHandles()
    G_RSI_CACHE_EVICT_NEXT = 0;
 }
 
-double NaviusRSI(const ENUM_TIMEFRAMES tf, const int period, const int shift)
+double SirusRSI(const ENUM_TIMEFRAMES tf, const int period, const int shift)
 {
    if(period <= 0)
       return 0.0;
 
-   int handle = NaviusGetRSIHandle(tf, period);
+   int handle = SirusGetRSIHandle(tf, period);
    if(handle == INVALID_HANDLE)
       return 0.0;
 
@@ -1001,17 +1001,17 @@ double NaviusRSI(const ENUM_TIMEFRAMES tf, const int period, const int shift)
 // Reversal only fires on a CHANGE of swing character - a strong, sustained, ALREADY-ONGOING
 // move (no fresh reversal pattern, just persistent continuation) slipped past it silently.
 // ADX measures trend STRENGTH directly, regardless of whether it's changing or continuing.
-#define NAVIUS_ADX_CACHE_SIZE 8
-int G_ADX_CACHE_TF[NAVIUS_ADX_CACHE_SIZE];
-int G_ADX_CACHE_PERIOD[NAVIUS_ADX_CACHE_SIZE];
-int G_ADX_CACHE_HANDLE[NAVIUS_ADX_CACHE_SIZE];
+#define SIRUS_ADX_CACHE_SIZE 8
+int G_ADX_CACHE_TF[SIRUS_ADX_CACHE_SIZE];
+int G_ADX_CACHE_PERIOD[SIRUS_ADX_CACHE_SIZE];
+int G_ADX_CACHE_HANDLE[SIRUS_ADX_CACHE_SIZE];
 int G_ADX_CACHE_COUNT = 0;
 int G_ADX_CACHE_EVICT_NEXT = 0;   // FIX(handle-leak): ADX is requested with the most distinct
                                   // (tf,period) combos, so it overflowed the cache most often -
                                   // every overflow used to iADX() a fresh handle and drop it on
                                   // the floor. Now the evicted slot is released and reused.
 
-int NaviusGetADXHandle(const ENUM_TIMEFRAMES tf, const int period)
+int SirusGetADXHandle(const ENUM_TIMEFRAMES tf, const int period)
 {
    for(int i = 0; i < G_ADX_CACHE_COUNT; i++)
    {
@@ -1023,7 +1023,7 @@ int NaviusGetADXHandle(const ENUM_TIMEFRAMES tf, const int period)
    if(h == INVALID_HANDLE)
       return INVALID_HANDLE;
 
-   if(G_ADX_CACHE_COUNT < NAVIUS_ADX_CACHE_SIZE)
+   if(G_ADX_CACHE_COUNT < SIRUS_ADX_CACHE_SIZE)
    {
       G_ADX_CACHE_TF[G_ADX_CACHE_COUNT] = (int)tf;
       G_ADX_CACHE_PERIOD[G_ADX_CACHE_COUNT] = period;
@@ -1038,12 +1038,12 @@ int NaviusGetADXHandle(const ENUM_TIMEFRAMES tf, const int period)
       G_ADX_CACHE_TF[slot] = (int)tf;
       G_ADX_CACHE_PERIOD[slot] = period;
       G_ADX_CACHE_HANDLE[slot] = h;
-      G_ADX_CACHE_EVICT_NEXT = (slot + 1) % NAVIUS_ADX_CACHE_SIZE;
+      G_ADX_CACHE_EVICT_NEXT = (slot + 1) % SIRUS_ADX_CACHE_SIZE;
    }
    return h;
 }
 
-void NaviusReleaseADXHandles()
+void SirusReleaseADXHandles()
 {
    for(int i = 0; i < G_ADX_CACHE_COUNT; i++)
    {
@@ -1058,12 +1058,12 @@ void NaviusReleaseADXHandles()
 }
 
 // buffer: 0=main ADX line, 1=+DI, 2=-DI
-double NaviusADX(const ENUM_TIMEFRAMES tf, const int period, const int buffer, const int shift)
+double SirusADX(const ENUM_TIMEFRAMES tf, const int period, const int buffer, const int shift)
 {
    if(period <= 0)
       return 0.0;
 
-   int handle = NaviusGetADXHandle(tf, period);
+   int handle = SirusGetADXHandle(tf, period);
    if(handle == INVALID_HANDLE)
       return 0.0;
 
@@ -1075,17 +1075,17 @@ double NaviusADX(const ENUM_TIMEFRAMES tf, const int period, const int buffer, c
    return buf[0];
 }
 
-// V31.6z4 speed fix: several detectors (Trend Ride, EQ Zone Trend) each called NaviusADX
+// V31.6z4 speed fix: several detectors (Trend Ride, EQ Zone Trend) each called SirusADX
 // three times DIRECTLY, uncached - four detectors alone meant 12 CopyBuffer reads per tick
 // for the SAME (tf, period) data. Shared multi-slot per-bar cache, same spirit as the
 // handle-cache above but for the actual VALUES, not just the indicator handle.
-#define NAVIUS_ADX_SNAP_CACHE_SIZE 8
-int    G_ADX_SNAP_CACHE_BAR[NAVIUS_ADX_SNAP_CACHE_SIZE];
-int    G_ADX_SNAP_CACHE_TF[NAVIUS_ADX_SNAP_CACHE_SIZE];
-int    G_ADX_SNAP_CACHE_PERIOD[NAVIUS_ADX_SNAP_CACHE_SIZE];
-double G_ADX_SNAP_CACHE_ADX[NAVIUS_ADX_SNAP_CACHE_SIZE];
-double G_ADX_SNAP_CACHE_PLUS[NAVIUS_ADX_SNAP_CACHE_SIZE];
-double G_ADX_SNAP_CACHE_MINUS[NAVIUS_ADX_SNAP_CACHE_SIZE];
+#define SIRUS_ADX_SNAP_CACHE_SIZE 8
+int    G_ADX_SNAP_CACHE_BAR[SIRUS_ADX_SNAP_CACHE_SIZE];
+int    G_ADX_SNAP_CACHE_TF[SIRUS_ADX_SNAP_CACHE_SIZE];
+int    G_ADX_SNAP_CACHE_PERIOD[SIRUS_ADX_SNAP_CACHE_SIZE];
+double G_ADX_SNAP_CACHE_ADX[SIRUS_ADX_SNAP_CACHE_SIZE];
+double G_ADX_SNAP_CACHE_PLUS[SIRUS_ADX_SNAP_CACHE_SIZE];
+double G_ADX_SNAP_CACHE_MINUS[SIRUS_ADX_SNAP_CACHE_SIZE];
 int    G_ADX_SNAP_CACHE_COUNT = 0;
 
 void CachedADXSnapshot(const ENUM_TIMEFRAMES tf, const int period, double &adx, double &plus_di, double &minus_di)
@@ -1096,9 +1096,9 @@ void CachedADXSnapshot(const ENUM_TIMEFRAMES tf, const int period, double &adx, 
       {
          if(G_ADX_SNAP_CACHE_BAR[i] != G_BARS_SEEN)
          {
-            G_ADX_SNAP_CACHE_ADX[i]   = NaviusADX(tf, period, 0, 1);
-            G_ADX_SNAP_CACHE_PLUS[i]  = NaviusADX(tf, period, 1, 1);
-            G_ADX_SNAP_CACHE_MINUS[i] = NaviusADX(tf, period, 2, 1);
+            G_ADX_SNAP_CACHE_ADX[i]   = SirusADX(tf, period, 0, 1);
+            G_ADX_SNAP_CACHE_PLUS[i]  = SirusADX(tf, period, 1, 1);
+            G_ADX_SNAP_CACHE_MINUS[i] = SirusADX(tf, period, 2, 1);
             G_ADX_SNAP_CACHE_BAR[i]   = G_BARS_SEEN;
          }
          adx = G_ADX_SNAP_CACHE_ADX[i];
@@ -1108,11 +1108,11 @@ void CachedADXSnapshot(const ENUM_TIMEFRAMES tf, const int period, double &adx, 
       }
    }
 
-   adx      = NaviusADX(tf, period, 0, 1);
-   plus_di  = NaviusADX(tf, period, 1, 1);
-   minus_di = NaviusADX(tf, period, 2, 1);
+   adx      = SirusADX(tf, period, 0, 1);
+   plus_di  = SirusADX(tf, period, 1, 1);
+   minus_di = SirusADX(tf, period, 2, 1);
 
-   if(G_ADX_SNAP_CACHE_COUNT < NAVIUS_ADX_SNAP_CACHE_SIZE)
+   if(G_ADX_SNAP_CACHE_COUNT < SIRUS_ADX_SNAP_CACHE_SIZE)
    {
       int idx = G_ADX_SNAP_CACHE_COUNT;
       G_ADX_SNAP_CACHE_TF[idx]     = (int)tf;
@@ -1136,8 +1136,8 @@ double ADXDecelerationFactor(const ENUM_TIMEFRAMES tf, const int period, const i
    if(!EnableADXDeceleration)
       return 0.0;
 
-   double adx_now = NaviusADX(tf, period, 0, 1);
-   double adx_prior = NaviusADX(tf, period, 0, MathMax(2, lookback_bars + 1));
+   double adx_now = SirusADX(tf, period, 0, 1);
+   double adx_prior = SirusADX(tf, period, 0, MathMax(2, lookback_bars + 1));
 
    if(adx_now <= 0.0 || adx_prior <= 0.0)
       return 0.0;

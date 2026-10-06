@@ -3695,7 +3695,7 @@ double ZoneMapNextSupportBelow(const double price, const double above_level)
    double ceiling = above_level - MathMax(1, ZoneNextLevelGapPoints) * _Point;
 
    double best = 0.0;
-   for(int t = 0; t < NAVIUS_ZM_CACHE_TF_COUNT; t++)
+   for(int t = 0; t < SIRUS_ZM_CACHE_TF_COUNT; t++)
    {
       for(int k = 0; k < G_ZMC_LOW_COUNT[t]; k++)
       {
@@ -3719,7 +3719,7 @@ double ZoneMapNextResistanceAbove(const double price, const double below_level)
    double floor_px = below_level + MathMax(1, ZoneNextLevelGapPoints) * _Point;
 
    double best = 0.0;
-   for(int t = 0; t < NAVIUS_ZM_CACHE_TF_COUNT; t++)
+   for(int t = 0; t < SIRUS_ZM_CACHE_TF_COUNT; t++)
    {
       for(int k = 0; k < G_ZMC_HIGH_COUNT[t]; k++)
       {
@@ -4072,7 +4072,7 @@ double ZoneMapStrengthByTouches(const double level)
    double tol = ScaleAdjustedPoints(MathMax(1, ZoneTFMatchTolerance)) * _Point;
 
    int best_tf_index = -1;
-   for(int t = NAVIUS_ZM_CACHE_TF_COUNT - 1; t >= 0; t--)
+   for(int t = SIRUS_ZM_CACHE_TF_COUNT - 1; t >= 0; t--)
    {
       bool found = false;
       for(int k = 0; k < G_ZMC_HIGH_COUNT[t] && !found; k++)
@@ -4456,7 +4456,7 @@ bool SmartEarlyExitShouldTrigger(string &reason)
    // SmartEarlyExitPersistBars = 3 was satisfied in well under a second, and the "skipped bar"
    // reset the comment describes was never implemented at all. That turned a ~45-minute
    // confirmation requirement into three consecutive ticks, and what it authorises is
-   // CloseNaviusBasket() - realising the entire basket loss on a sub-second sample of three
+   // CloseSirusBasket() - realising the entire basket loss on a sub-second sample of three
    // indicators. Now anchored to G_BARS_SEEN: at most one increment per new bar, and a gap in the
    // run starts the count again.
    if(G_SEE_PERSIST_DIR != dir_i || G_SEE_PERSIST_BARS <= 0 || G_SEE_PERSIST_LAST_BAR < 0)

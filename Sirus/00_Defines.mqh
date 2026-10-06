@@ -38,8 +38,8 @@ int    G_MS_BAR      = -100000;
 
 // Zone-map swing cache dimensions. Same rule as above: these are consumed by modules that appear
 // far earlier in the file than the cache itself, so they belong here rather than beside it.
-#define NAVIUS_ZM_CACHE_TF_COUNT 7
-#define NAVIUS_ZM_CACHE_MAX 220   // V206: 80 -> 220. The cache fills from the most recent swing backwards and stops when full, so on H1 with a 240-bar lookback it held only the closest 80 - the levels from two days ago were in the data and never reached the cache. A support that broke this morning is visible; the one that has held for two days is the one price is actually heading for.
+#define SIRUS_ZM_CACHE_TF_COUNT 7
+#define SIRUS_ZM_CACHE_MAX 220   // V206: 80 -> 220. The cache fills from the most recent swing backwards and stops when full, so on H1 with a 240-bar lookback it held only the closest 80 - the levels from two days ago were in the data and never reached the cache. A support that broke this morning is visible; the one that has held for two days is the one price is actually heading for.
 
 // Score bands for confidence calibration.
 #define SCORE_BAND_COUNT 5
@@ -276,16 +276,16 @@ int      G_LIVE_PEAK_BODY_DIR = 0;
 //  - OPPORTUNITY SCANNER MUST EXPLAIN A+/B/C MICRO CANDIDATES
 //  - SCORE ENGINE MUST EXPLAIN FINAL SCORE / MIN SCORE / PASS OR WAIT
 //  - FIRST ENTRY ENGINE MAY OPEN ONLY ONE FIRST ENTRY WHEN SCORE PASSES
-//  - MICRO SCALP LAYER MUST USE NAVIUS TP LOGIC, LOT FACTOR AND MICRO GUARDS
+//  - MICRO SCALP LAYER MUST USE SIRUS TP LOGIC, LOT FACTOR AND MICRO GUARDS
 //  - DIRECTION REDIRECT MUST CHECK OPPOSITE SIDE WHEN ORIGINAL SIGNAL FAILS SOFT SCORE
 //  - SIGNAL QUEUE MUST SAVE PASSED SIGNALS AND REPLAY THEM BEFORE EXPIRY
 //  - BLOCK EXPIRY MUST TRACK TEMPORARY SOFT BLOCKS AND EXPIRE THEM BY BARS/SECONDS
-//  - GRID / RECOVERY MUST MANAGE EXISTING NAVIUS BASKET ONLY
+//  - GRID / RECOVERY MUST MANAGE EXISTING SIRUS BASKET ONLY
 //  - RISK ENGINE MUST CENTRALIZE HARD BLOCKS AND EMERGENCY CLOSES
 //  - PREMIUM DASHBOARD MUST SHOW NEXT ACTION, RISK, BASKET, SIGNAL AND LAST REASON CLEARLY
 //  - MISSED TRADE MEMORY MUST RECORD REPEATED SOFT MISSES WITHOUT BYPASSING HARD RISK
 //  - VPS VALIDATION MUST EXPLAIN PC/VPS, TICK/BAR/TIMER, BROKER AND FINAL NO-TRADE REASON
-//  - LEGACY UPGRADE PACK MUST REBUILD OLD NAVIUS MODULES WITHOUT SILENT BLOCKS
+//  - LEGACY UPGRADE PACK MUST REBUILD OLD SIRUS MODULES WITHOUT SILENT BLOCKS
 //  - LEGACY PACK 2 MUST MANAGE TP CHAIN, ADVANCED RECOVERY AND BASKET TRAILING
 //  - LEGACY PACK 3 MUST AUDIT NEWS, BROKER, CLOSED DEALS, CLIENT SAFETY AND DISASTER SL
 //  - FIRST ENTRY AND GRID MUST NOT FIGHT EACH OTHER
@@ -293,11 +293,11 @@ int      G_LIVE_PEAK_BODY_DIR = 0;
 //  - No silent block
 //==================================================================//
 
-enum ENUM_NAVIUS_MODE
+enum ENUM_SIRUS_MODE
 {
-   NAVIUS_MODE_AUTO        = 0,
-   NAVIUS_MODE_BALANCED    = 1,
-   NAVIUS_MODE_HIGH_HUNTER = 2
+   SIRUS_MODE_AUTO        = 0,   // SIRUS AUTO (aqlli: bozorga qarab o'zi tanlaydi)
+   SIRUS_MODE_BALANCED    = 1,   // SIRUS BALANCED (muvozanatli)
+   SIRUS_MODE_HIGH_HUNTER = 2    // SIRUS HIGH HUNTER (agressiv)
 };
 
 // V112: how the trading-timeframe structure sits inside the higher-timeframe structure. This is the
@@ -396,7 +396,7 @@ double BasketTPForOrderCount(const int orders);
 double ZoneMapNearestResistance(const double price);
 double ZoneMapNearestSupport(const double price);
 double ZoneMapStrength(const double level);
-bool CloseNaviusBasket(const string reason);
+bool CloseSirusBasket(const string reason);
 // Stage 12 profiler segments (26_Measure.mqh)
 #define MB_PROF_TICK     0
 #define MB_PROF_PRE      1
@@ -493,7 +493,7 @@ double MarginRescueGridLot(const ENUM_ORDER_TYPE order_type, const double intend
 bool MarginAllowsOrder(const ENUM_ORDER_TYPE order_type, const double lot, string &reason);
 double NormalizeVolumeSafe(double volume);
 double AutoLotBase();   // FIX(affordability-basis): declared here because LadderIsAffordable() calls it ~1700 lines before its definition
-bool GetNaviusBasketStats(int &orders, double &total_volume, double &avg_price, double &profit,
+bool GetSirusBasketStats(int &orders, double &total_volume, double &avg_price, double &profit,
                           long &direction, double &last_price, double &last_lot, datetime &last_time);
 // FIX(scalein-orphan): ScaleInDueLot() needs a LIVE basket read, and it sits ~13k lines above the definition
 double AutoGridMultiplier();    // FIX(affordability-geometric-step): same reason - the ladder projection needs the real widening factor and its clamps

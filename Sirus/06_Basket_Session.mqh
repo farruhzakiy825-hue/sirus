@@ -531,7 +531,7 @@ double ScaleInDueLot(string &reason)
       return 0.0;
 
    // FIX(scalein-orphan): the armed completion must never outlive the basket it belongs to.
-   // ScaleInReset() was only ever reached from inside CloseNaviusBasket(), so a basket that ended
+   // ScaleInReset() was only ever reached from inside CloseSirusBasket(), so a basket that ended
    // ANY other way - the broker hitting the individual first-entry TP (UseIndividualTPForFirstEntry
    // is on by default), a manual close, a stop-out, a partial close failure - left
    // G_SCALEIN_PENDING_LOT/DIR/ENTRY_PRICE armed. On the next tick this function would see the
@@ -545,7 +545,7 @@ double ScaleInDueLot(string &reason)
       double   si_vol = 0.0, si_avg = 0.0, si_profit = 0.0, si_lastp = 0.0, si_lastlot = 0.0;
       long     si_bdir = -1;
       datetime si_lastt = 0;
-      if(!GetNaviusBasketStats(si_orders, si_vol, si_avg, si_profit, si_bdir,
+      if(!GetSirusBasketStats(si_orders, si_vol, si_avg, si_profit, si_bdir,
                                si_lastp, si_lastlot, si_lastt) || si_orders <= 0)
       {
          // CTrade::Buy returns true for TRADE_RETCODE_PLACED as well as DONE, so on async/exchange
@@ -1041,7 +1041,7 @@ int RegimeCandidate(string &why)
    double atr_ref = ATRPointsManual(tf, MathMax(ATRPeriod * 4, 40), 1);
    double vol_ratio = (atr_ref > 0.0) ? (atr_now / atr_ref) : 1.0;
 
-   double adx = NaviusADX(tf, RegimeADXPeriod, 0, 1);
+   double adx = SirusADX(tf, RegimeADXPeriod, 0, 1);
 
    // How much of the recent range did price actually travel through? A trending
    // market covers ground; a ranging one revisits the same prices.
@@ -2114,7 +2114,7 @@ bool ZoneEdgePrices(const double level, const bool is_support,
    ZoneMapRefreshSwingCache();
 
    int t = ZMTFIndex(ZoneEdgeTF);
-   if(t < 0 || t >= NAVIUS_ZM_CACHE_TF_COUNT)
+   if(t < 0 || t >= SIRUS_ZM_CACHE_TF_COUNT)
       return false;
 
    double tol = ScaleAdjustedPoints(MathMax(1, ZoneEdgeGatherPoints)) * _Point;

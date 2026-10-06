@@ -46,14 +46,18 @@ input double RecoveryZoneATR15        = 1.5;    // Qutqaruv joyi (zona / FVG) sa
 input bool   EnableGridAtStructure    = true;   // Grid pog'onasi narx tuzilmaga (zona / FVG / likvidlik) yetganda qo'yiladi; havoda - javob kutish vaqti ichida kutadi
 input double GridStructureATR5        = 0.5;    // Tuzilma narxdan ATR(M5) x shu ichida bo'lsa - "tuzilmada"
 input int    GridReserveRungs         = 2;      // Oxirgi shuncha pog'ona ZAXIRA: faqat tuzilma + qarshi harakat charchagan + sham javobi bo'lsa (vaqt bilan ochilmaydi)
-input bool   RecoveryLogToFile        = true;
+input bool   RecoveryLogToFile        = true;   // Chuqur savatlar natijasini CSV ga yozish (Sirus_Recovery_<symbol>_<magic>.csv)
 input bool   EnableSmartRunner        = true;   // AQLLI TP (oddiy rejim): trend + tirik g'oya + joy bo'lsa, savat TP da yopilmaydi - trailing va uzoq maqsad bilan yuguradi. Diapazon / lokal / chuqur / ko'p orderli savatda oddiy TP
 input int    RunnerArmPoints          = 2200;   // Trailing shu foydada yoqiladi (TP dan kichik bo'lsa TP x 0.88)
 input int    RunnerLockPoints         = 2000;   // Yoqilgandan keyin kamida shuncha foyda qulflanadi
 input int    RunnerMinStepPoints      = 300;    // Kuzatish masofasi kamida shuncha (amalda max(shu, ATR(M5) x 0.5))
 input double RunnerFarTPMult          = 2.5;    // Uzoq maqsad: TP x shu yoki likvidlik maqsadi (DOL), qaysi yaqin bo'lsa
 input int    RunnerMaxOrders          = 2;      // Shundan ko'p orderli savat yugurmaydi
-input int    RunnerStallMinutes       = 10;     // Yangi cho'qqi shuncha daqiqa bo'lmasa - yopiladi   // Chuqur savatlar natijasini CSV ga yozish (Sirus_Recovery_<symbol>_<magic>.csv)
+input int    RunnerStallMinutes       = 10;     // Yangi cho'qqi shuncha daqiqa bo'lmasa - yopiladi
+input bool   GridHoldOnCandlesAgainst = true;   // M5 va M15 shamlari savatga qarshi bosayotgan bo'lsa (harakat charchamagan) - grid qo'shilmaydi
+input bool   EnableStaleBasketBE      = true;   // Uzoq DD dan qaytgan savat: shamlar uning tomonida bo'lmasa break-even + qoplamada yopiladi (zararga yopmaydi)
+input int    StaleBasketMinutes       = 90;     // Savat shuncha daqiqadan beri ochiq bo'lsa ...
+input double StaleBasketMinDD         = 8.0;    // ... va DD kamida shuncha % bo'lgan bo'lsa
 
 datetime G_MB_PB_BASKET    = 0;     // open time of the first position of the watched basket
 int      G_MB_PB_DIR       = 0;
@@ -784,6 +788,14 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
          }
       }
    }
+   // FIX(long-DD): M5 and M15 pressure both against the basket and the move not spent - averaging here
+   // adds bigger lots into a running move and is what turns a pullback into a long drawdown.
+   if(!against && GridHoldOnCandlesAgainst && EnableCandleDirectionLink &&
+      MBPressureSide(1) == -dir && MBPressureSide(2) == -dir && !MBAdverseSpent(dir))
+   {
+      against = true;
+      against_what = "M5 and M15 candles still push against the basket";
+   }
    if(against)
    {
       reason = "holding - " + against_what + " (no averaging into a breakdown)";
@@ -865,7 +877,12 @@ bool MBBasketBreakEvenExit(const double basket_points, const double profit, stri
    bool doubtful = EnableRecoveryJudge && G_MB_RC_STATE >= MB_RC_DOUBTFUL;
    // AUDIT FIX: a deep basket alone is normal for a full ladder - only one that was also judged doubtful.
    bool deep_back = EnableRecoveryJudge && G_MB_RC_PEAK_DD >= RecoveryStartDD && G_MB_RC_WORST_STATE >= MB_RC_DOUBTFUL && !th_with;
-   if(!G_MB_PB_DEAD && !doubtful && !deep_back)
+   // FIX(long-DD): a basket that sat in drawdown for a long time and came back without the candles on
+   // its side (M5 and M15 not both with it) takes break-even rather than waiting for the full target.
+   bool stale = EnableStaleBasketBE && G_MB_RC_PEAK_DD >= StaleBasketMinDD &&
+                (TimeCurrent() - G_MB_PB_BASKET) >= (long)MathMax(1, StaleBasketMinutes) * 60 &&
+                !(MBPressureSide(1) == G_MB_PB_DIR && MBPressureSide(2) == G_MB_PB_DIR) && !th_with;
+   if(!G_MB_PB_DEAD && !doubtful && !deep_back && !stale)
       return false;
    // AUDIT FIX: break-even in money too - points ignore swap and commission.
    if(basket_points >= (double)MathMax(0, MBBreakEvenCoverPoints) && profit >= 0.0)
@@ -874,8 +891,11 @@ bool MBBasketBreakEvenExit(const double basket_points, const double profit, stri
          why = StringFormat("thesis dead - break-even exit at +%.0f pts (%s)", basket_points, G_MB_PB_DEAD_WHY);
       else if(doubtful)
          why = StringFormat("recovery %s - break-even exit at +%.0f pts", MBRecoveryStateName(G_MB_RC_STATE), basket_points);
-      else
+      else if(deep_back)
          why = StringFormat("back from %.1f%% DD without a thesis on its side - break-even exit at +%.0f pts", G_MB_RC_PEAK_DD, basket_points);
+      else
+         why = StringFormat("open %d min, back from %.1f%% DD, candles not with it - break-even exit at +%.0f pts",
+                            (int)((TimeCurrent() - G_MB_PB_BASKET) / 60), G_MB_RC_PEAK_DD, basket_points);
       return true;
    }
    return false;

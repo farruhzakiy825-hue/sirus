@@ -96,7 +96,7 @@ double MarketStructureScale(double &scale_atr_ratio, string &detail)
    ZoneMapRefreshSwingCache();
 
    int t = ZMTFIndex(MarketScaleTF);
-   if(t < 0 || t >= NAVIUS_ZM_CACHE_TF_COUNT)
+   if(t < 0 || t >= SIRUS_ZM_CACHE_TF_COUNT)
       return 0.0;
 
    // Interleave highs and lows by recency so consecutive entries are genuine
@@ -238,7 +238,7 @@ double PathDensityAhead(const int entry_dir, double &largest_gap_pts, int &wall_
    ZoneMapRefreshSwingCache();
 
    int t = ZMTFIndex(PathDensityTF);
-   if(t < 0 || t >= NAVIUS_ZM_CACHE_TF_COUNT)
+   if(t < 0 || t >= SIRUS_ZM_CACHE_TF_COUNT)
       return 0.0;
 
    // V170f: the working range scales with the market too - $10 ahead means something different
@@ -2419,7 +2419,7 @@ void ConsiderOpportunity(const ENUM_OPPORTUNITY_DIR dir, const ENUM_OPPORTUNITY_
    // The bump is applied to the GRADE only, and `score` is passed on un-bumped, so the mode
    // advantage survives where it belongs (which setups qualify) without inflating the score that
    // every absolute threshold, the grade-to-lot mapping and the calibration bands are measured on.
-   int graded_score = score + ((G_ACTIVE_MODE == NAVIUS_MODE_HIGH_HUNTER) ? 1 : 0);
+   int graded_score = score + ((G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER) ? 1 : 0);
    ENUM_OPPORTUNITY_GRADE grade = GradeFromScore(graded_score, micro_preferred);
    if(grade == OPP_GRADE_NONE)
       return;

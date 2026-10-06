@@ -1142,7 +1142,7 @@ void DrawDashboard()
                          " DDtrig=" + DoubleToString(AutoGridRecoveryStartDD(), 1) + "%", clrGold);
       DrawDashLine(row++, "------------------------------------------------------------", clrSilver);
 
-      DrawDashLine(row++, "MODE: " + ModeToString(NaviusMode) + " -> " + ModeToString(G_ACTIVE_MODE) + " | Reason: " + ShortText(G_MODE_REASON, 80), clrDeepSkyBlue);
+      DrawDashLine(row++, "MODE: " + ModeToString(SirusMode) + " -> " + ModeToString(G_ACTIVE_MODE) + " | Reason: " + ShortText(G_MODE_REASON, 80), clrDeepSkyBlue);
       if(UseClientDashboardPolish && ClientDashShowReleaseBadge)
          DrawDashLine(row++, ShortText(G_CDP_BADGE, 130), (G_NIM_PRO_READY && G_FPR_PRO_READY ? clrLime : clrGold));
       if(UseClientDashboardPolish && ClientDashShowRiskBanner)
@@ -1374,7 +1374,7 @@ void DrawDashboard()
       // V226c: removed - the title line carries this now.
       DrawDashLine(row++, "WHY: " + G_NEXT_ACTION, clrLime);
       if(DashboardFullDetail)
-         DrawDashLine(row++, "Mode: " + ModeToString(NaviusMode) + " -> " + ModeToString(G_ACTIVE_MODE), clrWhite);
+         DrawDashLine(row++, "Mode: " + ModeToString(SirusMode) + " -> " + ModeToString(G_ACTIVE_MODE), clrWhite);
       DrawDashLine(row++, "Environment: " + G_ENV_STATUS, env_color);
       if(DashboardFullDetail)
          DrawDashLine(row++, G_RISK_STATUS, risk_color);

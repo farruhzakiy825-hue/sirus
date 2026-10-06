@@ -187,6 +187,24 @@ bool MBVetoAccelerationCheck(const int dir, string &why)
       why = "V4 against: the forming M1 candle is displacing the other way";
       return true;
    }
+   // FIX(sell-into-bull): the forming M5 candle running the other way - body >= 0.8 ATR(M5), closing in
+   // its far quarter. The M1 reading misses it when the M1 candles pause inside the M5 push.
+   if(EnableCandleReadingGate && G_MB_ATR[1] > 0.0)
+   {
+      double o5 = iOpen(_Symbol, PERIOD_M5, 0), h5 = iHigh(_Symbol, PERIOD_M5, 0), l5 = iLow(_Symbol, PERIOD_M5, 0);
+      double c5 = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      double atr5 = G_MB_ATR[1] * _Point;
+      if(o5 > 0.0 && c5 > 0.0 && h5 > l5 && MathAbs(c5 - o5) >= 0.8 * atr5)
+      {
+         double pos5 = (c5 - l5) / (h5 - l5);
+         int d5 = (c5 > o5 && pos5 >= 0.75) ? 1 : ((c5 < o5 && pos5 <= 0.25) ? -1 : 0);
+         if(d5 == -dir)
+         {
+            why = StringFormat("V4 against: the forming M5 candle is running the other way (body %.1f ATR)", MathAbs(c5 - o5) / atr5);
+            return true;
+         }
+      }
+   }
    // Stage 14 (C1): liquidity was just swept and reclaimed the other way on M5 or higher - the bar-close
    // engine will call it a reversal in a moment; do not enter into it in the meantime.
    string lsw = "";

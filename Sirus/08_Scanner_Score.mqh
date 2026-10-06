@@ -532,12 +532,12 @@ int MinScoreForContext(const bool is_micro)
 {
    if(is_micro)
    {
-      if(G_ACTIVE_MODE == NAVIUS_MODE_HIGH_HUNTER)
+      if(G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER)
          return MinScoreMicroHighHunter;
       return MinScoreMicroBalanced;
    }
 
-   if(G_ACTIVE_MODE == NAVIUS_MODE_HIGH_HUNTER)
+   if(G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER)
       return MinScoreHighHunter;
 
    return MinScoreBalanced;
@@ -678,7 +678,7 @@ void ApplyAntiOverfilterScoring(int &bonus, int &penalty, string &detail)
    // points, not the documented 2 - and it also shifted GradeFromScore, so the aggressive mode
    // graded a marginal setup as B (full lot) where Balanced graded it C_MICRO or NONE. The mode
    // bonus now lives only in the bonus pool, where the penalty caps can argue with it.
-   if(G_ACTIVE_MODE == NAVIUS_MODE_HIGH_HUNTER && G_OPP_GRADE != OPP_GRADE_NONE)
+   if(G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER && G_OPP_GRADE != OPP_GRADE_NONE)
       AddScoreBonus(bonus, detail, 1, "High Hunter mode");
 }
 
@@ -1164,7 +1164,7 @@ int CounterZoneWallCluster(const int dir, const double from_price, const double 
    double win    = window_pts * _Point;
    double gap    = ScaleAdjustedPoints(MathMax(1, ZoneNextLevelGapPoints)) * _Point;
 
-   for(int t = 0; t < NAVIUS_ZM_CACHE_TF_COUNT; t++)
+   for(int t = 0; t < SIRUS_ZM_CACHE_TF_COUNT; t++)
    {
       int cnt = (dir < 0) ? G_ZMC_LOW_COUNT[t] : G_ZMC_HIGH_COUNT[t];
       for(int k = 0; k < cnt && kept_n < 24; k++)
@@ -2302,7 +2302,7 @@ void UpdateSignalScoreEngine(const string source)
       // - and it fires precisely when ScorePenaltyImpulseRisk is charging for the same observation,
       // so the mode discount was larger than the risk penalty it overrode. An impulse is a reason
       // for Hunter to be FAST, not to be less selective than the conservative mode.
-      if(G_MARKET_STATE == MARKET_IMPULSE && G_ACTIVE_MODE == NAVIUS_MODE_HIGH_HUNTER &&
+      if(G_MARKET_STATE == MARKET_IMPULSE && G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER &&
          G_SCORE_MIN_REQUIRED > MinScoreBalanced)
       {
          G_SCORE_MIN_REQUIRED = MathMax(1, G_SCORE_MIN_REQUIRED - 1);
@@ -2322,7 +2322,7 @@ void UpdateSignalScoreEngine(const string source)
    // lower bar was being used WITH or AGAINST the bigger picture. If D1 direction disagrees
    // with this entry, Hunter must earn the SAME (higher) bar Balanced would require - its
    // discount only applies when the big-picture direction actually agrees.
-   if(EnableHunterD1Filter && G_ACTIVE_MODE == NAVIUS_MODE_HIGH_HUNTER && G_OPP_DIR != OPP_DIR_NONE)
+   if(EnableHunterD1Filter && G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER && G_OPP_DIR != OPP_DIR_NONE)
    {
       int d1_dir = D1OverallDirection();
       int entry_dir = (G_OPP_DIR == OPP_DIR_BUY ? 1 : -1);
@@ -6503,7 +6503,7 @@ void UpdateSignalScoreEngine(const string source)
    int eff_penalty_cap = MaxTotalScorePenalty +
                          MathMax(0, (G_SCORE_IS_MICRO ? MinScoreMicroBalanced : MinScoreBalanced)
                                     - MinScoreForContext(G_SCORE_IS_MICRO));
-   if(G_ACTIVE_MODE == NAVIUS_MODE_HIGH_HUNTER && HunterProtectionPenaltyScale > 1.0)
+   if(G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER && HunterProtectionPenaltyScale > 1.0)
    {
       int raw_pen = G_SCORE_PENALTY;
       G_SCORE_PENALTY = (int)MathRound(G_SCORE_PENALTY * HunterProtectionPenaltyScale);
