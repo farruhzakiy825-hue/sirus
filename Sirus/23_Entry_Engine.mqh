@@ -108,6 +108,38 @@ bool MBTriggerCandle(const SMBCandle &c, const int dir)
            c.intent == MB_CI_EXHAUSTION);
 }
 
+// A closed M1 (tfi 0) or M5 (tfi 1) candle that is a usable trigger for dir RIGHT NOW:
+//   - its intent is a trigger the right way;
+//   - M1: no failed live spike the same way this minute;
+//   - M5: price has not turned half an ATR against its close;
+//   - STAGE 13 (A5): a rejection / liquidity grab / exhaustion candle counts only once price has
+//     followed through past the middle of its body, and never after its wick extreme was taken out.
+bool MBCandleTriggerNow(const int tfi, const int dir, const double price)
+{
+   if(!MBTriggerCandle(G_MB_LAST[tfi], dir))
+      return false;
+   if(tfi == 0 && G_MB_LIVE_FAILED == dir)
+      return false;
+   if(tfi == 1)
+   {
+      double atr5 = G_MB_ATR[1] * _Point;
+      if(atr5 > 0.0 && dir * (price - G_MB_LAST[1].close) < -0.5 * atr5)
+         return false;
+   }
+   int it = G_MB_LAST[tfi].intent;
+   if(EnableRejectionConfirm && (it == MB_CI_REJECTION || it == MB_CI_LIQ_GRAB || it == MB_CI_EXHAUSTION) &&
+      G_MB_LAST[tfi].high > G_MB_LAST[tfi].low)
+   {
+      double mid = 0.5 * (G_MB_LAST[tfi].open + G_MB_LAST[tfi].close);
+      double ext = (dir > 0) ? G_MB_LAST[tfi].low : G_MB_LAST[tfi].high;
+      if(dir * (price - ext) < 0.0)
+         return false;   // the wick it rejected from has been taken out - the rejection failed
+      if(dir * (price - mid) <= 0.0)
+         return false;   // no follow-through yet
+   }
+   return true;
+}
+
 // A fresh M1 / M5 event in direction dir that can serve as the trigger.
 bool MBFreshTriggerEvent(const int dir, string &what)
 {
@@ -179,17 +211,25 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       pullback_ok = true;   // young M5 impulse, entering on its first legs
       loc += StringFormat("%syoung M5 impulse (%s, %d waves)", (StringLen(loc) > 0 ? ", " : ""), MBSpeedName(G_MB_SPEED[1]), G_MB_IMP_WAVES[1]);
    }
+   // STAGE 13 (A2): the three pressure readings. All three this way = the move is with us; M15 this
+   // way with M1 / M5 against = a pullback inside it (a location); M15 and M5 both against = tired.
+   int p1 = MBPressureSide(0), p5 = MBPressureSide(1), p15 = MBPressureSide(2);
+   bool press_aligned = EnableCandleDirectionLink && p1 == dir && p5 == dir && p15 == dir;
+   bool press_pullback = EnableCandleDirectionLink && p15 == dir && (p1 == -dir || p5 == -dir);
+   bool press_tired = EnableCandleDirectionLink && p15 == -dir && p5 == -dir;
+   if(press_pullback && !pullback_ok)
+   {
+      pullback_ok = true;
+      loc += StringFormat("%spullback inside M15 pressure", (StringLen(loc) > 0 ? ", " : ""));
+   }
    int loc_n = (disc_ok ? 1 : 0) + (zone_ok ? 1 : 0) + (pullback_ok ? 1 : 0);
    bool loc_ok = (loc_n > 0);
    if(!loc_ok) loc = "none";
 
    // --- TRIGGER ---
    string trig = "";
-   bool trig_m1 = MBTriggerCandle(G_MB_LAST[0], dir);
-   bool trig_m5 = MBTriggerCandle(G_MB_LAST[1], dir);
-   // An M5 trigger is good for its whole bar only while price has not turned half an ATR against it.
-   if(trig_m5 && dir * (price - G_MB_LAST[1].close) < -0.5 * atr5)
-      trig_m5 = false;
+   bool trig_m1 = MBCandleTriggerNow(0, dir, price);
+   bool trig_m5 = MBCandleTriggerNow(1, dir, price);
    bool trig_live = (G_MB_LIVE_DIR == dir);
    string ev_what = "";
    bool trig_event = MBFreshTriggerEvent(dir, ev_what);
@@ -198,14 +238,9 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(trig_live) trig += StringFormat("%slive early displacement", (StringLen(trig) > 0 ? ", " : ""));
    if(trig_event) trig += StringFormat("%s%s", (StringLen(trig) > 0 ? ", " : ""), ev_what);
    bool trig_ok = trig_m1 || trig_m5 || trig_live || trig_event;
-   // A live displacement this way that just gave its strength back cancels the M1 reading (the same
-   // minute said the opposite); a closed M5 candle or a fresh event still stands.
-   if(G_MB_LIVE_FAILED == dir)
-   {
-      trig_m1 = false;
-      trig_ok = trig_m5 || trig_live || trig_event;
-      if(!trig_ok) trig = "live displacement failed";
-   }
+   // (A failed live spike this way already cancelled the M1 reading in MBCandleTriggerNow.)
+   if(!trig_ok && G_MB_LIVE_FAILED == dir)
+      trig = "live displacement failed";
    if(StringLen(trig) == 0) trig = "none";
 
    // --- REVERSAL EVIDENCE (needed when not with the trend) ---
@@ -257,8 +292,16 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(far) q -= 10.0;
    if(G_MB_TH_DIR == dir) q -= 8.0 * G_MB_TH_CONTRA;
    q -= decay;
-   double press = (dir > 0) ? (G_MB_BULL[0] - G_MB_BEAR[0]) : (G_MB_BEAR[0] - G_MB_BULL[0]);
-   q += MathMax(-5.0, MathMin(5.0, press / 10.0));
+   if(EnableCandleDirectionLink)
+   {
+      if(press_aligned) q += 6.0;
+      if(press_tired)   q -= 8.0;
+   }
+   else
+   {
+      double press = (dir > 0) ? (G_MB_BULL[0] - G_MB_BEAR[0]) : (G_MB_BEAR[0] - G_MB_BULL[0]);
+      q += MathMax(-5.0, MathMin(5.0, press / 10.0));
+   }
    q = MathMax(0.0, MathMin(100.0, q));
    G_MB_ENTRY_QUALITY = (int)MathRound(q);
 
@@ -308,6 +351,9 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       decision = MB_ED_WAIT;
       missing = StringFormat("quality %d below %d", G_MB_ENTRY_QUALITY, caution_q);
    }
+   // A tired move (M15 and M5 pressure both against) is never a full-size entry.
+   if(decision == MB_ED_EXECUTE && press_tired)
+      decision = MB_ED_CAUTION;
    G_MB_ENTRY_DECISION = decision;
 
    // Entry DNA of this judgement - kept by Memory if the entry fills.
@@ -378,11 +424,9 @@ int      G_MB_FAST_DAY        = -1;
 bool MBHasTriggerNow(const int dir)
 {
    string w = "";
-   double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double atr5 = G_MB_ATR[1] * _Point;
-   bool m5 = MBTriggerCandle(G_MB_LAST[1], dir) && !(atr5 > 0.0 && dir * (px - G_MB_LAST[1].close) < -0.5 * atr5);
-   bool m1 = MBTriggerCandle(G_MB_LAST[0], dir) && G_MB_LIVE_FAILED != dir;
-   return m1 || m5 || (G_MB_LIVE_DIR == dir) || MBFreshTriggerEvent(dir, w);
+   double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
+   return MBCandleTriggerNow(0, dir, px) || MBCandleTriggerNow(1, dir, px) ||
+          (G_MB_LIVE_DIR == dir) || MBFreshTriggerEvent(dir, w);
 }
 
 bool MBFastEntryCandidate(int &dir, string &why)

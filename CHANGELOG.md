@@ -1,5 +1,17 @@
 # CHANGELOG — Sirus Brain V8
 
+## 13-bosqich: yo'nalish × sham
+
+- **A1. Yo'nalish almashuvi:** yangi yo'nalish tomonida M1 yoki M5 da kuchli sham bo'lsa (displacement, rejection, liq-grab, fake breakout), miya darhol almashadi. Eski yo'nalishni itarayotgan shamlar bo'lsa, 3–4 bar kutadi. Sham yo'q bo'lsa, avvalgidek 2 bar.
+- **A2. Uch TF bosimi (M1 / M5 / M15):**
+  - uchalasi ham tomonda bo'lsa, sifat +6;
+  - M15 tomonda, M1/M5 qarshi bo'lsa — pullback, joy hisoblanadi;
+  - M15 va M5 qarshi bo'lsa — charchoq: sifat −8 va faqat EHTIYOT lot;
+  - bosim miya ishonchiga ham qo'shiladi va panelda "Bosim" qatori chiqadi.
+- **A4. V5 veto:** charchagan impulsga yangi kirish yo'q. Charchagan deganda 3-to'lqin yoki EXPIRED tezlik, ustiga charchoq / absorbsiya / rejection shami tushuniladi.
+- **A5. Rejection tasdig'i:** rejection, liq-grab yoki exhaustion shami trigger bo'lishi uchun narx uning tanasi o'rtasidan o'tgan bo'lishi kerak. Soyasi buzilsa, trigger bekor. Grid javobi ham shu qoida bilan tekshiriladi.
+- Kalitlar: `EnableCandleDirectionLink`, `EnableExhaustionVeto`, `EnableRejectionConfirm`.
+
 ## 12-bosqich: o'lchov (profiler + soya buxgalteriyasi)
 
 - **Profiler** (`EnableProfiler`):

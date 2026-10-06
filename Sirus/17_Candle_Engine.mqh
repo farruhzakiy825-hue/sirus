@@ -44,6 +44,10 @@ input double MBSpeedEarlyATR          = 1.5;    // Impulse: oxirgi sog'lom pullb
 input double MBSpeedNormalATR         = 2.5;    // < shu = NORMAL
 input double MBSpeedLateATR           = 4.0;    // < shu = LATE, undan ko'p = EXPIRED
 input bool   MBCandlePrintOnUse       = false;  // Har yangi M5 / M15 / H1 / H4 sham o'qilishini jurnalga yozish
+input bool   EnableCandleDirectionLink = true;  // 13-BOSQICH: yo'nalish va sham bog'lanadi - almashuvni sham tasdiqlaydi (A1), M1/M5/M15 bosimi hakamga (A2)
+input double MBPressureSideMin        = 15.0;   // Bosim tomoni: |buqa - ayiq| >= shu bo'lsa o'sha tomon (0..100 shkala)
+input bool   EnableExhaustionVeto     = true;   // A4: charchagan impuls (3-to'lqin yoki EXPIRED + charchoq / absorbsiya / rejection shami) tomoniga yangi kirish yo'q
+input bool   EnableRejectionConfirm   = true;   // A5: rejection / liq-grab / exhaustion shami trigger bo'lishi uchun narx uning tanasi o'rtasidan o'tgan va soyasini buzmagan bo'lishi kerak
 
 #define MB_TF_COUNT          5      // M1, M5, M15, H1, H4
 
@@ -78,6 +82,9 @@ struct SMBCandle
    double   bull;         // bull pressure of this candle, 0..100
    double   bear;         // bear pressure, 0..100
    double   close;        // close price of the candle
+   double   open;
+   double   high;
+   double   low;
 };
 
 SMBCandle G_MB_LAST[MB_TF_COUNT];        // last closed candle per timeframe
@@ -198,6 +205,9 @@ void MBReadCandle(const MqlRates &r[], const int n, const int s, const double at
 {
    out.time = r[s].time;
    out.close = r[s].close;
+   out.open = r[s].open;
+   out.high = r[s].high;
+   out.low = r[s].low;
    out.intent = MB_CI_NONE;
    out.dir = 0;
    out.candle_color = MBColor(r[s]);
@@ -496,6 +506,64 @@ void MBLiveCandleUpdate()
          G_MB_LIVE_DIR = 0;
       }
    }
+}
+
+//---------------------------------------------------------------------
+// STAGE 13: candle readings the direction logic asks for
+//---------------------------------------------------------------------
+// Which side the weighted candle pressure favours on a timeframe (0 = M1, 1 = M5, 2 = M15 ...).
+int MBPressureSide(const int tfi)
+{
+   if(tfi < 0 || tfi >= MB_TF_COUNT)
+      return 0;
+   double d = G_MB_BULL[tfi] - G_MB_BEAR[tfi];
+   if(d >= MBPressureSideMin) return 1;
+   if(d <= -MBPressureSideMin) return -1;
+   return 0;
+}
+
+// The last closed candle on tfi says strongly that dir has taken over.
+bool MBCandleConfirms(const int tfi, const int dir)
+{
+   if(dir == 0 || G_MB_LAST[tfi].dir != dir)
+      return false;
+   int it = G_MB_LAST[tfi].intent;
+   return (it == MB_CI_DISPLACEMENT || it == MB_CI_REJECTION || it == MB_CI_LIQ_GRAB || it == MB_CI_FAKE_BREAKOUT);
+}
+
+// The last closed candle on tfi is still pushing against dir.
+bool MBCandleOpposes(const int tfi, const int dir)
+{
+   if(dir == 0 || G_MB_LAST[tfi].dir != -dir)
+      return false;
+   int it = G_MB_LAST[tfi].intent;
+   return (it == MB_CI_DISPLACEMENT || it == MB_CI_CONTINUATION || it == MB_CI_BREAKOUT);
+}
+
+// A4. The impulse toward dir is spent: on M1 or M5 it is in its third wave or has travelled past
+// the late mark, and its last candle shows the other side arriving (exhaustion, absorption or a
+// rejection against it). A fresh healthy pullback resets the speed and lifts it by itself.
+bool MBExhausted(const int dir, string &why)
+{
+   why = "";
+   if(!EnableExhaustionVeto || dir == 0)
+      return false;
+   for(int k = 0; k <= 1; k++)
+   {
+      if(G_MB_IMP_DIR[k] != dir || G_MB_SPEED[k] < MB_SPEED_LATE)
+         continue;
+      if(G_MB_IMP_WAVES[k] < 3 && G_MB_SPEED[k] != MB_SPEED_EXPIRED)
+         continue;
+      int it = G_MB_LAST[k].intent;
+      if(G_MB_LAST[k].dir == -dir && (it == MB_CI_EXHAUSTION || it == MB_CI_ABSORPTION || it == MB_CI_REJECTION))
+      {
+         why = StringFormat("%s %s impulse spent (%d waves, %.1f ATR) and a %s candle against it",
+                            (k == 0 ? "M1" : "M5"), (dir > 0 ? "bullish" : "bearish"), G_MB_IMP_WAVES[k],
+                            G_MB_IMP_TRAVEL[k], MBIntentName(it));
+         return true;
+      }
+   }
+   return false;
 }
 
 void MBCandleEngineUpdate()

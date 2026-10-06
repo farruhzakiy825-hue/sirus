@@ -265,6 +265,11 @@ bool MBVetoAllowsEntry(const int dir, string &why)
       blocked = true;
    else if(MBVetoAcceleration && MBVetoAccelerationCheck(dir, why))
       blocked = true;
+   else if(MBExhausted(dir, why))
+   {
+      why = "V5 exhausted: " + why;   // stage 13 (A4): no new entry into a spent impulse
+      blocked = true;
+   }
 
    if(!blocked)
       return true;

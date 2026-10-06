@@ -642,9 +642,11 @@ void MBDrawPanel()
       MBVisText("B_CONF_TX", StringFormat("ishonch %d%%", G_MB_BIAS_CONF), x0 + w - 12, G_MB_PANEL_Y + 1, muted, PanelFontSize - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
       G_MB_PANEL_Y += lh + 2;
       MBPanelLine("B_WHY", "Sabab: " + MBWhyUz(G_MB_BIAS_WHY), ink, false, x0, w, lh);
-      MBPanelLine("B_TF", StringFormat("TF:  M5 %s   M15 %s   H1 %s   H4 %s",
+      MBPanelLine("B_TF", StringFormat("TF  M5 %s  M15 %s  H1 %s  H4 %s  ·  Bosim  M1 %s  M5 %s  M15 %s",
                                        MBBiasArrow(G_MB_TF_STATE[1]), MBBiasArrow(G_MB_TF_STATE[2]),
-                                       MBBiasArrow(G_MB_TF_STATE[3]), MBBiasArrow(G_MB_TF_STATE[4])), muted, false, x0, w, lh);
+                                       MBBiasArrow(G_MB_TF_STATE[3]), MBBiasArrow(G_MB_TF_STATE[4]),
+                                       MBBiasArrow(2 * MBPressureSide(0)), MBBiasArrow(2 * MBPressureSide(1)),
+                                       MBBiasArrow(2 * MBPressureSide(2))), muted, false, x0, w, lh);
       string loc = "Maydon: H1 diapazon hali chizilmadi";
       if(G_MB_DR_HI > G_MB_DR_LO)
          loc = StringFormat("Maydon: %s (%.0f%%)  ·  %s – %s",

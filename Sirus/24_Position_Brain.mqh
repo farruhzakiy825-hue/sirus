@@ -217,8 +217,9 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
    }
 
    // Response: the market defending the basket's side at this price.
-   bool response = (MBTriggerCandle(G_MB_LAST[0], dir) && G_MB_LAST[0].intent != MB_CI_CONTINUATION) ||
-                   (MBTriggerCandle(G_MB_LAST[1], dir) && G_MB_LAST[1].intent != MB_CI_CONTINUATION) ||
+   double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
+   bool response = (MBCandleTriggerNow(0, dir, px) && G_MB_LAST[0].intent != MB_CI_CONTINUATION) ||
+                   (MBCandleTriggerNow(1, dir, px) && G_MB_LAST[1].intent != MB_CI_CONTINUATION) ||
                    (G_MB_LIVE_DIR == dir);
    string ev_what = "";
    if(!response)

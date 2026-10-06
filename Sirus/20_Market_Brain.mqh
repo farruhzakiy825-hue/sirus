@@ -419,7 +419,23 @@ void MBBrainUpdate()
          G_MB_BIAS_CAND = bias;
          G_MB_BIAS_CAND_N = 1;
       }
-      if(G_MB_BIAS_CAND_N < 2)
+      // STAGE 13 (A1): the candles decide how long the new view must wait. A strong candle the new
+      // way (displacement, rejection, liquidity grab, failed break) on M1 or M5 confirms it at once;
+      // candles still pushing the old way make it wait longer. No candle opinion: two bars, as before.
+      int need = 2;
+      int cs = MBSign(bias);
+      if(EnableCandleDirectionLink && cs != 0)
+      {
+         if(MBCandleConfirms(0, cs) || MBCandleConfirms(1, cs))
+            need = 1;
+         else if(MBCandleOpposes(0, cs) && MBCandleOpposes(1, cs))
+            need = 4;
+         else if(MBCandleOpposes(1, cs))
+            need = 3;
+      }
+      if(need == 1 && G_MB_BIAS_CAND_N >= 1)
+         why += " [candle-confirmed]";
+      if(G_MB_BIAS_CAND_N < need)
       {
          why = G_MB_BIAS_WHY;   // keep the standing view this bar
          bias = G_MB_BIAS;
@@ -435,6 +451,13 @@ void MBBrainUpdate()
    int conf = 50 + 12 * MathAbs(bias);
    if(MBSign(s1h) != 0) conf += (MBSign(s1h) == MBSign(bias)) ? 8 : -10;
    if(MBSign(s4h) != 0) conf += (MBSign(s4h) == MBSign(bias)) ? 6 : -6;
+   // STAGE 13 (A2): what the candles are actually doing on M5 and M15.
+   if(EnableCandleDirectionLink && MBSign(bias) != 0)
+   {
+      int p5 = MBPressureSide(1), p15 = MBPressureSide(2);
+      if(p15 != 0) conf += (p15 == MBSign(bias)) ? 5 : -6;
+      if(p5 != 0)  conf += (p5 == MBSign(bias)) ? 3 : -3;
+   }
    G_MB_BIAS = bias;
    G_MB_BIAS_WHY = why;
 
