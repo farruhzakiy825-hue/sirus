@@ -4285,6 +4285,22 @@ bool FirstEntryCanRun(string &reason)
       }
    }
 
+   // JUDGE INSTEAD OF SCORE: the detectors found a direction, their score fell short, but the Market
+   // Brain's Entry Judge rates this exact setup highly (location, trigger, timing, regime, flow). The
+   // judge is the better reader of the moment; the old score is one opinion among several. Same
+   // direction and type as the final judgement, so its signal-decay memory stays consistent.
+   if(G_SCORE_DECISION == SCORE_DECISION_WAIT && G_ARM_DIR == 0 && G_OPP_DIR != OPP_DIR_NONE && MBJudgeBypassOn())
+   {
+      int jb_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : -1;
+      string jb_why = "";
+      if(MBEntryJudgeAllows(jb_dir, jb_why) && MBEntryQualityNow() >= MBJudgeBypassMin())
+      {
+         G_SCORE_DECISION = G_SCORE_IS_MICRO ? SCORE_DECISION_MICRO_PASS : SCORE_DECISION_PASS;
+         DecisionLog("JUDGE", StringFormat("score %d/%d short, judge quality %d - judge decides", G_SCORE_FINAL,
+                                           G_SCORE_MIN_REQUIRED, MBEntryQualityNow()));
+      }
+   }
+
    // MARKET BRAIN FAST ENTRY (speed): no detector score yet, but a winning basket's thesis is still
    // open (re-entry) or a confirmed thesis has a trigger right now. Everything below - the remaining
    // gates, the veto and the Entry Judge - still decides.

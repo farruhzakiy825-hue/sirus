@@ -142,6 +142,8 @@ string MBProfText()
       t += StringFormat(" · og'iri: %s %.2f", MBProfNameUz(heavy), G_PROF_AVG[heavy] / 1000.0);
    if(G_PROF_N[MB_PROF_PANEL] > 0)
       t += StringFormat(" · panel %.1f", G_PROF_AVG[MB_PROF_PANEL] / 1000.0);
+   if(EnableScannerThrottle && G_SCAN_RUNS + G_SCAN_SKIPPED > 0)
+      t += StringFormat(" · skaner %.0f%% tikda", 100.0 * G_SCAN_RUNS / (G_SCAN_RUNS + G_SCAN_SKIPPED));
    return t;
 }
 

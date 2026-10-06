@@ -59,6 +59,8 @@ input bool   BrainEntryTrend          = true;   // Trend: miya tomonda (ustun/hu
 input bool   BrainEntrySweep          = true;   // Likvidlik ovi: LIVE SWEEP yoki yangi M5+ sweep / fake break qaytishi - qaytish tomonga
 input bool   BrainEntryRange          = true;   // Diapazon (M15 rejimi): chekkada qaytish shami
 input bool   BrainEntryMomentum       = true;   // Momentum: jonli yoki hozirgina yopilgan displacement + M5 bosimi shu tomonda, impuls erta
+input bool   EnableJudgeScoreBypass   = true;   // HAKAM BALL O'RNIDA: eski detektor balli yetmasa, lekin Market Brain hakami shu setupga yuqori sifat bersa - kirish ochiladi
+input int    MBJudgeBypassQuality     = 65;     // Hakam sifati kamida shuncha bo'lsa
 input bool   SmartFillMomentumSkip    = true;   // 14-BOSQICH (C4): momentum lahzasida (jonli displacement, LIVE SWEEP, hozirgina yopilgan M1 displacement) SmartFill pullback kutmaydi - darhol kiradi
 
 #define MB_ED_EXECUTE   0
@@ -112,6 +114,28 @@ bool MBTriggerCandle(const SMBCandle &c, const int dir)
    return (c.intent == MB_CI_DISPLACEMENT || c.intent == MB_CI_REJECTION || c.intent == MB_CI_LIQ_GRAB ||
            c.intent == MB_CI_FAKE_BREAKOUT || c.intent == MB_CI_BREAKOUT || c.intent == MB_CI_CONTINUATION ||
            c.intent == MB_CI_EXHAUSTION);
+}
+
+// TREND PULLBACK RESUME: the last closed M1 candle went against dir (the pullback) and price is now
+// breaking that candle's far end the trend's way. In a running trend the impulse reads LATE, but the
+// entry is taken off the pullback, not at the top of the run.
+bool MBPullbackResume(const int dir)
+{
+   if(dir == 0 || G_MB_LAST[0].candle_color != -dir || G_MB_LAST[0].high <= G_MB_LAST[0].low)
+      return false;
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(dir > 0 ? (bid <= G_MB_LAST[0].high) : (bid >= G_MB_LAST[0].low))
+      return false;
+   // Not on a spent move: M5 impulse not expired, M5 pressure not against.
+   if(G_MB_IMP_DIR[1] == dir && G_MB_SPEED[1] >= MB_SPEED_EXPIRED)
+      return false;
+   return (MBPressureSide(1) != -dir);
+}
+
+// Quality of the last judgement (read by the entry gates before this file).
+int MBEntryQualityNow()
+{
+   return G_MB_ENTRY_QUALITY;
 }
 
 // A closed M1 (tfi 0) or M5 (tfi 1) candle that is a usable trigger for dir RIGHT NOW:
@@ -310,6 +334,15 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    {
       if(G_MB_SPEED[0] == MB_SPEED_EXPIRED) chase = 2;
       else if(G_MB_SPEED[0] == MB_SPEED_LATE) chase = 1;
+   }
+   // Off a pullback the trend is resuming from a better price - one step less of a chase.
+   bool pb_resume = (a >= 2 && MBPullbackResume(dir));
+   if(pb_resume && chase > 0)
+   {
+      chase--;
+      trig_ok = true;
+      if(trig == "none" || StringLen(trig) == 0) trig = "pullback resume";
+      else trig += ", pullback resume";
    }
 
    // Signal decay: the same signal, price running away from where it first appeared.
@@ -591,13 +624,19 @@ bool MBFastEntryCandidate(int &dir, string &why)
       // 1. TREND: the brain holds a direction (weak or strong), a thesis is open that way, the
       //    impulse is not late, and something triggers now.
       int d = MBSign(G_MB_BIAS);
+      bool fresh_trend = !(G_MB_IMP_DIR[0] == d && G_MB_SPEED[0] >= MB_SPEED_LATE) && MBHasTriggerNow(d);
+      bool pullback_trend = MBPullbackResume(d);   // a late trend, entered off its pullback
       if(BrainEntryTrend && d != 0 && d * G_MB_BIAS >= 2 && G_MB_TH_DIR == d && thesis_open && G_MB_TH_CONTRA <= 1 &&
-         !(G_MB_IMP_DIR[0] == d && G_MB_SPEED[0] >= MB_SPEED_LATE) && MBHasTriggerNow(d))
+         (fresh_trend || pullback_trend))
       {
          dir = d;
-         G_MB_FAST_TYPE = (MBPressureSide(2) == d && MBPressureSide(0) == -d) ? (int)OPP_TYPE_PULLBACK_CONTINUATION : (int)OPP_TYPE_TREND_RIDE;
-         why = StringFormat("BRAIN TREND %s: %s, thesis %s, trigger now", (d > 0 ? "BUY" : "SELL"),
-                            MBBiasName(G_MB_BIAS), MBThesisStateName(G_MB_TH_STATE));
+         if(pullback_trend && !fresh_trend)
+            G_MB_FAST_TYPE = (int)OPP_TYPE_PULLBACK_CONTINUATION;
+         else
+            G_MB_FAST_TYPE = (MBPressureSide(2) == d && MBPressureSide(0) == -d) ? (int)OPP_TYPE_PULLBACK_CONTINUATION : (int)OPP_TYPE_TREND_RIDE;
+         why = StringFormat("BRAIN TREND %s: %s, thesis %s, %s", (d > 0 ? "BUY" : "SELL"),
+                            MBBiasName(G_MB_BIAS), MBThesisStateName(G_MB_TH_STATE),
+                            (fresh_trend ? "trigger now" : "pullback resuming"));
       }
 
       // 2. LIQUIDITY HUNT: liquidity was just taken and reclaimed - trade the return. Not against a
@@ -675,6 +714,9 @@ bool MBFastEntryCandidate(int &dir, string &why)
    }
    return true;
 }
+
+bool MBJudgeBypassOn()  { return EnableJudgeScoreBypass && EnableMBEntryJudge && EnableMarketBrain && EnableMarketBrainEngines; }
+int  MBJudgeBypassMin() { return MathMax(1, MBJudgeBypassQuality); }
 
 int MBFastEntryType()
 {

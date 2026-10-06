@@ -618,6 +618,23 @@ void MBBrainUpdate()
       }
    }
 
+   // MOMENTUM CONFIRMS A TRANSITION: M15 has only turned (MSS, no BOS yet), but M5 structure, the
+   // candle pressure (two of M1 / M5 / M15) and the absence of a reversal the other way all say the
+   // move is already running. For entries that is a trend, not a "maybe" - waiting for the M15 BOS is
+   // how a $5 fall went by with the brain still "awakening".
+   if(EnableCandleDirectionLink && MathAbs(bias) == 1)
+   {
+      int td = MBSign(bias);
+      int pc = (MBPressureSide(0) == td ? 1 : 0) + (MBPressureSide(1) == td ? 1 : 0) + (MBPressureSide(2) == td ? 1 : 0);
+      string rw = "";
+      datetime rt = 0;
+      if(MBSign(s5) == td && pc >= 2 && !MBReversalAfter(-td, 1, 4, true, 0, rw, rt))
+      {
+         bias = 2 * td;
+         why += StringFormat(" + M5 structure and %d/3 pressure with it (momentum confirms)", pc);
+      }
+   }
+
    // FIX(bias-flip-flop): a new bias must hold for two consecutive M1 bars before it replaces the old
    // one - except a strengthening in the same direction or an HTF liquidity reversal, which apply at
    // once. One noisy bar no longer swings the permission matrix.

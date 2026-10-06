@@ -761,6 +761,73 @@ void UpdatePremiumLogEngine(const string source)
 // LAYER 6 - POST-TRADE BOOKKEEPING / DIAGNOSTICS (order doesn't matter much here):
 //   Dashboard, logging, license/rental checks, and diagnostic-only probes.
 // ============================================================================
+//---------------------------------------------------------------------
+// SPEED (stage 14 C5): THE LEGACY SCANNER RUNS WHEN SOMETHING CHANGED
+//---------------------------------------------------------------------
+// The profiler measured the legacy scanner / score / pack block at ~49 ms of a ~55 ms tick, with
+// peaks over a second - on XAUUSD that is most ticks queued behind the previous one. Its answer only
+// changes when the market does: it now runs on a new M1 bar, when price has moved
+// ScanMovePointsATR x ATR(M1) since the last run, when the basket count changes, or after
+// ScanMaxSeconds at most. On the ticks in between, the scanner's outputs are restored from the
+// snapshot taken after its last run - the entry gates mutate them during a tick (relief, fast entry,
+// scenario score), and those mutations must not pile up across ticks.
+input bool   EnableScannerThrottle    = true;   // TEZLIK: eski skaner faqat yangi bar / narx siljishi / savat o'zgarishi / har N soniyada ishlaydi
+input double ScanMovePointsATR        = 0.10;   // Narx oxirgi skanerdan beri ATR(M1) x shu siljisa - qayta skaner
+input int    ScanMaxSeconds           = 3;      // Har holda shuncha soniyada bir marta
+
+datetime G_SCAN_BAR = 0, G_SCAN_TIME = 0;
+double   G_SCAN_BID = 0.0;
+int      G_SCAN_ORDERS = -1;
+bool     G_SCAN_HAVE_SNAP = false;
+int      G_SCAN_SKIPPED = 0, G_SCAN_RUNS = 0;
+ENUM_OPPORTUNITY_DIR  SN_OPP_DIR;
+ENUM_OPPORTUNITY_TYPE SN_OPP_TYPE;
+ENUM_OPPORTUNITY_GRADE SN_OPP_GRADE;
+string SN_OPP_REASON, SN_OPP_DETAIL, SN_SCORE_DETAIL, SN_SCORE_HARD;
+int    SN_OPP_SCORE, SN_SCORE_FINAL, SN_SCORE_MIN, SN_SCORE_BASE, SN_SCORE_BONUS, SN_SCORE_PENALTY;
+double SN_OPP_CLARITY;
+ENUM_SCORE_DECISION SN_SCORE_DECISION;
+bool   SN_SCORE_MICRO;
+
+bool ScanDue(const string source)
+{
+   if(!EnableScannerThrottle || source != "TICK" || !G_SCAN_HAVE_SNAP)
+      return true;
+   datetime bar = iTime(_Symbol, PERIOD_M1, 0);
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double atr1 = ATRPointsManual(PERIOD_M1, 14, 1) * _Point;
+   if(bar != G_SCAN_BAR) return true;
+   if(G_BASKET_ORDERS != G_SCAN_ORDERS) return true;
+   if((TimeCurrent() - G_SCAN_TIME) >= MathMax(1, ScanMaxSeconds)) return true;
+   if(atr1 > 0.0 && MathAbs(bid - G_SCAN_BID) >= ScanMovePointsATR * atr1) return true;
+   return false;
+}
+
+void ScanSnapshotSave()
+{
+   G_SCAN_BAR = iTime(_Symbol, PERIOD_M1, 0);
+   G_SCAN_TIME = TimeCurrent();
+   G_SCAN_BID = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   G_SCAN_ORDERS = G_BASKET_ORDERS;
+   SN_OPP_DIR = G_OPP_DIR; SN_OPP_TYPE = G_OPP_TYPE; SN_OPP_GRADE = G_OPP_GRADE;
+   SN_OPP_REASON = G_OPP_REASON; SN_OPP_DETAIL = G_OPP_DETAIL; SN_OPP_SCORE = G_OPP_SCORE; SN_OPP_CLARITY = G_OPP_DIR_CLARITY;
+   SN_SCORE_FINAL = G_SCORE_FINAL; SN_SCORE_DECISION = G_SCORE_DECISION; SN_SCORE_MIN = G_SCORE_MIN_REQUIRED;
+   SN_SCORE_MICRO = G_SCORE_IS_MICRO; SN_SCORE_BASE = G_SCORE_BASE; SN_SCORE_BONUS = G_SCORE_BONUS;
+   SN_SCORE_PENALTY = G_SCORE_PENALTY; SN_SCORE_DETAIL = G_SCORE_DETAIL; SN_SCORE_HARD = G_SCORE_HARD_BLOCK;
+   G_SCAN_HAVE_SNAP = true;
+   G_SCAN_RUNS++;
+}
+
+void ScanSnapshotRestore()
+{
+   G_OPP_DIR = SN_OPP_DIR; G_OPP_TYPE = SN_OPP_TYPE; G_OPP_GRADE = SN_OPP_GRADE;
+   G_OPP_REASON = SN_OPP_REASON; G_OPP_DETAIL = SN_OPP_DETAIL; G_OPP_SCORE = SN_OPP_SCORE; G_OPP_DIR_CLARITY = SN_OPP_CLARITY;
+   G_SCORE_FINAL = SN_SCORE_FINAL; G_SCORE_DECISION = SN_SCORE_DECISION; G_SCORE_MIN_REQUIRED = SN_SCORE_MIN;
+   G_SCORE_IS_MICRO = SN_SCORE_MICRO; G_SCORE_BASE = SN_SCORE_BASE; G_SCORE_BONUS = SN_SCORE_BONUS;
+   G_SCORE_PENALTY = SN_SCORE_PENALTY; G_SCORE_DETAIL = SN_SCORE_DETAIL; G_SCORE_HARD_BLOCK = SN_SCORE_HARD;
+   G_SCAN_SKIPPED++;
+}
+
 void CoreUpdate(const string source)
 {
    G_UPDATE_COUNT++;
@@ -830,24 +897,30 @@ void CoreUpdate(const string source)
       }
    }
    EventChainUpdate();
-   UpdateOpportunityScanner(source);
-   UpdateSignalScoreEngine(source);
-   UpdateDirectionRedirectEngine(source);
-   if(G_REDIRECT_APPLIED)
-      UpdateSignalScoreEngine("REDIRECT_RESCORE");
-   UpdateLegacyUpgradePack(source);
-   UpdateLegacyDeepParityPack(source);
-   UpdateDeepBOSChochRetest(source);
-   UpdateDeepTopZoneTrapGuard(source);
-   UpdateDeepNewsVolatilityBrain(source);
-   UpdateAdaptiveEntryTimingBrain(source);
-   UpdateMarketRegimeAutoTuningBrain(source);
-   UpdateSignalQueueEngine(source);
-   UpdateMissedTradeMemory(source);
-   UpdateMicroScalpLayer(source);
-   UpdateBlockExpiryEngine(source);
-   if(G_BLOCK_JUST_EXPIRED && (G_SCORE_DECISION == SCORE_DECISION_PASS || G_SCORE_DECISION == SCORE_DECISION_MICRO_PASS))
-      UpdateMicroScalpLayer("BLOCK_EXPIRY_RESCORE");
+   if(ScanDue(source))
+   {
+      UpdateOpportunityScanner(source);
+      UpdateSignalScoreEngine(source);
+      UpdateDirectionRedirectEngine(source);
+      if(G_REDIRECT_APPLIED)
+         UpdateSignalScoreEngine("REDIRECT_RESCORE");
+      UpdateLegacyUpgradePack(source);
+      UpdateLegacyDeepParityPack(source);
+      UpdateDeepBOSChochRetest(source);
+      UpdateDeepTopZoneTrapGuard(source);
+      UpdateDeepNewsVolatilityBrain(source);
+      UpdateAdaptiveEntryTimingBrain(source);
+      UpdateMarketRegimeAutoTuningBrain(source);
+      UpdateSignalQueueEngine(source);
+      UpdateMissedTradeMemory(source);
+      UpdateMicroScalpLayer(source);
+      UpdateBlockExpiryEngine(source);
+      if(G_BLOCK_JUST_EXPIRED && (G_SCORE_DECISION == SCORE_DECISION_PASS || G_SCORE_DECISION == SCORE_DECISION_MICRO_PASS))
+         UpdateMicroScalpLayer("BLOCK_EXPIRY_RESCORE");
+      ScanSnapshotSave();
+   }
+   else
+      ScanSnapshotRestore();   // the market has not changed enough - last scan's answer, unmutated
    MBProfEnd(MB_PROF_SCAN);
    MBProfBegin(MB_PROF_GUARDS);
    UpdateRiskEngine(source);

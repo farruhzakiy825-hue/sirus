@@ -1,5 +1,22 @@
 # CHANGELOG — Sirus Brain V8
 
+## Tezlik va trend savdosi: skaner jilovi, "uyg'onish + harakat = trend", pullback, hakam
+
+- **D. Tezlik** (`EnableScannerThrottle`):
+  - Profiler ko'rsatdi: eski skaner ~49 ms (tik ~55 ms, eng sekini 1.2 s).
+  - Endi skaner faqat shu holatlarda ishlaydi: yangi M1 bar, narx 0.1 ATR(M1) siljiganda, savat o'zgarganda yoki 3 soniyada bir marta.
+  - Oradagi tiklarda skaner natijasi snapshot'dan tiklanadi. Kirish filtrlari tik ichida o'zgartirgan qiymatlar keyingi tiklarga o'tib to'planmaydi.
+  - Panelda "skaner N% tikda" ko'rinadi.
+- **A. Uyg'onish + harakat = trend:** miya "uyg'onmoqda" holatida bo'lsa ham, uchta shart bajarilsa trend (±2) deb hisoblanadi:
+  - M5 strukturasi shu tomonda;
+  - M1/M5/M15 bosimidan kamida 2 tasi shu tomonda;
+  - teskari reversal yo'q.
+  - Natijada $5 lik tushishda SELL endi taqiqlanmaydi.
+- **B. Trend pullbackdan davom etishi:** oxirgi M1 sham trendga qarshi yopilgan bo'lsa (pullback) va narx uning chekkasini trend tomonga buzsa:
+  - TREND miya kirishi ochiladi (impuls kech bo'lsa ham);
+  - hakamdagi "quvish" jazosi bir pog'ona yumshaydi.
+- **C. Hakam ball o'rnida** (`EnableJudgeScoreBypass`, `MBJudgeBypassQuality=65`): eski ball yetmasa ham, hakam shu setupga 65+ sifat bersa, kirish ochiladi.
+
 ## Miya kirishlari: jimlikka qarshi oddiy mantiq
 
 - **Muammo:** kirish faqat eski detektorlar balli o'tganda boshlanardi (to'xtashlarning 86% i "ball yetmadi"). Miyaning tezkor kirishi esa juda tor edi: tasdiqlangan g'oya, kuchli bias, qarama-qarshilik yo'q. Natijada bozor harakatlansa ham robot jim turardi.
