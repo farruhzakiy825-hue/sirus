@@ -1,5 +1,30 @@
 # Sirus Brain V8: tahlil va tuzatish rejasi
 
+## Bajarilganlar (v31.68)
+
+| # | Muammo | Holat |
+|---|---|---|
+| 1 | Broker tomonida himoya yo'q | ✅ Cashback trailing qo'shildi: savat TP'ga yetganda yopilmaydi, trailing'ga o'tadi. Trailing qulfi brokerga **real SL** sifatida yoziladi (faqat foydadagi savatga). Zarardagi grid'ga SL qo'yilmaydi |
+| 2 | Risk limitlari 50% | ➖ Egasining qarori: 50% qoladi |
+| 3 | Martingeyl pollari | ⏳ Keyingi bosqich |
+| 5 | Hisob turi | ✅ Avtomatik aniqlanadi. Hedging bo'lmasa, yangi kirish va grid o'chadi |
+| 6, 10, 11 | Server litsenziyasi / WebRequest | ✅ Modul butunlay olib tashlandi |
+| 7, 8 | Yopishda qayta urinish, qisman yopish | ✅ Retcode bo'yicha tarmoqlash, urinishlar orasida pauza, qisman yopishda chiqish deviatsiyasi va natija tekshiruvi |
+| 9 | Taymer | ✅ Taymer faqat himoyani ishga tushiradi (emergency, yangilik oynasi, auto-flat). Kirish va grid faqat tikda ishlaydi |
+| 12 | Kalendar | ✅ Kesh + har tikda jonli baholash, kengaytirilgan oyna ishlaydi, auto-flat voqea ID'si bo'yicha, `HardBlockFirst=false` bo'lsa ham grid yangilikda to'xtaydi |
+| 13 | O'lik inputlar | ✅ 104 ta hech qayerda ishlatilmaydigan input o'chirildi |
+| 14 | Takroriy chaqiruvlar | ✅ Faqat dashboard uchun ishlaydigan 2 ta updater har tikda 3 marta emas, 1 marta chaqiriladi |
+| 15 | DD'da komissiya | ✅ Kirish komissiyasi keshlanib, DD va savat foydasiga qo'shiladi |
+| 16 | Slippage o'lchovi | ✅ Narx yuborishdan oldin olinadi |
+| 17 | `sent` ≠ to'ldirildi | ✅ Kirish, grid va scale-in'da retcode tekshiriladi |
+| 18 | Qayta init'da holat | ✅ `G_BARS_SEEN` endi nolga qaytarilmaydi, 55 ta `static` kesh himoyalandi |
+| 19 | Jurnal shovqini | ✅ `VerboseLogs` umumiy kaliti (165 ta `PrintOnUse` uning ostida) |
+| 20, 21 | Sarlavha, `#property strict`, takroriy e'lonlar | ✅ |
+| 22, 23 | Kommentlar tarixi, modullarga bo'lish | ⏳ Kompilyatsiya tasdiqlangandan keyin alohida bosqich |
+
+> Raqamlar quyidagi 2-bo'limdagi ro'yxat bo'yicha.
+
+
 Fayl: `Sirus_Brain_V8.mq5` (versiya 31.67, XAUUSD uchun grid/martingeyl savat EA)
 
 ## 1. Umumiy holat (raqamlarda)

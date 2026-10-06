@@ -1,15 +1,13 @@
 //+------------------------------------------------------------------+
-//|                               Navius_v24_00_PHASE21_3_STABLE_RC_BASELINE.mq5 |
-//|                   NAVIUS v31.6.00 Clean Hunter Core - PHASE 21.3       |
-//|                 Clean Core + Environment + Mode + Market + Scanner + Score + Grid + Risk + Stable RC Baseline      |
-//|                                      Navius by F.Zakiy            |
+//|                                            Sirus_Brain_V8.mq5    |
+//|                     SIRUS BY ZAKIY - XAUUSD grid basket EA       |
+//|                                              v31.68              |
 //+------------------------------------------------------------------+
-#property strict
 
 #include <Trade/Trade.mqh>
 #property copyright "SIRUS BY ZAKIY | CEO Farruh Zakiy"
 #property link      "Telegram: @farruh_zakiy"
-#property version   "31.67"
+#property version   "31.68"
 
 // BOSQICH 14: micro/minor/local struktura holatlari. #define ishlatilishidan OLDIN turishi shart.
 #define MS_RANGE        0
@@ -407,6 +405,7 @@ double ZoneMapNearestResistance(const double price);
 double ZoneMapNearestSupport(const double price);
 double ZoneMapStrength(const double level);
 bool CloseNaviusBasket(const string reason);
+bool RebateTrailingOn();   // cashback trailing switch - read by the basket trailing long before its definition
 double GridDistanceForNextOrder(const int current_orders);
 void PremiumVisualDeleteExact(const string suffix);
 double ATRPointsManual(const ENUM_TIMEFRAMES tf, const int period, const int start_shift);
@@ -564,8 +563,6 @@ void ReplayQueuedSignal();
 void Pack3ClosedDealAnalytics();
 bool BasketPremiseDead(string &detail);
 void ChooseLadderShape(const int dir);
-double AutoLotBase();
-double AutoGridMultiplier();
 void UpdateVPSLiveValidation(const string source);
 void OnTimer();
 
@@ -618,6 +615,7 @@ enum ENUM_TEMP_BLOCK_TYPE
    TEMP_BLOCK_ZONE_DANGER = 9
 };
 
+input bool              VerboseLogs              = true;      // FIX(log-noise): master switch for the ~170 "...PrintOnUse" diagnostic logs. false = quiet journal (trades, closes, errors and warnings still print). Each individual PrintOnUse switch still works when this is true.
 input group "01 — SIRUS CORE / MODE"
 input string            NaviusBuildName          = "SIRUS v31.6 PRO AUTO GRID SAFETY READY";
 input ENUM_NAVIUS_MODE  NaviusMode               = NAVIUS_MODE_AUTO;
@@ -710,7 +708,6 @@ input bool              EnableCloseMarkers       = true;    // Draw a chart mark
 input color             CloseMarkerProfitColor   = clrLime; // Colour of a winning close (check mark)
 input color             CloseMarkerLossColor     = clrRed;  // Colour of a losing close (cross)
 input int               CloseMarkerFontSize      = 10;      // Font size of the tag text next to the marker
-input bool              CloseMarkerWriteComment  = true;    // Reserved: this build's CTrade has no SetComment(), so the close reason is shown via the chart marker tag rather than the deal comment. Kept for forward compatibility.
 
 // FEATURE(tp-sl-lines): draw the live basket TARGET (TP) and, once trailing is armed, the trailing
 // STOP line on the chart. The TP line is derived from the basket AVERAGE price, so it automatically
@@ -752,15 +749,6 @@ input double            SelfDefenseLotFactor     = 0.50;     // himoya rejimida 
 input int               SelfDefenseMinScoreAdd   = 1;        // himoya rejimida min score +shu (sifat talabi oshadi)
 input int               SelfDefenseRecoverWins   = 2;        // shuncha foydali basket -> normal rejim
 input bool              SelfDefensePrintOnUse    = true;
-
-input group "02i — SERVER LICENSE / REMOTE CONTROL"
-// Requires the URL added under Tools -> Options -> Expert Advisors -> "Allow WebRequest".
-// Server replies: status=ok|deny, cmd=none|pause|lot50|flat. Auto-off in Strategy Tester.
-input bool              EnableServerLicense      = false;
-input string            ServerLicenseURL         = "";       // masalan: https://sizning-server.uz/navius/check
-input int               ServerLicenseCheckSec    = 300;      // necha soniyada bir tekshirish
-input int               ServerLicenseGraceMin    = 720;      // Minutes trading continues if the license server is unreachable, before new entries pause
-input bool              ServerLicensePrintOnUse  = true;
 
 input group "02j — ATR ADAPTIVE TP"
 input bool              EnableATRAdaptiveTP      = true;
@@ -946,8 +934,6 @@ input double            GridMarginRescueMinFactor = 0.5;    // The rescue lot mu
 // chart had respected before. This makes it a timed WAIT instead: recovery is never frozen (the
 // wait expires), but the addition happens after the level gives way rather than into it.
 input bool              EnableGridZoneWait       = true;   // Delay a grid addition while price sits on the zone that opposes the basket
-input int               GridZoneWaitPoints       = 2500;  // *** ISHLATILMAYDI *** V137 da GridZoneWait "band ichida" tekshiruviga qayta qurildi - u endi masofa emas, ZonePriceInsideBand ishlatadi. O'zgartirish hech narsaga ta'sir qilmaydi.
-input double            GridZoneWaitMinStrength  = 2.0;  // *** ISHLATILMAYDI *** Xuddi shu sabab - band aniqlash o'z chegaralariga ega. O'zgartirish hech narsaga ta'sir qilmaydi.
 input int               GridZoneWaitMaxBars      = 20;     // Hard limit on the wait. Once passed, the grid adds anyway - a basket must never be stranded by a zone price is sitting inside.
 input double            GridZoneWaitMaxBasketDD  = 12.0;   // Above this basket drawdown %% the wait is skipped entirely and the grid adds immediately. Waiting for a better fill is worthwhile early; once a basket is deep, delaying its averaging is the freeze that margin rescue exists to prevent.
 input bool              GridZoneWaitPrintOnUse   = true;   // Log the wait and its expiry
@@ -1016,6 +1002,14 @@ input bool   RebateTPCapPrintOnUse       = true;   // Log when the target is hel
 input double RebateGridSpacingMultiple   = 3.0;
 // ---- BOSQICH 17: CASHBACK REJIMINI KUCHAYTIRISH ----
 input bool   RebateDisableTrailing    = true;   // Cashback rejimida savat trailingi o'chadi. Sabab: trailing qadami (300 pt) va qulfi (2000 pt) cashback TP sidan (~236 pt) KATTA - u TP ga xalaqit beradi va savatni keraksiz ushlab turadi
+input bool   EnableRebateTrailing     = true;   // Cashback: savat TP ga yetganda darhol yopilmaydi - trailing'ga o'tadi. Narx qaytsa kamida qulf (TP x LockFraction) bilan yopiladi, davom etsa foyda o'sadi. Shu rejimda birinchi kirishga broker TP qo'yilmaydi (u trailing'dan oldin yopib qo'yardi)
+input double RebateTrailLockFraction  = 0.75;   // Qulf = TP x shu. TP ga yetgandan keyin savat kamida shuncha foyda bilan yopiladi (0.10-0.95)
+input double RebateTrailStepFraction  = 0.50;   // Kuzatish masofasi = TP x shu: cho'qqidan shuncha qaytsa savat yopiladi
+input int    RebateTrailMinStepPoints = 120;    // Kuzatish masofasi bundan kichik bo'lmaydi (3 xonali: 120 = $0.12)
+input bool   EnableBrokerTrailSL      = true;   // Trailing qulfi brokerga REAL stop-loss sifatida yoziladi (faqat savat foydada bo'lganda). VPS/terminal uzilsa ham foyda saqlanadi. Zarardagi grid'ga SL qo'yilmaydi
+input int    BrokerTrailMinMovePoints = 20;     // Broker SL kamida shuncha punkt yaxshilansa yangilanadi
+input int    BrokerTrailMinIntervalSec = 2;     // Broker SL yangilanishlari orasidagi minimal soniya
+input bool   BrokerTrailPrintOnUse    = true;
 input bool   RebateTimeFlat           = true;   // Savat juda uzoq ochiq qolsa va MINUSDA bo'lmasa - yopiladi. Maqsad: joyni bo'shatish, keyingi savat -> ko'proq aylanma -> ko'proq cashback
 input int    RebateMaxBasketBars      = 25;     // Shuncha M1 bar (daqiqa) dan keyin
 input double RebateTimeFlatMinProfit  = 0.0;    // Faqat foyda shundan katta yoki teng bo'lsa yopiladi (0 = nolga teng ham bo'ladi). MINUSDA HECH QACHON yopmaydi    // V286: grid spacing as a multiple of the rebate target. The ordinary spacing is sized for a $2.50 target; against a break-even target it would ask price to give back several times what the basket is trying to recover. Three keeps the ladder proportionate to its own target.
@@ -1495,13 +1489,6 @@ input group "[NOT WIRED] 09 — STABLE BASELINE"
 // likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
 // no trading benefit. They cost nothing at runtime - they simply do nothing.
 // ---------------------------------------------------------------------------------------------
-input bool              UseStableRCStatus        = false;  // OFF - commercial-release QA tooling, not trading-relevant
-input bool              RCRequireEnvReady        = true;
-input bool              RCRequireRiskReady       = true;
-input bool              RCRequireVPSHealthy      = false;
-input bool              RCBlockEntryOnCritical   = true;
-input bool              RCBlockGridOnCritical    = true;
-input bool              PrintStableRCEvents      = true;
 
 input group "10 — MINI LICENSE"
 input bool              UsePack4MiniLicense      = true;
@@ -1551,8 +1538,6 @@ input int               PremiumZoneHalfWidthPoints = 350;
 input int               PremiumZoneLookbackBars  = 180;
 input int               PremiumZoneForwardBars   = 20;
 input int               PremiumWatermarkFontSize = 42;
-input int               PremiumWatermarkX        = 18;
-input int               PremiumWatermarkY        = 18;
 input int               PremiumZoneLabelFontSize = 9;
 input bool              PremiumUseFallbackZones  = true;
 input int               PremiumFallbackZoneLookbackBars = 180;
@@ -1648,12 +1633,7 @@ input group "[NOT WIRED] 18 — FINAL SELF-AUDIT CHECKLIST"
 // likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
 // no trading benefit. They cost nothing at runtime - they simply do nothing.
 // ---------------------------------------------------------------------------------------------
-input bool              UseFinalSelfAudit        = false;  // OFF - commercial-release QA tooling, not trading-relevant
-input bool              FinalAuditStrictEnforce  = false;    // false = dashboard audit only
-input int               FinalAuditMinScore       = 85;
-input bool              FinalAuditWarnIfLicenseOff = true;
 // V31.6e cleanup: removed FinalAuditWarnIfSessionFilterOff - the check it gated is gone too.
-input bool              PrintFinalAuditEvents    = true;
 
 input group "[NOT WIRED] 19 — RELEASE BUILD / CLIENT PRESET EXPORT"
 
@@ -1667,18 +1647,8 @@ input group "[NOT WIRED] 19 — RELEASE BUILD / CLIENT PRESET EXPORT"
 // likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
 // no trading benefit. They cost nothing at runtime - they simply do nothing.
 // ---------------------------------------------------------------------------------------------
-input bool              UseReleaseBuildController = false;  // OFF - commercial-release QA tooling, not trading-relevant
 input string            ReleaseBuildProfile      = "CLIENT_BALANCED"; // INTERNAL_TEST / CLIENT_SAFE / CLIENT_BALANCED / HIGH_HUNTER / RENTAL_DEMO
-input bool              ReleaseStrictEnforce     = false;             // false = audit only, true = block entry/grid if release not ready
-input int               ReleaseMinFinalAuditScore = 85;
-input bool              ReleaseRequireEnvReady   = true;
-input bool              ReleaseRequireRiskReady  = true;
-input bool              ReleaseRequireRCReady    = true;
-input bool              ReleaseRequireVisualReady = true;
 input bool              ReleaseRequireLicenseForClient = false;       // set true before real client rental
-input bool              ReleaseAllowWarnings     = true;
-input bool              ReleasePrintPresetHint   = true;
-input bool              PrintReleaseBuildEvents  = true;
 
 input group "20 — LEGACY DEEP PARITY / HTF COMMANDER"
 input bool              UseLegacyDeepParityPack  = true;
@@ -1853,15 +1823,7 @@ input group "[NOT WIRED] 29 — FINAL INTELLIGENCE MERGE"
 // likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
 // no trading benefit. They cost nothing at runtime - they simply do nothing.
 // ---------------------------------------------------------------------------------------------
-input bool              UseFinalIntelligenceMergeBrain = false;  // OFF - commercial-release QA tooling, not trading-relevant
-input bool              FinalMergeStrictEnforce = false;       // false = dashboard intelligence only
-input int               FinalMergeMinEntryScore = 58;
-input int               FinalMergeMinGridScore  = 52;
 input int               FinalMergeWarnScore     = 72;
-input int               FinalMergeProScore      = 86;
-input bool              FinalMergeUseDeepSummary = true;
-input bool              FinalMergeBlockOnCriticalRisk = true;
-input bool              FinalMergePrintEvents   = true;
 
 input group "[NOT WIRED] 30 — PRO RELEASE FINAL / PRESET PACKAGER"
 
@@ -1875,17 +1837,6 @@ input group "[NOT WIRED] 30 — PRO RELEASE FINAL / PRESET PACKAGER"
 // likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
 // no trading benefit. They cost nothing at runtime - they simply do nothing.
 // ---------------------------------------------------------------------------------------------
-input bool              UseProReleaseFinalController = false;  // OFF - commercial-release QA tooling, not trading-relevant
-input string            ProReleaseProfile       = "PRO_BALANCED"; // INTERNAL_TEST / PRO_SAFE / PRO_BALANCED / PRO_HIGH_HUNTER / RENTAL_LOCKED
-input bool              ProReleaseStrictEnforce = false;          // false = warn only, true = block if release checks fail
-input bool              ProReleaseRequireNIMReady = true;
-input bool              ProReleaseRequireFSAReady = true;
-input bool              ProReleaseRequireRLSReady = true;
-input int               ProReleaseMinNIMScore   = 72;
-input int               ProReleaseMinFSAScore   = 85;
-input bool              ProReleaseWarnIfStrictOff = true;
-input bool              ProReleaseWarnIfLicenseOffForRental = true;
-input bool              ProReleasePrintEvents   = true;
 
 input group "[NOT WIRED] 31 — SETTINGS GOVERNANCE / CLIENT INPUT GUARD"
 
@@ -1899,17 +1850,6 @@ input group "[NOT WIRED] 31 — SETTINGS GOVERNANCE / CLIENT INPUT GUARD"
 // likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
 // no trading benefit. They cost nothing at runtime - they simply do nothing.
 // ---------------------------------------------------------------------------------------------
-input bool              UseSettingsGovernanceBrain = true;
-input bool              SettingsGovernanceStrictEnforce = false;   // false = warning only
-input bool              SettingsGovWarnUnsafeStrictOff = true;
-input bool              SettingsGovWarnLicenseOff = true;
-input bool              SettingsGovWarnHighHunterClient = true;
-input bool              SettingsGovWarnVisualOff = true;
-input bool              SettingsGovWarnAuditOff = true;
-input bool              SettingsGovWarnDeepModulesOff = true;
-input bool              SettingsGovBlockIfCriticalProfileMismatch = false;
-input int               SettingsGovMaxWarningsBeforeBlock = 8;
-input bool              PrintSettingsGovernanceEvents = true;
 
 input group "32 — CLIENT DASHBOARD / LOG POLISH"
 input bool              UseClientDashboardPolish = true;
@@ -1938,22 +1878,8 @@ input group "[NOT WIRED] 33 — FINAL PRESET HARDENING / SAFE CLIENT DEFAULTS"
 // likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
 // no trading benefit. They cost nothing at runtime - they simply do nothing.
 // ---------------------------------------------------------------------------------------------
-input bool              UseFinalPresetHardening  = false;  // OFF - commercial-release QA tooling, not trading-relevant
-input bool              PresetHardeningStrictEnforce = false;    // false = warning/tune only
-input bool              PresetHardeningBlockCritical = false;
 input bool              PresetHardeningUseGridDistance = true;
 input bool              PresetHardeningUseLotThrottle = true;
-input bool              PresetHardeningWarnModeMismatch = true;
-input bool              PresetHardeningWarnLotAboveProfile = true;
-input bool              PresetHardeningWarnOrdersAboveProfile = true;
-input bool              PresetHardeningWarnSpreadAboveProfile = true;
-input bool              PresetHardeningWarnRentalLicense = true;
-input double            PresetHardeningSafeLotFactor = 0.80;
-input double            PresetHardeningDangerLotFactor = 0.60;
-input double            PresetHardeningGridFactor = 1.25;
-input double            PresetHardeningDangerGridFactor = 1.55;
-input int               PresetHardeningMaxWarnings = 6;
-input bool              PrintPresetHardeningEvents = true;
 
 input group "[NOT WIRED] 34 — FINAL AUDIT REPORT / BUILD LOCK"
 
@@ -1967,20 +1893,6 @@ input group "[NOT WIRED] 34 — FINAL AUDIT REPORT / BUILD LOCK"
 // likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
 // no trading benefit. They cost nothing at runtime - they simply do nothing.
 // ---------------------------------------------------------------------------------------------
-input bool              UseFinalBuildAuditLock   = false;  // OFF - commercial-release QA tooling, not trading-relevant
-input string            BuildAuditReleaseTag     = "SIRUS v31.6 PRO AUTO GRID SAFETY READY";
-input bool              BuildAuditManualCompileClean = true;     // set false if compile has errors
-input bool              BuildAuditStrictEnforce  = false;        // false = report only, true = block if failed
-input bool              BuildAuditBlockOnCritical = true;
-input bool              BuildAuditWarnIfOpenWarnings = true;
-input int               BuildAuditMaxWarnings    = 6;
-input int               BuildAuditMinNIMScore    = 72;
-input int               BuildAuditMinFSAScore    = 85;
-input bool              BuildAuditRequireDashboardPolish = true;
-input bool              BuildAuditRequirePresetHardening = true;
-input bool              BuildAuditRequireDeepModules = true;
-input bool              BuildAuditRequireReleaseControllers = true;
-input bool              PrintFinalBuildAuditEvents = true;
 
 input group "35 — LIVE VALIDATION PROBE / NO-TRADE DOCTOR"
 input bool              UseLiveValidationProbe   = true;
@@ -2338,7 +2250,6 @@ input double GridDoubtStructureWeight    = 0.25;   // Weight of a structure brea
 input double GridDoubtHTFWeight          = 0.20;   // Weight of the higher-timeframe candle disagreeing
 input double GridDoubtSituationWeight    = 0.40;   // Weight of a named situation pointing the other way - three layers agreeing, so the heaviest single input
 input double GridDoubtBlockLevel         = 0.60;   // Accumulated doubt at which additions are held. Deliberately high: the grid exists to recover from being wrong, so it must not stop at the first sign of it.
-input bool   GridDirectionPrintOnUse     = true;   // Log held additions
 // LOCATION: the arithmetic puts the addition wherever the multiplier lands. A strong level just
 // beyond that is where the addition belongs - adding above it buys the last of the move rather than
 // the thing that stops it.
@@ -2346,7 +2257,6 @@ input bool   EnableGridLevelSnap         = true;   // Wait for a nearby level ra
 input double GridSnapMinStrength         = 1.6;    // Level strength below which it is not worth waiting for
 input int    GridSnapMaxShiftPoints      = 1500;   // How much further ($1.50) the addition may be moved - beyond this it is a different trade, not a better fill
 input double GridSnapMinSpacingFactor    = 0.85;   // Minimum spacing retained relative to the account rules
-input bool   GridLevelSnapPrintOnUse     = true;   // Log level-based additions
 
 // V222: the size of an addition should match its quality. The ladder multiplies by 1.30 regardless
 // of where the addition lands, so the largest commitment of the basket - order seven, four times the
@@ -2420,6 +2330,7 @@ input bool              OneBasketAtATime         = true;
 input int               FirstEntryCooldownBars   = 0;   // BOSQICH 5A: 1 -> 0. TP dan keyin keyingi savat o'sha M1 barida ham ochilishi mumkin
 input int               CloseDeviationPoints     = 3000;  // FIX(exit-slippage-cap): max slippage on EXITS ($3.00). Closes used to inherit OrderSendDeviationPoints (50 = $0.05) from the shared CTrade object, so a basket stop during a news spike was rejected as a requote and simply did not execute - the worst possible moment to fail. A stop that does not fill is far more expensive than one that slips, so keep this well above the entry cap.
 input int               CloseRetryPasses         = 3;     // FIX(close-no-retry): how many times the basket close loop re-tries the positions that failed to close. 1 = old single-attempt behaviour.
+input int               CloseRetryDelayMs        = 300;   // FIX(close-retry-same-quote): pause between basket-close passes (live only), so a requote is retried at a fresh price instead of the same one
 input int               OrderSendDeviationPoints = 50;    // V90b: 30 -> 50 ($0.05). At $0.03 fast XAUUSD moves (impulse/news tick slippage of $0.05-0.20) were getting orders rejected/requoted, which delays a grid add and distorts the spacing. $0.05 lets orders fill on time while still capping how bad a fill can be.
 input int               MinSecondsBetweenEntries = 10;   // BOSQICH 5A: 30 -> 10. Ikki marta yuborishdan himoya uchun yetarli
 input bool              PrintEntryDecision       = true;
@@ -2427,7 +2338,6 @@ input bool              UseOpportunityScanner    = true;
 input bool              ScannerEvaluateOnNewBarOnly = false;
 input int               ScannerLookbackBars      = 20;
 input int               SweepLookbackBars        = 10;
-input int               NearZonePoints           = 900;   // *** NOT USED *** Zone proximity is handled by CounterZoneBlockPoints, GridFarZoneCautionPoints and the per-check tolerances. Changing this has no effect.
 input int               RangeEdgePercent         = 22;
 input int               MinOpportunityScoreC     = 3;
 input int               MinOpportunityScoreB     = 5;
@@ -2435,7 +2345,6 @@ input int               MinOpportunityScoreA     = 7;
 input bool              ScannerAllowMicroC       = true;
 input bool              ScannerAllowRangeEdge    = true;
 input bool              ScannerAllowSweep        = true;
-input bool              ScannerAllowFakeBreakout = true;   // *** NOT USED *** Fake-breakout handling now lives in the range-breakout and zone-break logic, which have their own switches. Changing this has no effect.
 input bool              ScannerAllowPullback     = true;
 input bool              ScannerAllowExhaustion   = true;
 // SAFE-RELAX(unknown-zone-only): when the market state is UNKNOWN, instead of trading nothing,
@@ -2513,7 +2422,6 @@ input double RangeBreakoutMinBodyFraction = 0.55;   // The breakout candle must 
 input bool   RangeBreakoutBlockCounterFade = true;  // Block the range edge-fade that fights a confirmed breakout (the SELL-at-top-of-upbreak case)
 input bool   RangeBreakoutAllowWithEntry  = true;   // Allow a first entry in the breakout direction (trade WITH the break)
 input int    RangeBreakoutMaxAgeBars      = 12;     // V56b NEW: how many bars the stored range boundaries stay valid after the last confirmed range. Without this the boundaries never expire, so once a range ended the detector would keep reporting a breakout of it forever and permanently veto one direction.
-input bool   RangeBreakoutPrintOnUse      = true;
 input int               DeadATRThresholdPoints   = 350;
 input double            ImpulseATRMultiplier     = 2.20;
 input int               ImpulseMinPoints         = 1600;
@@ -3407,9 +3315,7 @@ input bool              PrintEnvOnChange         = true;
 input bool              PrintModeOnChange        = true;
 input bool              PrintMarketOnChange      = true;
 input bool              PrintTickStaleWarning    = true;
-input string            BrandName                = "SIRUS BY ZAKIY";
 input string            TelegramContact          = "@farruh_zakiy";
-input string            DashboardCEO             = "CEO Farruh Zakiy";
 input bool              UseVPSLiveValidation     = true;
 input int               VPSValidationSeconds     = 30;
 input int               VPSMaxTickSilentSeconds  = 120;
@@ -3588,14 +3494,12 @@ input int    GhostZoneMaxCount         = 10;     // V206: 4 -> 10. Ghost zones a
 input double GhostZoneStrengthFactor   = 0.65;    // A ghost's strength = its original strength x this (a broken level still matters, but less than an intact one)
 input int    GhostZoneReactionPoints   = 1500;    // How close price must come back to a ghost to treat it as an active reaction zone (1500 = $1.5)
 input int    GhostZoneTTLDaysH1        = 3;       // Days an H1-origin ghost stays alive
-input int    GhostZoneTTLDaysH4        = 5;       // *** NOT USED *** Ghost lifetime is chosen by zone STRENGTH, not by origin timeframe: strength >= 2.4 uses GhostZoneTTLDaysD1 (which covers D1/H4-class levels), >= 1.8 uses GhostZoneTTLDaysH1, below that GhostZoneTTLDaysM15. Changing this value has no effect - adjust GhostZoneTTLDaysD1 instead.
 input int    GhostZoneTTLDaysD1        = 7;       // Days a D1-origin ghost stays alive
 // M5/M15 also form ghosts on user report (their broken levels react often), but only STRONG ones -
 // a strength filter keeps the chart from filling with the many trivial levels those TFs break daily.
 input bool   EnableGhostZonesLowTF     = true;    // Also remember broken M5/M15 levels (strong ones only)
 input double GhostZoneLowTFMinStrength  = 1.5;    // V87b: 1.8 -> 1.5. The user observes broken-level reactions mostly on M5/M15, so the filter was letting real zones through only when very strong. 1.5 still needs a genuine multi-touch level (not every minor break) but catches the mid-strength zones price actually reacts at.
 input int    GhostZoneLowTFBreakPoints  = 1500;   // Break distance for M5/M15 ghosts (1500 = $1.5; smaller than the HTF $2.5 since these TFs move less per bar)
-input int    GhostZoneTTLDaysM5         = 1;      // *** NOT USED *** Same reason as GhostZoneTTLDaysH4 above: the strength bands only reach D1/H1/M15. Adjust GhostZoneTTLDaysM15 for the weakest band.
 input int    GhostZoneTTLDaysM15        = 2;      // Days an M15-origin ghost stays alive
 input int    GhostZoneCrossLookbackBars  = 6;     // Bars back to sample price when deciding a level was actually CROSSED (was on the other side then, this side now), not merely nearby
 input bool   GhostZoneHardBlock       = false;   // false = ghost applies a SCORE PENALTY (a ghost is a probability, not a certainty, so by default it discourages rather than forbids - a strong enough signal still passes). true = hard-block like the other context guards.
@@ -3864,7 +3768,6 @@ input bool   EnableBasketProjection     = true;   // Walk the full grid ladder f
 input bool   ProjectionCheckLevels      = true;   // Also check whether a level sits inside the span the ladder would need
 input double ProjectionCautionSeverity  = 0.75;   // Severity (worst of projected DD vs SL, and projected margin vs limit) at which the entry is penalised
 input double ProjectionBlockSeverity    = 1.00;   // Severity at which the entry is refused outright - the ladder would not survive its own completion
-input int    ProjectionCautionPenalty   = 4;  // *** ISHLATILMAYDI *** V159b da jazo lot moslashishiga almashtirildi - narvon rad etilmaydi, kichraytiriladi. O'zgartirish hech narsaga ta'sir qilmaydi.
 input double ProjectionMinLotFactor     = 0.45;   // V159b: smallest size the entry may be scaled to in order to fit the ladder inside the account. Below this the trade is too small to be worth its costs.
 input bool   ProjectionHardBlock        = false;  // V171: true -> false while the size scaling proves itself. The projection already shrinks the entry to fit the account, which handles the problem it was written for; the refusal on top of that was a second answer to a question already answered, and it fires on the same ladder maths that has never run live. The scaling stays active - only the outright refusal is off.
 input bool   ProjectionPrintOnUse       = true;   // Log projections that change a decision
@@ -3941,7 +3844,6 @@ input double NoiseBlockLevel            = 0.90;   // Noise above which entries a
 input double NoiseMinReachability       = 0.55;   // Expected travel as a fraction of the target; below this the target is not realistically reachable
 input int    NoiseCautionPenalty        = 2;      // Penalty for entering into churn
 input double NoiseMinTPFactor           = 0.50;   // V162b: floor on how far the target may be scaled down in churn. Below this the trade is not worth its spread.
-input bool   NoiseHardBlock             = false;  // *** ISHLATILMAYDI *** V162b da blok TP moslashishiga almashtirildi - shovqinda savdo to'xtamaydi, maqsad kichrayadi. O'zgartirish hech narsaga ta'sir qilmaydi.
 input bool   NoisePrintOnUse            = true;   // Log noise readings that change a decision
 input bool   ShowNoiseOnDash            = true;   // Show the noise reading on the dashboard
 
@@ -4174,13 +4076,11 @@ input bool             FVGPrintOnUse         = false;
 
 input group "62 — ORDER FLOW (TICK VOLUME)"
 input bool   EnableOrderFlow           = true;    // MT5 has no real order flow, this is a tick-volume-based proxy
-input ENUM_TIMEFRAMES OrderFlowTF      = PERIOD_M1;   // *** NOT USED *** Order-flow conviction is read on the timeframe of whichever caller needs it (ConsecutiveCandlesTF, DonchianTF, or an explicit period), not from this setting. Changing it has no effect.
 input int    OrderFlowLookbackBars     = 20;      // Bars used to compute the average volume baseline
 input double OrderFlowHighMultiplier   = 1.3;     // Volume >= avg*this counts as a confirmed/strong move
 input double OrderFlowLowMultiplier    = 0.7;     // Volume <= avg*this counts as a weak/suspicious move
 input int    OrderFlowWeakBOSPenalty   = 1;       // Extra penalty on a fresh BOS break with weak (low-volume) conviction
 input int    OrderFlowStrongBOSBonus   = 1;       // Extra bonus on a fresh BOS break with strong (high-volume) conviction
-input bool   OrderFlowPrintOnUse       = false;
 
 input group "63 — DXY PROXY (SYNTHETIC DOLLAR INDEX)"
 input bool             EnableDXYProxy            = true;   // No real DXY on most Cent accounts - built from 3 major pairs instead
@@ -4416,7 +4316,6 @@ input bool              EnableMTFAlignment           = true;
 input int               MTFAlignmentM15LookbackBars  = 20;
 input int               MTFAlignmentH1LookbackBars   = 20;
 input int               MTFAlignmentH4LookbackBars   = 20;
-input int               MTFAlignmentD1LookbackBars   = 10;    // *** NOT USED *** The D1 leg of MTF alignment uses HunterD1LookbackDays instead. Changing this has no effect.
 input int               MTFAlignmentBonusPerTF       = 1;   // Score bonus per additional timeframe that agrees with the entry direction
 input bool              MTFAlignmentPrintOnUse       = false;
 
@@ -4644,7 +4543,6 @@ input double ConsensusZoneMinStrength    = 2.0;    // Zone must be at least this
 input int    ConsensusZoneProximityPts   = 350;    // Reversal must be within this many points of that zone
 input bool   EnableConsensusMultiTF      = true;   // (B) +1 consensus when a candle reversal also shows on the higher TF
 input bool   EnableConsensusOrderFlow    = true;   // (A) +1 consensus when order-flow pressure agrees with the reversal. NOTE: MT5 has only tick volume, so this is a rough proxy - kept as a bonus (never a gate) precisely because it's the least reliable of the three quality layers.
-input bool   ConsensusPrintQuality       = false;
 
 input group "98 — REVERSAL VS CONTINUATION RISK DIFFERENTIATION"
 // From the professional audit (Phase 1/2 findings): reversal-type signals carry more
@@ -4738,7 +4636,6 @@ input group "106 — DXY-CONFIRMED TREND (GOLD-SPECIFIC MACRO)"
 // If the dollar is trending strongly and gold's local price agrees, that's macro-level
 // confirmation, not just local price action.
 input bool              EnableDXYConfirmedTrend      = true;
-input double            DXYConfirmedTrendMinSlopePercent = 0.0; // 0 = use DXYProxyMinSlopePercent as-is; override here if you want a stricter bar just for this entry
 input int               DXYConfirmedTrendPriceLookback = 10;
 
 input group "107 — EXPANDING VOLATILITY"
@@ -4819,9 +4716,7 @@ input bool              ZoneWallHardBlockPrintOnUse  = true;
 input bool   EnableCounterZoneFirstEntryBlock = true;   // Hard-block a FIRST entry opened into a strong zone it should bounce off
 input int    CounterZoneBlockPoints        = 3500;      // V70b: 250 -> 3500 ($3.5) after a live loss. At 250 ($0.25) a first entry was blocked only if price was almost ON the level, so a BUY ~$1 under a strong 4104 resistance sailed through and price rejected straight down for a ~50% basket loss. XAUUSD moves $70-80/day and rejects from resistance $1-4 out, so the block must trigger while there is still room. Paired with the strength floor so only genuine levels veto.
 input double CounterZoneBlockMinStrength   = 1.4;   // V200: 1.8 -> 1.4. Zone strength is 1.0 + touches x 0.25, so 1.8 needed four touches before the protection engaged - and a level tested three times is exactly the kind that turns price back. Your losing entries were into two- and three-touch zones scoring 1.50-1.75, sitting just under the threshold. At 1.4 a three-touch level is protected; a single untested swing at 1.25 still is not.      // V70b: 2.5 -> 1.8. Strength = 1.0 + touches*weight + confirmations, so 2.5 needed a heavily re-tested level and let fresh-but-real resistance through. 1.8 catches a level with a couple of touches/confirmations - the wall price rejects from - without blocking trivial zones.
-input int    ZoneNearestReachPoints      = 5000;   // V200: how far ahead ($5.00) a stronger level still counts as the one the trade is facing. Inside this range a major level outranks a minor swing that happens to be closer - which is what "nearest" alone was getting wrong.
 input int    ZoneNearAboveTolerance      = 900;    // V243: how far ($0.90) past the current price a swing can sit and still count as the level in front of it. A support price has just risen through is still that support - discarding it made a shelf read as a single point further down, which is how a sell went in at 4485.10 with the band running to 4486.
-input double ZoneNearestStrengthEdge     = 0.5;    // V200: how much stronger a further level must be before it displaces a nearer one. Small enough that a real level wins, large enough that similar levels still resolve by distance.
 
 // V205: the level behind the level. The zone map reports the nearest one - correct for where price
 // goes first, wrong for whether the trade has room. Price that fell to a deep support, bounced, and
@@ -4847,7 +4742,6 @@ input bool   EnableHTFAgainstFirstEntryBlock = true;   // Hard-block a first ent
 input double HTFAgainstBlockMinConfidence   = 0.60;    // V100b: 0.40 -> 0.60 for scalping. With a ~$2-3 TP, a normal D1/H4 trend shouldn't veto a counter-direction scalp - inside an uptrend there are still plenty of small down-scalps. At 0.60 (needs ADX ~32 across D1/H4/H1) only a GENUINELY strong global counter-trend blocks the entry; ordinary trends leave scalps free. The counter-impulse and ghost blocks (which scalping genuinely needs) are separate and unaffected.
 input double HTFAgainstReversalOverride     = 0.82;    // V50b: lowered 0.90 -> 0.82. Demanding 3+ reversal signals to trade against a trend was so rare it never fired; 0.82 (2 independent signals) still means a confirmed turn, not a guess.
 input int    HTFAgainstScorePenalty      = 4;      // V189: score cost of a first entry against a confident higher-timeframe trend. This was a hard block until a live A+ setup scoring 11 against a bar of 4 was refused by it - the observation was right, the mechanism was not.
-input bool   HTFAgainstBlockPrintOnUse      = true;
 
 input group "123 — GLOBAL VS LOCAL TREND ALIGNMENT"
 // Direct user request: distinguish "what is the BIG PICTURE doing" (H4/D1) from "what is
@@ -5355,7 +5249,7 @@ input bool              EnableDeepShockExhaustionInConsensus = true; // V31.6z34
 //  GLOBAL CORE STATE
 //==================================================================//
 string   G_PREFIX              = "NAVIUS_V24_AUTO_GRID_SAFETY_READY_";
-string   G_VERSION             = "31.60";
+string   G_VERSION             = "31.68";
 string   G_PHASE               = "READY";
 string   G_LAST_STATUS         = "BOOTING";
 string   G_LAST_EVENT          = "none";
@@ -5625,15 +5519,6 @@ int                     G_SD_PREV_ORDERS        = 0;
 double                  G_SD_PREV_PROFIT        = 0.0;
 long                    G_SD_PREV_DIRECTION     = -1;     // V31.6j: basket direction, tracked for Post-SL cooldown
 
-// --- V31 Server License state ---
-bool                    G_SRV_LICENSE_OK        = true;
-bool                    G_SRV_PAUSE             = false;
-double                  G_SRV_LOT_SCALE         = 1.0;
-datetime                G_SRV_LAST_CHECK        = 0;
-datetime                G_SRV_LAST_OK           = 0;
-long                    G_SRV_FLAT_DONE_ID      = 0;
-string                  G_SRV_STATUS            = "SRV: off";
-
 // --- V31.1 Hour-Bayes state ---
 double                  G_HB_WINS[24];
 double                  G_HB_LOSSES[24];
@@ -5832,10 +5717,21 @@ bool                    G_CAL_BIG_SURPRISE       = false;   // V31.6j: last rele
 double                  G_CAL_SURPRISE_PERCENT   = 0.0;
 string                  G_CAL_EVENT_NAME         = "";
 int                     G_CAL_MINUTES_FROM_EVENT = 0;
+ulong                   G_CAL_EVENT_ID           = 0;       // FIX(calendar-window): calendar value id of the active event (unique per release)
+bool                    G_CAL_FETCH_FAILED       = false;
+bool                    G_CAL_PENDING_ACTUAL     = false;   // a cached release has happened but its actual figure is not in yet
+ulong                   G_CAL_LAST_SURPRISE_ID   = 0;
+#define CAL_CACHE_MAX 64
+datetime                G_CAL_EV_TIME[CAL_CACHE_MAX];
+string                  G_CAL_EV_NAME[CAL_CACHE_MAX];
+ulong                   G_CAL_EV_ID[CAL_CACHE_MAX];
+bool                    G_CAL_EV_SURPRISE[CAL_CACHE_MAX];
+double                  G_CAL_EV_SURPRISE_PCT[CAL_CACHE_MAX];
+int                     G_CAL_EV_COUNT           = 0;
 
 // --- V29 Stage 4: Smart Partial Close state ---
 int                     G_PARTIAL_CLOSE_STAGE    = 0;      // V29: 0=none, 1=stage1 done, 2=stage1+stage2 done
-string                  G_NEWS_FLAT_LAST_EVENT   = "";     // V29: avoids re-triggering auto-flat for the same event
+ulong                   G_NEWS_FLAT_LAST_EVENT   = 0;      // V29: avoids re-triggering auto-flat for the same event. FIX(autoflat-by-id): calendar value id, not the name - a weekly release (Jobless Claims) has the same name every week, so the name-based latch silently disabled auto-flat for it after the first time.
 
 // --- V29 new (D-block): Market Confidence Score state ---
 #define NAVIUS_OPP_TYPE_COUNT 22
@@ -7737,6 +7633,7 @@ double GlobalTrendConfidence(const int direction, string &detail)
    static string gtc_cache_detail = "";
    static bool   gtc_cache_fading = false;    // FEATURE(global-trend-momentum): cached with the score
    static bool   gtc_cache_turning = false;
+   if(gtc_cache_bar > G_BARS_SEEN) gtc_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(gtc_cache_bar != G_BARS_SEEN || gtc_cache_dir != direction)
    {
@@ -7871,6 +7768,7 @@ double LocalTrendConfidence(const int direction, string &detail)
    static string ltc_cache_detail = "";
    static bool   ltc_cache_turning = false;   // FEATURE(local-trend-turning): cached with the score so a cache hit doesn't leave the flag stale
    static bool   ltc_cache_fading  = false;   // FEATURE(local-trend-momentum): same, for the fading flag
+   if(ltc_cache_bar > G_BARS_SEEN) ltc_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(ltc_cache_bar != G_BARS_SEEN || ltc_cache_dir != direction)
    {
@@ -7948,6 +7846,7 @@ double GlobalLocalAlignmentScore(const int direction, string &detail)
    static double gla_cache_score = 0.5;
    static string gla_cache_detail = "";
    static int    gla_cache_orders = -1;   // FEATURE(adaptive-alignment-weight): order count is part of the key - weighting changes as the basket deepens within a bar
+   if(gla_cache_bar > G_BARS_SEEN) gla_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(gla_cache_bar != G_BARS_SEEN || gla_cache_dir != direction || gla_cache_orders != G_BASKET_ORDERS)
    {
@@ -8100,6 +7999,7 @@ double CachedVWAP(const ENUM_TIMEFRAMES tf, const int lookback_bars)
 {
    static int    vwap_cache_bar = -1;
    static double vwap_cache_value = 0.0;
+   if(vwap_cache_bar > G_BARS_SEEN) vwap_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(vwap_cache_bar != G_BARS_SEEN)
    {
@@ -8272,6 +8172,7 @@ double MoveExtensionATR(const int direction)
    static int    mex_cache_bar = -1;
    static int    mex_cache_dir = 0;
    static double mex_cache_val = 0.0;
+   if(mex_cache_bar > G_BARS_SEEN) mex_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(mex_cache_bar != G_BARS_SEEN || mex_cache_dir != direction)
    {
@@ -8375,6 +8276,7 @@ double ImpulseConfirmation(const int direction, string &detail)
    static int    imp_cache_dir = 0;
    static double imp_cache_score = 0.5;
    static string imp_cache_detail = "";
+   if(imp_cache_bar > G_BARS_SEEN) imp_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(imp_cache_bar != G_BARS_SEEN || imp_cache_dir != direction)
    {
@@ -8456,6 +8358,7 @@ double ImpulseExhaustionWarning(const int direction, string &detail)
    static int    iew_cache_dir = 0;
    static double iew_cache_score = 0.5;
    static string iew_cache_detail = "";
+   if(iew_cache_bar > G_BARS_SEEN) iew_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(iew_cache_bar != G_BARS_SEEN || iew_cache_dir != direction)
    {
@@ -8596,6 +8499,7 @@ double ExhaustionConsensusScore(const int direction, string &detail)
    static int    ecs_cache_dir = 0;
    static double ecs_cache_score = 0.5;
    static string ecs_cache_detail = "";
+   if(ecs_cache_bar > G_BARS_SEEN) ecs_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(ecs_cache_bar != G_BARS_SEEN || ecs_cache_dir != direction)
    {
@@ -9057,7 +8961,7 @@ void UpdateKalmanTrendFilter()
       G_KALMAN_LEVEL = predicted_level + KalmanAlpha * residual;
       G_KALMAN_TREND = G_KALMAN_TREND + KalmanBeta * residual;
 
-      if(KalmanPrintOnUse)
+      if((KalmanPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v29 KALMAN] bar=%d level=%.2f trend=%.2fpts/bar residual=%.2f",
                      G_KALMAN_BAR_COUNT, G_KALMAN_LEVEL, G_KALMAN_TREND / _Point, residual);
    }
@@ -9854,6 +9758,7 @@ int StructureAlignment(int &dir, double &weight, string &detail)
    static int    sa_dir = 0;
    static double sa_weight = 0.0;
    static string sa_detail = "";
+   if(sa_bar > G_BARS_SEEN) sa_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(sa_bar == G_BARS_SEEN)
    {
@@ -10018,7 +9923,7 @@ void LocalStructureBreakUpdate()
             G_LSB_BREAK_BAR = G_BARS_SEEN;
             G_LSB_BREAK_PRICE = G_LSB_LAST_PRICE;
 
-            if(StructureBreakPrintOnUse)
+            if((StructureBreakPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v224 BREAK] %s structure ended - closed %s %.2f",
                            (G_LSB_LAST_DIR < 0 ? "falling" : "rising"),
                            (G_LSB_LAST_DIR < 0 ? "above" : "below"), G_LSB_LAST_PRICE);
@@ -11063,7 +10968,7 @@ int ReadSituation(int &dir, double &weight, string &detail)
                   if(!BreakConfirmedTwoLevels(br_price, br_dir, dc_detail))
                   {
                      holding = false;
-                     if(BrokenRetestPrintOnUse && StringLen(dc_detail) > 0)
+                     if((BrokenRetestPrintOnUse && VerboseLogs) && StringLen(dc_detail) > 0)
                         PrintFormat("[SIRUS v250 DEEP] %s", dc_detail);
                   }
                }
@@ -11077,7 +10982,7 @@ int ReadSituation(int &dir, double &weight, string &detail)
                      if(!htf_beyond)
                      {
                         holding = false;
-                        if(BrokenRetestPrintOnUse)
+                        if((BrokenRetestPrintOnUse && VerboseLogs))
                            PrintFormat("[SIRUS v232 RETEST] %.2f broke on %s but %s has not closed through it",
                                        br_price, EnumToString(LocalStructureTF),
                                        EnumToString(BrokenRetestConfirmTF));
@@ -11112,7 +11017,7 @@ int ReadSituation(int &dir, double &weight, string &detail)
                      if(wick_gap <= ScaleAdjustedPoints(MathMax(1, BrokenRetestWickTolerance)))
                      {
                         holding = false;
-                        if(BrokenRetestPrintOnUse)
+                        if((BrokenRetestPrintOnUse && VerboseLogs))
                            PrintFormat("[SIRUS v232 RETEST] %.2f sits under a %.0f%% wick on %s - liquidity, not support",
                                        br_price, (wick / wrange) * 100.0,
                                        EnumToString(BrokenRetestConfirmTF));
@@ -11291,6 +11196,7 @@ int LocalSwingShape(int &steps, double &conviction, string &detail)
    static int    ls_steps = 0;
    static double ls_conv = 0.0;
    static string ls_detail = "";
+   if(ls_bar > G_BARS_SEEN) ls_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(ls_bar == G_BARS_SEEN)
    {
@@ -12281,7 +12187,7 @@ void PatternJudgeSettle()
       G_PAT_WON[p] *= sc; G_PAT_LOST[p] *= sc;
    }
 
-   if(PatternGradePrintOnUse)
+   if((PatternGradePrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v211 PATTERN GRADE] %s -> %.0f pts | record %.0f/%.0f",
                   CandlePatternName(p), moved, G_PAT_WON[p], G_PAT_LOST[p]);
 
@@ -12671,7 +12577,7 @@ void CandleEventSettle()
          if(violated) G_CE_REJECT_FAILED += 1.0;
          else         G_CE_REJECT_HELD   += 1.0;
 
-         if(CandleFollowThroughPrintOnUse)
+         if((CandleFollowThroughPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v209 FOLLOW] rejection at %.2f %s after %d bars",
                         G_CE_LEVEL[i], (violated ? "FAILED" : "held"), age);
       }
@@ -12683,7 +12589,7 @@ void CandleEventSettle()
          if(back_inside) G_CE_BREAK_FAILED += 1.0;
          else            G_CE_BREAK_HELD   += 1.0;
 
-         if(CandleFollowThroughPrintOnUse)
+         if((CandleFollowThroughPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v209 FOLLOW] break of %.2f %s after %d bars",
                         G_CE_LEVEL[i], (back_inside ? "FAILED - trapped" : "held"), age);
       }
@@ -12940,6 +12846,7 @@ int CandleSequenceRead(int &dir, double &conf, string &detail)
    static int    cs_dir = 0;
    static double cs_conf = 0.0;
    static string cs_detail = "";
+   if(cs_bar > G_BARS_SEEN) cs_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(cs_bar == G_BARS_SEEN)
    {
@@ -13599,7 +13506,7 @@ void UpdateMarketStateRouter(const string source)
       else
          G_LAST_IMPULSE_TREND_ALIGNED = false; // no established trend -> treat conservatively as correction-like
 
-      if(ImpulseCooldownPrintOnUse)
+      if((ImpulseCooldownPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v29 IMPULSE] bar=%d trend=%s aligned=%s | %s",
                      G_LAST_IMPULSE_BAR, MarketStateToString(trend_state),
                      YesNoV29(G_LAST_IMPULSE_TREND_ALIGNED), main_reason);
@@ -14009,12 +13916,8 @@ double ZoneMapNextResistanceAbove(const double price, const double below_level)
 
 // V31.6c forward declarations: Zone Map functions are defined later in the file,
 // but the zone-aware sweep upgrade below needs them now.
-double ZoneMapNearestResistance(const double price);
-double ZoneMapNearestSupport(const double price);
 bool ZoneMapIsPolarityFlip(const double level, const bool checking_as_support);
-void MarketStructureRead();   // fwd decl: V110 swing-chain structural reading, used by the score engine below
 void MarketVerdictRead();     // fwd decl: V117 consensus reading, used by the score engine below
-double ImpulseCorrectionRetracePercent();   // fwd decl: used by the impulse-correction context guard below
 double ZoneMapBestWeightedResistance(const double price, const double search_limit_pts);
 double ZoneMapBestWeightedSupport(const double price, const double search_limit_pts);
 // ============================================================================
@@ -14061,6 +13964,7 @@ double ZoneDecayFactor(const double level)
    static double zd_level[8];
    static double zd_value[8];
    static int    zd_count = 0;
+   if(zd_bar > G_BARS_SEEN) zd_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(zd_bar != G_BARS_SEEN)
    {
@@ -14155,6 +14059,7 @@ double ZoneReactionQuality(const double level)
    static double zrq_level[8];
    static double zrq_value[8];
    static int    zrq_count = 0;
+   if(zrq_bar > G_BARS_SEEN) zrq_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(zrq_bar != G_BARS_SEEN)
    {
@@ -14415,7 +14320,6 @@ double ZoneMapStrengthByTouches(const double level)
    return MathMax(0.1, base);
 }
 
-double ZoneMapStrength(const double level);
 int DeepHTFTrendDirection();
 bool CounterContextBlockNow(const int dir, string &why, const bool skip_counter_zone = false,
                             const int score_final = -1, const int score_min = -1);   // score_* let a caller pass the score of the signal being TESTED when the live globals describe a different one (queue replay)
@@ -14436,7 +14340,6 @@ int DetectStarAt(const ENUM_TIMEFRAMES tf, const int shift);
 int DetectOrderBlockReaction(const ENUM_TIMEFRAMES tf);
 int DetectTweezerAt(const ENUM_TIMEFRAMES tf, const int shift);
 int RecentZoneBreakDirection(string &detail);
-void BreakSequenceRead();   // fwd decl: V113 break-staircase reading, used by the score engine
 bool IsInSessionTransitionWindow(string &detail);
 bool IsApproachingWeeklyClose(string &detail);
 double RecentGapPointsCached(const ENUM_TIMEFRAMES tf);
@@ -14620,6 +14523,7 @@ double ReversalConsensusScore(const int direction, string &detail)
    static int    rc_cache_dir = 0;
    static double rc_cache_score = 0.5;
    static string rc_cache_detail = "";
+   if(rc_cache_bar > G_BARS_SEEN) rc_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(rc_cache_bar != G_BARS_SEEN || rc_cache_dir != direction)
    {
@@ -14852,6 +14756,7 @@ double MTFAlignmentConfidence(const int direction, string &detail)
    static int    mac_cache_dir = 0;
    static double mac_cache_score = 0.0;
    static string mac_cache_detail = "";
+   if(mac_cache_bar > G_BARS_SEEN) mac_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(mac_cache_bar != G_BARS_SEEN || mac_cache_dir != direction)
    {
@@ -15399,7 +15304,7 @@ void BasketAgeRecord(const int age_bars, const bool won)
 
    GlobalVariableSet(BasketAgeGVKey(), G_BASKET_AGE_TYPICAL);
 
-   if(AdaptiveBasketAgePrintOnUse)
+   if((AdaptiveBasketAgePrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v160b BASKET AGE] winning basket closed after %d bars | typical now %.0f bars",
                   age_bars, G_BASKET_AGE_TYPICAL);
 }
@@ -15544,7 +15449,7 @@ void ScaleInArm(const int dir, const double entry_price, const double remaining_
    G_SCALEIN_DIR = dir;
    G_SCALEIN_BAR = G_BARS_SEEN;
 
-   if(ScaleInPrintOnUse)
+   if((ScaleInPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v161 SCALE-IN] entered at part size, %.2f lots pending confirmation from %.2f",
                   remaining_lot, entry_price);
 }
@@ -16110,6 +16015,7 @@ int RegimeCandidate(string &why)
 void RegimeUpdate()
 {
    static int last_bar = -100000;
+   if(last_bar > G_BARS_SEEN) last_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
    if(!EnableRegimeSwitching || last_bar == G_BARS_SEEN)
       return;
    last_bar = G_BARS_SEEN;
@@ -16130,7 +16036,7 @@ void RegimeUpdate()
    if(cand != REGIME_UNKNOWN && cand != G_REGIME &&
       G_REGIME_AGREE >= MathMax(2, RegimeConfirmBars))
    {
-      if(RegimePrintOnUse)
+      if((RegimePrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v156 REGIME] %s -> %s (%s, held %d bars)",
                      RegimeName(G_REGIME), RegimeName(cand), why, G_REGIME_AGREE);
       G_REGIME = cand;
@@ -16352,7 +16258,7 @@ void ExitQualitySettle()
       G_EXIT_TURNED *= scale;
    }
 
-   if(ExitQualityPrintOnUse)
+   if((ExitQualityPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v169 EXIT] price went %.0f pts after the close | ran-on %.0f / turned %.0f",
                   after_pts, G_EXIT_RAN_ON, G_EXIT_TURNED);
 
@@ -16521,7 +16427,7 @@ void SetupArm(const int dir, const int reason_code, const double trigger_price, 
    if(EnablePostWinFastEntry && G_LAST_WIN_DIR == dir &&
       (G_BARS_SEEN - G_LAST_WIN_BAR) <= PostWinFastEntryBars)
    {
-      if(SetupArmPrintOnUse)
+      if((SetupArmPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v199 ARM] skipped - %s was confirmed by a winning basket %d bars ago",
                      (dir > 0 ? "BUY" : "SELL"), G_BARS_SEEN - G_LAST_WIN_BAR);
       return;   // no wait - the setup goes straight to the score engine
@@ -16558,7 +16464,7 @@ void SetupArm(const int dir, const int reason_code, const double trigger_price, 
       G_ARM_SESSION = EnableSessionContext ? SessionContext(arm_mins, arm_sd) : -1;
    }
 
-   if(SetupArmPrintOnUse)
+   if((SetupArmPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v194 ARMED] %s held - %s (waiting for confirmation)",
                   (dir > 0 ? "BUY" : "SELL"), detail);
 }
@@ -16605,7 +16511,7 @@ bool SetupArmConfirmed(string &detail)
    // a better one. Unlike a fill hold, this one is dropped when its window closes.
    if(waited > window && G_ARM_REASON == ARM_REASON_LATE)
    {
-      if(SetupArmPrintOnUse)
+      if((SetupArmPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v288 LATE] no pullback after %d bars - the move ran on without us", waited);
       ArmRecordOutcome(G_ARM_REASON, 0, waited);
       SetupArmClear();
@@ -16614,7 +16520,7 @@ bool SetupArmConfirmed(string &detail)
 
    if(waited > window && G_ARM_REASON == ARM_REASON_FILL)
    {
-      if(SetupArmPrintOnUse)
+      if((SetupArmPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v275 FILL] no better price after %d bars - taking the setup anyway", waited);
       ArmRecordOutcome(G_ARM_REASON, 1, waited);
       SetupArmClear();
@@ -16623,7 +16529,7 @@ bool SetupArmConfirmed(string &detail)
 
    if(waited > window)
    {
-      if(SetupArmPrintOnUse)
+      if((SetupArmPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v194 ARMED] dropped after %d/%d bars - no confirmation for %s",
                      waited, window, G_ARM_TEXT);
       ArmRecordOutcome(G_ARM_REASON, 0, waited);
@@ -16648,7 +16554,7 @@ bool SetupArmConfirmed(string &detail)
       bool reached = (G_ARM_DIR > 0) ? (la_px <= G_ARM_TRIGGER) : (la_px >= G_ARM_TRIGGER);
       if(reached && la_px > 0.0)
       {
-         if(SetupArmPrintOnUse)
+         if((SetupArmPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v288 LATE] pullback reached %.2f after %d bars", la_px, waited);
          ArmRecordOutcome(G_ARM_REASON, 1, waited);
          SetupArmClear();
@@ -16665,7 +16571,7 @@ bool SetupArmConfirmed(string &detail)
 
       if(still_bad < FillTimingMinSeverity)
       {
-         if(SetupArmPrintOnUse)
+         if((SetupArmPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v275 FILL] better price reached after %d bars", waited);
          ArmRecordOutcome(G_ARM_REASON, 1, waited);
          SetupArmClear();
@@ -16721,7 +16627,7 @@ bool SetupArmConfirmed(string &detail)
    }
    if(cons < 0)
    {
-      if(SetupArmPrintOnUse)
+      if((SetupArmPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v196 ARMED] dropped early - %s", cons_detail);
       ArmRecordOutcome(G_ARM_REASON, -1, G_BARS_SEEN - G_ARM_BAR);
       SetupArmClear();
@@ -16746,7 +16652,7 @@ bool SetupArmConfirmed(string &detail)
       // market is trading, so the reaction it was waiting for cannot happen there.
       if(ArmAbandonDistancePoints > 0 && moved_pts > (double)ArmAbandonDistancePoints)
       {
-         if(SetupArmPrintOnUse)
+         if((SetupArmPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v197 ARMED] abandoned - price is %.0f pts from the level (limit %d)",
                         moved_pts, ArmAbandonDistancePoints);
          ArmRecordOutcome(G_ARM_REASON, -1, G_BARS_SEEN - G_ARM_BAR);
@@ -16763,7 +16669,7 @@ bool SetupArmConfirmed(string &detail)
          int sess_now = SessionContext(sc_mins, sc_detail);
          if(G_ARM_SESSION >= 0 && sess_now != G_ARM_SESSION)
          {
-            if(SetupArmPrintOnUse)
+            if((SetupArmPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v197 ARMED] abandoned - session changed to %s while waiting",
                            SessionName(sess_now));
             ArmRecordOutcome(G_ARM_REASON, -1, G_BARS_SEEN - G_ARM_BAR);
@@ -16826,7 +16732,7 @@ bool SetupArmConfirmed(string &detail)
             if(turned_back)
             {
                // The wall did exactly what the objection said it would. Stop waiting for it.
-               if(SetupArmPrintOnUse)
+               if((SetupArmPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v194 ARMED] dropped - the wall at %.2f rejected price, objection confirmed",
                               G_ARM_TRIGGER);
                ArmRecordOutcome(G_ARM_REASON, 0, G_BARS_SEEN - G_ARM_BAR);
@@ -16964,7 +16870,7 @@ void ArmJudgeSettle()
    if(r > 0 && r < ARM_OUTCOME_SLOTS && moved >= (double)ArmAuditWinPoints)
       G_ARM_WON[r] += 1.0;
 
-   if(ArmAuditPrintOnUse)
+   if((ArmAuditPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v197 ARM AUDIT] %s wait -> price went %.0f pts after entry",
                   ArmReasonName(r), moved);
 
@@ -17124,6 +17030,7 @@ bool ZoneEdgePrices(const double level, const bool is_support,
    static bool   ze_ok[6];
    static string ze_det[6];
    static int    ze_n = 0;
+   if(ze_bar > G_BARS_SEEN) ze_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
    if(ze_bar != G_BARS_SEEN) { ze_bar = G_BARS_SEEN; ze_n = 0; }
    for(int zc = 0; zc < ze_n; zc++)
    {
@@ -17279,7 +17186,7 @@ void StreakRecordOutcome(const bool won)
    if(won) { G_WIN_STREAK++;  G_LOSS_STREAK = 0; }
    else    { G_LOSS_STREAK++; G_WIN_STREAK  = 0; }
 
-   if(StreakPrintOnUse && G_LOSS_STREAK >= StreakCautionLosses)
+   if((StreakPrintOnUse && VerboseLogs) && G_LOSS_STREAK >= StreakCautionLosses)
       PrintFormat("[SIRUS v166 STREAK] %d consecutive losses - the market may have moved into a state this system does not handle",
                   G_LOSS_STREAK);
 }
@@ -17525,6 +17432,7 @@ double DominantSidePressure(double &trend, bool &divergence, string &detail)
    static double dp_trend = 0.0;
    static bool   dp_div = false;
    static string dp_detail = "";
+   if(dp_bar > G_BARS_SEEN) dp_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(dp_bar == G_BARS_SEEN)
    {
@@ -17633,6 +17541,7 @@ double MarketNoiseLevel(double &reachability, string &detail)
    static double nz_noise = 0.0;
    static double nz_reach = 1.0;
    static string nz_detail = "";
+   if(nz_bar > G_BARS_SEEN) nz_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(nz_bar == G_BARS_SEEN)
    {
@@ -17698,6 +17607,7 @@ double MarketStructureScale(double &scale_atr_ratio, string &detail)
    static double ms_val = 0.0;
    static double ms_ratio = 0.0;
    static string ms_detail = "";
+   if(ms_bar > G_BARS_SEEN) ms_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(ms_bar == G_BARS_SEEN && ms_val > 0.0)
    {
@@ -18165,7 +18075,7 @@ bool DetectFakeBreakoutReturnBuy(string &reason, int &score)
    reason = StringFormat("fbr buy: wall=%.2f (str=%.2f) broke %d bars ago, close=%.2f returned=%s score=%d",
                          sup, strength, broke_ago, c1, BoolText(returned), score);
 
-   if(FBRPrintOnUse && returned)
+   if((FBRPrintOnUse && VerboseLogs) && returned)
       PrintFormat("[SIRUS v31.6c FAKE BREAKOUT RETURN] BUY: %s", reason);
 
    return (broke && returned);
@@ -18248,7 +18158,7 @@ bool DetectFakeBreakoutReturnSell(string &reason, int &score)
    reason = StringFormat("fbr sell: wall=%.2f (str=%.2f) broke %d bars ago, close=%.2f returned=%s score=%d",
                          res, strength, broke_ago, c1, BoolText(returned), score);
 
-   if(FBRPrintOnUse && returned)
+   if((FBRPrintOnUse && VerboseLogs) && returned)
       PrintFormat("[SIRUS v31.6c FAKE BREAKOUT RETURN] SELL: %s", reason);
 
    return (broke && returned);
@@ -20006,7 +19916,7 @@ void ConsiderOpportunity(const ENUM_OPPORTUNITY_DIR dir, const ENUM_OPPORTUNITY_
    // competes to become the chosen opportunity.
    if(BayesDetectorDisabled((int)type))
    {
-      if(BayesAutoDisablePrintOnUse)
+      if((BayesAutoDisablePrintOnUse && VerboseLogs))
       {
          static datetime last_disable_print = 0;
          if(TimeCurrent() - last_disable_print > 300)   // throttle: at most once / 5 min
@@ -20260,7 +20170,7 @@ void UpdateOpportunityScanner(const string source)
          G_OPP_SCORE  = lose_best;
          G_OPP_REASON += StringFormat(" [consensus: %d voices against %d]", lose_n, win_n);
 
-         if(ConsensusPrintOnUse)
+         if((ConsensusPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS CONSENSUS] %d detectors said %s at best %d - overriding one-sided %s at %d",
                         lose_n, (win_dir > 0 ? "SELL" : "BUY"), lose_best,
                         (win_dir > 0 ? "BUY" : "SELL"), win_best);
@@ -20813,7 +20723,7 @@ int MTFTrendDirection()
    else if(last_close < sma - band)
       G_MTF_CACHE_DIR = -1;
 
-   if(MTFConfirmPrintOnUse)
+   if((MTFConfirmPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v30.1 MTF] dir=%d | close=%.2f sma=%.2f band=%.2f | tf=%d ma=%d",
                   G_MTF_CACHE_DIR, last_close, sma, band, (int)MTFConfirmTF, period);
 
@@ -20897,7 +20807,7 @@ void UpdateGapFillMagnet()
    if(G_GAP_FILL_DIR != 0 && GapFillMagnetMaxAgeBars > 0 && G_GAP_FILL_BAR > 0 &&
       (G_BARS_SEEN - G_GAP_FILL_BAR) > GapFillMagnetMaxAgeBars)
    {
-      if(GapFillMagnetPrintOnUse)
+      if((GapFillMagnetPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v178 GAP] magnet expired after %d bars unfilled - no longer treating it as a pull",
                      G_BARS_SEEN - G_GAP_FILL_BAR);
       G_GAP_FILL_DIR = 0;
@@ -21591,7 +21501,7 @@ G_PENALTY_TREND_AGAINST += HTFAgainstScorePenalty;
                                         (htf_dir > 0 ? "up" : "down"),
                                         gtc, rc, HTFAgainstReversalOverride,
                                         ct_final, ct_bar);
-                     if(CounterTrendPrintOnUse)
+                     if((CounterTrendPrintOnUse && VerboseLogs))
                         PrintFormat("[SIRUS COUNTER-TREND] REFUSED - %s", why);
                      return true;
                   }
@@ -21600,7 +21510,7 @@ G_PENALTY_TREND_AGAINST += HTFAgainstScorePenalty;
                   // unguarded print here would emit thousands of lines an hour and slow the tester -
                   // the same problem PERF(tester-speed) and FIX(modhealth-per-tick) already fixed
                   // elsewhere. Once per bar per direction is enough to tune from.
-                  if(CounterTrendPrintOnUse)
+                  if((CounterTrendPrintOnUse && VerboseLogs))
                   {
                      static int ct_print_bar[2] = {-1, -1};
                      int ct_ps = (dir > 0) ? 0 : 1;
@@ -21735,6 +21645,7 @@ why = StringFormat("-%d %s against HTF trend (htf=%s, conf %.2f, reversal rc=%.2
          // Counting from when the block first engaged is what the release actually needs to know.
          static int block_started_bar = -1;
          static int block_dir = 0;
+         if(block_started_bar > G_BARS_SEEN) block_started_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
          if(block_dir != imp_dir)
          {
@@ -21748,7 +21659,7 @@ why = StringFormat("-%d %s against HTF trend (htf=%s, conf %.2f, reversal rc=%.2
             if(held > CounterImpulseMaxAgeBars)
             {
                exhausted = true;   // held long enough that it no longer describes the current market
-               if(CounterImpulsePrintOnUse)
+               if((CounterImpulsePrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v177c IMPULSE] block released after %d bars (limit %d) - the move is history, not a live threat",
                               held, CounterImpulseMaxAgeBars);
             }
@@ -21955,7 +21866,7 @@ why = StringFormat("-%d %s against HTF trend (htf=%s, conf %.2f, reversal rc=%.2
       if(ZoneRoleAmbiguous(zr_detail))
       {
          why = StringFormat("%s: %s", (dir > 0 ? "BUY" : "SELL"), zr_detail);
-         if(ZoneRolePrintOnUse)
+         if((ZoneRolePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v119 ZONE ROLE] blocked %s - %s", (dir > 0 ? "BUY" : "SELL"), zr_detail);
          return true;
       }
@@ -22008,7 +21919,7 @@ void UpdateSignalScoreEngine(const string source)
       int silent_bars = G_BARS_SEEN - G_LAST_ENTRY_ALLOWED_BAR;
       if(silent_bars >= BlockSafetyValveBars)
       {
-         if(BlockSafetyValvePrintOnUse)
+         if((BlockSafetyValvePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v180 SAFETY VALVE] %d bars with no entry permitted - releasing one. Last block: %s",
                         silent_bars, hard_reason);
          hard_blocked = false;
@@ -22086,7 +21997,7 @@ void UpdateSignalScoreEngine(const string source)
          }
          G_SCORE_BONUS += SetupArmScoreBonus;
          detail += StringFormat(" +%d confirmed: %s;", SetupArmScoreBonus, arm_detail);
-         if(SetupArmPrintOnUse)
+         if((SetupArmPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v194 ARMED] CONFIRMED - %s | %s", G_ARM_TEXT, arm_detail);
          SetupArmClear();
       }
@@ -22107,7 +22018,7 @@ void UpdateSignalScoreEngine(const string source)
       {
          G_SCORE_BONUS += MathMax(0, FirstEntryConsensusBonus);
          detail += StringFormat(" +%d revConsensus(%.2f);", MathMax(0, FirstEntryConsensusBonus), fe_rc);
-         if(FirstEntryConsensusPrintOnUse)
+         if((FirstEntryConsensusPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS FIRST-ENTRY CONSENSUS] %s confirmed by consensus %.2f - %s",
                         OpportunityTypeToString(G_OPP_TYPE), fe_rc, fe_rc_detail);
       }
@@ -22223,7 +22134,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d AMBIGUOUS(own=%d vs opposing=%d, margin=%d);",
                                       clarity_penalty, own_score, opp_score, margin);
 
-               if(DirectionalClarityPrintOnUse)
+               if((DirectionalClarityPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v31.6z49 DIRECTIONAL CLARITY] both sides scored: %s=%d vs opposing=%d margin=%d -> -%d",
                               (G_OPP_DIR == OPP_DIR_BUY ? "BUY" : "SELL"), own_score, opp_score, margin, clarity_penalty);
             }
@@ -22323,6 +22234,7 @@ void UpdateSignalScoreEngine(const string source)
       static int    adr_cache_bar = -1;
       static double adr_used_c    = 0.0;
       static int    adr_dir_c     = 0;
+      if(adr_cache_bar > G_BARS_SEEN) adr_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
       if(adr_cache_bar != G_BARS_SEEN)
       {
          adr_used_c = ADRUsedPercent(adr_dir_c);
@@ -22345,6 +22257,7 @@ void UpdateSignalScoreEngine(const string source)
       // V31.2 speed: DXY H1 slope bar ichida sekin o'zgaradi - bar boshiga bir marta.
       static int dxy_cache_bar = -1;
       static int dxy_dir_c     = 0;
+      if(dxy_cache_bar > G_BARS_SEEN) dxy_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
       if(dxy_cache_bar != G_BARS_SEEN)
       {
          string dxy_reason = "";
@@ -22421,7 +22334,7 @@ void UpdateSignalScoreEngine(const string source)
          {
             G_SCORE_MIN_REQUIRED = balanced_bar;
             detail += " Hunter vs D1 - Balanced bar required;";
-            if(HunterD1PrintOnUse)
+            if((HunterD1PrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6c HUNTER D1] entry dir=%d vs D1 dir=%d - bar raised to %d",
                            entry_dir, d1_dir, balanced_bar);
          }
@@ -22443,7 +22356,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" +%d min post-SL same-direction (%d/%d bars);",
                                    PostSLDirectionExtraScoreReq, bars_since_sl, PostSLDirectionWindowBars);
 
-            if(PostSLDirectionPrintOnUse)
+            if((PostSLDirectionPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6j POST-SL GUARD] same-direction entry %d bars after SL - bar raised +%d",
                            bars_since_sl, PostSLDirectionExtraScoreReq);
          }
@@ -22503,7 +22416,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" +%d RSI divergence;", TrendReversalDivergenceBonus);
          }
 
-         if(TrendReversalPrintOnUse)
+         if((TrendReversalPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31.6i TREND REVERSAL] %s", reversal_reason_c);
       }
       // V31.6s fix: this was a genuine gap - a confirmed reversal AGAINST the proposed entry
@@ -22520,7 +22433,7 @@ void UpdateSignalScoreEngine(const string source)
          v31_brain_penalty += rev_penalty;
          detail += StringFormat(" -%d reversal AGAINST entry (%s);", rev_penalty, reversal_reason_c);
 
-         if(TrendReversalPrintOnUse)
+         if((TrendReversalPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31.6s TREND REVERSAL AGAINST] %s", reversal_reason_c);
       }
 
@@ -22551,7 +22464,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_TREND_AGAINST += BrainConsensusConflictPenalty;   // V136: same underlying fact as the other trend-conflict penalties
             v31_brain_penalty += BrainConsensusConflictPenalty;
             detail += StringFormat(" -%d reversal-CONFLICTED (both directions confirmed);", BrainConsensusConflictPenalty);
-            if(GlobalLocalPrintOnUse)
+            if((GlobalLocalPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z67 REVERSAL CONFLICTED] both directions confirmed (%s | %s) - ambiguous",
                            rc_support_e, rc_against_e);
          }
@@ -22560,7 +22473,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_BONUS += GlobalLocalScoreBonus;
          G_BONUS_TREND_ALIGN += GlobalLocalScoreBonus;   // V134: same underlying fact as the other trend-agreement bonuses
             detail += StringFormat(" +%d %s;", GlobalLocalScoreBonus, rc_support_e);
-            if(GlobalLocalPrintOnUse)
+            if((GlobalLocalPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z32 REVERSAL CONSENSUS] entry dir=%d - %s", entry_dir_i, rc_support_e);
          }
          else if(rc_opposes)
@@ -22568,7 +22481,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_PENALTY += GlobalLocalScoreBonus;
             v31_brain_penalty += GlobalLocalScoreBonus;
             detail += StringFormat(" -%d %s;", GlobalLocalScoreBonus, rc_against_e);
-            if(GlobalLocalPrintOnUse)
+            if((GlobalLocalPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z32 REVERSAL CONSENSUS AGAINST] entry dir=%d - %s", entry_dir_i, rc_against_e);
          }
       }
@@ -22582,6 +22495,7 @@ void UpdateSignalScoreEngine(const string source)
          static int mtf_h1_dir_c   = 0;
          static int mtf_h4_dir_c   = 0;
          static int mtf_d1_dir_c   = 0;
+         if(mtf_cache_bar > G_BARS_SEEN) mtf_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
          if(mtf_cache_bar != G_BARS_SEEN)
          {
             mtf_m15_dir_c = SimpleTFDirection(PERIOD_M15, MTFAlignmentM15LookbackBars);
@@ -22604,7 +22518,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_BONUS += mtf_bonus;
             detail += StringFormat(" +%d MTF alignment (%d/4 TF agree);", mtf_bonus, mtf_agree);
 
-            if(MTFAlignmentPrintOnUse)
+            if((MTFAlignmentPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6i MTF ALIGNMENT] %d/4 timeframes agree with dir=%d", mtf_agree, entry_dir_i);
          }
 
@@ -22623,7 +22537,7 @@ void UpdateSignalScoreEngine(const string source)
             v31_brain_penalty += mtf_penalty;
             detail += StringFormat(" -%d MTF AGAINST (%d/4 TF disagree);", mtf_penalty, mtf_against);
 
-            if(MTFAlignmentPrintOnUse)
+            if((MTFAlignmentPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6s MTF AGAINST] %d/4 timeframes disagree with dir=%d", mtf_against, entry_dir_i);
          }
       }
@@ -22646,7 +22560,7 @@ void UpdateSignalScoreEngine(const string source)
                v31_brain_penalty += strength_penalty;
                detail += StringFormat(" -%d trend strength AGAINST (adx-strength=%.2f);", strength_penalty, entry_adverse_strength);
 
-               if(TrendReversalPrintOnUse)
+               if((TrendReversalPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v31.6s TREND STRENGTH AGAINST] entry dir=%d adverse_strength=%.2f -> penalty %d",
                               entry_dir_i, entry_adverse_strength, strength_penalty);
             }
@@ -22679,7 +22593,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d major sweep AGAINST (%s);", MajorSweepScoreBonus, sweep_detail_e);
             }
 
-            if(MajorSweepPrintOnUse)
+            if((MajorSweepPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6t MAJOR SWEEP] entry dir=%d sweep dir=%d - %s", entry_dir_i, sweep_dir_e, sweep_detail_e);
          }
       }
@@ -22729,7 +22643,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d EQ zone unfavorable (%.0f%%);", eq_weight, range_pos_pct_e);
             }
 
-            if(EQZonePrintOnUse)
+            if((EQZonePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6u EQ ZONE ENTRY] entry dir=%d range_position=%.0f%%", entry_dir_i, range_pos_pct_e);
          }
       }
@@ -22757,7 +22671,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d engulfing AGAINST (%s);", EngulfingScoreBonus, engulf_detail_e);
             }
 
-            if(EngulfingPrintOnUse)
+            if((EngulfingPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6v ENGULFING ENTRY] entry dir=%d - %s", entry_dir_i, engulf_detail_e);
          }
       }
@@ -22777,7 +22691,7 @@ void UpdateSignalScoreEngine(const string source)
          G_BONUS_TREND_ALIGN += TrendQualityBonus;   // V134: same underlying fact as the other trend-agreement bonuses
             detail += StringFormat(" +%d trend quality %.2f (%s);", TrendQualityBonus, tq_score_e, tq_detail_e);
 
-            if(TrendQualityPrintOnUse)
+            if((TrendQualityPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z TREND QUALITY] entry dir=%d score=%.2f - %s", entry_dir_i, tq_score_e, tq_detail_e);
          }
       }
@@ -22798,7 +22712,7 @@ void UpdateSignalScoreEngine(const string source)
             G_BONUS_TREND_ALIGN += GlobalLocalScoreBonus;   // V134: same underlying fact as the other trend-agreement bonuses
             detail += StringFormat(" +%d %s;", GlobalLocalScoreBonus, gla_detail_e);
 
-            if(GlobalLocalPrintOnUse)
+            if((GlobalLocalPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z30 GLOBAL/LOCAL] entry dir=%d - %s", entry_dir_i, gla_detail_e);
          }
          else if(gla_score_e <= 0.30)
@@ -22807,7 +22721,7 @@ void UpdateSignalScoreEngine(const string source)
             v31_brain_penalty += GlobalLocalScoreBonus;
             detail += StringFormat(" -%d %s;", GlobalLocalScoreBonus, gla_detail_e);
 
-            if(GlobalLocalPrintOnUse)
+            if((GlobalLocalPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z30 GLOBAL/LOCAL AGAINST] entry dir=%d - %s", entry_dir_i, gla_detail_e);
          }
       }
@@ -22891,7 +22805,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_BONUS += ImpulseScoreBonus;
             detail += StringFormat(" +%d %s;", ImpulseScoreBonus, imp_detail_e);
 
-            if(ImpulsePrintOnUse)
+            if((ImpulsePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z8 IMPULSE] entry dir=%d agrees - %s", entry_dir_i, imp_detail_e);
          }
          else if(imp_score_e <= 0.3)
@@ -22901,7 +22815,7 @@ void UpdateSignalScoreEngine(const string source)
             v31_brain_penalty += ImpulseScoreBonus;
             detail += StringFormat(" -%d %s;", ImpulseScoreBonus, imp_detail_e);
 
-            if(ImpulsePrintOnUse)
+            if((ImpulsePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z8 IMPULSE AGAINST] entry dir=%d - %s", entry_dir_i, imp_detail_e);
          }
       }
@@ -22949,7 +22863,7 @@ void UpdateSignalScoreEngine(const string source)
                v31_brain_penalty += ext_penalty;
                detail += StringFormat(" -%d LATE-ENTRY(move already %.1f ATR extended);", ext_penalty, ext_e);
 
-               if(ImpulsePrintOnUse)
+               if((ImpulsePrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v31.6z54 MOVE EXTENSION] entry dir=%d into a move already %.1f ATR extended -> -%d",
                               entry_dir_i, ext_e, ext_penalty);
             }
@@ -22972,7 +22886,7 @@ void UpdateSignalScoreEngine(const string source)
             v31_brain_penalty += ec_penalty;
             detail += StringFormat(" -%d %s;", ec_penalty, ec_detail_e);
 
-            if(ImpulseExhaustionPrintOnUse)
+            if((ImpulseExhaustionPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z22 EXHAUSTION CONSENSUS ENTRY] entry dir=%d - %s", entry_dir_i, ec_detail_e);
          }
       }
@@ -23026,7 +22940,7 @@ void UpdateSignalScoreEngine(const string source)
             v31_brain_penalty += CompetingReversalPenalty;
             detail += StringFormat(" -%d competing reversal (%s: %s);", CompetingReversalPenalty, competing_name, comp_reason);
 
-            if(TrendReversalPrintOnUse)
+            if((TrendReversalPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z9 COMPETING REVERSAL] %s fires opposite entry dir=%d - %s",
                            competing_name, entry_dir_i, comp_reason);
          }
@@ -23065,7 +22979,7 @@ void UpdateSignalScoreEngine(const string source)
                   G_PENALTY_TREND_AGAINST += MarketStructureAgainstPenalty;   // V136: same underlying fact as the other trend-conflict penalties
                   v31_brain_penalty += MarketStructureAgainstPenalty;
                   detail += StringFormat(" -%d against %s;", MarketStructureAgainstPenalty, G_STRUCTURE_DETAIL);
-                  if(MarketStructurePrintOnUse)
+                  if((MarketStructurePrintOnUse && VerboseLogs))
                      PrintFormat("[SIRUS v112 STRUCTURE] entry dir=%d fights %s", entry_dir_i, G_STRUCTURE_DETAIL);
                }
             }
@@ -23152,7 +23066,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += ScenarioUndecidedPenalty;
             v31_brain_penalty += ScenarioUndecidedPenalty;
             detail += StringFormat(" -%d undecided (%s);", ScenarioUndecidedPenalty, sc_detail);
-            if(ScenarioPrintOnUse)
+            if((ScenarioPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v144 SCENARIOS] %s", sc_detail);
          }
       }
@@ -23182,7 +23096,7 @@ void UpdateSignalScoreEngine(const string source)
                v31_brain_penalty += ChainExpectAgainstPenalty;
                detail += StringFormat(" -%d against chain %s;", ChainExpectAgainstPenalty, ce_detail);
             }
-            if(ChainExpectPrintOnUse)
+            if((ChainExpectPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v143 CHAIN] %s | entry dir=%d", ce_detail, entry_dir_i);
          }
       }
@@ -23244,7 +23158,7 @@ void UpdateSignalScoreEngine(const string source)
                      G_PENALTY_QUALITY += ZoneEdgeEarlyEntryPenalty;
                      v31_brain_penalty += ZoneEdgeEarlyEntryPenalty;
                      detail += StringFormat(" -%d early: %s;", ZoneEdgeEarlyEntryPenalty, ze_detail);
-                     if(ZoneEdgePrintOnUse)
+                     if((ZoneEdgePrintOnUse && VerboseLogs))
                         PrintFormat("[SIRUS v167 ZONE EDGE] entry is early - %s", ze_detail);
                   }
                }
@@ -23296,7 +23210,7 @@ void UpdateSignalScoreEngine(const string source)
                                             SecondLevelPenalty,
                                             (entry_dir_i > 0 ? "resistance" : "support"),
                                             second_lvl, first_lvl);
-                     if(SecondLevelPrintOnUse)
+                     if((SecondLevelPrintOnUse && VerboseLogs))
                         PrintFormat("[SIRUS v205 SECOND LEVEL] %s at %.2f (strength %.2f) sits behind %.2f (%.2f) - the trade is really facing the stronger one",
                                     (entry_dir_i > 0 ? "resistance" : "support"),
                                     second_lvl, s_second, first_lvl, s_first);
@@ -23338,7 +23252,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d against %s: %s;", sit_adj, SituationName(sit), sit_detail);
             }
 
-            if(SituationPrintOnUse)
+            if((SituationPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v219 SITUATION] %s - %s | dir=%d weight %.2f",
                            SituationName(sit), sit_detail, sit_dir, sit_w);
          }
@@ -23414,7 +23328,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" %d %s;", cs_adj, cs_why);
          }
 
-         if(CandleSequencePrintOnUse && cs_adj != 0)
+         if((CandleSequencePrintOnUse && VerboseLogs) && cs_adj != 0)
             PrintFormat("[SIRUS v207 CANDLES] %s | %s", cs_detail, cs_why);
       }
 
@@ -23463,7 +23377,7 @@ void UpdateSignalScoreEngine(const string source)
                   G_CANDLE_PENALTY += adj;
                }
 
-               if(CandleLocationPrintOnUse)
+               if((CandleLocationPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v208 CANDLE] %s | %s | signal %.2f", au_detail, loc_detail, signal);
             }
          }
@@ -23613,7 +23527,7 @@ void UpdateSignalScoreEngine(const string source)
                   PatternJudgeArm(cp_pat, cp_dir, pj_mid);
             }
 
-            if(CandlePatternPrintOnUse)
+            if((CandlePatternPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v211 PATTERN] %s%s | weight %.2f | entry dir=%d",
                            cp_detail, extra, weight, entry_dir_i);
          }
@@ -23682,7 +23596,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" %d %s;", lb_adj, lb_why);
             }
 
-            if(LiveBarPrintOnUse && lb_adj != 0)
+            if((LiveBarPrintOnUse && VerboseLogs) && lb_adj != 0)
                PrintFormat("[SIRUS v212 LIVE BAR] %s | %s", lb_detail, lb_why);
          }
       }
@@ -23704,7 +23618,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_QUALITY += eb_pen;
             detail += StringFormat(" -%d %s;", eb_pen, eb_detail);
 
-            if(EntryBarPrintOnUse)
+            if((EntryBarPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v218 ENTRY BAR] %s | dir=%d | severity %.2f",
                            eb_detail, entry_dir_i, eb_sev);
          }
@@ -23784,7 +23698,7 @@ void UpdateSignalScoreEngine(const string source)
             }
          }
 
-         if(StructureMTFPrintOnUse && al != TFALIGN_NONE && StringLen(al_detail) > 0)
+         if((StructureMTFPrintOnUse && VerboseLogs) && al != TFALIGN_NONE && StringLen(al_detail) > 0)
             PrintFormat("[SIRUS v225 MTF] %s | entry dir=%d", al_detail, entry_dir_i);
       }
 
@@ -23895,7 +23809,7 @@ void UpdateSignalScoreEngine(const string source)
                }
             }
 
-            if(LocalStructurePrintOnUse)
+            if((LocalStructurePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v223 STRUCTURE] %s | entry dir=%d", G_LS_DETAIL, entry_dir_i);
          }
       }
@@ -23984,7 +23898,7 @@ void UpdateSignalScoreEngine(const string source)
                G_STRUCT_PENALTY += sw_adj;
                detail += StringFormat(" -%d entering against %s;", sw_adj, sw_detail);
 
-               if(LocalSwingPrintOnUse)
+               if((LocalSwingPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v218 SWINGS] %s | entry dir=%d", sw_detail, entry_dir_i);
             }
          }
@@ -24021,7 +23935,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d %s against;", cf_adj, cf_detail);
             }
 
-            if(CandleConflictPrintOnUse)
+            if((CandleConflictPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v215 CONFLICT] %s | dir=%d | weight %.2f",
                            cf_detail, cf_dir, cf_w);
          }
@@ -24059,7 +23973,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d %s against;", ev_adj, ev_detail);
             }
 
-            if(LiveEvolutionPrintOnUse)
+            if((LiveEvolutionPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v213 EVOLUTION] %s | entry dir=%d | weight %.2f",
                            ev_detail, entry_dir_i, ev_w);
          }
@@ -24111,7 +24025,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_TREND_AGAINST += htf_pen;
             G_CANDLE_PENALTY += htf_pen;
             detail += StringFormat(" -%d %s;", htf_pen, htf_detail);
-            if(CandleHTFPrintOnUse)
+            if((CandleHTFPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v211 HTF] %s | entry dir=%d", htf_detail, entry_dir_i);
          }
          else if(htf_agree > 0 && htf_body >= CandleHTFStrongBody)
@@ -24233,7 +24147,7 @@ void UpdateSignalScoreEngine(const string source)
             G_CANDLE_PENALTY += cp_pen;
             detail += StringFormat(" -%d %s;", cp_pen, cp_detail);
 
-            if(CandleProgressPrintOnUse)
+            if((CandleProgressPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v239 PROGRESS] %s | dir=%d", cp_detail, entry_dir_i);
          }
       }
@@ -24269,7 +24183,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += nw_pen;
             detail += StringFormat(" -%d %s;", nw_pen, nw_detail);
 
-            if(LiveNewsPrintOnUse)
+            if((LiveNewsPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v248 NEWS] %s", nw_detail);
          }
       }
@@ -24305,7 +24219,7 @@ void UpdateSignalScoreEngine(const string source)
                   G_PENALTY_QUALITY += tb_pen;
                   detail += StringFormat(" -%d %s;", tb_pen, tb_detail);
 
-                  if(TargetBandPrintOnUse)
+                  if((TargetBandPrintOnUse && VerboseLogs))
                      PrintFormat("[SIRUS v245 TARGET BAND] %s | dir=%d", tb_detail, entry_dir_i);
                }
             }
@@ -24331,7 +24245,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += vs_pen;
             detail += StringFormat(" -%d %s;", vs_pen, vs_detail);
 
-            if(VolatilityShiftPrintOnUse)
+            if((VolatilityShiftPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v254 VOLATILITY] %s", vs_detail);
          }
       }
@@ -24372,7 +24286,7 @@ void UpdateSignalScoreEngine(const string source)
                   G_PENALTY_QUALITY += pz_pen;
                   detail += StringFormat(" -%d %s in the way;", pz_pen, pz_detail);
 
-                  if(ProtectedZonePrintOnUse)
+                  if((ProtectedZonePrintOnUse && VerboseLogs))
                      PrintFormat("[SIRUS v264 PROTECTED] %s | %.0f pts ahead of a %.0f pt target",
                                  pz_detail, pz_gap, pz_tp);
                }
@@ -24412,7 +24326,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d against the order: %s;", wo_adj, wo_detail);
             }
 
-            if(WickOrderPrintOnUse)
+            if((WickOrderPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v262 ORDER] %s | implied dir=%d | entry dir=%d",
                            wo_detail, wo_dir, entry_dir_i);
          }
@@ -24489,7 +24403,7 @@ void UpdateSignalScoreEngine(const string source)
                            detail += StringFormat(" -%d %s;", -ar_adj, ar_detail);
                         }
 
-                        if(ar_adj != 0 && ArrivalPrintOnUse)
+                        if(ar_adj != 0 && (ArrivalPrintOnUse && VerboseLogs))
                            PrintFormat("[SIRUS v260 ARRIVAL] %s | level %.2f | %s | adj=%d",
                                        ar_detail, ar_level,
                                        (fading ? "fading the approach" : "continuing through"),
@@ -24554,7 +24468,7 @@ void UpdateSignalScoreEngine(const string source)
                }
             }
 
-            if(CandleProgressionPrintOnUse)
+            if((CandleProgressionPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v258 PROGRESSION] %s | lean=%d | entry dir=%d",
                            cp_detail, cp_lean, entry_dir_i);
          }
@@ -24596,7 +24510,7 @@ void UpdateSignalScoreEngine(const string source)
                                       lw_adj, lw_detail);
             }
 
-            if(LiquidityWickPrintOnUse)
+            if((LiquidityWickPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v257 LIQUIDITY] %s | implied dir=%d | entry dir=%d",
                            lw_detail, implied, entry_dir_i);
          }
@@ -24646,7 +24560,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d against the sweep: %s;", mp_pen, mp_detail);
             }
 
-            if(ManipulationPrintOnUse)
+            if((ManipulationPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v253 SWEEP BAR] %s | likely dir=%d | entry dir=%d",
                            mp_detail, mp_dir, entry_dir_i);
          }
@@ -24683,7 +24597,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d %s, short of the %.0f pt target;",
                                       gl_pen, gl_detail, gl_tp);
 
-               if(GlobalLevelPrintOnUse)
+               if((GlobalLevelPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v252 GLOBAL] %s | dir=%d", gl_detail, entry_dir_i);
             }
          }
@@ -24712,7 +24626,7 @@ void UpdateSignalScoreEngine(const string source)
             G_STRUCT_PENALTY += rv_pen;
             detail += StringFormat(" -%d %s;", rv_pen, rv_detail);
 
-            if(ReversalContextPrintOnUse)
+            if((ReversalContextPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v250 CONTEXT] %s | dir=%d", rv_detail, entry_dir_i);
          }
       }
@@ -24736,7 +24650,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_QUALITY += bg_pen;
             detail += StringFormat(" -%d %s;", bg_pen, bg_detail);
 
-            if(BandGuardPrintOnUse)
+            if((BandGuardPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v238 BAND] %s | dir=%d", bg_detail, entry_dir_i);
          }
       }
@@ -24771,7 +24685,7 @@ void UpdateSignalScoreEngine(const string source)
                G_STRUCT_PENALTY += sr_adj;
                detail += StringFormat(" -%d against: %s;", sr_adj, sr_detail);
 
-               if(SweepReversalPrintOnUse)
+               if((SweepReversalPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v238 SWEEP] %s | entry dir=%d", sr_detail, entry_dir_i);
             }
          }
@@ -24813,7 +24727,7 @@ void UpdateSignalScoreEngine(const string source)
             G_CANDLE_PENALTY += sc_pen;
             detail += StringFormat(" -%d entering against a %s;", sc_pen, sc_detail);
 
-            if(SingleCandlePrintOnUse)
+            if((SingleCandlePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v229 SINGLE CANDLE] %s | entry dir=%d | strength %.2f",
                            sc_detail, entry_dir_i, sc_strength);
          }
@@ -24847,7 +24761,7 @@ void UpdateSignalScoreEngine(const string source)
                G_CANDLE_PENALTY += sc_chase;
                detail += StringFormat(" -%d chasing a %s;", sc_chase, sc_detail);
 
-               if(SingleCandlePrintOnUse)
+               if((SingleCandlePrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v230 CHASE] entry at the far end of %s", sc_detail);
             }
             else
@@ -24898,7 +24812,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_PENALTY += cp_pen;
             G_PENALTY_IMPULSE += cp_pen;
             detail += StringFormat(" -%d %s;", cp_pen, cp_detail);
-            if(ConsecutivePressurePrintOnUse)
+            if((ConsecutivePressurePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v204 PRESSURE] entry against %s", cp_detail);
          }
       }
@@ -24952,7 +24866,7 @@ void UpdateSignalScoreEngine(const string source)
                G_SCORE_STATUS = "SCORE: HARD_BLOCK | reason=" + G_SCORE_HARD_BLOCK;
                G_SCORE_LAST_SIGNATURE = G_SCORE_STATUS + "|" + IntegerToString(G_BARS_SEEN);
                detail += StringFormat(" [BLOCKED: %s];", sp_detail);
-               if(SpreadPrintOnUse)
+               if((SpreadPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v165 SPREAD] BLOCKED - %s", sp_detail);
                {
                   double sp_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
@@ -24997,7 +24911,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += SpreadForecastPenalty;
             v31_brain_penalty += SpreadForecastPenalty;
             detail += StringFormat(" -%d %s;", SpreadForecastPenalty, sp_why);
-            if(SpreadPrintOnUse)
+            if((SpreadPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v165 SPREAD] widening expected: %s", sp_why);
          }
       }
@@ -25026,7 +24940,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" -%d %s;", SessionChangePenalty, sc_detail);
          }
 
-         if(SessionPrintOnUse && (sc_sess == SESSION_DEAD || sc_mins <= SessionChangeWarnMinutes))
+         if((SessionPrintOnUse && VerboseLogs) && (sc_sess == SESSION_DEAD || sc_mins <= SessionChangeWarnMinutes))
             PrintFormat("[SIRUS v164 SESSION] %s", sc_detail);
       }
 
@@ -25059,7 +24973,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d against %s;", PressureAgainstPenalty, pr_detail);
             }
 
-            if(PressurePrintOnUse && pr_div)
+            if((PressurePrintOnUse && VerboseLogs) && pr_div)
                PrintFormat("[SIRUS v163 PRESSURE] %s | entry dir=%d", pr_detail, entry_dir_i);
          }
       }
@@ -25084,7 +24998,7 @@ void UpdateSignalScoreEngine(const string source)
          {
             G_NOISE_TP_FACTOR = MathMax(NoiseMinTPFactor, MathMin(1.0, nz_reach / MathMax(0.01, NoiseMinReachability)));
             detail += StringFormat(" [target scaled to %.0f%% - %s];", G_NOISE_TP_FACTOR * 100.0, nz_detail);
-            if(NoisePrintOnUse)
+            if((NoisePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v162b NOISE] target scaled to %.0f%% - %s",
                            G_NOISE_TP_FACTOR * 100.0, nz_detail);
          }
@@ -25129,7 +25043,7 @@ void UpdateSignalScoreEngine(const string source)
 
                detail += StringFormat(" [size scaled to %.0f%% - %s];",
                                       G_PROJECTION_LOT_FACTOR * 100.0, pj_detail);
-               if(ProjectionPrintOnUse)
+               if((ProjectionPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v159b PROJECTION] size scaled to %.0f%% - %s",
                               G_PROJECTION_LOT_FACTOR * 100.0, pj_detail);
 
@@ -25146,7 +25060,7 @@ void UpdateSignalScoreEngine(const string source)
                G_SCORE_STATUS = "SCORE: HARD_BLOCK | reason=" + G_SCORE_HARD_BLOCK;
                G_SCORE_LAST_SIGNATURE = G_SCORE_STATUS + "|" + IntegerToString(G_BARS_SEEN);
                   detail += " [BLOCKED: unsurvivable at any size];";
-                  if(ProjectionPrintOnUse)
+                  if((ProjectionPrintOnUse && VerboseLogs))
                      PrintFormat("[SIRUS v159b PROJECTION] BLOCKED - unsurvivable even at %.0f%% size",
                                  ProjectionMinLotFactor * 100.0);
                   BlockAuditRecord(entry_dir_i, pj_entry);
@@ -25183,7 +25097,7 @@ void UpdateSignalScoreEngine(const string source)
                v31_brain_penalty += PatternMemoryAgainstPenalty;
                detail += StringFormat(" -%d against %s;", PatternMemoryAgainstPenalty, pm_detail);
             }
-            if(PatternMemoryPrintOnUse)
+            if((PatternMemoryPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v154 PATTERN MEMORY] %s | entry dir=%d", pm_detail, entry_dir_i);
          }
       }
@@ -25226,7 +25140,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d fading live %s;", ForcedFlowAgainstPenalty, ff_detail);
             }
 
-            if(ForcedFlowPrintOnUse)
+            if((ForcedFlowPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v151 FORCED FLOW] %s | spent=%s | entry dir=%d",
                            ff_detail, (ff_spent ? "yes" : "no"), entry_dir_i);
          }
@@ -25248,7 +25162,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += PathDensityCrowdedPenalty;
             v31_brain_penalty += PathDensityCrowdedPenalty;
             detail += StringFormat(" -%d crowded %s;", PathDensityCrowdedPenalty, pd_detail);
-            if(PathDensityPrintOnUse)
+            if((PathDensityPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v149 PATH] crowded - %s", pd_detail);
          }
          else if(pd_gap >= pd_target * MathMax(1.0, PathDensityClearGapFactor))
@@ -25292,7 +25206,7 @@ void UpdateSignalScoreEngine(const string source)
                      G_SCORE_BONUS += ParticipantInstBonus;
                      detail += StringFormat(" +%d leaning on an %s;", ParticipantInstBonus, pm_detail);
                   }
-                  if(ParticipantPrintOnUse)
+                  if((ParticipantPrintOnUse && VerboseLogs))
                      PrintFormat("[SIRUS v148 PARTICIPANTS] %.2f is an %s", pm_level, pm_detail);
                }
             }
@@ -25326,7 +25240,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_QUALITY += LiquidityAheadPenalty;
             v31_brain_penalty += LiquidityAheadPenalty;
             detail += StringFormat(" -%d %s;", LiquidityAheadPenalty, lq_detail);
-            if(LiquidityPrintOnUse)
+            if((LiquidityPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v140 LIQUIDITY] %s - entry into it penalised", lq_detail);
          }
       }
@@ -25346,7 +25260,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_QUALITY += RoomTooTightPenalty;
             v31_brain_penalty += RoomTooTightPenalty;
             detail += StringFormat(" -%d %s (target needs %.0f);", RoomTooTightPenalty, room_detail, needed);
-            if(RoomPrintOnUse)
+            if((RoomPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v118 ROOM] tight: %s | target needs %.0f pts", room_detail, needed);
          }
       }
@@ -25435,7 +25349,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d zone break AGAINST (%s);", ZoneBreakAgainstPenalty, zb_detail_e);
             }
 
-            if(ZoneBreakPrintOnUse)
+            if((ZoneBreakPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z10 ZONE BREAK] entry dir=%d - %s", entry_dir_i, zb_detail_e);
          }
       }
@@ -25777,7 +25691,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" -%d brain CONFLICTED (%d for vs %d against);",
                                    conflict_pen, categories_agree, categories_against);
 
-            if(BrainConsensusPrintOnUse)
+            if((BrainConsensusPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6z66 BRAIN CONFLICTED] %d categories agree BUT %d disagree on dir=%d - ambiguous, not confirmation",
                            categories_agree, categories_against, entry_dir_i);
          }
@@ -25788,7 +25702,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" +%d brain consensus (%d independent categories agree);",
                                    BrainConsensusBonus, categories_agree);
 
-            if(BrainConsensusPrintOnUse)
+            if((BrainConsensusPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6i BRAIN CONSENSUS] %d independent categories agree on dir=%d - synergy bonus",
                            categories_agree, entry_dir_i);
          }
@@ -25800,7 +25714,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" -%d brain consensus AGAINST (%d independent categories disagree);",
                                    conflict_penalty, categories_against);
 
-            if(BrainConsensusPrintOnUse)
+            if((BrainConsensusPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31.6x BRAIN CONSENSUS AGAINST] %d independent categories disagree with dir=%d - synergy penalty",
                            categories_against, entry_dir_i);
          }
@@ -25970,7 +25884,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += cf_pen;
             detail += StringFormat(" -%d %s;", cf_pen, cf_detail);
 
-            if(ConflictPrintOnUse)
+            if((ConflictPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v249 CONFLICT] %s | dir=%d", cf_detail, entry_dir_i);
          }
       }
@@ -26259,7 +26173,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" +%d %s;", vd_adj, vd_detail);
          }
 
-         if(VolumeDivergencePrintOnUse)
+         if((VolumeDivergencePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v270 DIVERGENCE] %s | fading dir=%d | entry dir=%d",
                         vd_detail, vd_dir, entry_dir_i);
       }
@@ -26309,7 +26223,7 @@ void UpdateSignalScoreEngine(const string source)
          G_PENALTY_CONDITIONS += ct_pen;
          detail += StringFormat(" -%d %s;", ct_pen, ct_detail);
 
-         if(ThinDayPrintOnUse)
+         if((ThinDayPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v268 THIN] %s", ct_detail);
       }
    }
@@ -26366,7 +26280,7 @@ void UpdateSignalScoreEngine(const string source)
             SetupArm(entry_dir_i, ARM_REASON_LATE, le_target, le_detail, false);
             G_SCORE_DECISION = SCORE_DECISION_WAIT;
             detail += StringFormat(" [holding for a pullback: %s];", le_detail);
-            if(LateEntryPrintOnUse)
+            if((LateEntryPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v288 LATE] %s - waiting for %.2f", le_detail, le_target);
             return;
          }
@@ -26410,7 +26324,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_DECISION = SCORE_DECISION_WAIT;
             detail += StringFormat(" [holding for a better fill: %s];", fq_detail);
 
-            if(FillTimingPrintOnUse)
+            if((FillTimingPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v275 FILL] %s | dir=%d", fq_detail, entry_dir_i);
             return;
          }
@@ -26437,7 +26351,7 @@ void UpdateSignalScoreEngine(const string source)
          G_STRUCT_PENALTY += ct_pen;
          detail += StringFormat(" -%d %s;", ct_pen, gt_detail);
 
-         if(GlobalTrendPrintOnUse)
+         if((GlobalTrendPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v273 GLOBAL] %s | dir=%d", gt_detail, entry_dir_i);
       }
       else
@@ -26514,7 +26428,7 @@ void UpdateSignalScoreEngine(const string source)
          G_STRUCT_PENALTY += hs_pen;
          detail += StringFormat(" -%d %s;", hs_pen, hs_detail);
 
-         if(HierarchyPrintOnUse)
+         if((HierarchyPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v266 HIERARCHY] %s | dir=%d", hs_detail, entry_dir_i);
       }
    }
@@ -26539,7 +26453,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += amb_pen;
             detail += StringFormat(" -%d %s;", amb_pen, amb_detail);
 
-            if(AmbiguityPrintOnUse)
+            if((AmbiguityPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v266 AMBIGUITY] %s | opposite %.1f against own %d",
                            amb_detail, opp_strength, G_SCORE_BASE + G_SCORE_BONUS);
          }
@@ -26706,7 +26620,7 @@ void UpdateSignalScoreEngine(const string source)
                   imp_hb = true;
                   imp_hb_reason = StringFormat("%s right after a blow-off climax candle (bar%d range %.0fpts = %.1fx ATR)",
                                                (imp_dir_i > 0 ? "BUY" : "SELL"), b, bo_range, bo_range / bo_atr);
-                  if(BlowOffHardBlockPrintOnUse)
+                  if((BlowOffHardBlockPrintOnUse && VerboseLogs))
                      PrintFormat("[SIRUS BLOW-OFF HARD BLOCK] %s", imp_hb_reason);
                }
             }
@@ -26721,7 +26635,7 @@ void UpdateSignalScoreEngine(const string source)
          G_SCORE_DETAIL = StringFormat("SCORE DETAIL: impulse-end hard block | final=%d/%d | %s",
                                        G_SCORE_FINAL, G_SCORE_MIN_REQUIRED, detail);
 
-         if(ImpulseEndHardBlockPrintOnUse)
+         if((ImpulseEndHardBlockPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS IMPULSE-END HARD BLOCK] %s | final score was %d/%d (blocked regardless)",
                         imp_hb_reason, G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
 
@@ -26770,7 +26684,7 @@ void UpdateSignalScoreEngine(const string source)
                G_SCORE_DETAIL = StringFormat("SCORE DETAIL: zone-wall hard block | final=%d/%d | %s",
                                              G_SCORE_FINAL, G_SCORE_MIN_REQUIRED, detail);
 
-               if(ZoneWallHardBlockPrintOnUse)
+               if((ZoneWallHardBlockPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS ZONE-WALL HARD BLOCK] %s | final score was %d/%d (blocked regardless)",
                               G_SCORE_HARD_BLOCK, G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
 
@@ -26826,7 +26740,7 @@ void UpdateSignalScoreEngine(const string source)
          G_SCORE_STATUS = "SCORE: HARD_BLOCK | reason=" + G_SCORE_HARD_BLOCK;
          G_SCORE_DETAIL = StringFormat("SCORE DETAIL: counter-context block | final=%d/%d | %s",
                                        G_SCORE_FINAL, G_SCORE_MIN_REQUIRED, detail);
-         if(CounterZoneBlockPrintOnUse)
+         if((CounterZoneBlockPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS COUNTER-CONTEXT BLOCK] %s | score was %d/%d (first-entry blocked)",
                         G_SCORE_HARD_BLOCK, G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
          G_SCORE_LAST_SIGNATURE = G_SCORE_STATUS + "|" + IntegerToString(G_BARS_SEEN);
@@ -28232,7 +28146,7 @@ void ReplayQueuedSignal()
          string q_why = "";
          if(LocationBrainVerdict(q_dir, q_why) != LB_OK)
          {
-            if(QueueRecheckPrintOnUse)
+            if((QueueRecheckPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS QUEUE] replay held - %s", q_why);
             return;
          }
@@ -29525,7 +29439,7 @@ double Pack2BasketTPForOrders(const int orders, const double base_tp)
             if(st_pts >= (double)SituationTargetMinPoints &&
                st_pts <= (double)SituationTargetMaxPoints)
             {
-               if(StructureTargetPrintOnUse)
+               if((StructureTargetPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v224 TARGET] structure ends at %.2f -> %.0f pts (was %.0f)",
                               G_LS_INVALIDATE, st_pts, tp);
                tp = st_pts;
@@ -29564,7 +29478,7 @@ double Pack2BasketTPForOrders(const int orders, const double base_tp)
       double sp_pts = SituationTargetPoints(G_SITUATION, G_SITUATION_DIR, sp_detail);
       if(sp_pts > 0.0)
       {
-         if(SituationPlanPrintOnUse)
+         if((SituationPlanPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v220 PLAN] %s -> %s (%.0f pts, was %.0f)",
                         SituationName(G_SITUATION), sp_detail, sp_pts, tp);
          tp = sp_pts;
@@ -29644,7 +29558,7 @@ double Pack2BasketTPForOrders(const int orders, const double base_tp)
       double adjusted = tp * tp_factor;
       if(adjusted < BasketTPMinPoints)
          adjusted = (double)BasketTPMinPoints;
-      if(TPAdjustPrintOnUse && MathAbs(adjusted - tp) > 50.0)
+      if((TPAdjustPrintOnUse && VerboseLogs) && MathAbs(adjusted - tp) > 50.0)
          PrintFormat("[SIRUS v170 TP] %.0f -> %.0f (x%.2f: %s)", tp, adjusted, tp_factor, tp_why);
       tp = adjusted;
    }
@@ -29843,7 +29757,7 @@ int SmartTrailEffectiveStep()
    int step = (int)MathRound(BasketTrailStepPoints - frac * (BasketTrailStepPoints - SmartTrailMinStepPoints));
    step = MathMax(SmartTrailMinStepPoints, MathMin(BasketTrailStepPoints, step));
 
-   if(SmartTrailPrintOnUse && warnings > 0)
+   if((SmartTrailPrintOnUse && VerboseLogs) && warnings > 0)
       PrintFormat("[SIRUS v31.6z11 SMART TRAIL] dir=%d warnings=%.2f (%s) step %d -> %d",
                   dir_i, warnings, reasons, BasketTrailStepPoints, step);
 
@@ -29915,13 +29829,13 @@ bool Pack2CheckBasketBreakEvenOrTrail()
       {
          effective_trail_start = basket_tp * MathMax(0.1, MathMin(0.95, AdaptiveTrailArmTPFraction));
 
-         if(SmartTrailPrintOnUse)
+         if((SmartTrailPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31.6z64 ADAPTIVE TRAIL ARM] fixed arm %d >= basket TP %.0f (orders=%d) - trailing could never engage; arming at %.0f instead",
                         BasketTrailStartPoints, basket_tp, G_BASKET_ORDERS, effective_trail_start);
       }
    }
 
-   if(UseAdvancedBasketTrailing && !(EnableRebateMode && RebateDisableTrailing) &&
+   if(UseAdvancedBasketTrailing && !(EnableRebateMode && RebateDisableTrailing) && !RebateTrailingOn() &&
       G_BASKET_POINTS >= effective_trail_start)
    {
       int smart_step = SmartTrailEffectiveStep();
@@ -30232,6 +30146,51 @@ bool Pack4MiniLotAllowsGrid(string &reason)
 //==================================================================//
 //  PHASE 21.3 GRID / RECOVERY ENGINE
 //==================================================================//
+// FIX(dd-commission): basket profit and DD read POSITION_PROFIT + POSITION_SWAP only. On a commission
+// account the entry commission is already charged, so every DD figure (Basket SL, emergency close) was
+// understated by it. The entry commission of each position is looked up once from its deals and cached.
+#define POS_COMM_CACHE 128
+ulong  G_POS_COMM_TICKET[POS_COMM_CACHE];
+double G_POS_COMM_VALUE[POS_COMM_CACHE];
+int    G_POS_COMM_NEXT = 0;
+
+double PositionCommissionCached(const ulong position_id)
+{
+   if(position_id == 0)
+      return 0.0;
+   for(int i = 0; i < POS_COMM_CACHE; i++)
+      if(G_POS_COMM_TICKET[i] == position_id)
+         return G_POS_COMM_VALUE[i];
+
+   double comm = 0.0;
+   if(HistorySelectByPosition(position_id))
+   {
+      int deals = HistoryDealsTotal();
+      for(int d = 0; d < deals; d++)
+      {
+         ulong deal = HistoryDealGetTicket(d);
+         if(deal == 0)
+            continue;
+         if((ENUM_DEAL_ENTRY)HistoryDealGetInteger(deal, DEAL_ENTRY) == DEAL_ENTRY_IN)
+            comm += HistoryDealGetDouble(deal, DEAL_COMMISSION);
+      }
+   }
+   else
+      return 0.0;   // history not available yet - do not cache a guess, ask again next time
+
+   G_POS_COMM_TICKET[G_POS_COMM_NEXT] = position_id;
+   G_POS_COMM_VALUE[G_POS_COMM_NEXT]  = comm;
+   G_POS_COMM_NEXT = (G_POS_COMM_NEXT + 1) % POS_COMM_CACHE;
+   return comm;
+}
+
+// Floating result of the currently selected position, commission included.
+double SelectedPositionNetProfit()
+{
+   return PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP)
+        + PositionCommissionCached((ulong)PositionGetInteger(POSITION_IDENTIFIER));
+}
+
 bool GetNaviusBasketStats(int &orders,
                           double &total_volume,
                           double &avg_price,
@@ -30280,7 +30239,7 @@ bool GetNaviusBasketStats(int &orders,
       // a basket held for days, where XAUUSD swap is typically negative and compounds nightly.
       // The bot could read DD as 45% while the true figure was 48%, firing the 50% stop late -
       // and it left the backup safety net more accurate than the primary system it backs up.
-      double pprofit = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+      double pprofit = SelectedPositionNetProfit();   // FIX(dd-commission)
       datetime ptime = (datetime)PositionGetInteger(POSITION_TIME);
 
       if(vol <= 0.0 || open_price <= 0.0)
@@ -30575,7 +30534,7 @@ void RecordEvent(const int kind, const int dir, const double price)
    G_EVT_PRICE[idx] = price;
    G_EVT_COUNT++;
 
-   if(EventChainPrintOnUse)
+   if((EventChainPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v142 EVENT] %s %s at %.2f (chain length %d)",
                   EventKindName(kind), (dir > 0 ? "up" : (dir < 0 ? "down" : "-")),
                   price, MathMin(G_EVT_COUNT, NAVIUS_EVENT_MAX));
@@ -30585,6 +30544,7 @@ void RecordEvent(const int kind, const int dir, const double price)
 void EventChainUpdate()
 {
    static int last_bar = -100000;
+   if(last_bar > G_BARS_SEEN) last_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
    if(!EnableEventChain || last_bar == G_BARS_SEEN)
       return;
    last_bar = G_BARS_SEEN;
@@ -30699,7 +30659,7 @@ void ChainPatternRestore()
       if(GlobalVariableCheck(kw)) { G_CHAIN_PAT_WINS[i]   = GlobalVariableGet(kw); restored++; }
       if(GlobalVariableCheck(kl)) { G_CHAIN_PAT_LOSSES[i] = GlobalVariableGet(kl); }
    }
-   if(restored > 0 && ChainLearningPrintOnUse)
+   if(restored > 0 && (ChainLearningPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v145 CHAIN LEARNING] restored outcome history for %d patterns", restored);
 }
 
@@ -30762,14 +30722,14 @@ void ChainPatternSettle()
    if(moved_pts >= (double)ChainLearningWinPoints)
    {
       G_CHAIN_PAT_WINS[pat] += 1.0;
-      if(ChainLearningPrintOnUse)
+      if((ChainLearningPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v145 CHAIN LEARNING] pattern %d CORRECT (%.0f pts) | now %.0f/%.0f",
                      pat, moved_pts, G_CHAIN_PAT_WINS[pat], G_CHAIN_PAT_LOSSES[pat]);
    }
    else if(moved_pts <= -(double)ChainLearningWinPoints)
    {
       G_CHAIN_PAT_LOSSES[pat] += 1.0;
-      if(ChainLearningPrintOnUse)
+      if((ChainLearningPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v145 CHAIN LEARNING] pattern %d WRONG (%.0f pts) | now %.0f/%.0f",
                      pat, moved_pts, G_CHAIN_PAT_WINS[pat], G_CHAIN_PAT_LOSSES[pat]);
    }
@@ -31740,7 +31700,7 @@ void PreparedLevelsRefresh()
       G_PREP_NOTE[G_PREP_COUNT]  = note;
       G_PREP_COUNT++;
 
-      if(PreparedLevelsPrintOnUse)
+      if((PreparedLevelsPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v291 PREP] %.2f ready for %s (%.1f) - %s",
                      cands[i], (dirs[i] > 0 ? "BUY" : "SELL"), sc, note);
    }
@@ -32129,6 +32089,7 @@ double VolumeDivergence(int &fading_dir, string &detail)
    static double vd_val = 0.0;
    static int    vd_dir = 0;
    static string vd_detail = "";
+   if(vd_bar > G_BARS_SEEN) vd_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(vd_bar == G_BARS_SEEN)
    {
@@ -32515,6 +32476,7 @@ double HigherScaleConflict(const int entry_dir, string &detail)
    static int    hs_dir = 0;
    static double hs_val = 0.0;
    static string hs_detail = "";
+   if(hs_bar > G_BARS_SEEN) hs_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(hs_bar == G_BARS_SEEN && hs_dir == entry_dir)
    {
@@ -32743,7 +32705,7 @@ void ProtectedZonesRefresh()
       }
    }
 
-   if(ProtectedZonePrintOnUse && G_PZ_COUNT > 0)
+   if((ProtectedZonePrintOnUse && VerboseLogs) && G_PZ_COUNT > 0)
       PrintFormat("[SIRUS v264 PROTECTED] %d levels held", G_PZ_COUNT);
 }
 
@@ -32904,6 +32866,7 @@ int WickOrderBias(double &conviction, string &detail)
    static int    wo_dir = 0;
    static double wo_conv = 0.0;
    static string wo_detail = "";
+   if(wo_bar > G_BARS_SEEN) wo_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(wo_bar == G_BARS_SEEN)
    {
@@ -33115,6 +33078,7 @@ double ArrivalQuality(int &toward_dir, string &detail)
    static double ar_q = 0.0;
    static int    ar_dir = 0;
    static string ar_detail = "";
+   if(ar_bar > G_BARS_SEEN) ar_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(ar_bar == G_BARS_SEEN)
    {
@@ -33234,6 +33198,7 @@ double CandleProgression(int &progression, int &lean, string &detail)
    static int    cp_prog = CSEQ_NONE;
    static int    cp_lean = 0;
    static string cp_detail = "";
+   if(cp_bar > G_BARS_SEEN) cp_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(cp_bar == G_BARS_SEEN)
    {
@@ -33368,6 +33333,7 @@ double LiquidityWickSweep(int &swept_dir, double &level, string &detail)
    static int    lw_dir = 0;
    static double lw_level = 0.0;
    static string lw_detail = "";
+   if(lw_bar > G_BARS_SEEN) lw_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(lw_bar == G_BARS_SEEN)
    {
@@ -33555,6 +33521,7 @@ double VolatilityShift(string &detail)
    static int    vs_bar = -100000;
    static double vs_ratio = 1.0;
    static string vs_detail = "";
+   if(vs_bar > G_BARS_SEEN) vs_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(vs_bar == G_BARS_SEEN)
    {
@@ -33713,6 +33680,7 @@ double RecentManipulation(int &likely_dir, string &detail)
    static double rm_val = 0.0;
    static int    rm_dir = 0;
    static string rm_detail = "";
+   if(rm_bar > G_BARS_SEEN) rm_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(rm_bar == G_BARS_SEEN)
    {
@@ -33845,6 +33813,7 @@ void GlobalPeriodLevels(double &month_high, double &month_low,
 
    static int    gp_bar = -100000;
    static double gp_mh = 0.0, gp_ml = 0.0, gp_wh = 0.0, gp_wl = 0.0, gp_wo = 0.0;
+   if(gp_bar > G_BARS_SEEN) gp_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(gp_bar == G_BARS_SEEN)
    {
@@ -33995,6 +33964,7 @@ int MajorReversalContext(double &neckline, double &confidence, string &detail)
    static double rc_neck = 0.0;
    static double rc_conf = 0.0;
    static string rc_detail = "";
+   if(rc_bar > G_BARS_SEEN) rc_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(rc_bar == G_BARS_SEEN)
    {
@@ -34122,7 +34092,7 @@ int MajorReversalContext(double &neckline, double &confidence, string &detail)
 
    neckline = rc_neck; confidence = rc_conf; detail = rc_detail;
 
-   if(rc_state != REVCTX_NONE && ReversalContextPrintOnUse)
+   if(rc_state != REVCTX_NONE && (ReversalContextPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v250 REVERSAL] %s (%.0f%% confidence)", rc_detail, rc_conf * 100.0);
 
    return rc_state;
@@ -34942,7 +34912,7 @@ void SetBasketThesis(const int dir)
    G_BASKET_INVALIDATION = invalid;
    G_BASKET_THESIS = why;
 
-   if(ThesisPrintOnUse)
+   if((ThesisPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v247 THESIS] %s basket - wrong above/below %.2f (%s, %.0f pts away)",
                   (dir > 0 ? "long" : "short"), invalid, why, dist);
 }
@@ -34979,7 +34949,7 @@ bool BasketPremiseDead(string &detail)
    detail = StringFormat("premise gone - closed through %.2f (%s)",
                          G_BASKET_INVALIDATION, G_BASKET_THESIS);
 
-   if(ThesisPrintOnUse)
+   if((ThesisPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v247 THESIS] %s - the ladder stops here", detail);
 
    return true;
@@ -35590,12 +35560,12 @@ void ChooseLadderShape(const int dir)
       G_LADDER_ORDERS = MathMax(2, CounterTrendMaxLadderOrders);
       G_LADDER_REASON = StringFormat("%s | capped to %d rungs - against the global trend",
                                      G_LADDER_REASON, G_LADDER_ORDERS);
-      if(LadderShapePrintOnUse)
+      if((LadderShapePrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS COUNTER-TREND] ladder capped to %d rungs - entry fights the global trend",
                      G_LADDER_ORDERS);
    }
 
-   if(LadderShapePrintOnUse && G_LADDER_SHAPE != LADDER_DEFAULT)
+   if((LadderShapePrintOnUse && VerboseLogs) && G_LADDER_SHAPE != LADDER_DEFAULT)
       PrintFormat("[SIRUS v241 LADDER] %s - %d rungs at %.2fx, spacing %.2f | %s",
                   LadderShapeName(G_LADDER_SHAPE), G_LADDER_ORDERS, G_LADDER_MULT,
                   G_LADDER_SPACING, G_LADDER_REASON);
@@ -35923,6 +35893,7 @@ double RoomToTargetPoints(const int entry_dir, string &detail)
 void MarketVerdictRead()
 {
    static int last_bar = -100000;
+   if(last_bar > G_BARS_SEEN) last_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
    if(last_bar == G_BARS_SEEN)
       return;
    last_bar = G_BARS_SEEN;
@@ -35989,7 +35960,7 @@ void MarketVerdictRead()
                                    (G_VERDICT_DIR > 0 ? "BULLISH" : "BEARISH"),
                                    G_VERDICT_AGREE, active);
 
-   if(MarketVerdictPrintOnUse)
+   if((MarketVerdictPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v117 VERDICT] %s", G_VERDICT_TXT);
 }
 
@@ -36053,7 +36024,7 @@ double RebateTargetPoints()
    {
       double capped = (double)RebateTPMaxSpreadPoints * RebateSpreadMultiple
                     + (double)RebateTPMarginPoints;
-      if(RebateTPCapPrintOnUse && target > capped)
+      if((RebateTPCapPrintOnUse && VerboseLogs) && target > capped)
          PrintFormat("[SIRUS TP] spread %.0f - target held at %.0f instead of %.0f",
                      spread_pts, capped, target);
       target = capped;
@@ -36173,7 +36144,7 @@ double BaseBasketTPPoints()
                if(ctp_room > ctp_floor + MathMax(0.0, (double)ContextTPBufferPoints) &&
                   MathAbs(ctp_target - tp) >= 100.0)   // ignore trivial adjustments
                {
-                  if(ContextTPPrintOnUse)
+                  if((ContextTPPrintOnUse && VerboseLogs))
                      PrintFormat("[SIRUS v138 CONTEXT TP] %.0f -> %.0f pts | %s %.2f is %.0f pts away (strength %.1f)",
                                  tp, ctp_target,
                                  (ctp_is_buy ? "resistance" : "support"),
@@ -36198,7 +36169,7 @@ double BaseBasketTPPoints()
 
       if(reduced < tp)
       {
-         if(StructureBasketExitPrintOnUse)
+         if((StructureBasketExitPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v116 STRUCTURE-BASKET] TP %.0f -> %.0f pts | %s", tp, reduced, sab_detail);
          tp = reduced;
       }
@@ -36240,7 +36211,7 @@ double BasketTPForOrderCount(const int orders)
 
       if(exit_tp < tp)
       {
-         if(DeadPremiseExitPrintOnUse)
+         if((DeadPremiseExitPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS BASKET] premise gone and %.1f%% down - target cut %.0f -> %.0f, "
                         "leaving on the first retrace",
                         G_BASKET_DD_PERCENT, tp, exit_tp);
@@ -36471,7 +36442,7 @@ bool FreshBarAllowsEntry(string &reason)
    {
       reason = StringFormat("fresh-bar window passed %d/%ds (%.0f%% of %s bar)",
                             age, limit, FreshBarMaxPercentOfBar, TFToString(SignalTF));
-      if(FreshBarPrintOnUse)
+      if((FreshBarPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v30.5 FRESH-BAR] %s", reason);
       return false;
    }
@@ -36536,7 +36507,7 @@ void WeekendGuardManage()
    TimeToStruct(TimeCurrent(), dt);
    if(dt.day_of_week == 5 && dt.hour >= SafeHourClamp(WeekendCloseFriHour))
    {
-      if(WeekendGuardPrintOnUse)
+      if((WeekendGuardPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v30.4 WEEKEND] Friday %02d:00 flat: closing basket before weekend", dt.hour);
       CloseNaviusBasket(StringFormat("Weekend guard Friday flat (hour=%d)", dt.hour));
    }
@@ -36666,12 +36637,12 @@ void UpdateSelfDefense()
          if(!G_SD_ACTIVE && G_SD_LOSS_STREAK >= MathMax(1, SelfDefenseLossStreak))
          {
             G_SD_ACTIVE = true;
-            if(SelfDefensePrintOnUse)
+            if((SelfDefensePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31 SELF-DEFENSE] ON: %d ketma-ket zarar basket | lot x%.2f | minScore +%d",
                            G_SD_LOSS_STREAK, SelfDefenseLotFactor, SelfDefenseMinScoreAdd);
             NaviusNotify(StringFormat("SELF-DEFENSE ON (%d loss streak): lot x%.2f", G_SD_LOSS_STREAK, SelfDefenseLotFactor));
          }
-         else if(SelfDefensePrintOnUse)
+         else if((SelfDefensePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31 SELF-DEFENSE] loss basket, streak=%d/%d", G_SD_LOSS_STREAK, SelfDefenseLossStreak);
       }
       else
@@ -36684,11 +36655,11 @@ void UpdateSelfDefense()
                G_SD_ACTIVE = false;
                G_SD_LOSS_STREAK = 0;
                G_SD_RECOVER_WINS = 0;
-               if(SelfDefensePrintOnUse)
+               if((SelfDefensePrintOnUse && VerboseLogs))
                   Print("[SIRUS v31 SELF-DEFENSE] OFF: tiklanish yakunlandi, normal rejim");
                NaviusNotify("SELF-DEFENSE OFF: recovered");
             }
-            else if(SelfDefensePrintOnUse)
+            else if((SelfDefensePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v31 SELF-DEFENSE] win basket, recovery %d/%d", G_SD_RECOVER_WINS, SelfDefenseRecoverWins);
          }
          else
@@ -36710,145 +36681,6 @@ double SelfDefenseLotAdjust(const double lot)
    if(SelfDefenseLotFactor <= 0.0 || SelfDefenseLotFactor >= 1.0)
       return lot; // faqat KAMAYTIRISH ruxsat: noto'g'ri qiymat = ta'sir yo'q
    return lot * SelfDefenseLotFactor;
-}
-
-// ================== V31: SERVER LICENSE / REMOTE CONTROL ==================
-string SrvExtract(const string resp, const string key)
-{
-   string pat = key + "=";
-   int p = StringFind(resp, pat);
-   if(p < 0)
-      return "";
-   int st = p + StringLen(pat);
-   int en = StringFind(resp, ";", st);
-   if(en < 0)
-      en = StringLen(resp);
-   string v = StringSubstr(resp, st, en - st);
-   StringTrimLeft(v);
-   StringTrimRight(v);
-   return v;
-}
-
-void ServerLicenseUpdate()
-{
-   if(!EnableServerLicense || StringLen(ServerLicenseURL) == 0)
-   {
-      G_SRV_STATUS = "SRV: off";
-      G_SRV_LICENSE_OK = true;
-      G_SRV_PAUSE = false;
-      G_SRV_LOT_SCALE = 1.0;
-      return;
-   }
-
-   if((bool)MQLInfoInteger(MQL_TESTER))
-   {
-      G_SRV_STATUS = "SRV: tester skip";
-      G_SRV_LICENSE_OK = true;
-      return;
-   }
-
-   datetime now = TimeCurrent();
-   if(G_SRV_LAST_CHECK > 0 && (now - G_SRV_LAST_CHECK) < MathMax(30, ServerLicenseCheckSec))
-      return;
-   G_SRV_LAST_CHECK = now;
-
-   string url = StringFormat("%s?acc=%I64d&sym=%s&magic=%I64d&bld=V31",
-                             ServerLicenseURL,
-                             (long)AccountInfoInteger(ACCOUNT_LOGIN),
-                             _Symbol,
-                             MagicNumber);
-
-   char post[];
-   char result[];
-   string result_headers = "";
-   ResetLastError();
-   int http = WebRequest("GET", url, "", 7000, post, result, result_headers);
-
-   if(http != 200)
-   {
-      int err = GetLastError();
-      int grace_left_min = 0;
-      if(G_SRV_LAST_OK > 0)
-         grace_left_min = ServerLicenseGraceMin - (int)((now - G_SRV_LAST_OK) / 60);
-      else
-         grace_left_min = ServerLicenseGraceMin; // hech qachon OK bo'lmagan: grace to'liq beriladi (birinchi ishga tushirish)
-
-      bool within_grace = (grace_left_min > 0);
-      G_SRV_LICENSE_OK = within_grace;
-      G_SRV_STATUS = StringFormat("SRV: FAIL http=%d err=%d | grace %s (%d min left)",
-                                  http, err, (within_grace ? "active" : "EXPIRED"), MathMax(0, grace_left_min));
-      if(ServerLicensePrintOnUse)
-      {
-         PrintFormat("[SIRUS v31 SRV] %s", G_SRV_STATUS);
-         if(err == 4014)
-            Print("[SIRUS v31 SRV] URL whitelisted emas: Tools -> Options -> Expert Advisors -> Allow WebRequest ga qo'shing");
-      }
-      return;
-   }
-
-   string resp = CharArrayToString(result, 0, WHOLE_ARRAY, CP_UTF8);
-   string status = SrvExtract(resp, "status");
-   string cmd    = SrvExtract(resp, "cmd");
-   long   cmd_id = (long)StringToInteger(SrvExtract(resp, "id"));
-
-   if(status == "ok")
-   {
-      G_SRV_LICENSE_OK = true;
-      G_SRV_LAST_OK = now;
-   }
-   else
-   {
-      G_SRV_LICENSE_OK = false;
-      G_SRV_STATUS = "SRV: DENIED by server";
-      if(ServerLicensePrintOnUse)
-         Print("[SIRUS v31 SRV] license DENIED: yangi savdo bloklanadi (ochiq basket boshqaruvi davom etadi)");
-      return;
-   }
-
-   // Remote commands - faqat status=ok bo'lganda
-   if(cmd == "pause")
-      G_SRV_PAUSE = true;
-   else
-      G_SRV_PAUSE = false;
-
-   if(cmd == "lot50")
-      G_SRV_LOT_SCALE = 0.5;
-   else
-      G_SRV_LOT_SCALE = 1.0;
-
-   if(cmd == "flat" && cmd_id > 0 && cmd_id != G_SRV_FLAT_DONE_ID && G_BASKET_ORDERS > 0)
-   {
-      if(CloseNaviusBasket(StringFormat("server remote flat id=%I64d", cmd_id)))
-      {
-         G_SRV_FLAT_DONE_ID = cmd_id;
-         if(EnablePersistentState)
-            GlobalVariableSet(StringFormat("NAVIUS_%I64d_%s_SRVFLAT", MagicNumber, _Symbol), (double)cmd_id);
-         NaviusNotify("Server remote FLAT executed");
-      }
-   }
-
-   G_SRV_STATUS = StringFormat("SRV: OK | cmd=%s | pause=%s lotScale=%.2f",
-                               (StringLen(cmd) > 0 ? cmd : "none"),
-                               (G_SRV_PAUSE ? "yes" : "no"),
-                               G_SRV_LOT_SCALE);
-}
-
-bool ServerLicenseAllowsEntry(string &reason)
-{
-   reason = "server license clear";
-   if(!EnableServerLicense || StringLen(ServerLicenseURL) == 0)
-      return true;
-   if(!G_SRV_LICENSE_OK)
-   {
-      reason = "server license invalid/grace expired";
-      return false;
-   }
-   if(G_SRV_PAUSE)
-   {
-      reason = "server remote pause active";
-      return false;
-   }
-   return true;
 }
 
 // ================== V31.1: HOUR-BAYES ==================
@@ -36987,7 +36819,7 @@ bool SmartTimeFilterAllowsEntry(string &reason)
          {
             reason = StringFormat("bad-hour filter: hour %02d win rate %.0f%% over %.0f trades (<= %.0f%%)",
                                   h, h_wr * 100.0, h_samples, TimeFilterHourBadWinrate * 100.0);
-            if(SmartTimeFilterPrintOnUse)
+            if((SmartTimeFilterPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS SMART TIME FILTER] %s", reason);
             return false;
          }
@@ -37004,7 +36836,7 @@ bool SmartTimeFilterAllowsEntry(string &reason)
          {
             reason = StringFormat("bad-day filter: weekday %d win rate %.0f%% over %.0f trades (<= %.0f%%)",
                                   dow, d_wr * 100.0, d_samples, TimeFilterDowBadWinrate * 100.0);
-            if(SmartTimeFilterPrintOnUse)
+            if((SmartTimeFilterPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS SMART TIME FILTER] %s", reason);
             return false;
          }
@@ -37135,7 +36967,7 @@ void TickVelocityUpdate()
       G_VEL_SPIKE_UNTIL = now + MathMax(5, VelocityHoldSec);
       if(fresh)
       {
-         if(VelocityPrintOnUse)
+         if((VelocityPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31.1 VELOCITY] SPIKE: tick rate x%.1f baseline, move=%.0f pts/%ds -> yangi savdo %ds bloklanadi",
                         ratio, move_points, win, VelocityHoldSec);
          NaviusNotify(StringFormat("VELOCITY SPIKE: %.0f pts/%ds, new trades paused %ds", move_points, win, VelocityHoldSec));
@@ -37182,7 +37014,7 @@ bool EntryDriftAllows(string &reason)
    if(drift_pts > limit)
    {
       reason = StringFormat("price drifted %.0f/%.0f pts from signal close", drift_pts, limit);
-      if(DriftPrintOnUse)
+      if((DriftPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v31.3 DRIFT] %s", reason);
       return false;
    }
@@ -37195,7 +37027,7 @@ double BrokerHolidayLotAdjust(const double lot)
    if(!BrokerHolidayIsCautionActive(reason) || BrokerHolidayHardBlockOnDay)
       return lot;
 
-   if(BrokerHolidayPrintOnUse)
+   if((BrokerHolidayPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v29 HOLIDAY] %s - lot trimmed x%.2f", reason, BrokerHolidayLotFactor);
 
    return lot * BrokerHolidayLotFactor;
@@ -37225,7 +37057,7 @@ double NYKillzoneLotAdjust(const double lot)
    if(!in_killzone)
       return lot;
 
-   if(NYKillzonePrintOnUse)
+   if((NYKillzonePrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v31.6e NY KILLZONE] hour=%d - lot trimmed x%.2f", hour, NYKillzoneLotFactor);
 
    return lot * NYKillzoneLotFactor;
@@ -37281,7 +37113,7 @@ double SpreadATRQualityLotAdjust(const double lot)
    if(ratio <= 0.0 || ratio < SpreadATRWarnRatio)
       return lot;
 
-   if(SpreadATRPrintOnUse)
+   if((SpreadATRPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v31.6j SPREAD/ATR] ratio=%.2f (>= %.2f) - lot trimmed x%.2f",
                   ratio, SpreadATRWarnRatio, SpreadATRLotFactor);
 
@@ -37303,7 +37135,7 @@ double PostSLDirectionLotAdjust(const double lot, const ENUM_ORDER_TYPE order_ty
    if(entry_dir_sl != G_LAST_SL_DIRECTION)
       return lot;
 
-   if(PostSLDirectionPrintOnUse)
+   if((PostSLDirectionPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v31.6j POST-SL GUARD] same-direction lot trimmed x%.2f (%d/%d bars since SL)",
                   PostSLDirectionLotFactor, bars_since_sl, PostSLDirectionWindowBars);
 
@@ -37327,7 +37159,7 @@ double ImpulseCorrectionLotAdjust(const double lot, const ENUM_ORDER_TYPE order_
    if(retrace_pct < ImpulseCorrectionMinRetracePercent)
       return lot;
 
-   if(ImpulseCorrectionPrintOnUse)
+   if((ImpulseCorrectionPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v31.6f IMPULSE CORRECTION] %s entry during %.0f%% retrace of recent impulse (%d bars ago) - lot trimmed x%.2f",
                   (order_type == ORDER_TYPE_BUY ? "BUY" : "SELL"), retrace_pct, bars_since, ImpulseCorrectionLotFactor);
 
@@ -37412,6 +37244,7 @@ double SwingImpulseCorrectionLotAdjust(const double lot, const ENUM_ORDER_TYPE o
    static double swing_range_c     = 0.0;
    static double swing_ref_c       = 0.0;
    static int    swing_dir_c       = 0;
+   if(swing_cache_bar > G_BARS_SEEN) swing_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
    if(swing_cache_bar != G_BARS_SEEN)
    {
       swing_dir_c = SwingImpulseDirection(swing_range_c, swing_ref_c);
@@ -37498,7 +37331,7 @@ double SwingImpulseCorrectionLotAdjust(const double lot, const ENUM_ORDER_TYPE o
 
    factor = MathMax(0.2, MathMin(1.0, factor));
 
-   if(SwingImpulsePrintOnUse)
+   if((SwingImpulsePrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v31.6h SWING IMPULSE] %s continuing %s-impulse (%.0fpts, %.0f%% retrace) | zoneMatch=%s(str=%.2f) volSuspicious=%s bigDir=%.2f -> lot x%.2f",
                   (order_type == ORDER_TYPE_BUY ? "BUY" : "SELL"),
                   (impulse_dir > 0 ? "UP" : "DOWN"),
@@ -37649,6 +37482,7 @@ int TrendReversalDirection(string &reason, bool &divergence_confirmed)
    static int    cache_dir    = 0;
    static string cache_reason = "";
    static bool   cache_div    = false;
+   if(cache_bar > G_BARS_SEEN) cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(cache_bar != G_BARS_SEEN)
    {
@@ -37808,7 +37642,7 @@ bool DXYProxyEnsureSymbols()
 
       if(StringLen(G_DXY_RES1) > 0 && StringLen(G_DXY_RES2) > 0 && StringLen(G_DXY_RES3) > 0)
       {
-         if(DXYProxyPrintOnUse && (G_DXY_RES1 != DXYProxyPair1 || G_DXY_RES2 != DXYProxyPair2 || G_DXY_RES3 != DXYProxyPair3))
+         if((DXYProxyPrintOnUse && VerboseLogs) && (G_DXY_RES1 != DXYProxyPair1 || G_DXY_RES2 != DXYProxyPair2 || G_DXY_RES3 != DXYProxyPair3))
             PrintFormat("[SIRUS v31.1 DXY] cent/suffiks aniqlandi: %s, %s, %s", G_DXY_RES1, G_DXY_RES2, G_DXY_RES3);
       }
       else
@@ -37936,7 +37770,7 @@ double DXYProxyLotAdjust(const double lot, const ENUM_ORDER_TYPE order_type)
 
    if(against)
    {
-      if(DXYProxyPrintOnUse)
+      if((DXYProxyPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v29 DXY] %s against dollar proxy trend (%s) - lot trimmed x%.2f",
                      (order_type == ORDER_TYPE_BUY ? "BUY" : "SELL"), reason, DXYProxyLotFactor);
       return lot * DXYProxyLotFactor;
@@ -38365,6 +38199,7 @@ void StructureReadTF(const ENUM_TIMEFRAMES tf,
 void MarketStructureRead()
 {
    static int last_bar = -100000;
+   if(last_bar > G_BARS_SEEN) last_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
    if(last_bar == G_BARS_SEEN)
       return;                      // one reading per bar is enough - swings only change on close
    last_bar = G_BARS_SEEN;
@@ -38438,7 +38273,7 @@ void MarketStructureRead()
    if(G_STRUCTURE_EVENT != 0)
       G_STRUCTURE_DETAIL += " | " + G_STRUCTURE_EVENT_TXT;
 
-   if(MarketStructurePrintOnUse)
+   if((MarketStructurePrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v112 STRUCTURE] %s", G_STRUCTURE_DETAIL);
 }
 
@@ -38538,7 +38373,7 @@ double ZoneMapNearestResistance(const double price)
       double fvg = FVGNearestResistance(price);
       if(fvg > 0.0 && (best == 0.0 || fvg < best))
       {
-         if(FVGPrintOnUse)
+         if((FVGPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v29 FVG] unfilled bearish gap %.5f closer than swing zone %.5f", fvg, best);
          best = fvg;
       }
@@ -38754,7 +38589,7 @@ double ZoneMapNearestSupport(const double price)
       double fvg = FVGNearestSupport(price);
       if(fvg > 0.0 && (best == 0.0 || fvg > best))
       {
-         if(FVGPrintOnUse)
+         if((FVGPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v29 FVG] unfilled bullish gap %.5f closer than swing zone %.5f", fvg, best);
          best = fvg;
       }
@@ -39108,7 +38943,7 @@ void UpdateDailyBias()
    G_DAILY_BIAS_TXT = StringFormat("daily bias: %s | PDH=%.2f PDL=%.2f PDC=%.2f todayOpen=%.2f gap=%.0fpts",
                                    dir_txt, pdh, pdl, pdc, to, gap_pts);
 
-   if(DailyBiasPrintOnUse)
+   if((DailyBiasPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS DAILY BIAS] %s", G_DAILY_BIAS_TXT);
 }
 
@@ -39325,7 +39160,7 @@ double GridZoneAwareDistance(const long direction, const double last_price, cons
             reach_distance <= reach_limit &&
             sup_strength >= ZoneGridMinStrength)
          {
-            if(GridZoneReachPrintOnUse)
+            if((GridZoneReachPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v137 GRID REACH] BUY basket: %.0f -> %.0f pts to place the add at support %.2f (strength %.1f)",
                            base_distance, reach_distance, sup, ZoneMapStrength(sup));
             return reach_distance;
@@ -39369,7 +39204,7 @@ double GridZoneAwareDistance(const long direction, const double last_price, cons
             reach_distance <= reach_limit &&
             res_strength >= ZoneGridMinStrength)
          {
-            if(GridZoneReachPrintOnUse)
+            if((GridZoneReachPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v137 GRID REACH] SELL basket: %.0f -> %.0f pts to place the add at resistance %.2f (strength %.1f)",
                            base_distance, reach_distance, res, ZoneMapStrength(res));
             return reach_distance;
@@ -39518,7 +39353,7 @@ bool SmartZoneRecoveryAllows(const long direction, const double last_price, stri
             // farther zone should catch it, instead of giving up entirely.
             if(attempt < max_attempts)
             {
-               if(SZRPrintOnUse)
+               if((SZRPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v31.6e SZR CASCADE] wall %.2f failed - checking next wall out", wall);
                search_from = wall + proximity;
                continue;
@@ -39556,7 +39391,7 @@ bool SmartZoneRecoveryAllows(const long direction, const double last_price, stri
          {
             if(attempt < max_attempts)
             {
-               if(SZRPrintOnUse)
+               if((SZRPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v31.6e SZR CASCADE] wall %.2f failed - checking next wall out", wall);
                search_from = wall - proximity;
                continue;
@@ -39616,7 +39451,7 @@ double HTFStructureLotAdjust(const double lot, const ENUM_ORDER_TYPE order_type)
 
    if(counter)
    {
-      if(HTFStructurePrintOnUse)
+      if((HTFStructurePrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v29 HTF STRUCTURE] entry %s counter to H1 bias=%d - lot trimmed x%.2f",
                      (order_type == ORDER_TYPE_BUY ? "BUY" : "SELL"), bias, HTFStructureCounterLotFactor);
       return lot * HTFStructureCounterLotFactor;
@@ -39642,7 +39477,7 @@ double FirstEntryTrendGuardLotAdjust(const double lot, const ENUM_ORDER_TYPE ord
 
    if(against)
    {
-      if(FirstEntryTrendGuardPrintOnUse)
+      if((FirstEntryTrendGuardPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v29 FIRST ENTRY TREND GUARD] %s against HTF/BOS/trend - lot trimmed x%.2f",
                      (order_type == ORDER_TYPE_BUY ? "BUY" : "SELL"), FirstEntryTrendAgainstLotFactor);
       return lot * FirstEntryTrendAgainstLotFactor;
@@ -39826,7 +39661,7 @@ double CorrelationGuardLotAdjust(const double lot, const ENUM_ORDER_TYPE order_t
             if(instability >= CorrelationInstabilityThreshold)
             {
                factor *= CorrelationInstabilityLotFactor;
-               if(CorrelationInstabilityPrintOnUse)
+               if((CorrelationInstabilityPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v29 CORRELATION] %s vs %s unstable (short=%.2f long=%.2f diff=%.2f) - extra cut x%.2f",
                               _Symbol, psym, corr_short, corr_long, instability, CorrelationInstabilityLotFactor);
             }
@@ -39834,7 +39669,7 @@ double CorrelationGuardLotAdjust(const double lot, const ENUM_ORDER_TYPE order_t
 
          if(factor < worst_factor)
             worst_factor = factor;
-         if(CorrelationPrintOnUse)
+         if((CorrelationPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v29 CORRELATION] %s vs %s corr=%.2f compounding exposure - lot trimmed x%.2f",
                         _Symbol, psym, corr, factor);
       }
@@ -39844,41 +39679,67 @@ double CorrelationGuardLotAdjust(const double lot, const ENUM_ORDER_TYPE order_t
 }
 
 // --- Real Economic Calendar: uses MT5's native Calendar API. Caution (lot cut) by default, hard-block optional. ---
-void UpdateEconomicCalendarGuard()
+//
+// FIX(calendar-window): three faults made the news window open late, close late, or never extend:
+//   1) The fetch only looked EconomicCalendarPostMinutes back, so a release that was a big surprise
+//      dropped out of the query before its extended caution window (Post + NewsSurpriseExtraCautionMinutes)
+//      could ever be applied - the surprise extension never worked past the normal post window.
+//   2) The window was decided only at fetch time and then frozen for EconomicCalendarRefreshSeconds (300s),
+//      so it could start up to 5 minutes late, end up to 5 minutes late, and G_CAL_MINUTES_FROM_EVENT
+//      (which the news auto-flat reads) was up to 5 minutes stale.
+//   3) The first event found won, so an earlier release still in its post window hid the next one
+//      approaching its pre window - and auto-flat never saw the upcoming event.
+// The fetch now caches the important events of a wide enough span, and the window is evaluated against the
+// live server clock on every call (a cheap loop over the cache). The fetch itself refreshes faster while a
+// released event still has no actual value, so a surprise is recognised within a minute, not five.
+void CalendarClearState()
 {
-   if(!EnableEconomicCalendarGuard)
-   {
-      G_CAL_ACTIVE = false;
-      return;
-   }
-
-   // V31.6b tester-awareness: MT5's CalendarValueHistory/CalendarEventById return NOTHING
-   // inside the Strategy Tester (platform limitation). Without this guard a backtest would
-   // silently behave differently from live. Cleanly disable so backtests are deterministic.
-   if((bool)MQLInfoInteger(MQL_TESTER))
-   {
-      G_CAL_ACTIVE = false;
-      return;
-   }
-
-   datetime now = TimeCurrent();
-   if(G_CAL_LAST_SCAN > 0 && EconomicCalendarRefreshSeconds > 0 && (now - G_CAL_LAST_SCAN) < EconomicCalendarRefreshSeconds)
-      return;
-
-   G_CAL_LAST_SCAN = now;
    G_CAL_ACTIVE = false;
+   G_CAL_BIG_SURPRISE = false;
+   G_CAL_SURPRISE_PERCENT = 0.0;
    G_CAL_EVENT_NAME = "";
+   G_CAL_EVENT_ID = 0;
+   G_CAL_MINUTES_FROM_EVENT = 0;
+}
+
+int CalendarPostWindowSeconds(const int idx)
+{
+   int post_min = MathMax(0, EconomicCalendarPostMinutes);
+   if(EnableNewsSurprise && idx >= 0 && idx < G_CAL_EV_COUNT && G_CAL_EV_SURPRISE[idx])
+      post_min += MathMax(0, NewsSurpriseExtraCautionMinutes);
+   return post_min * 60;
+}
+
+void CalendarFetch(const datetime now)
+{
+   G_CAL_LAST_SCAN = now;
+
+   int back_min = MathMax(0, EconomicCalendarPostMinutes) + (EnableNewsSurprise ? MathMax(0, NewsSurpriseExtraCautionMinutes) : 0);
+   int ahead_min = MathMax(MathMax(0, EconomicCalendarPreMinutes), (EnableNewsAutoFlat ? MathMax(0, NewsAutoFlatMinutesBefore) : 0));
+   datetime from_time = now - (back_min + 1) * 60;
+   datetime to_time   = now + ahead_min * 60 + 3600;
 
    MqlCalendarValue values[];
-   datetime from_time = now - EconomicCalendarPostMinutes * 60;
-   datetime to_time   = now + EconomicCalendarPreMinutes * 60 + 3600;
-
    ResetLastError();
    int total = CalendarValueHistory(values, from_time, to_time, "", EconomicCalendarCurrency);
-   if(total <= 0)
+   if(total < 0)
+   {
+      int err = GetLastError();
+      // Keep the previous cache: a failed refresh must not silently open a window that was closed by
+      // dropping an event we already knew about.
+      if(!G_CAL_FETCH_FAILED || (EconomicCalendarPrintOnUse && VerboseLogs))
+         PrintFormat("[SIRUS CALENDAR] fetch failed (error %d) - keeping %d cached event(s); news guard may be blind until the calendar loads",
+                     err, G_CAL_EV_COUNT);
+      G_CAL_FETCH_FAILED = true;
       return;
+   }
+   if(G_CAL_FETCH_FAILED)
+      Print("[SIRUS CALENDAR] fetch recovered");
+   G_CAL_FETCH_FAILED = false;
 
-   for(int i = 0; i < total; i++)
+   G_CAL_EV_COUNT = 0;
+   G_CAL_PENDING_ACTUAL = false;
+   for(int i = 0; i < total && G_CAL_EV_COUNT < CAL_CACHE_MAX; i++)
    {
       MqlCalendarEvent ev;
       if(!CalendarEventById(values[i].event_id, ev))
@@ -39891,48 +39752,120 @@ void UpdateEconomicCalendarGuard()
       if(!important_enough)
          continue;
 
-      int diff_min = (int)((values[i].time - now) / 60);
-      bool in_pre  = (diff_min >= 0 && diff_min <= EconomicCalendarPreMinutes);
-      bool in_post = (diff_min < 0 && MathAbs(diff_min) <= EconomicCalendarPostMinutes);
+      int k = G_CAL_EV_COUNT;
+      G_CAL_EV_TIME[k] = values[i].time;
+      G_CAL_EV_NAME[k] = ev.name;
+      G_CAL_EV_ID[k]   = values[i].id;
+      G_CAL_EV_SURPRISE[k] = false;
+      G_CAL_EV_SURPRISE_PCT[k] = 0.0;
 
-      // V31.6j new: News Surprise Magnitude. The calendar data we already fetch includes
-      // actual/forecast values that were previously never read. A release far from what was
-      // forecast (e.g. a big NFP beat/miss) tends to set the tone for hours afterward - extend
-      // the caution window when the surprise is large, instead of always using the same fixed
-      // post-event minutes regardless of how surprising the result was.
-      G_CAL_BIG_SURPRISE = false;
-      G_CAL_SURPRISE_PERCENT = 0.0;
-
-      if(EnableNewsSurprise && diff_min < 0 &&
-         values[i].actual_value != LONG_MIN && values[i].forecast_value != LONG_MIN &&
-         values[i].forecast_value != 0)
+      // V31.6j News Surprise Magnitude: a release far from its forecast (e.g. a big NFP beat/miss) tends
+      // to set the tone for hours afterward - its caution window is extended.
+      bool has_actual = (values[i].actual_value != LONG_MIN);
+      if(values[i].time <= now && !has_actual)
+         G_CAL_PENDING_ACTUAL = true;   // released but the figure is not in yet - refresh sooner
+      if(EnableNewsSurprise && values[i].time <= now && has_actual &&
+         values[i].forecast_value != LONG_MIN && values[i].forecast_value != 0)
       {
          double surprise_pct = MathAbs((double)(values[i].actual_value - values[i].forecast_value)) /
-                                MathAbs((double)values[i].forecast_value) * 100.0;
-         G_CAL_SURPRISE_PERCENT = surprise_pct;
-
+                               MathAbs((double)values[i].forecast_value) * 100.0;
+         G_CAL_EV_SURPRISE_PCT[k] = surprise_pct;
          if(surprise_pct >= NewsSurpriseMinPercent)
          {
-            G_CAL_BIG_SURPRISE = true;
-            int extended_post = EconomicCalendarPostMinutes + MathMax(0, NewsSurpriseExtraCautionMinutes);
-            in_post = (MathAbs(diff_min) <= extended_post);
-
-            if(NewsSurprisePrintOnUse)
+            G_CAL_EV_SURPRISE[k] = true;
+            if((NewsSurprisePrintOnUse && VerboseLogs) && G_CAL_LAST_SURPRISE_ID != values[i].id)
                PrintFormat("[SIRUS v31.6j NEWS SURPRISE] %s: %.0f%% deviation from forecast - caution extended to %d min",
-                           ev.name, surprise_pct, extended_post);
+                           ev.name, surprise_pct,
+                           MathMax(0, EconomicCalendarPostMinutes) + MathMax(0, NewsSurpriseExtraCautionMinutes));
+            G_CAL_LAST_SURPRISE_ID = values[i].id;
          }
       }
+      G_CAL_EV_COUNT++;
+   }
+}
 
-      if(in_pre || in_post)
+void UpdateEconomicCalendarGuard()
+{
+   if(!EnableEconomicCalendarGuard)
+   {
+      CalendarClearState();
+      return;
+   }
+
+   // V31.6b tester-awareness: MT5's CalendarValueHistory/CalendarEventById return NOTHING
+   // inside the Strategy Tester (platform limitation). Without this guard a backtest would
+   // silently behave differently from live. Cleanly disable so backtests are deterministic.
+   if((bool)MQLInfoInteger(MQL_TESTER))
+   {
+      CalendarClearState();
+      return;
+   }
+
+   // Calendar times are trade-server times. TimeTradeServer() keeps running between ticks, unlike
+   // TimeCurrent(), which is the last quote time and stands still on a quiet market.
+   datetime now = TimeTradeServer();
+   if(now <= 0)
+      now = TimeCurrent();
+
+   int refresh = MathMax(10, EconomicCalendarRefreshSeconds);
+   if(G_CAL_PENDING_ACTUAL)
+      refresh = MathMin(refresh, 30);
+   if(G_CAL_LAST_SCAN <= 0 || (now - G_CAL_LAST_SCAN) >= refresh || now < G_CAL_LAST_SCAN)
+      CalendarFetch(now);
+
+   // Evaluate the window on every call against the live clock. Priority: an event still ahead (it is the
+   // one auto-flat must see and the one about to move price), the nearest first; otherwise the most
+   // recent release whose post window has not ended.
+   int pre_sec = MathMax(0, EconomicCalendarPreMinutes) * 60;
+   int best_pre = -1, best_post = -1;
+   bool any_surprise = false;
+   double surprise_pct = 0.0;
+   for(int i = 0; i < G_CAL_EV_COUNT; i++)
+   {
+      long diff = (long)(G_CAL_EV_TIME[i] - now);
+      if(diff >= 0)
       {
-         G_CAL_ACTIVE = true;
-         G_CAL_EVENT_NAME = ev.name;
-         G_CAL_MINUTES_FROM_EVENT = diff_min;
-         if(EconomicCalendarPrintOnUse)
-            PrintFormat("[SIRUS v29 CALENDAR] high-impact window active: %s (%d min)", ev.name, diff_min);
-         break;
+         if(diff <= pre_sec && (best_pre < 0 || G_CAL_EV_TIME[i] < G_CAL_EV_TIME[best_pre]))
+            best_pre = i;
+      }
+      else if(-diff <= CalendarPostWindowSeconds(i))
+      {
+         if(best_post < 0 || G_CAL_EV_TIME[i] > G_CAL_EV_TIME[best_post])
+            best_post = i;
+         if(G_CAL_EV_SURPRISE[i])
+         {
+            any_surprise = true;
+            surprise_pct = MathMax(surprise_pct, G_CAL_EV_SURPRISE_PCT[i]);
+         }
       }
    }
+
+   int pick = (best_pre >= 0) ? best_pre : best_post;
+   ulong prev_id = G_CAL_EVENT_ID;
+   bool prev_active = G_CAL_ACTIVE;
+
+   if(pick < 0)
+   {
+      CalendarClearState();
+      if(prev_active && (EconomicCalendarPrintOnUse && VerboseLogs))
+         Print("[SIRUS CALENDAR] news window closed");
+      return;
+   }
+
+   long pick_diff = (long)(G_CAL_EV_TIME[pick] - now);
+   G_CAL_ACTIVE = true;
+   G_CAL_EVENT_NAME = G_CAL_EV_NAME[pick];
+   G_CAL_EVENT_ID = G_CAL_EV_ID[pick];
+   // Whole minutes toward zero, as before: +14 = 14m ahead, -3 = 3m after.
+   G_CAL_MINUTES_FROM_EVENT = (int)(pick_diff / 60);
+   G_CAL_BIG_SURPRISE = any_surprise;
+   G_CAL_SURPRISE_PERCENT = surprise_pct;
+
+   // Log the transition, not every scan.
+   if((EconomicCalendarPrintOnUse && VerboseLogs) && (!prev_active || prev_id != G_CAL_EVENT_ID))
+      PrintFormat("[SIRUS v29 CALENDAR] high-impact window active: %s (%d min)%s",
+                  G_CAL_EVENT_NAME, G_CAL_MINUTES_FROM_EVENT,
+                  (any_surprise ? StringFormat(" | surprise %.0f%% - extended", surprise_pct) : ""));
 }
 
 bool EconomicCalendarAllowsEntry(string &reason)
@@ -40279,7 +40212,7 @@ void WarningRecordOutcome(const int warnings_mask, const bool won)
 
    WarningStatsSave();
 
-   if(WarningLearningPrintOnUse && StringLen(touched) > 0)
+   if((WarningLearningPrintOnUse && VerboseLogs) && StringLen(touched) > 0)
       PrintFormat("[SIRUS v155 WARNINGS] basket %s - credited: %s",
                   (won ? "WON" : "LOST"), touched);
 }
@@ -40480,14 +40413,14 @@ void BlockAuditSettle()
       if(moved <= -(double)BlockAuditDecisivePoints)
       {
          G_BA_SAVED += 1.0;      // the refused entry would have gone straight into loss
-         if(BlockAuditPrintOnUse)
+         if((BlockAuditPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v157 BLOCK AUDIT] block was RIGHT (%.0f pts against) | saved=%.0f cost=%.0f",
                         -moved, G_BA_SAVED, G_BA_COST);
       }
       else if(moved >= (double)BlockAuditDecisivePoints)
       {
          G_BA_COST += 1.0;       // it would have worked - the block cost us
-         if(BlockAuditPrintOnUse)
+         if((BlockAuditPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v157 BLOCK AUDIT] block was WRONG (%.0f pts in favour) | saved=%.0f cost=%.0f",
                         moved, G_BA_SAVED, G_BA_COST);
       }
@@ -40674,7 +40607,7 @@ void ScoreBandRecordOutcome(const int score, const bool won)
 
    ScoreBandSave();
 
-   if(ScoreCalibrationPrintOnUse)
+   if((ScoreCalibrationPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v153 CALIBRATION] band %s: %s | now %.0f/%.0f",
                   ScoreBandName(band), (won ? "WIN" : "LOSS"),
                   G_SCORE_BAND_WINS[band], G_SCORE_BAND_LOSSES[band]);
@@ -40889,14 +40822,13 @@ double MarketConfidenceLotAdjust(const double lot, const int opp_type)
    double half_range = (ConfidenceMaxLotMultiplier - ConfidenceMinLotMultiplier) / 2.0;
    double multiplier = mid + avg_score * half_range;
 
-   if(ConfidencePrintOnUse)
+   if((ConfidencePrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v29 CONFIDENCE] vol=%.2f bayes=%.2f hurst=%.2f avg=%.2f -> lot x%.2f",
                   vol_score, bayes_score, hurst_score, avg_score, multiplier);
 
    return lot * multiplier;
 }
 
-bool CloseNaviusBasket(const string reason);
 
 // V31.6z23 NEW: INDEPENDENT EMERGENCY FORCE-CLOSE. Found via user report - a basket exceeded
 // 50% DD (confirmed by the user's own manual calculation) yet did NOT close, despite BOTH
@@ -40931,7 +40863,7 @@ void EmergencyBasketForceCloseCheck()
       if((long)PositionGetInteger(POSITION_MAGIC) != MagicNumber)
          continue;
 
-      total_floating += PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+      total_floating += SelectedPositionNetProfit();   // FIX(dd-commission)
       position_count++;
    }
 
@@ -41050,6 +40982,46 @@ void DrawBasketCloseMarker(const string reason, const double profit)
    }
 }
 
+// FIX(partial-close-deviation): partial closes inherited the 50-point ENTRY deviation from the shared
+// CTrade object and their result was never checked - a requote silently trimmed nothing (or only some
+// positions) while the stage counter moved on. They are exits, so they use the exit allowance, and a
+// refusal is logged.
+bool BasketPartialClose(const ulong ticket, const double volume)
+{
+   G_TRADE.SetExpertMagicNumber(MagicNumber);
+   G_TRADE.SetTypeFillingBySymbol(_Symbol);
+   G_TRADE.SetDeviationInPoints((ulong)MathMax(OrderSendDeviationPoints, CloseDeviationPoints));
+   bool sent = G_TRADE.PositionClosePartial(ticket, volume);
+   uint rc = G_TRADE.ResultRetcode();
+   G_TRADE.SetDeviationInPoints((ulong)MathMax(0, OrderSendDeviationPoints));   // restore the entry cap
+   bool ok = sent && (rc == TRADE_RETCODE_DONE || rc == TRADE_RETCODE_PLACED);
+   if(!ok)
+      PrintFormat("[SIRUS PARTIAL CLOSE FAILED] ticket=%I64u vol=%.2f | ret=%d %s",
+                  ticket, volume, (int)rc, G_TRADE.ResultRetcodeDescription());
+   return ok;
+}
+
+// Which close refusals are worth another attempt within the same call.
+bool CloseRetcodeIsRetryable(const uint rc)
+{
+   switch(rc)
+   {
+      case TRADE_RETCODE_REQUOTE:
+      case TRADE_RETCODE_PRICE_CHANGED:
+      case TRADE_RETCODE_PRICE_OFF:
+      case TRADE_RETCODE_REJECT:
+      case TRADE_RETCODE_TIMEOUT:
+      case TRADE_RETCODE_CONNECTION:
+      case TRADE_RETCODE_TOO_MANY_REQUESTS:
+      case TRADE_RETCODE_ERROR:
+      case TRADE_RETCODE_LOCKED:
+      case TRADE_RETCODE_DONE_PARTIAL:
+      case TRADE_RETCODE_INVALID_FILL:
+         return true;
+   }
+   return false;
+}
+
 bool CloseNaviusBasket(const string reason)
 {
    bool all_ok = true;
@@ -41106,6 +41078,7 @@ bool CloseNaviusBasket(const string reason)
    G_TRADE.SetTypeFillingBySymbol(_Symbol);
    G_TRADE.SetDeviationInPoints((ulong)MathMax(OrderSendDeviationPoints, CloseDeviationPoints));
 
+   bool fatal = false;
    for(int pass = 0; pass < MathMax(1, CloseRetryPasses); pass++)
    {
       bool pass_ok = true;
@@ -41129,25 +41102,47 @@ bool CloseNaviusBasket(const string reason)
          // argument, so the close reason cannot be stamped onto the closing deal from here. The chart
          // close marker (green check / red cross + tag) still records the reason visibly, so nothing
          // is lost operationally. CloseMarkerWriteComment is kept only to gate this intent.
-         if(!G_TRADE.PositionClose(ticket))
+         bool sent = G_TRADE.PositionClose(ticket);
+         uint rc = G_TRADE.ResultRetcode();
+         // FIX(close-retcode): "sent" alone is not "closed". A partial fill leaves volume behind, and a
+         // position the broker already closed (its own SL/TP a moment earlier) is not a failure.
+         if(sent && (rc == TRADE_RETCODE_DONE || rc == TRADE_RETCODE_PLACED))
          {
-            pass_ok = false;
-            PrintFormat("[SIRUS v31.6 PHASE 21.3 BASKET CLOSE FAILED] pass=%d ticket=%I64u | reason=%s | ret=%d %s",
-                        pass + 1,
-                        ticket,
-                        reason,
-                        (int)G_TRADE.ResultRetcode(),
-                        G_TRADE.ResultRetcodeDescription());
+            closed++;
+         }
+         else if(rc == TRADE_RETCODE_POSITION_CLOSED || (!sent && !PositionSelectByTicket(ticket)))
+         {
+            // already gone - nothing left to do for this ticket
          }
          else
          {
-            closed++;
+            pass_ok = false;
+            if(!CloseRetcodeIsRetryable(rc))
+               fatal = true;
+            PrintFormat("[SIRUS v31.6 PHASE 21.3 BASKET CLOSE FAILED] pass=%d ticket=%I64u | reason=%s | ret=%d %s%s",
+                        pass + 1,
+                        ticket,
+                        reason,
+                        (int)rc,
+                        G_TRADE.ResultRetcodeDescription(),
+                        (CloseRetcodeIsRetryable(rc) ? "" : " | not retryable now"));
          }
       }
 
       all_ok = pass_ok;
       if(pass_ok)
          break;      // everything that matched is gone - later passes would find nothing
+
+      // FIX(close-retry-same-quote): the passes used to run back to back inside one tick, so a requote or
+      // off-quotes was simply met again at the same price - three identical failures. Give the server a
+      // moment so the next pass meets a fresh quote. A market-closed / trade-disabled / no-money
+      // style refusal will not change in a few hundred milliseconds, so it waits for the remnant retry on
+      // a later tick instead (G_BASKET_CLOSE_PENDING below).
+      if(fatal)
+         break;
+      // CTrade prices every close from the quote current at the moment it is sent, so the pause is enough.
+      if(pass + 1 < MathMax(1, CloseRetryPasses) && !(bool)MQLInfoInteger(MQL_TESTER) && CloseRetryDelayMs > 0)
+         Sleep(MathMin(2000, CloseRetryDelayMs));
    }
 
    G_TRADE.SetDeviationInPoints((ulong)MathMax(0, OrderSendDeviationPoints));   // restore the entry cap
@@ -41254,14 +41249,32 @@ bool CloseNaviusBasket(const string reason)
 // Does not reopen automatically afterward; the bot simply waits for its normal signal flow.
 void CheckNewsAutoFlat()
 {
-   if(!EnableNewsAutoFlat || !G_CAL_ACTIVE)
+   if(!EnableNewsAutoFlat || !EnableEconomicCalendarGuard)
       return;
 
-   if(G_CAL_MINUTES_FROM_EVENT < 0 || G_CAL_MINUTES_FROM_EVENT > NewsAutoFlatMinutesBefore)
+   // FIX(calendar-window): read the upcoming event straight from the calendar cache instead of the
+   // active-window globals, so auto-flat works even when NewsAutoFlatMinutesBefore is larger than
+   // EconomicCalendarPreMinutes, and is not hidden by an earlier release still in its post window.
+   datetime now = TimeTradeServer();
+   if(now <= 0)
+      now = TimeCurrent();
+   int ev = -1;
+   for(int i = 0; i < G_CAL_EV_COUNT; i++)
+   {
+      long diff = (long)(G_CAL_EV_TIME[i] - now);
+      if(diff < 0 || diff > (long)MathMax(0, NewsAutoFlatMinutesBefore) * 60)
+         continue;
+      if(ev < 0 || G_CAL_EV_TIME[i] < G_CAL_EV_TIME[ev])
+         ev = i;
+   }
+   if(ev < 0)
       return;
 
-   if(G_NEWS_FLAT_LAST_EVENT == G_CAL_EVENT_NAME)
+   if(G_NEWS_FLAT_LAST_EVENT == G_CAL_EV_ID[ev])
       return;
+
+   string ev_name = G_CAL_EV_NAME[ev];
+   int    ev_min  = (int)((long)(G_CAL_EV_TIME[ev] - now) / 60);
 
    int orders = 0;
    double vol = 0.0, avg = 0.0, profit = 0.0, last_price = 0.0, last_lot = 0.0;
@@ -41274,13 +41287,187 @@ void CheckNewsAutoFlat()
    if(NewsAutoFlatOnlyIfProfit && profit <= 0.0)
       return;
 
-   if(CloseNaviusBasket(StringFormat("Auto-flat before news: %s (%d min)", G_CAL_EVENT_NAME, G_CAL_MINUTES_FROM_EVENT)))
+   if(CloseNaviusBasket(StringFormat("Auto-flat before news: %s (%d min)", ev_name, ev_min)))
    {
-      G_NEWS_FLAT_LAST_EVENT = G_CAL_EVENT_NAME;
-      if(NewsAutoFlatPrintOnUse)
+      G_NEWS_FLAT_LAST_EVENT = G_CAL_EV_ID[ev];
+      if((NewsAutoFlatPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v29 NEWS AUTO-FLAT] closed basket before %s (%d min, profit=%.2f)",
-                     G_CAL_EVENT_NAME, G_CAL_MINUTES_FROM_EVENT, profit);
+                     ev_name, ev_min, profit);
    }
+}
+
+//=====================================================================
+// CASHBACK TRAILING + BROKER-SIDE LOCK
+//---------------------------------------------------------------------
+// Rebate mode closes a basket the moment it reaches its target - a target built from the spread, a
+// few hundred points at most. The ordinary basket trailing cannot help there (its 2300/300/2000 points
+// are ten times the target, which is why RebateDisableTrailing exists). So in rebate mode the target
+// becomes the point where trailing ARMS instead of where the basket closes: a reversal right after it
+// still closes in profit (at least TP x RebateTrailLockFraction), and a move that keeps going is
+// followed instead of being cut at the target.
+//
+// Every trailing lock - this one, and the ordinary basket trailing - is also written to the broker as a
+// real stop-loss on every basket position, at the price where the basket result equals the lock. The
+// grid keeps no stop-loss while it is recovering (that is the design), but once a basket is in profit
+// the lock no longer depends on the EA staying alive: if the VPS or terminal goes down, the broker still
+// closes the basket at the locked profit.
+//=====================================================================
+double NormalizePriceSafe(const double price);   // defined further down, with the entry price helpers
+
+bool     G_RB_TRAIL_ACTIVE      = false;
+double   G_RB_TRAIL_PEAK        = 0.0;
+double   G_RB_TRAIL_LOCK        = 0.0;
+datetime G_BROKER_TRAIL_LAST    = 0;
+double   G_BROKER_TRAIL_LAST_LOCK = 0.0;
+
+bool RebateTrailingOn()
+{
+   return (EnableRebateMode && EnableRebateTrailing && RebateTargetPoints() > 0.0);
+}
+
+void RebateTrailReset()
+{
+   G_RB_TRAIL_ACTIVE = false;
+   G_RB_TRAIL_PEAK = 0.0;
+   G_RB_TRAIL_LOCK = 0.0;
+   G_BROKER_TRAIL_LAST_LOCK = 0.0;
+}
+
+// Runs in place of the plain "close at TP" check while rebate trailing is on. True when it closed.
+bool RebateTrailManage(const double basket_points, const double tp_points, const int orders)
+{
+   if(tp_points <= 0.0)
+      return false;
+
+   if(!G_RB_TRAIL_ACTIVE && basket_points < tp_points)
+      return false;
+
+   double lock_floor = tp_points * MathMax(0.10, MathMin(0.95, RebateTrailLockFraction));
+   double step = MathMax((double)MathMax(0, RebateTrailMinStepPoints), tp_points * MathMax(0.05, RebateTrailStepFraction));
+
+   if(!G_RB_TRAIL_ACTIVE)
+   {
+      G_RB_TRAIL_ACTIVE = true;
+      G_RB_TRAIL_PEAK = basket_points;
+      G_RB_TRAIL_LOCK = MathMax(lock_floor, basket_points - step);
+      if((BrokerTrailPrintOnUse && VerboseLogs))
+         PrintFormat("[SIRUS REBATE TRAIL] armed at %.0f pts (TP %.0f, orders=%d) | lock %.0f | step %.0f",
+                     basket_points, tp_points, orders, G_RB_TRAIL_LOCK, step);
+   }
+
+   // A trail never moves backwards.
+   if(basket_points > G_RB_TRAIL_PEAK)
+   {
+      G_RB_TRAIL_PEAK = basket_points;
+      double want = MathMax(lock_floor, G_RB_TRAIL_PEAK - step);
+      if(want > G_RB_TRAIL_LOCK)
+         G_RB_TRAIL_LOCK = want;
+   }
+
+   if(basket_points <= G_RB_TRAIL_LOCK)
+   {
+      return CloseNaviusBasket(StringFormat("Rebate trailing lock %.0f <= %.0f peak %.0f (TP %.0f, orders=%d)",
+                                            basket_points, G_RB_TRAIL_LOCK, G_RB_TRAIL_PEAK, tp_points, orders));
+   }
+   return false;
+}
+
+// The lock (in basket points) that is currently armed, from whichever trailing owns this basket. 0 = none.
+double ActiveTrailLockPoints()
+{
+   if(RebateTrailingOn())
+      return (G_RB_TRAIL_ACTIVE ? G_RB_TRAIL_LOCK : 0.0);
+   if(G_BASKET_TRAIL_ACTIVE && G_BASKET_TRAIL_LOCK > 0.0)
+      return G_BASKET_TRAIL_LOCK;
+   return 0.0;
+}
+
+// Writes the armed lock to the broker as a stop-loss on every basket position. Only ever tightens.
+void BrokerTrailSync(const long direction, const double avg_price)
+{
+   if(!EnableBrokerTrailSL)
+      return;
+   if(direction != POSITION_TYPE_BUY && direction != POSITION_TYPE_SELL)
+      return;
+   if(avg_price <= 0.0 || _Point <= 0.0)
+      return;
+
+   double lock_pts = ActiveTrailLockPoints();
+   if(lock_pts <= 0.0)
+      return;   // only a basket in locked profit gets a broker stop - the recovering grid never does
+
+   // Throttle: the first stop goes on at once; after that, only when the lock has moved enough and not
+   // more often than every few seconds, so the server is not flooded with modifications.
+   datetime now = TimeCurrent();
+   bool first = (G_BROKER_TRAIL_LAST_LOCK <= 0.0);
+   if(!first)
+   {
+      if((lock_pts - G_BROKER_TRAIL_LAST_LOCK) < (double)MathMax(1, BrokerTrailMinMovePoints))
+         return;
+      if(G_BROKER_TRAIL_LAST > 0 && (now - G_BROKER_TRAIL_LAST) < MathMax(0, BrokerTrailMinIntervalSec) && now >= G_BROKER_TRAIL_LAST)
+         return;
+   }
+
+   MqlTick tick;
+   if(!SymbolInfoTick(_Symbol, tick) || tick.bid <= 0.0 || tick.ask <= 0.0)
+      return;
+
+   long stops_level = 0, freeze_level = 0;
+   SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL, stops_level);
+   SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL, freeze_level);
+   double min_gap = (double)MathMax(stops_level, freeze_level) + 2.0;   // points, small pad
+
+   bool is_buy = (direction == POSITION_TYPE_BUY);
+   double sl = is_buy ? avg_price + lock_pts * _Point : avg_price - lock_pts * _Point;
+   // A buy stop fires on the bid, a sell stop on the ask: keep it at least the broker minimum away.
+   if(is_buy)
+      sl = MathMin(sl, tick.bid - min_gap * _Point);
+   else
+      sl = MathMax(sl, tick.ask + min_gap * _Point);
+   sl = NormalizePriceSafe(sl);
+
+   // Never place a "lock" that would close the basket at a loss.
+   if(is_buy ? (sl <= avg_price) : (sl >= avg_price))
+      return;
+
+   int modified = 0, failed = 0;
+   G_TRADE.SetExpertMagicNumber(MagicNumber);
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0)
+         continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol)
+         continue;
+      if((long)PositionGetInteger(POSITION_MAGIC) != MagicNumber)
+         continue;
+
+      double cur_sl = PositionGetDouble(POSITION_SL);
+      double cur_tp = PositionGetDouble(POSITION_TP);
+      bool improves = (cur_sl <= 0.0) ||
+                      (is_buy ? (sl > cur_sl + 0.5 * _Point) : (sl < cur_sl - 0.5 * _Point));
+      if(!improves)
+         continue;
+
+      if(G_TRADE.PositionModify(ticket, sl, cur_tp) &&
+         (G_TRADE.ResultRetcode() == TRADE_RETCODE_DONE || G_TRADE.ResultRetcode() == TRADE_RETCODE_NO_CHANGES))
+         modified++;
+      else
+      {
+         failed++;
+         if((BrokerTrailPrintOnUse && VerboseLogs))
+            PrintFormat("[SIRUS BROKER TRAIL] modify failed ticket=%I64u sl=%s | ret=%d %s",
+                        ticket, DoubleToString(sl, _Digits),
+                        (int)G_TRADE.ResultRetcode(), G_TRADE.ResultRetcodeDescription());
+      }
+   }
+
+   G_BROKER_TRAIL_LAST = now;
+   if(failed == 0)
+      G_BROKER_TRAIL_LAST_LOCK = lock_pts;   // a failed pass is retried on the next tick
+   if(modified > 0 && (BrokerTrailPrintOnUse && VerboseLogs))
+      PrintFormat("[SIRUS BROKER TRAIL] stop-loss %s on %d position(s) | lock %.0f pts over avg %s",
+                  DoubleToString(sl, _Digits), modified, lock_pts, DoubleToString(avg_price, _Digits));
 }
 
 bool CheckBasketExit()
@@ -41300,6 +41487,7 @@ bool CheckBasketExit()
          GlobalVariableSet(StringFormat("NAVIUS_%I64d_%s_TRAILPEAK", MagicNumber, _Symbol), 0.0); // V30.4
       G_TRAIL_PEAK_POINTS = 0.0;
       G_PARTIAL_CLOSE_STAGE = 0;
+      RebateTrailReset();
       // FIX(scalein-orphan): this "the basket is gone" branch already clears the other per-basket
       // lifecycle state, but scale-in was never wired into it - ScaleInReset() was only reachable
       // from inside CloseNaviusBasket(), so a basket closed by the broker's own TP, by hand, or by
@@ -41346,11 +41534,20 @@ bool CheckBasketExit()
       return true;
    }
 
-   if(UseBasketTPPoints && basket_points >= tp_points)
+   if(RebateTrailingOn())
+   {
+      // Rebate trailing: the target arms the trail instead of closing the basket.
+      if(RebateTrailManage(basket_points, tp_points, orders))
+         return true;
+   }
+   else if(UseBasketTPPoints && basket_points >= tp_points)
    {
       CloseNaviusBasket(StringFormat("Basket TP points %.0f/%.0f orders=%d", basket_points, tp_points, orders));
       return true;
    }
+
+   // Whatever trailing has armed, put it on the broker's books as well.
+   BrokerTrailSync(direction, avg);
 
    if(UseBasketSL && BasketSLPercent > 0.0)
    {
@@ -41397,15 +41594,14 @@ bool CheckBasketExit()
          if(close_vol <= 0.0)
             continue;
 
-         G_TRADE.SetExpertMagicNumber(MagicNumber);
-         if(G_TRADE.PositionClosePartial(ticket, close_vol))
+         if(BasketPartialClose(ticket, close_vol))
             trimmed++;
       }
 
       if(trimmed > 0)
       {
          G_PARTIAL_CLOSE_STAGE = 1;
-         if(PartialClosePrintOnUse)
+         if((PartialClosePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v29 PARTIAL CLOSE] stage 1: trimmed %d position(s) by %.1f%% at basket profit %.0f pts (orders=%d)",
                         trimmed, PartialClosePercent, basket_points, orders);
       }
@@ -41434,15 +41630,14 @@ bool CheckBasketExit()
          if(close_vol <= 0.0)
             continue;
 
-         G_TRADE.SetExpertMagicNumber(MagicNumber);
-         if(G_TRADE.PositionClosePartial(ticket, close_vol))
+         if(BasketPartialClose(ticket, close_vol))
             trimmed2++;
       }
 
       if(trimmed2 > 0)
       {
          G_PARTIAL_CLOSE_STAGE = 2;
-         if(PartialClosePrintOnUse)
+         if((PartialClosePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v29 PARTIAL CLOSE] stage 2: trimmed %d position(s) by %.1f%% at basket profit %.0f pts (orders=%d)",
                         trimmed2, LadderStage2Percent, basket_points, orders);
       }
@@ -41749,6 +41944,7 @@ double RecentGapPointsCached(const ENUM_TIMEFRAMES tf)
 {
    static int    gap_cache_bar = -1;
    static double gap_cache_value = 0.0;
+   if(gap_cache_bar > G_BARS_SEEN) gap_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(gap_cache_bar != G_BARS_SEEN)
    {
@@ -41790,7 +41986,7 @@ bool MarginLevelAllowsGrid(string &reason)
    if(level < MarginLevelDangerPercent)
    {
       reason = StringFormat("margin level %.0f%% below danger floor %.0f%%", level, MarginLevelDangerPercent);
-      if(MarginLevelPrintOnUse)
+      if((MarginLevelPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v31.6k MARGIN LEVEL] grid BLOCKED - %s", reason);
       return false;
    }
@@ -41808,7 +42004,7 @@ double MarginLevelLotAdjust(const double lot)
    if(level <= 0.0 || level >= MarginLevelWarnPercent)
       return lot;
 
-   if(MarginLevelPrintOnUse)
+   if((MarginLevelPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v31.6k MARGIN LEVEL] caution %.0f%% < %.0f%% - lot trimmed x%.2f",
                   level, MarginLevelWarnPercent, MarginLevelLotFactor);
 
@@ -41842,6 +42038,7 @@ double TrendStrengthAgainst(const int dir_i)
    // ADR/DXY/TrendReversal established earlier - direction comparison below stays live/cheap.
    static int    ts_cache_bar = -1;
    static double ts_adx = 0.0, ts_plus_di = 0.0, ts_minus_di = 0.0;
+   if(ts_cache_bar > G_BARS_SEEN) ts_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(ts_cache_bar != G_BARS_SEEN)
    {
@@ -41934,6 +42131,7 @@ int RecentMajorSweepDirection(string &detail)
    static int    ms_cache_bar = -1;
    static int    ms_cache_dir = 0;
    static string ms_cache_detail = "";
+   if(ms_cache_bar > G_BARS_SEEN) ms_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(ms_cache_bar != G_BARS_SEEN)
    {
@@ -41973,6 +42171,7 @@ int EQZoneBias(double &range_position_pct)
    // but keep the live bid/ask position calculation fresh every call (correctly tick-live).
    static int    eq_cache_bar = -1;
    static double eq_range_high = 0.0, eq_range_low = 0.0;
+   if(eq_cache_bar > G_BARS_SEEN) eq_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(eq_cache_bar != G_BARS_SEEN)
    {
@@ -42244,6 +42443,7 @@ int RecentEngulfingDirection(string &detail)
    static int    eg_cache_bar = -1;
    static int    eg_cache_dir = 0;
    static string eg_cache_detail = "";
+   if(eg_cache_bar > G_BARS_SEEN) eg_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(eg_cache_bar != G_BARS_SEEN)
    {
@@ -42409,6 +42609,7 @@ void BreakSequenceReadRaw()
 void BreakSequenceRead()
 {
    static int last_bar = -100000;
+   if(last_bar > G_BARS_SEEN) last_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
    if(last_bar == G_BARS_SEEN)
       return;
    last_bar = G_BARS_SEEN;
@@ -42420,6 +42621,7 @@ int RecentZoneBreakDirection(string &detail)
    static int    zb_cache_bar = -1;
    static int    zb_cache_dir = 0;
    static string zb_cache_detail = "";
+   if(zb_cache_bar > G_BARS_SEEN) zb_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(zb_cache_bar != G_BARS_SEEN)
    {
@@ -42642,6 +42844,7 @@ double TrendQualityScore(const int direction, string &detail)
    static int    tq_cache_dir = 0;
    static double tq_cache_score = 0.5;
    static string tq_cache_detail = "";
+   if(tq_cache_bar > G_BARS_SEEN) tq_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(tq_cache_bar != G_BARS_SEEN || tq_cache_dir != direction)
    {
@@ -43059,7 +43262,7 @@ double GridIntelligenceScoreRaw(const long grid_direction, string &detail)
       if(eq_dir != 0 && eq_dir != dir_i)
          detail += StringFormat("EQ-unfavorable(%.0f%%) ", range_pos_pct);
 
-      if(EQZonePrintOnUse && eq_dir != 0)
+      if((EQZonePrintOnUse && VerboseLogs) && eq_dir != 0)
          PrintFormat("[SIRUS v31.6u EQ ZONE] range_position=%.0f%% dir=%d grid_dir=%d", range_pos_pct, eq_dir, dir_i);
    }
 
@@ -43078,7 +43281,7 @@ double GridIntelligenceScoreRaw(const long grid_direction, string &detail)
          engulf_component = 0.2;
          detail += engulf_detail;
       }
-      if(EngulfingPrintOnUse)
+      if((EngulfingPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v31.6v ENGULFING] %s grid_dir=%d", engulf_detail, dir_i);
    }
 
@@ -43097,7 +43300,7 @@ double GridIntelligenceScoreRaw(const long grid_direction, string &detail)
          zonebreak_component = 0.15;
          detail += zonebreak_detail;
       }
-      if(ZoneBreakPrintOnUse)
+      if((ZoneBreakPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v31.6z10 ZONE BREAK] %s grid_dir=%d", zonebreak_detail, dir_i);
    }
 
@@ -43114,13 +43317,13 @@ double GridIntelligenceScoreRaw(const long grid_direction, string &detail)
    if(exhaust_score <= 0.3)
    {
       detail += exhaust_detail;
-      if(ImpulseExhaustionPrintOnUse)
+      if((ImpulseExhaustionPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v31.6z19 IMPULSE EXHAUSTION] %s grid_dir=%d", exhaust_detail, dir_i);
    }
    if(consensus_exhaust_score < 0.5)
    {
       detail += consensus_exhaust_detail;
-      if(ImpulseExhaustionPrintOnUse)
+      if((ImpulseExhaustionPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v31.6z22 EXHAUSTION CONSENSUS] %s grid_dir=%d", consensus_exhaust_detail, dir_i);
    }
 
@@ -43200,7 +43403,7 @@ double GridIntelligenceScoreRaw(const long grid_direction, string &detail)
    if(gla_component <= 0.35 || gla_component >= 0.65)
    {
       detail += gla_detail + " ";
-      if(GlobalLocalPrintOnUse && gla_component <= 0.35)
+      if((GlobalLocalPrintOnUse && VerboseLogs) && gla_component <= 0.35)
          PrintFormat("[SIRUS v31.6z30 GLOBAL/LOCAL] %s grid_dir=%d", gla_detail, dir_i);
    }
 
@@ -43265,6 +43468,7 @@ double GridIntelligenceScore(const long grid_direction, string &detail)
    static long   gi_cache_dir    = 0;
    static double gi_cache_score  = 0.5;
    static string gi_cache_detail = "";
+   if(gi_cache_bar > G_BARS_SEEN) gi_cache_bar = -1;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
 
    if(gi_cache_bar != G_BARS_SEEN || gi_cache_dir != grid_direction)
    {
@@ -43305,7 +43509,7 @@ double GridIntelligenceDistanceAdjust(const double dist, const long direction, c
    double widen = 1.0 + (0.5 - gscore) * 2.0 * MathMax(0.0, GridIntelligenceMaxDistanceWiden - 1.0);
    double out = dist * widen;
 
-   if(GridIntelligencePrintOnUse)
+   if((GridIntelligencePrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v31.6z59 GRID DISTANCE] score=%.2f -> widen x%.2f (%.0f -> %.0f pts)",
                   gscore, widen, dist, out);
 
@@ -43345,7 +43549,7 @@ double GridIntelligenceLotAdjust(const double lot, const long direction, const i
    else
       factor = min_factor + (gscore / 0.5) * (neutral_factor - min_factor);
 
-   if(GridIntelligencePrintOnUse && gscore < 0.5)
+   if((GridIntelligencePrintOnUse && VerboseLogs) && gscore < 0.5)
       PrintFormat("[SIRUS v31.6o GRID INTELLIGENCE] score=%.2f depth=%d (%s)-> lot x%.2f", gscore, current_orders, detail, factor);
 
    return lot * factor;
@@ -43445,7 +43649,7 @@ void DuplicateInstanceCheck()
       if(age_sec >= 0 && age_sec < MathMax(1, DuplicateInstanceStaleSeconds))
       {
          G_DUP_INSTANCE_WARNED = true;
-         if(DuplicateInstancePrintOnUse)
+         if((DuplicateInstancePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31.6k DUPLICATE GUARD] WARNING: another active instance's heartbeat is only %d sec old for Magic=%I64d Symbol=%s - check you don't have this EA attached twice (conflicting orders risk). This does NOT block trading.",
                         age_sec, MagicNumber, _Symbol);
       }
@@ -43510,7 +43714,7 @@ bool BasketExposureAllowsGrid(const double next_lot, const ENUM_ORDER_TYPE order
    {
       reason = StringFormat("basket exposure %.2f/%.2f margin (%.0f%% of equity %.2f)",
                             total_margin, cap, MaxBasketMarginPercent, equity);
-      if(MaxBasketExposurePrintOnUse)
+      if((MaxBasketExposurePrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v31.6e EXPOSURE CAP] blocked: %s", reason);
       return false;
    }
@@ -43554,7 +43758,7 @@ double GridDistanceForNextOrder(const int current_orders)
 
          dist *= scale;
 
-         if(ATRRegimePrintOnUse)
+         if((ATRRegimePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v30.1 ATR REGIME] fast=%.0f base=%.0f scale=%.2f -> dist=%.0f",
                         atr_fast, atr_base, scale, dist);
       }
@@ -43569,7 +43773,7 @@ double GridDistanceForNextOrder(const int current_orders)
       if(session_factor != 1.0)
       {
          dist *= session_factor;
-         if(SessionGridPrintOnUse)
+         if((SessionGridPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31.6e SESSION GRID] factor=%.2f -> dist=%.0f", session_factor, dist);
       }
    }
@@ -43704,7 +43908,7 @@ double NextGridLot(const double last_lot, const int current_orders)
       if(gq_f > 0.0 && MathAbs(gq_f - 1.0) > 0.01)
       {
          lot *= gq_f;
-         if(GridQualityPrintOnUse && StringLen(gq_detail) > 0)
+         if((GridQualityPrintOnUse && VerboseLogs) && StringLen(gq_detail) > 0)
             PrintFormat("[SIRUS v222 GRID LOT] %s", gq_detail);
       }
    }   // V31.6o: continuous multi-sense + depth-aware scaling
@@ -43753,7 +43957,7 @@ double NextGridLot(const double last_lot, const int current_orders)
 
    if(lot < floor_lot)
    {
-      if(GridIntelligencePrintOnUse && lot < floor_lot * 0.99)
+      if((GridIntelligencePrintOnUse && VerboseLogs) && lot < floor_lot * 0.99)
          PrintFormat("[SIRUS v31.6z52 GRID LOT FLOOR] combined caution would have cut to %.2f - floored to %.2f (orders=%d, LotMultiplier target %.2f)",
                      lot, floor_lot, current_orders, pure_multiplier_target);
       lot = floor_lot;
@@ -43904,6 +44108,48 @@ bool GridReactionAtWall(const long direction, string &why)
       return true;
    }
    why = "waiting M15 rejection at support";
+   return false;
+}
+
+// FIX(sent-is-not-filled): OrderSend()/CTrade return true when the request passed the basic checks and the
+// server answered - not that the deal happened. Only these retcodes mean volume is actually on the market.
+bool TradeRetcodeFilled(const uint rc)
+{
+   return (rc == TRADE_RETCODE_DONE || rc == TRADE_RETCODE_DONE_PARTIAL || rc == TRADE_RETCODE_PLACED);
+}
+
+// FIX(account-mode): the whole basket model - a grid of separate positions averaged and closed together -
+// only exists on a HEDGING account. On a netting account every "grid add" would be merged into the one
+// position, so order counts, the average price, partial closes and the basket TP/SL all read nonsense.
+// The account type is detected automatically; on anything but hedging, new risk (first entries and grid
+// additions) is refused, while management of whatever is already open keeps running.
+bool G_ACCOUNT_MODE_WARNED = false;
+
+string AccountMarginModeName()
+{
+   ENUM_ACCOUNT_MARGIN_MODE mm = (ENUM_ACCOUNT_MARGIN_MODE)AccountInfoInteger(ACCOUNT_MARGIN_MODE);
+   if(mm == ACCOUNT_MARGIN_MODE_RETAIL_HEDGING) return "HEDGING";
+   if(mm == ACCOUNT_MARGIN_MODE_RETAIL_NETTING) return "NETTING";
+   if(mm == ACCOUNT_MARGIN_MODE_EXCHANGE)       return "EXCHANGE";
+   return "UNKNOWN";
+}
+
+bool AccountModeAllowsTrading(string &reason)
+{
+   ENUM_ACCOUNT_MARGIN_MODE mm = (ENUM_ACCOUNT_MARGIN_MODE)AccountInfoInteger(ACCOUNT_MARGIN_MODE);
+   if(mm == ACCOUNT_MARGIN_MODE_RETAIL_HEDGING)
+   {
+      reason = "account hedging";
+      return true;
+   }
+   reason = StringFormat("account is %s - the grid basket needs a HEDGING account; new entries and grid additions are off",
+                         AccountMarginModeName());
+   if(!G_ACCOUNT_MODE_WARNED)
+   {
+      PrintFormat("[SIRUS ACCOUNT MODE] %s", reason);
+      G_LAST_WARNING = "ACCOUNT " + AccountMarginModeName() + ": trading off (needs HEDGING)";
+      G_ACCOUNT_MODE_WARNED = true;
+   }
    return false;
 }
 
@@ -44089,10 +44335,10 @@ bool GridCanOpen(string &reason)
       return false;
    }
 
-   string srv_grid_reason = "";
-   if(!ServerLicenseAllowsEntry(srv_grid_reason))  // V31: litsenziya/pauza gridga ham tegishli
+   string acct_grid_reason = "";
+   if(!AccountModeAllowsTrading(acct_grid_reason))
    {
-      reason = srv_grid_reason;
+      reason = acct_grid_reason;
       return false;
    }
 
@@ -44213,7 +44459,7 @@ bool GridCanOpen(string &reason)
       if(is_trend_block && SmartZoneRecoveryAllows(direction, last_price, szr_why))
       {
          szr_active = true;
-         if(SZRPrintOnUse)
+         if((SZRPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31.6 SMART ZONE RECOVERY] trend-block overridden once: %s", szr_why);
       }
       else
@@ -44262,7 +44508,7 @@ bool GridCanOpen(string &reason)
    {
       double frac = MathMax(0.1, MathMin(1.0, GridReactionDistanceFraction));
       distance = distance * frac;
-      if(GridReactionPrintOnUse)
+      if((GridReactionPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS GRID REACTION] early add allowed at %.0f%% distance - %s",
                      frac * 100.0, grid_react_why);
    }
@@ -44320,7 +44566,7 @@ bool GridCanOpen(string &reason)
       if(G_BASKET_ORDERS >= eff_max && eff_max < MaxOrders)
       {
          reason = gd_reason;
-         if(GridDepthPrintOnUse)
+         if((GridDepthPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v228 DEPTH] %s", gd_reason);
          return false;
       }
@@ -44366,6 +44612,12 @@ bool GridCanOpen(string &reason)
          return false;
       }
    }
+   else if(EnableEconomicCalendarGuard && G_CAL_ACTIVE)
+   {
+      // FIX(calendar-window): with the news owner off, a scheduled release used to be invisible here.
+      reason = StringFormat("holding - scheduled: %s (%d min)", G_CAL_EVENT_NAME, G_CAL_MINUTES_FROM_EVENT);
+      return false;
+   }
    else if(EnableLiveNewsRead)
    {
       string gn_detail = "";
@@ -44408,7 +44660,7 @@ bool GridCanOpen(string &reason)
       if(stale >= BasketStaleBlockLevel)
       {
          reason = StringFormat("holding - %s", st_detail);
-         if(BasketStalePrintOnUse)
+         if((BasketStalePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v228 STALE] %s", st_detail);
          return false;
       }
@@ -44517,14 +44769,14 @@ bool GridCanOpen(string &reason)
             {
                reason = StringFormat("waiting - %s; adding here commits size at a price with no defined level",
                                      gz_detail);
-               if(GridZoneWaitPrintOnUse)
+               if((GridZoneWaitPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v137 GRID ZONE WAIT] %s | waited %d/%d bars",
                               reason, gz_waited, GridZoneWaitMaxBars);
                return false;
             }
 
             // Waited long enough - proceed rather than strand the basket inside a band.
-            if(GridZoneWaitPrintOnUse)
+            if((GridZoneWaitPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v137 GRID ZONE WAIT] wait expired after %d bars - allowing the addition", gz_waited);
          }
          else
@@ -44544,14 +44796,14 @@ bool GridCanOpen(string &reason)
 
       if(exp_rescue_lot > 0.0)
       {
-         if(GridMarginRescuePrintOnUse)
+         if((GridMarginRescuePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v114 MARGIN RESCUE] exposure gate: %s | original block: %s",
                         exp_rescue_detail, exposure_reason);
          G_NEXT_GRID_LOT = exp_rescue_lot;   // continue with the reduced size
       }
       else
       {
-         if(GridMarginRescuePrintOnUse)
+         if((GridMarginRescuePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v114 MARGIN RESCUE] GRID FROZEN at exposure gate | %s | %s | lot-to-balance ratio is too high for this account size",
                         exposure_reason, exp_rescue_detail);
          reason = exposure_reason + " | " + exp_rescue_detail;
@@ -44574,7 +44826,7 @@ bool GridCanOpen(string &reason)
       if(!GridIntelligenceAllowsGrid(direction, orders, gi_reason))
       {
          reason = gi_reason;
-         if(GridIntelligencePrintOnUse)
+         if((GridIntelligencePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31.6m GRID INTELLIGENCE BLOCK] %s", gi_reason);
          return false;
       }
@@ -44772,7 +45024,7 @@ void UpdateGridRecoveryEngine(const string source)
          if(!MarginAllowsOrder(si_type, NormalizeVolumeSafe(si_lot), si_margin_why))
          {
             si_allowed = false;
-            if(ScaleInPrintOnUse)
+            if((ScaleInPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v161 SCALE-IN] completion held - %s", si_margin_why);
          }
       }
@@ -44789,19 +45041,20 @@ void UpdateGridRecoveryEngine(const string source)
             si_sent = G_TRADE.Buy(NormalizeVolumeSafe(si_lot), _Symbol, 0.0, 0.0, 0.0, si_comment);
          else
             si_sent = G_TRADE.Sell(NormalizeVolumeSafe(si_lot), _Symbol, 0.0, 0.0, 0.0, si_comment);
+         si_sent = si_sent && TradeRetcodeFilled(G_TRADE.ResultRetcode());   // FIX(sent-is-not-filled)
 
          if(si_sent)
          {
             G_SCALEIN_EXTRA_ORDERS++;
-            if(ScaleInPrintOnUse)
+            if((ScaleInPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v161 SCALE-IN] completed with %.2f lots - %s", si_lot, si_reason);
             ScaleInReset();
          }
-         else if(ScaleInPrintOnUse)
+         else if((ScaleInPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v161 SCALE-IN] completion failed: %s (%d)",
                         G_TRADE.ResultRetcodeDescription(), (int)G_TRADE.ResultRetcode());
       }
-      else if(StringLen(si_reason) > 0 && ScaleInPrintOnUse)
+      else if(StringLen(si_reason) > 0 && (ScaleInPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v161 SCALE-IN] %s", si_reason);
    }
 
@@ -44877,7 +45130,7 @@ void UpdateGridRecoveryEngine(const string source)
 
          if(rescue_lot > 0.0)
          {
-            if(GridMarginRescuePrintOnUse)
+            if((GridMarginRescuePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v114 MARGIN RESCUE] %s | free=%.2f equity=%.2f | original block: %s",
                            rescue_detail,
                            AccountInfoDouble(ACCOUNT_MARGIN_FREE),
@@ -44897,7 +45150,7 @@ void UpdateGridRecoveryEngine(const string source)
                                          AccountInfoDouble(ACCOUNT_MARGIN_FREE),
                                          AccountInfoDouble(ACCOUNT_EQUITY),
                                          rescue_detail);
-            if(GridMarginRescuePrintOnUse)
+            if((GridMarginRescuePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v114 MARGIN RESCUE] GRID FROZEN | %s | %s | lot-to-balance ratio is too high for this account size",
                            grid_margin_reason, rescue_detail);
             SetStatus(G_GRID_STATUS, "UpdateGridRecoveryEngine");
@@ -44925,6 +45178,7 @@ void UpdateGridRecoveryEngine(const string source)
 
       int retcode = (int)G_TRADE.ResultRetcode();
       string ret_desc = G_TRADE.ResultRetcodeDescription();
+      sent = sent && TradeRetcodeFilled((uint)retcode);   // FIX(sent-is-not-filled)
 
       if(sent)
       {
@@ -44997,7 +45251,7 @@ void UpdateGridRecoveryEngine(const string source)
             else
                G_GRID_TRANSIENT_RETRY_COUNT = 0;
 
-            if(RetryPrintOnUse)
+            if((RetryPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v29 RETRY] grid fail ret=%d transient=%s attempt=%d/%d",
                            retcode, YesNoV29(grid_transient), G_GRID_TRANSIENT_RETRY_COUNT, RetryMaxAttempts);
          }
@@ -45727,7 +45981,7 @@ bool MarginAllowsOrder(const ENUM_ORDER_TYPE order_type, const double lot, strin
    if(need_margin > free_margin)
    {
       reason = StringFormat("margin guard: need=%.2f > free=%.2f", need_margin, free_margin);
-      if(MarginGuardPrintOnUse)
+      if((MarginGuardPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v30 MARGIN GUARD] BLOCK | %s | lot=%.2f", reason, lot);
       return false;
    }
@@ -45740,7 +45994,7 @@ bool MarginAllowsOrder(const ENUM_ORDER_TYPE order_type, const double lot, strin
       {
          reason = StringFormat("margin guard: projected level %.0f%% < min %.0f%%",
                                projected_level, MarginGuardMinLevelPct);
-         if(MarginGuardPrintOnUse)
+         if((MarginGuardPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v30 MARGIN GUARD] BLOCK | %s | lot=%.2f need=%.2f", reason, lot, need_margin);
          return false;
       }
@@ -45833,7 +46087,7 @@ double ZoneMapMomentumLotAdjust(const double lot)
       double factor = ZoneMapMomentumLotFactor / (1.0 + (strength - 1.0) * ZoneStrengthLotTrimScale);
       factor = MathMax(0.05, factor);
 
-      if(ZoneMapPrintOnUse)
+      if((ZoneMapPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v31.6c ZONE WALL] entry %.0f pts from wall (strength=%.2f) - lot trimmed x%.2f (not blocked)",
                      dist, strength, factor);
       return lot * factor;
@@ -45865,7 +46119,7 @@ double LotForCurrentEntry(const bool apply_side_effects)
       double fitted = AffordableStartLot(bs_dir);
       if(fitted > 0.0 && fitted < lot)
       {
-         if(apply_side_effects && BalanceSizedLotPrintOnUse)
+         if(apply_side_effects && (BalanceSizedLotPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v285 SIZE] balance %.2f carries %.2f lots for a %d-rung ladder (StartLot %.2f)",
                         AccountInfoDouble(ACCOUNT_BALANCE), fitted, MaxOrders, StartLot);
          lot = fitted;
@@ -45879,8 +46133,8 @@ double LotForCurrentEntry(const bool apply_side_effects)
    // which used to get overwritten by every "just checking" call made while G_BASKET_ORDERS <= 0,
    // corrupting the real scale-in completion armed by an actual entry moments earlier in the same tick.
    bool eff_trace           = EnableLotTrace && apply_side_effects;
-   bool eff_autolot_print   = AutoLotPrintOnUse && apply_side_effects;
-   bool eff_confidence_print = ConfidenceLotPrintOnUse && apply_side_effects;
+   bool eff_autolot_print   = (AutoLotPrintOnUse && VerboseLogs) && apply_side_effects;
+   bool eff_confidence_print = (ConfidenceLotPrintOnUse && VerboseLogs) && apply_side_effects;
 
    // V31 AUTOLOT: yoqilganda StartLot va mode-lotlar o'rniga balans/equity'dan hisoblanadi.
    if(UseAutoLot)
@@ -45943,9 +46197,6 @@ double LotForCurrentEntry(const bool apply_side_effects)
    lot = SwingImpulseCorrectionLotAdjust(lot, current_order_type);  LT_STEP("swingImpulse")
    lot = MarketConfidenceLotAdjust(lot, G_OPP_TYPE);  LT_STEP("bayesConf")
    lot = SelfDefenseLotAdjust(lot);                  // V31: himoya rejimida kamaytirish  LT_STEP("defense")
-   if(EnableServerLicense && G_SRV_LOT_SCALE > 0.0 && G_SRV_LOT_SCALE < 1.0)
-      lot *= G_SRV_LOT_SCALE;                        // V31: server remote lot50
-   LT_STEP("srv")
 
    // V31.6 new: global floor. Multiple trim guards measure overlapping conditions
    // (trend-against + HTF-counter + DXY-against are near-triplicates), so stacked
@@ -46225,7 +46476,7 @@ double EntryTPPoints()
          if(atr_tp < (double)MathMax(1, ATRTPMinPoints)) atr_tp = (double)ATRTPMinPoints;
          if(ATRTPMaxPoints > ATRTPMinPoints && atr_tp > (double)ATRTPMaxPoints) atr_tp = (double)ATRTPMaxPoints;
 
-         if(ATRTPPrintOnUse && MathAbs(atr_tp - tp) > 1.0)
+         if((ATRTPPrintOnUse && VerboseLogs) && MathAbs(atr_tp - tp) > 1.0)
             PrintFormat("[SIRUS v31.1 ATR-TP] fixed %.0f -> adaptive %.0f (ATR=%.0f x %.2f)", tp, atr_tp, atr, ATRTPFactor);
          tp = atr_tp;
       }
@@ -46268,7 +46519,7 @@ void HTFStructureWarnIfCounterTrend(const ENUM_ORDER_TYPE order_type)
    int bias = HTFStructureBias();
    bool counter = (order_type == ORDER_TYPE_BUY && bias < 0) || (order_type == ORDER_TYPE_SELL && bias > 0);
 
-   if(counter && HTFStructurePrintOnUse)
+   if(counter && (HTFStructurePrintOnUse && VerboseLogs))
    {
       PrintFormat("[SIRUS v29 HTF STRUCTURE] warning: entering %s against H1 bias=%d (info only, not blocked)",
                   (order_type == ORDER_TYPE_BUY ? "BUY" : "SELL"), bias);
@@ -46303,7 +46554,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
          if(current_tp_points < min_required)
          {
             double widened = price + min_required * _Point;
-            if(SpreadAwarePrintOnUse)
+            if((SpreadAwarePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v29 SPREAD-AWARE TP] widened %.5f -> %.5f (spread=%.0fpts ratio=%.1f)",
                            tp, widened, spread_points, SpreadAwareMinRatio);
             tp = widened;
@@ -46324,7 +46575,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
          double min_floor = price + (EnableRebateMode ? RebateTargetPoints() : (double)FirstEntryTPMinPoints) * _Point;
             if(capped > min_floor)
             {
-               if(ZoneMapPrintOnUse)
+               if((ZoneMapPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v29 ZONE MAP] TP capped before resistance %.5f -> %.5f (strength=%.2f buffer=%.0f)",
                               tp, capped, strength, buffer_points);
                tp = capped;
@@ -46348,7 +46599,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
          if(current_tp_points < min_required)
          {
             double widened = price - min_required * _Point;
-            if(SpreadAwarePrintOnUse)
+            if((SpreadAwarePrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v29 SPREAD-AWARE TP] widened %.5f -> %.5f (spread=%.0fpts ratio=%.1f)",
                            tp, widened, spread_points, SpreadAwareMinRatio);
             tp = widened;
@@ -46366,7 +46617,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
             double min_floor = price - (EnableRebateMode ? RebateTargetPoints() : (double)FirstEntryTPMinPoints) * _Point;
             if(capped < min_floor)
             {
-               if(ZoneMapPrintOnUse)
+               if((ZoneMapPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v29 ZONE MAP] TP capped before support %.5f -> %.5f (strength=%.2f buffer=%.0f)",
                               tp, capped, strength, buffer_points);
                tp = capped;
@@ -46378,6 +46629,11 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
       return false;
 
    HTFStructureWarnIfCounterTrend(order_type);
+
+   // Rebate trailing: a broker TP at the small cashback target would close the first order before the
+   // trail could ever arm. The basket exit and the broker-side trailing stop own the exit instead.
+   if(RebateTrailingOn())
+      tp = 0.0;
 
    price = NormalizePriceSafe(price);
    if(tp > 0.0) tp = NormalizePriceSafe(tp);
@@ -46938,6 +47194,35 @@ string   G_NEWS_WHY   = "";
 int      G_NEWS_BAR   = -100000;
 
 // 0 = clear, 1 = behaving like news, 2 = a scheduled release is in its window
+// The live price read is the expensive part, so it alone is cached per bar.
+int NewsLiveReadState(string &why)
+{
+   why = "";
+   if(!EnableLiveNewsRead)
+      return 0;
+
+   if(G_NEWS_BAR > G_BARS_SEEN)
+      G_NEWS_BAR = -100000;   // FIX(reinit-bar-rewind)
+   if(G_NEWS_BAR == G_BARS_SEEN)
+   {
+      why = G_NEWS_WHY;
+      return G_NEWS_STATE;
+   }
+   G_NEWS_BAR = G_BARS_SEEN;
+   G_NEWS_STATE = 0;
+   G_NEWS_WHY = "";
+
+   string d = "";
+   if(NewsInProgress(d))
+   {
+      G_NEWS_STATE = 1;
+      G_NEWS_WHY = "behaving like news: " + d;
+   }
+   why = G_NEWS_WHY;
+   return G_NEWS_STATE;
+}
+
+// 0 = clear, 1 = behaving like news, 2 = a scheduled release is in its window
 int NewsOwnerState(string &why)
 {
    why = "";
@@ -46954,50 +47239,43 @@ int NewsOwnerState(string &why)
       return 0;
    }
 
-   if(G_NEWS_BAR == G_BARS_SEEN)
-   {
-      why = G_NEWS_WHY;
-      return G_NEWS_STATE;
-   }
-   G_NEWS_BAR = G_BARS_SEEN;
-   G_NEWS_STATE = 0;
-   G_NEWS_WHY = "";
-
    // The calendar first. A release that is on the schedule is not a matter of opinion.
-   if(EnableEconomicCalendarGuard)
+   // FIX(calendar-window): read G_CAL_ACTIVE directly and on every call. Before, this went through
+   // EconomicCalendarAllowsEntry(), which answers "allowed" in lot-trim mode
+   // (EconomicCalendarHardBlockFirst=false) - so with hard-block off a scheduled release did not stop
+   // GRID additions at all. The window itself was also frozen for a whole bar by the cache below.
+   // Whether a scheduled window stops a first ENTRY is still decided by the hard-block setting, in
+   // NewsOwnerBlocksEntry().
+   if(EnableEconomicCalendarGuard && G_CAL_ACTIVE)
    {
-      string cal_reason = "";
-      if(!EconomicCalendarAllowsEntry(cal_reason))
-      {
-         G_NEWS_STATE = 2;
-         G_NEWS_WHY = "scheduled: " + cal_reason;
-         why = G_NEWS_WHY;
-         return 2;
-      }
+      why = StringFormat("scheduled: %s (%d min)%s", G_CAL_EVENT_NAME, G_CAL_MINUTES_FROM_EVENT,
+                         (G_CAL_BIG_SURPRISE ? " surprise" : ""));
+      return 2;
    }
 
    // Nothing scheduled - now the live read matters, because an unscheduled move is
    // precisely what the calendar cannot see.
-   if(EnableLiveNewsRead)
-   {
-      string d = "";
-      if(NewsInProgress(d))
-      {
-         G_NEWS_STATE = 1;
-         G_NEWS_WHY = "behaving like news: " + d;
-         why = G_NEWS_WHY;
-         return 1;
-      }
-   }
-
-   return 0;
+   return NewsLiveReadState(why);
 }
 
 bool NewsOwnerBlocksEntry(string &why)
 {
    int st = NewsOwnerState(why);
 
-   if(st == 2) return true;                       // scheduled - always
+   if(st == 2)
+   {
+      if(EconomicCalendarHardBlockFirst)
+         return true;                             // scheduled - blocked
+      // Lot-trim mode: the scheduled window alone does not stop an entry (the lot is cut by
+      // EconomicCalendarLotAdjust), but price actually behaving like a release still can.
+      string live_why = "";
+      if(NewsLiveReadState(live_why) == 1 && NewsLiveReadBlocksEntry)
+      {
+         why = why + " | " + live_why;
+         return true;
+      }
+      return false;
+   }
    if(st == 1) return NewsLiveReadBlocksEntry;    // inferred - the operator decides
 
    return false;
@@ -47240,7 +47518,7 @@ void QuietTick(const bool entry_allowed)
       G_QUIET_BARS++;
       if(G_QUIET_BARS > G_QUIET_PEAK) G_QUIET_PEAK = G_QUIET_BARS;
 
-      if(QuietAlarmPrintOnUse && G_QUIET_BARS == QuietAlarmBars)
+      if((QuietAlarmPrintOnUse && VerboseLogs) && G_QUIET_BARS == QuietAlarmBars)
          PrintFormat("[SIRUS QUIET] nothing opened for %d bars - %s has been the usual reason",
                      G_QUIET_BARS, GateName(G_GATE_LAST));
    }
@@ -47286,7 +47564,7 @@ void AdaptRecord(const bool won)
       {
          G_ADAPT_EXTRA = MathMin(EvidenceMaxExtra, G_ADAPT_EXTRA + EvidenceStep);
 
-         if(EvidenceTightenPrintOnUse)
+         if((EvidenceTightenPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS ADAPT] %d of %d won - entries now need %.2f more of the leg",
                         G_ADAPT_WINS, total, G_ADAPT_EXTRA);
       }
@@ -47297,7 +47575,7 @@ void AdaptRecord(const bool won)
       // to where it started, because the baseline was never the thing that was wrong.
       G_ADAPT_EXTRA = MathMax(0.0, G_ADAPT_EXTRA - EvidenceStep);
 
-      if(EvidenceTightenPrintOnUse)
+      if((EvidenceTightenPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS ADAPT] %d of %d won - extra demand down to %.2f",
                      G_ADAPT_WINS, total, G_ADAPT_EXTRA);
    }
@@ -47434,7 +47712,7 @@ bool ValveIsOff(const int v)
    {
       // Its turn is over. Back on, and if the silence continues the next check will pick
       // whichever guard is responsible now.
-      if(SafetyValvePrintOnUse)
+      if((SafetyValvePrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS VALVE] %s back on", ValveName(G_VALVE_OFF));
       G_VALVE_OFF = VALVE_NONE;
       return false;
@@ -47956,7 +48234,7 @@ void ScenarioRestore()
    int total = 0;
    for(int b = 0; b < SCEN_BUCKETS; b++) total += G_SCEN_N[b];
 
-   if(total > 0 && ScenRecordPrintOnUse)
+   if(total > 0 && (ScenRecordPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS SCENARIO] %d reactions recovered", total);
 }
 
@@ -48015,7 +48293,7 @@ void ScenarioTrack()
 
          ScenarioStore(b);
 
-         if(ScenRecordPrintOnUse)
+         if((ScenRecordPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS SCENARIO] reaction at %.2f went %.1f ATR - bucket %d now averages %.1f over %d",
                         G_SCEN_PENDING_LVL, recorded, b,
                         G_SCEN_SUM[b] / MathMax(1, G_SCEN_N[b]), G_SCEN_N[b]);
@@ -48449,7 +48727,7 @@ void LocationBrainRecordStop(const int dir, const double price)
    G_LB_LAST_STOP_DIR   = dir;
    G_LB_LAST_STOP_PRICE = price;
 
-   if(LocationBrainPrintOnUse)
+   if((LocationBrainPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS BRAIN] %s stopped at %.2f - the next one that way has to be better",
                   (dir > 0 ? "BUY" : "SELL"), price);
 }
@@ -48790,6 +49068,7 @@ void DecisionChainLog(const bool ready, const string reason)
    static int ch_bar = -100000;
    static int ch_dir = 0;
    static bool ch_ready = false;
+   if(ch_bar > G_BARS_SEEN) ch_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
    if(ch_bar == G_BARS_SEEN && ch_dir == d && ch_ready == ready) return;
    ch_bar = G_BARS_SEEN; ch_dir = d; ch_ready = ready;
 
@@ -48949,6 +49228,7 @@ bool TryLocationRedirect(const int from_dir, string &why)
    if(!LGLocationRedirect || from_dir == 0) return false;
    static int lr_bar = -100000;
    static int lr_dir = 0;
+   if(lr_bar > G_BARS_SEEN) lr_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
    if(lr_bar == G_BARS_SEEN && lr_dir == from_dir) return false;
    lr_bar = G_BARS_SEEN;
    lr_dir = from_dir;
@@ -49032,7 +49312,7 @@ bool TryLocationRedirect(const int from_dir, string &why)
    why = StringFormat("%s blocked at a level -> %s %s %d/%d",
                       (from_dir > 0 ? "BUY" : "SELL"), (to_dir > 0 ? "BUY" : "SELL"),
                       OpportunityTypeToString(bt), G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
-   if(LGPrintOnUse)
+   if((LGPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS LOCATION REDIRECT] %s", why);
    return true;
 }
@@ -49214,9 +49494,10 @@ bool FirstEntryCanRun(string &reason)
       if(relief > 0 && G_SCORE_FINAL + relief >= G_SCORE_MIN_REQUIRED)
       {
          G_SCORE_DECISION = G_SCORE_IS_MICRO ? SCORE_DECISION_MICRO_PASS : SCORE_DECISION_PASS;
-         if(LGPrintOnUse)
+         if((LGPrintOnUse && VerboseLogs))
          {
             static int rl_bar = -100000;
+            if(rl_bar > G_BARS_SEEN) rl_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
             if(rl_bar != G_BARS_SEEN)
             {
                rl_bar = G_BARS_SEEN;
@@ -49240,6 +49521,7 @@ bool FirstEntryCanRun(string &reason)
       {
          static int nm_bar = -100000;
          static int nm_dir = 0;
+         if(nm_bar > G_BARS_SEEN) nm_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
          int d_now = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : -1;
          if(nm_bar != G_BARS_SEEN || nm_dir != d_now)
          {
@@ -49277,11 +49559,13 @@ bool FirstEntryCanRun(string &reason)
          reason = "location: " + lg_why;
          {
             static int lg_cnt_bar = -100000;
+            if(lg_cnt_bar > G_BARS_SEEN) lg_cnt_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
             if(lg_cnt_bar != G_BARS_SEEN) { lg_cnt_bar = G_BARS_SEEN; G_LOCATION_BLOCKS_TODAY++; }
          }
-         if(LGPrintOnUse)
+         if((LGPrintOnUse && VerboseLogs))
          {
             static int lg_print_bar = -100000;
+            if(lg_print_bar > G_BARS_SEEN) lg_print_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
             if(lg_print_bar != G_BARS_SEEN) { lg_print_bar = G_BARS_SEEN; PrintFormat("[SIRUS LOCATION] %s", lg_why); }
          }
          return false;
@@ -49399,10 +49683,10 @@ bool FirstEntryCanRun(string &reason)
       return false;
    }
 
-   string srv_reason = "";
-   if(!ServerLicenseAllowsEntry(srv_reason))  // V31
+   string acct_reason = "";
+   if(!AccountModeAllowsTrading(acct_reason))
    {
-      reason = srv_reason;
+      reason = acct_reason;
       return false;
    }
 
@@ -49465,7 +49749,7 @@ bool FirstEntryCanRun(string &reason)
             if(adj != 0)
             {
                G_SCORE_FINAL += adj;
-               if(ScenRecordPrintOnUse && adj < 0)
+               if((ScenRecordPrintOnUse && VerboseLogs) && adj < 0)
                   PrintFormat("[SIRUS SCENARIO] %.1f ATR expected here - score %+d", se_proj, adj);
             }
          }
@@ -49563,7 +49847,7 @@ bool FirstEntryCanRun(string &reason)
          {
             G_LB_HELD++;
 
-            if(LocationBrainPrintOnUse && (G_LB_HELD % 20) == 1)
+            if((LocationBrainPrintOnUse && VerboseLogs) && (G_LB_HELD % 20) == 1)
                PrintFormat("[SIRUS BRAIN] holding %s - %s", (lb_dir > 0 ? "BUY" : "SELL"), lb_why);
 
             reason = "waiting for a better place: " + lb_why;
@@ -49624,7 +49908,7 @@ void UpdateFirstEntryEngine(const string source)
             if(fits >= MathMax(1, MinAffordableRungs))
             {
                G_AFFORD_RUNG_CAP = fits;
-               if(EntryAffordabilityPrintOnUse)
+               if((EntryAffordabilityPrintOnUse && VerboseLogs))
                   PrintFormat("[SIRUS v282 TRIM] full ladder does not fit - capping the basket at %d rungs", fits);
             }
          }
@@ -49642,7 +49926,7 @@ void UpdateFirstEntryEngine(const string source)
       {
          G_ENTRY_READY = false;
          reason = aff_reason;
-         if(EntryAffordabilityPrintOnUse)
+         if((EntryAffordabilityPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v248 AFFORD] %s", aff_reason);
       }
    }
@@ -49816,7 +50100,7 @@ void UpdateFirstEntryEngine(const string source)
       G_SF_FILL_COUNT++;
       if(sf_pullback && sf_pull > 0.0)
          G_SF_SAVED_POINTS += sf_pull;
-      if(SmartFillPrintOnUse)
+      if((SmartFillPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v31.3 SMARTFILL] fire: %s | pull=%.0f pts | spread %d->%d | fills=%d savedTotal=%.0f pts",
                      (sf_pullback ? "PULLBACK" : (sf_spreddip ? "SPREAD-DIP" : "TIMEOUT")),
                      sf_pull, G_SF_ARM_SPREAD, sf_spread, G_SF_FILL_COUNT, G_SF_SAVED_POINTS);
@@ -49829,21 +50113,23 @@ void UpdateFirstEntryEngine(const string source)
 
    G_ENTRY_ATTEMPTS++;
 
+   // V169: the price we would have got had the fill been instant - the gap between this and the actual
+   // fill is what slippage costs, and it is invisible unless someone writes it down.
+   // FIX(slippage-after-send): this was read AFTER Buy()/Sell() returned, i.e. the quote after the fill,
+   // which measured the market's move during the round trip rather than the slippage on this order.
+   double slip_requested = (order_type == ORDER_TYPE_BUY)
+                           ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
+                           : SymbolInfoDouble(_Symbol, SYMBOL_BID);
+
    bool sent = false;
    if(order_type == ORDER_TYPE_BUY)
       sent = G_TRADE.Buy(lot, _Symbol, 0.0, sl, tp, comment);
    else
       sent = G_TRADE.Sell(lot, _Symbol, 0.0, sl, tp, comment);
 
-   // V169: the price we would have got had the fill been instant, captured before the result is
-   // read - the gap between this and the actual fill is what slippage costs, and it is invisible
-   // unless someone writes it down.
-   double slip_requested = (order_type == ORDER_TYPE_BUY)
-                           ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
-                           : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-
    int retcode = (int)G_TRADE.ResultRetcode();
    string ret_desc = G_TRADE.ResultRetcodeDescription();
+   sent = sent && TradeRetcodeFilled((uint)retcode);   // FIX(sent-is-not-filled)
 
    // FIX(partial-fill-ignored): CTrade::Buy/Sell return true for TRADE_RETCODE_DONE_PARTIAL as well
    // as DONE, and SetTypeFillingBySymbol() selects IOC on symbols that only allow it - IOC being
@@ -50036,7 +50322,7 @@ void UpdateFirstEntryEngine(const string source)
          else
             G_FIRST_TRANSIENT_RETRY_COUNT = 0;
 
-         if(RetryPrintOnUse)
+         if((RetryPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v29 RETRY] first-entry fail ret=%d transient=%s attempt=%d/%d",
                         retcode, YesNoV29(transient), G_FIRST_TRANSIENT_RETRY_COUNT, RetryMaxAttempts);
       }
@@ -55667,7 +55953,7 @@ void UpdatePremiumLogEngine(const string source)
 //
 // LAYER 1 - FOUNDATION (must run first; everything else reads this state):
 //   UpdateClockState, UpdateTickState, UpdateBarTracker, UpdateEconomicCalendarGuard,
-//   ServerLicenseUpdate, UpdateKalmanTrendFilter, CheckNewsAutoFlat, UpdateEnvironmentEngine
+//   UpdateKalmanTrendFilter, CheckNewsAutoFlat, UpdateEnvironmentEngine
 //
 // LAYER 2 - MODE / MARKET CLASSIFICATION (needs Layer 1; Layer 3+ needs this):
 //   UpdateModeManager (Balanced/Hunter), UpdateMarketStateRouter (trend/range/impulse/
@@ -55707,11 +55993,26 @@ void CoreUpdate(const string source)
    // account balance directly). This is deliberately the very first thing checked every tick.
    EmergencyBasketForceCloseCheck();
 
+   // FIX(timer-trades): OnTimer fires every CoreTimerSeconds (1s) whether or not a quote arrived, and it
+   // used to run this whole pipeline - first entries and grid additions included - on the last known
+   // price, a second time per second on top of the ticks. On a quiet or closed market that meant decisions
+   // on a stale quote; in the Strategy Tester it doubled the work; and a new bar could be "consumed" by the
+   // timer pass, so OnTick's per-bar work saw G_IS_NEW_BAR=false. The timer now does only what is driven by
+   // the CLOCK rather than by price: the emergency net above, the clock/tick-age readout, the news calendar
+   // window and the pre-news auto-flat. Everything that reads price runs on real ticks.
+   if(source == "TIMER")
+   {
+      UpdateClockState();
+      UpdateTickState();
+      UpdateEconomicCalendarGuard();
+      CheckNewsAutoFlat();
+      return;
+   }
+
    UpdateClockState();
    UpdateTickState();
    UpdateBarTracker(source);
    UpdateEconomicCalendarGuard();
-   ServerLicenseUpdate();   // V31
    UpdateKalmanTrendFilter();
    UpdateDailyBias();   // FEATURE(daily-bias): compute PDH/PDL + prior-day bias before zones/scanner use them
    CheckNewsAutoFlat();
@@ -55733,6 +56034,7 @@ void CoreUpdate(const string source)
    // only on deinit loses everything if the terminal closes unexpectedly, which it does.
    {
       static int last_save_bar = -100000;
+      if(last_save_bar > G_BARS_SEEN) last_save_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
       if((G_BARS_SEEN - last_save_bar) >= MathMax(10, CandleLearningSaveEveryBars))
       {
          CandleLearningSave();
@@ -55768,13 +56070,12 @@ void CoreUpdate(const string source)
    UpdateRCSettingsBalance(source);
    UpdateWarningCleanupPolish(source);
    UpdateSmartClientSafetyBrain(source);
-   UpdateClientDashboardPolish(source);
-   UpdateLiveValidationProbe(source);
+   // UpdateClientDashboardPolish / UpdateLiveValidationProbe only build dashboard text (G_CDP_* / G_LVP_*,
+   // read by nothing but DrawDashboard). They ran three times per tick; once, after the entry pass, is the
+   // only result anyone ever saw.
    UpdateLegacyPack2(source);
    UpdateAdaptiveRecoveryIntelligence(source);
    UpdateProfitExtractionSmartExit(source);
-   UpdateClientDashboardPolish("PRE_GRID");
-   UpdateLiveValidationProbe("PRE_GRID");
    // FIX(init-bypasses-anti-churn): OnInit zeroes G_BARS_SEEN / G_TICK_COUNT / G_LAST_ENTRY_TIME and
    // sets G_LAST_ENTRY_BAR = -100000, then calls CoreUpdate("INIT"). Both anti-churn guards read as
    // "no recent entry" against that blank state - the cooldown test is skipped because
@@ -56950,7 +57251,12 @@ int OnInit()
    G_TICK_COUNT       = 0;
    G_TIMER_COUNT      = 0;
    G_UPDATE_COUNT     = 0;
-   G_BARS_SEEN        = 0;
+   // FIX(reinit-bar-rewind): G_BARS_SEEN is NOT zeroed here any more. An input change or timeframe switch
+   // re-runs OnInit without unloading the EA, so globals and function statics keep their values - and
+   // dozens of per-bar caches and "every N bars" timers (e.g. the learning-record save) are keyed to this
+   // counter. Rewinding it to 0 left those keys in the future: caches could return the previous session's
+   // reading, and the periodic save stalled until the counter climbed past its old value. On a fresh
+   // load it is 0 from its declaration anyway.
    G_LAST_WARNING     = "none";
    G_ENV_LAST_SIGNATURE = "";
    G_MODE_LAST_SIGNATURE = "";
@@ -57547,6 +57853,15 @@ int OnInit()
                SafeTime(G_INIT_LOCAL),
                SafeTime(G_INIT_SERVER));
 
+   // FIX(account-mode): detected automatically - no input to set.
+   {
+      string acct_reason = "";
+      bool acct_ok = AccountModeAllowsTrading(acct_reason);
+      PrintFormat("[SIRUS ACCOUNT] mode=%s | digits=%d | point=%s | %s",
+                  AccountMarginModeName(), _Digits, DoubleToString(_Point, _Digits),
+                  (acct_ok ? "grid basket enabled" : "NEW TRADES DISABLED - needs a hedging account"));
+   }
+
    Print("[SIRUS v31.6 PRO LIVE FINAL CLEAN SCREEN] IMPORTANT: Live/VPS clean screen build active: compact dashboard, XAUUSD live spread calibration, session zones off, watermark off, live validation probe enabled.");
 
    SetStatus("CORE INIT OK: waiting first tick/timer", "OnInit");
@@ -57566,12 +57881,6 @@ int OnInit()
    SelfDefenseLoad();       // V31: restore defense mode state
    HourBayesLoad();         // V31.1: restore hour statistics
    DayOfWeekBayesLoad();    // V31.6j: restore day-of-week statistics
-   if(EnablePersistentState)
-   {
-      string flat_key = StringFormat("NAVIUS_%I64d_%s_SRVFLAT", MagicNumber, _Symbol);
-      if(GlobalVariableCheck(flat_key))
-         G_SRV_FLAT_DONE_ID = (long)GlobalVariableGet(flat_key);
-   }
    if(EnablePersistentState) // V30.4: restore trailing peak (reset naturally when basket is gone)
    {
       string tp_key = StringFormat("NAVIUS_%I64d_%s_TRAILPEAK", MagicNumber, _Symbol);
@@ -58277,7 +58586,13 @@ void OnTimer()
    G_TIMER_COUNT++;
    G_LAST_TIMER_LOCAL = TimeLocal();
 
-   CoreUpdate("TIMER");
+   CoreUpdate("TIMER");   // clock-driven protection only - see FIX(timer-trades) in CoreUpdate
+
+   // Same rule as OnTick: no chart to draw on in a non-visual test or optimization run.
+   bool in_tester = (bool)MQLInfoInteger(MQL_TESTER) || (bool)MQLInfoInteger(MQL_OPTIMIZATION);
+   if(in_tester && !(bool)MQLInfoInteger(MQL_VISUAL_MODE))
+      return;
+
    DrawDashboard();
    PrintHeartbeat();
 
