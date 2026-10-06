@@ -54,7 +54,7 @@ koddagi xatolardan ko'ra **risk modeli** (martingeyl + broker tomonida SL yo'qli
     restartda yana to'liq 720 daqiqa beriladi.
 11. **Masofaviy buyruqlar (`flat`, `pause`, `lot50`)** oddiy matn javobidan o'qiladi, imzo/autentifikatsiya
     yo'q. URL HTTP bo'lsa yoki server buzilsa, savatni tashqaridan yopish mumkin.
-12. **Kalendar "news surprise" kengaytmasi ishlamaydi** (`:39869`). `from_time` faqat
+12. **Kalendar "news surprise" kengaytmasi ishlamaydi** (`:39874`). `from_time` faqat
     `EconomicCalendarPostMinutes` orqaga qaraydi, shuning uchun kengaytirilgan oynadagi eski yangiliklar
     umuman yuklanmaydi.
 
