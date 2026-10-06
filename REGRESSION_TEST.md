@@ -31,6 +31,30 @@ Agar 06:15 da yana SELL ochilsa, uning Reason Code'ida `EVENTS` va `CONFLICTS` q
 bullish hodisalar ko'rinishi kerak. Bu hali bloklamaydi: veto 4-bosqichda qo'shiladi. Hozir
 tekshiramiz: **robot bu hodisalarni ko'ryaptimi?**
 
+### Barcha bosqichlardan keyin kutilgan natija (v31.68 + Market Brain)
+06:15 atrofida SELL **ochilmasligi** kerak. Jurnalda shulardan biri bo'ladi:
+```
+[SIRUS VETO] SELL ... blocked | V0 permission: bias TRANSITION_UP ...
+[SIRUS VETO] SELL ... blocked | V1 reversal: H4 sell-side SWEEP @ 4110.5 (... bars) + ... - no SELL until the market answers back
+[SIRUS VETO] SELL ... blocked | V2 zone role: zone 4125.4 is still SUPPORT (swept and reclaimed) - not a sell zone
+[SIRUS VETO] SELL ... blocked | V3 no room: SUPPORT 4125.4 holds ... pts away
+```
+Panelda: MARKET BRAIN = `TRANSITION_UP` yoki `BULLISH...`, ENTRY = `VETO`.
+
+## Yakuniy tekshiruv ro'yxati (egasi uchun)
+1. **Kompilyatsiya:** F7 → `0 errors`. Ogohlantirishlar bo'lsa, ro'yxatini yuboring.
+2. **4126 holati** (yuqoridagi qadamlar): SELL bloklandimi? Qaysi veto bilan?
+3. **4142 holati:** sanasi va vaqti ma'lum bo'lsa, xuddi shunday o'ynatiladi.
+4. **Savdolar soni:** 1–2 haftalik backtest (real ticks). Baseline (`EnableMarketBrainEngines=false`)
+   va yangi engine bilan. Kuniga 250–450 maqsad: yangi engine savdolarni haddan tashqari
+   kesayotgan bo'lsa, birinchi navbatda shular yumshatiladi:
+   `EnableMBPermission`, `MBVetoRoomTPMult`, `MBEntryCautionQuality`, `MBGridNeedsResponse`.
+5. **DD:** maksimal DD va eng yomon savat baseline bilan solishtiriladi.
+6. **Vizual:** yangi watermark va panel (`EnableNewWatermark`, `EnableNewDashboard`) to'q va och chart
+   fonida qanday ko'rinishini tekshiring.
+7. **Fayllar:** `MQL5/Files` (tester'da: agent papkasi) ichida `Sirus_ReasonCode_*.csv` va
+   `Sirus_EntryDNA_*.csv` paydo bo'lishi kerak.
+
 ### Natijani yuborish
 - Tester'ning **Journal** (Журнал) oynasidan `[SIRUS REASON` bilan boshlanadigan qatorlar,
   ayniqsa 06:00–06:30 oralig'idagilar.

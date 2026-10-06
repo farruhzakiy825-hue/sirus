@@ -283,7 +283,7 @@ dashboard ham qayta ko'rib chiqilsin.
   raqamlar uchun monospace), ixcham. Yangi Market Brain ma'lumotlari (bias, oxirgi hodisalar,
   zona roli, veto) dashboard'da ko'rinadi.
 
-### 11-bosqich: Yakuniy tekshiruv
+### 11-bosqich: Yakuniy tekshiruv — 🟡 kod ko'rib chiqildi (format, e'lon tartibi, nomlar, balans; V1 va `MBReversalAfter` tuzatildi); kompilyatsiya va tester egasida (`REGRESSION_TEST.md`)
 - Butun kodni qayta o'qib chiqish (kompilyatsiya xavflari, mantiq, chegaraviy holatlar).
 - Regression holatlari (4142, 4126) tester'da: kutilgan natija bilan solishtirish.
 - Baseline (v31.68) bilan backtest solishtiruvi: savdolar soni (kuniga 250–450), DD, foyda.

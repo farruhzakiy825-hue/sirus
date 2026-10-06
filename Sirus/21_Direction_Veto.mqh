@@ -50,23 +50,9 @@ int      G_MB_VETO_COUNT = 0;
 string   G_MB_VETO_LAST = "";
 datetime G_MB_VETO_LAST_PRINT = 0;
 
-// V1. True when the market has just turned against `dir`.
-bool MBVetoReversalCheck(const int dir, string &why)
+// V1 for one opposite liquidity event (index sw): true when it stands, confirmed and unanswered.
+bool MBVetoReversalFrom(const int dir, const int sw, string &why)
 {
-   // The most recent relevant opposite liquidity event (sweep or fake break), M5 and up.
-   int sw = -1;
-   for(int idx = 0; idx < MB_EV_MAX; idx++)
-   {
-      if(!MBEventRelevant(idx)) continue;
-      if(G_MB_EV[idx].dir != -dir) continue;
-      if(G_MB_EV[idx].type != MB_EV_LIQ_SWEEP && G_MB_EV[idx].type != MB_EV_FAKE_BREAK) continue;
-      if(MBEventRank(G_MB_EV[idx].tfi) < 1) continue;
-      if(sw < 0 || G_MB_EV[idx].time > G_MB_EV[sw].time)
-         sw = idx;
-   }
-   if(sw < 0)
-      return false;
-
    datetime t0 = G_MB_EV[sw].time;
    bool htf = (MBEventRank(G_MB_EV[sw].tfi) >= 3);
 
@@ -105,6 +91,26 @@ bool MBVetoReversalCheck(const int dir, string &why)
                       MBEventAgeBars(G_MB_EV[sw]), conf,
                       (dir < 0 ? "SELL" : "BUY"));
    return true;
+}
+
+// V1. True when the market has just turned against `dir`: ANY relevant opposite sweep / fake break
+// (M5 and up) that is confirmed and not yet answered - a newer, smaller, unconfirmed sweep does not
+// hide an older H4 one. Higher timeframes are checked first.
+bool MBVetoReversalCheck(const int dir, string &why)
+{
+   for(int rank = 4; rank >= 1; rank--)
+   {
+      for(int idx = 0; idx < MB_EV_MAX; idx++)
+      {
+         if(!MBEventRelevant(idx)) continue;
+         if(G_MB_EV[idx].dir != -dir) continue;
+         if(G_MB_EV[idx].type != MB_EV_LIQ_SWEEP && G_MB_EV[idx].type != MB_EV_FAKE_BREAK) continue;
+         if(MBEventRank(G_MB_EV[idx].tfi) != rank) continue;
+         if(MBVetoReversalFrom(dir, idx, why))
+            return true;
+      }
+   }
+   return false;
 }
 
 // V2 + V3. The zone the entry leans on, and the one it is walking into.

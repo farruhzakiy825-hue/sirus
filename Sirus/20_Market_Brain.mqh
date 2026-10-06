@@ -128,33 +128,43 @@ int MBLastStructureEvent(const int tfi)
 bool MBReversalAfter(const int dir, const int tf_lo, const int tf_hi, const bool key, const datetime after, string &what, datetime &sweep_time)
 {
    sweep_time = 0;
-   int sw = -1;
-   for(int idx = 0; idx < MB_EV_MAX; idx++)
+   // Every relevant sweep / fake break toward `dir` in range, newest first; the first one followed
+   // by a confirmation wins (a newer unconfirmed sweep does not hide an older confirmed one).
+   int used[];
+   ArrayResize(used, MB_EV_MAX);
+   ArrayInitialize(used, 0);
+   while(true)
    {
-      if(G_MB_EV[idx].time <= after || G_MB_EV[idx].dir != dir) continue;
-      if(G_MB_EV[idx].type != MB_EV_LIQ_SWEEP && G_MB_EV[idx].type != MB_EV_FAKE_BREAK) continue;
-      int tfi = G_MB_EV[idx].tfi;
-      bool in_range = (tfi >= tf_lo && tfi <= tf_hi) || (key && tfi == MB_POOL_KEY);
-      if(!in_range) continue;
-      int lim = (tfi == MB_POOL_KEY) ? 2 * MBRelevantBarsHTF : MBRelevantLimit(tfi);
-      if(MBEventAgeBars(G_MB_EV[idx]) > lim) continue;
-      if(sw < 0 || G_MB_EV[idx].time > G_MB_EV[sw].time)
-         sw = idx;
-   }
-   if(sw < 0)
-      return false;
-   for(int idx = 0; idx < MB_EV_MAX; idx++)
-   {
-      if(G_MB_EV[idx].time < G_MB_EV[sw].time || G_MB_EV[idx].dir != dir) continue;
-      int ty = G_MB_EV[idx].type;
-      if(ty == MB_EV_DISPLACEMENT || ty == MB_EV_MSS || ty == MB_EV_BOS || ty == MB_EV_RECLAIM)
+      int sw = -1;
+      for(int idx = 0; idx < MB_EV_MAX; idx++)
       {
-         sweep_time = G_MB_EV[sw].time;
-         what = StringFormat("%s %s %s @ %s + %s %s", MBTFName(G_MB_EV[sw].tfi),
-                             (dir > 0 ? "sell-side" : "buy-side"), MBEventName(G_MB_EV[sw].type),
-                             DoubleToString(G_MB_EV[sw].level, _Digits),
-                             MBTFName(G_MB_EV[idx].tfi), MBEventName(ty));
-         return true;
+         if(used[idx] != 0) continue;
+         if(G_MB_EV[idx].time <= after || G_MB_EV[idx].dir != dir) continue;
+         if(G_MB_EV[idx].type != MB_EV_LIQ_SWEEP && G_MB_EV[idx].type != MB_EV_FAKE_BREAK) continue;
+         int tfi = G_MB_EV[idx].tfi;
+         bool in_range = (tfi >= tf_lo && tfi <= tf_hi) || (key && tfi == MB_POOL_KEY);
+         if(!in_range) continue;
+         if(!MBEventRelevant(idx)) continue;
+         if(sw < 0 || G_MB_EV[idx].time > G_MB_EV[sw].time)
+            sw = idx;
+      }
+      if(sw < 0)
+         return false;
+      used[sw] = 1;
+
+      for(int idx = 0; idx < MB_EV_MAX; idx++)
+      {
+         if(G_MB_EV[idx].time < G_MB_EV[sw].time || G_MB_EV[idx].dir != dir) continue;
+         int ty = G_MB_EV[idx].type;
+         if(ty == MB_EV_DISPLACEMENT || ty == MB_EV_MSS || ty == MB_EV_BOS || ty == MB_EV_RECLAIM)
+         {
+            sweep_time = G_MB_EV[sw].time;
+            what = StringFormat("%s %s %s @ %s + %s %s", MBTFName(G_MB_EV[sw].tfi),
+                                (dir > 0 ? "sell-side" : "buy-side"), MBEventName(G_MB_EV[sw].type),
+                                DoubleToString(G_MB_EV[sw].level, _Digits),
+                                MBTFName(G_MB_EV[idx].tfi), MBEventName(ty));
+            return true;
+         }
       }
    }
    return false;
