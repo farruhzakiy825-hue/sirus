@@ -1,5 +1,25 @@
 # CHANGELOG — Sirus Brain V8
 
+## Kirish kengashi: lokal + shamlar + zona birga hal qiladi
+
+- **Holat (6-oktabr, 18:42):** BRAIN SWEEP SELL 4168.905 da ochildi. O'sha paytda:
+  - lokal ▲, M5/M15 bosimi ▲/▲, H1/H4 ↗;
+  - narx yashil support ustida turgan edi;
+  - global zaif edi: "ayiqlar uyg'onmoqda", 37%.
+  Kichik M1 sweep o'zini "burilish shami" deb oqlab, sham qoidasini chetlab o'tdi.
+- **Kengash (`EnableEntryCouncil`, V6 veto va har bir miya kirishi):**
+  1. **Uchlik qoida:** lokal, M5 va M15 uchalasi qarshi bo'lsa, kirish yo'q, sweep bo'lsa ham. Istisno: M15+ likvidlik reversali va undan keyin yopilgan M5 burilish shami.
+  2. **Sweep o'zini oqlamaydi:**
+     - burilish dalili faqat yopilgan M5 shami;
+     - M1 pool sweepi faqat lokal o'sha tomonda bo'lsa olinadi;
+     - tasdiqlangan sweep 10 daqiqadan eski emas (avval 30 daqiqa edi) va narx undan 1 ATR(M5) dan uzoqlashmagan bo'lishi kerak.
+  3. **Qarshi zona:** SELL ostida ushlab turgan support yoki BUY ustida resistance 0.35 ATR(M5) ichida bo'lsa, robot kutadi. Zonani M5 yopilib buzsa, kiradi.
+  4. **Zaif global lokalni bosmaydi:** global o'tish holatida yoki ishonchi 50% dan past bo'lsa, lokalga qarshi kirilmaydi. Istisno: M5 burilish shami, yoki lokal oyoq charchagan joyda M1 burilish shami.
+- **Savdo soni kamaymasligi uchun:**
+  - kengash bir tomonni yopsa, nomzodlar qolgan tomonda qidiriladi;
+  - yangi **BRAIN ALIGNED** kirishi: lokal oyoq va M5 shamlari bir tomonda, M1 qarshi emas, harakat kech emas va trigger bor bo'lsa, o'sha tomonga kiradi. Masalan, SELL ochib bo'lmaydigan joyda BUY.
+- **Tezlik:** kengash natijasi har tick va har yo'nalish uchun bir marta hisoblanadi.
+
 ## Cashback rejimida trailing o'chirildi
 
 - **Muammo:** cashback rejimida alohida "rebate trailing" yoqilgan edi (TP ga yetganda yopmasdan, TP × 0.75 qulf bilan kuzatardi). Broker stopi sirpanish va spred bilan ishlagani uchun savatlar mayda zararda yopilib qolardi.

@@ -461,9 +461,9 @@ bool MBEntryJudgeAllows(const int dir, string &why)
                                    StringFind(ev_what, "FAKE") >= 0 || StringFind(ev_what, "RECLAIM") >= 0));
    // FIX(sell-into-bull): a tired move (M5 AND M15 pressure the other way) only downgraded the entry
    // to CAUTION, and CAUTION trades full size (MinFirstEntryLotFactor = 1.0) - so a SELL went in while
-   // the M5 and M15 candles were bullish. Now it waits for an M5 candle that turns, or a confirmed
-   // reversal with a reaction candle. And a pullback still running on M1 AND M5 waits for M1 to turn.
-   bool turn5 = MBCandleConfirms(1, dir) || (rev_ok && MBReactionCandle(dir));
+   // the M5 and M15 candles were bullish. Now it waits for a closed M5 candle that turns (a fresh
+   // sweep alone no longer counts). And a pullback still running on M1 AND M5 waits for M1 to turn.
+   bool turn5 = MBCandleConfirms(1, dir);   // COUNCIL (2): a closed M5 candle - a sweep is not its own proof
    bool tired_block = EnableCandleReadingGate && press_tired && !turn5;
    bool pb_running = EnableCandleReadingGate && p5 == -dir && p1 == -dir && !rev_candle;
    if(leg_against)
@@ -645,6 +645,8 @@ bool MBHasTriggerNow(const int dir)
 // (a strong one against the strongest bias).
 bool MBDirOk(const int d)
 {
+   if(!MBCouncilOk(d))
+      return false;   // the council (local + candles + zone) refuses this side - leave room for the other
    int a = d * G_MB_BIAS;
    if(a >= 0)
       return true;
@@ -676,7 +678,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       int ra = rd * G_MB_BIAS;
       bool ra_ok = (ra >= 2) || (ra == 0 && bias_min == 0) ||
                    (ra == 1 && IsReversalOpportunityType(G_OPP_TYPE) && G_OPP_DIR == (rd > 0 ? OPP_DIR_BUY : OPP_DIR_SELL));
-      if(ra >= bias_min && ra_ok && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBHasTriggerNow(rd))
+      if(ra >= bias_min && ra_ok && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBCouncilOk(rd) && MBHasTriggerNow(rd))
       {
          dir = rd;
          why = StringFormat("FAST RE-ENTRY %s: last basket won %d min ago, thesis still %s (%s)",
@@ -702,7 +704,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       bool fresh_trend = !(G_MB_IMP_DIR[0] == d && G_MB_SPEED[0] >= MB_SPEED_LATE) && MBHasTriggerNow(d);
       bool pullback_trend = MBPullbackResume(d);   // a late trend, entered off its pullback
       if(BrainEntryTrend && d != 0 && d * G_MB_BIAS >= 2 && G_MB_TH_DIR == d && thesis_open && G_MB_TH_CONTRA <= 1 &&
-         (fresh_trend || pullback_trend))
+         (fresh_trend || pullback_trend) && MBCouncilOk(d))
       {
          dir = d;
          if(pullback_trend && !fresh_trend)
@@ -720,7 +722,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       {
          int gd = MBSign(G_MB_BIAS);
          string hw = "";
-         if(MBHandoffNow(gd, hw) && MBHasTriggerNow(gd))
+         if(MBHandoffNow(gd, hw) && MBCouncilOk(gd) && MBHasTriggerNow(gd))
          {
             dir = gd;
             G_MB_FAST_TYPE = (int)OPP_TYPE_EXHAUSTION_REVERSAL;
@@ -732,7 +734,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       if(dir == 0 && MathAbs(G_MB_BIAS) >= 2)
       {
          int gd = MBSign(G_MB_BIAS);
-         if(MBLayerLocal() == gd && MBPullbackResume(gd))
+         if(MBLayerLocal() == gd && MBPullbackResume(gd) && MBCouncilOk(gd))
          {
             dir = gd;
             G_MB_FAST_TYPE = (int)OPP_TYPE_PULLBACK_CONTINUATION;
@@ -751,12 +753,21 @@ bool MBFastEntryCandidate(int &dir, string &why)
                continue;   // V0 would refuse it - leave room for the other candidates
             string w = "";
             bool live = MBLiveSweepFresh(sd, w) && (TimeCurrent() - G_MB_LSW_TIME) <= 60;
+            // COUNCIL (2): an M1 pool sweep is a small thing - only with the local leg on its side.
+            if(live && G_MB_LSW_TFI == 0 && MBLayerLocal() != sd)
+               live = false;
             if(!live)
             {
-               // A fresh confirmed M5+ sweep / fake break with a reclaim.
+               // A fresh confirmed M5+ sweep / fake break with a reclaim: at most 10 minutes old, and
+               // price not already 1 ATR(M5) away from where it happened (no late entry into the next level).
                datetime swt = 0;
-               if(MBReversalAfter(sd, 1, 2, true, TimeCurrent() - 1800, w, swt))
-                  live = true;
+               if(MBReversalAfter(sd, 1, 2, true, TimeCurrent() - 600, w, swt))
+               {
+                  int sh = iBarShift(_Symbol, PERIOD_M1, swt);
+                  double ref = (sh >= 0) ? iClose(_Symbol, PERIOD_M1, sh) : 0.0;
+                  double atr5s = G_MB_ATR[1] * _Point;
+                  live = (ref > 0.0 && atr5s > 0.0 && sd * (bid - ref) <= atr5s);
+               }
             }
             if(live)
             {
@@ -811,12 +822,33 @@ bool MBFastEntryCandidate(int &dir, string &why)
       int ld = -MBSign(G_MB_BIAS);
       int lv = MBLocalLevel(ld);
       bool late = (G_MB_IMP_DIR[0] == ld && G_MB_SPEED[0] >= MB_SPEED_LATE);
-      if(MBLocalOkFor(ld) && !late && MBHasTriggerNow(ld))
+      if(MBLocalOkFor(ld) && !late && MBCouncilOk(ld) && MBHasTriggerNow(ld))
       {
          dir = ld;
          G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;
          why = StringFormat("BRAIN LOCAL %s: local leg %s against %s (M1/M5 structure + pressure), trigger now",
                             (ld > 0 ? "BUY" : "SELL"), (lv >= 2 ? "strong" : "clear"), MBBiasName(G_MB_BIAS));
+      }
+   }
+
+   // 6. ALIGNED (owner: "where a SELL may not open, a BUY may"): the local leg and the M5 candles
+   //    point the same way, M1 is not against it, the leg is not late and something triggers now. This
+   //    is the side the council keeps open when it refuses the other - turnover without fighting the tape.
+   if(dir == 0 && EnableBrainEntries && EnableEntryCouncil)
+   {
+      for(int cd = -1; cd <= 1 && dir == 0; cd += 2)
+      {
+         if(MBLayerLocal() != cd || MBPressureSide(1) != cd || MBPressureSide(0) == -cd)
+            continue;
+         bool late = (G_MB_IMP_DIR[0] == cd && G_MB_SPEED[0] >= MB_SPEED_LATE) ||
+                     (G_MB_IMP_DIR[1] == cd && G_MB_SPEED[1] >= MB_SPEED_EXPIRED);
+         if(!late && MBDirOk(cd) && MBHasTriggerNow(cd))
+         {
+            dir = cd;
+            G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;
+            why = StringFormat("BRAIN ALIGNED %s: local leg and M5 candles %s, trigger now (%s)", (cd > 0 ? "BUY" : "SELL"),
+                               (cd > 0 ? "up" : "down"), MBBiasName(G_MB_BIAS));
+         }
       }
    }
 

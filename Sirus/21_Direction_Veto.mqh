@@ -44,6 +44,9 @@ input double MBVetoRoomTPMult         = 1.0;    // V3: zonagacha masofa < savat 
 input bool   MBVetoAcceleration       = true;   // V4: harakat hozir qarama-qarshi tomonga tezlashmoqda
 input bool   MBVetoPrintOnUse         = true;   // Veto'ni jurnalga yozish ([SIRUS VETO])
 input bool   EnableMBPermission       = true;   // V0: Market Brain yo'nalish ruxsati (BEARISH da BUY yo'q, TRANSITION da faqat reversal turi ...)
+input bool   EnableEntryCouncil       = true;   // KENGASH: lokal + M5/M15 shamlari + zona birga hal qiladi. Uchalasi qarshi bo'lsa sweep ham kirgizmaydi; zaif global lokalni bosmaydi; qarshi zonaga kirmaydi. Bir tomon yopilsa - boshqa tomon (LOCAL / MOMENTUM) kirishi mumkin
+input int    CouncilWeakGlobalConf    = 50;     // Global ishonchi shundan past yoki o'tish holatida bo'lsa - yo'nalishni lokal hal qiladi
+input double CouncilZoneATR5          = 0.35;   // SELL ostida ushlab turgan support / BUY ustida resistance shu ATR(M5) ichida bo'lsa - kirmaydi (M5 yopilib buzilmaguncha)
 input int    MBPermExceptionMargin    = 2;      // V0: zaif qarama-qarshi bias'da faqat reversal setup va ball >= minimum + shu
 input bool   MBOwnsDuplicateGates     = true;   // Miya savdo tomonida bo'lsa, xuddi shu savolni beradigan ESKI filtrlar (joy, impuls quvish, HTF, eski daraja, singan daraja, aniqlik) chetga turadi - javobni miya veto'si va hakami beradi. Miya qarshi bo'lsa ikkala qatlam ham ishlaydi
 
@@ -237,6 +240,93 @@ int MBBiasAlign(const int dir)
    return dir * G_MB_BIAS;
 }
 
+// ENTRY COUNCIL (owner rule: read the local leg, the candles and the zone together). True = this
+// direction may not be entered now; the other direction is still free to qualify.
+//  1. local layer, M5 pressure and M15 pressure all the other way - no entry, a sweep included,
+//     unless a closed M5 candle turned this way after a confirmed M15+ liquidity reversal;
+//  2. (sweeps) a sweep is not its own proof - see the judge and the SWEEP entry;
+//  3. a holding zone of the other side right in front (support under a SELL, resistance over a
+//     BUY) - wait until an M5 candle closes through it;
+//  4. a weak global bias (transition, or confidence below CouncilWeakGlobalConf) does not override
+//     the local leg the other way - unless an M5 candle turned, or an M1 one did at a spent leg.
+bool MBGlobalWeak()
+{
+   return (MathAbs(G_MB_BIAS) <= 1 || G_MB_BIAS_CONF < CouncilWeakGlobalConf);
+}
+
+bool MBCouncilEval(const int dir, string &why)
+{
+   why = "";
+   int loc = MBLayerLocal();
+   int p5 = MBPressureSide(1), p15 = MBPressureSide(2);
+   bool m5_turn = MBCandleConfirms(1, dir);
+   // 1. The triple rule.
+   if(loc == -dir && p5 == -dir && p15 == -dir)
+   {
+      string w = "";
+      datetime t = 0;
+      if(!(m5_turn && MBReversalAfter(dir, 2, 4, true, TimeCurrent() - 3600, w, t)))
+      {
+         why = "council: local leg, M5 and M15 candles all the other way";
+         return true;
+      }
+   }
+   // 4. A weak global bias does not override the local leg.
+   if(loc == -dir && dir * G_MB_BIAS >= 0 && MBGlobalWeak() &&
+      !(m5_turn || (MBCandleConfirms(0, dir) && MBLocalLegSpent(-dir))))
+   {
+      why = StringFormat("council: weak global (%s, %d%%) does not override the local leg the other way",
+                         MBBiasName(G_MB_BIAS), G_MB_BIAS_CONF);
+      return true;
+   }
+   // 3. A holding zone of the other side right in front.
+   double atr5 = G_MB_ATR[1] * _Point;
+   if(EnableZoneRoleEngine && atr5 > 0.0 && CouncilZoneATR5 > 0.0)
+   {
+      double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
+      double lvl = (dir > 0) ? ZoneMapNearestResistance(px) : ZoneMapNearestSupport(px);
+      if(px > 0.0 && lvl > 0.0 && dir * (lvl - px) <= CouncilZoneATR5 * atr5 && dir * (lvl - px) >= -0.1 * atr5)
+      {
+         SMBZone z;
+         double c5 = iClose(_Symbol, PERIOD_M5, 1);
+         bool broken = (c5 > 0.0 && dir * (c5 - lvl) > 0.1 * atr5);
+         if(!broken && MBZoneRead(lvl, z) && z.role == -dir && !z.pending_break)
+         {
+            why = StringFormat("council: %s %s holds right in front (%.2f ATR) - waiting for an M5 close through it",
+                               (dir > 0 ? "resistance" : "support"), DoubleToString(lvl, _Digits), MathAbs(lvl - px) / atr5);
+            return true;
+         }
+      }
+   }
+   return false;
+}
+
+// Memoised per tick and direction - the brain entries ask several times a tick.
+bool MBCouncilBlocks(const int dir, string &why)
+{
+   why = "";
+   if(!EnableEntryCouncil || !EnableMarketBrain || !EnableMarketBrainEngines || dir == 0 || !G_MB_BRAIN_PRIMED)
+      return false;
+   static long   cb_msc[2] = {0, 0};
+   static bool   cb_res[2] = {false, false};
+   static string cb_why[2];
+   int k = (dir > 0) ? 1 : 0;
+   long msc = SymbolInfoInteger(_Symbol, SYMBOL_TIME_MSC);
+   if(msc != cb_msc[k] || msc == 0)
+   {
+      cb_res[k] = MBCouncilEval(dir, cb_why[k]);
+      cb_msc[k] = msc;
+   }
+   why = cb_why[k];
+   return cb_res[k];
+}
+
+bool MBCouncilOk(const int dir)
+{
+   string w = "";
+   return !MBCouncilBlocks(dir, w);
+}
+
 bool MBStandsInFor(const int dir, const bool location_gate)
 {
    if(!MBOwnsDuplicateGates || !EnableMarketBrain || !EnableMarketBrainEngines || !EnableMBVeto || dir == 0)
@@ -331,6 +421,8 @@ bool MBVetoAllowsEntry(const int dir, string &why)
       why = "V5 exhausted: " + why;   // stage 13 (A4): no new entry into a spent impulse
       blocked = true;
    }
+   else if(MBCouncilBlocks(dir, why))
+      blocked = true;                  // V6: the entry council (local + candles + zone)
 
    if(!blocked)
       return true;
