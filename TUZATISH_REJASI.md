@@ -20,7 +20,8 @@
 | 18 | Qayta init'da holat | ✅ `G_BARS_SEEN` endi nolga qaytarilmaydi, 55 ta `static` kesh himoyalandi |
 | 19 | Jurnal shovqini | ✅ `VerboseLogs` umumiy kaliti (165 ta `PrintOnUse` uning ostida) |
 | 20, 21 | Sarlavha, `#property strict`, takroriy e'lonlar | ✅ |
-| 22, 23 | Kommentlar tarixi, modullarga bo'lish | ⏳ Kompilyatsiya tasdiqlangandan keyin alohida bosqich |
+| 22 | Kommentlar tarixi | ✅ Kommentlar kodda qoldi, chunki ular kod nima uchun shunday yozilganini tushuntiradi. `CHANGELOG.md` da 155 ta tegning ko'rsatkichi bor |
+| 23 | Modullarga bo'lish | ✅ Kod `Sirus/` papkasidagi 17 ta qismga bo'lindi. Qayta yig'ilgan kod oldingisi bilan qatorma-qator bir xil |
 
 > Raqamlar quyidagi 2-bo'limdagi ro'yxat bo'yicha.
 
