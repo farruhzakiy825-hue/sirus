@@ -217,6 +217,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
 
    int a = dir * G_MB_BIAS;
    string etype = MBEntryTypeName(dir, a);
+   int loc_lv = (a < 0) ? MBLocalLevel(dir) : 0;   // a local leg against the global bias
 
    // --- DIRECTION ---
    bool dir_ok = (a >= 1) || (a == 0 && dir * G_MB_TF_STATE[1] > 0);
@@ -382,6 +383,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    q -= decay;
    // STAGE 15: playbook, candles and FVG.
    if(fvg_ok) q += 5.0;
+   if(loc_lv >= 2) q += 15.0; else if(loc_lv == 1) q += 10.0;   // local leg against the global bias
    if(seq_against) q -= 6.0;   // an M5 reversal is forming against this entry
    bool rg_live_break = (trig_live || (trig_event && StringFind(ev_what, "LIVE") == 0) ||
                          (trig_event && StringFind(ev_what, "COMP-RELEASE") >= 0));
@@ -438,7 +440,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       missing = StringFormat("tick flow against: imbalance %.0f%% the other way over %d ticks", -flow * 100.0, G_MB_FLOW_N);
    else if(rg == MB_RG_EXPANSION && dir == -G_MB_RG_DIR && !rev_ok)
       missing = "playbook: against an M15 expansion without a confirmed reversal";
-   else if(rg == MB_RG_TREND && dir == -G_MB_RG_DIR && a <= 0 && !rev_ok)
+   else if(rg == MB_RG_TREND && dir == -G_MB_RG_DIR && a <= 0 && !rev_ok && loc_lv == 0)
       missing = "playbook: against the M15 trend regime without a confirmed reversal";
    else if(chase == 2 && !rev_ok)
       missing = StringFormat("chasing: M1 impulse EXPIRED (%.1f ATR without a pullback)", G_MB_IMP_TRAVEL[0]);
@@ -461,6 +463,14 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       if(!(trig_ok && rev_ok))
          missing = StringFormat("transition entry needs a trigger AND a confirmed liquidity reversal (trigger %s, reversal %s)",
                                 (trig_ok ? "ok" : "none"), (rev_ok ? "ok" : "none"));
+   }
+   else if(loc_lv >= 1)
+   {
+      // A local leg against the global bias: the local structure stands in for the reversal proof,
+      // but it still needs a trigger, and a place unless the local case is strong.
+      if(!(trig_ok && (loc_ok || loc_lv >= 2)))
+         missing = StringFormat("local entry needs a trigger and a location (trigger %s, location %s)",
+                                (trig_ok ? "ok" : "none"), (loc_ok ? "ok" : "none"));
    }
    else
    {
@@ -578,6 +588,16 @@ bool MBHasTriggerNow(const int dir)
           (G_MB_LIVE_DIR == dir) || MBFreshTriggerEvent(dir, w);
 }
 
+// May a brain entry go this way? With the global bias, or neutral - or against it on a local leg
+// (a strong one against the strongest bias).
+bool MBDirOk(const int d)
+{
+   int a = d * G_MB_BIAS;
+   if(a >= 0)
+      return true;
+   return MBLocalLevel(d) >= ((a <= -3) ? 2 : 1);
+}
+
 bool MBFastEntryCandidate(int &dir, string &why)
 {
    dir = 0;
@@ -645,7 +665,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       {
          for(int sd = -1; sd <= 1 && dir == 0; sd += 2)
          {
-            if(sd * G_MB_BIAS < 0)
+            if(!MBDirOk(sd))
                continue;   // V0 would refuse it - leave room for the other candidates
             string w = "";
             bool live = MBLiveSweepFresh(sd, w) && (TimeCurrent() - G_MB_LSW_TIME) <= 60;
@@ -670,7 +690,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       {
          double pos = (bid - G_MB_RG_LO) / (G_MB_RG_HI - G_MB_RG_LO);
          int rd2 = (pos <= 0.20) ? 1 : ((pos >= 0.80) ? -1 : 0);
-         if(rd2 != 0 && rd2 * G_MB_BIAS >= 0 && MBHasTriggerNow(rd2))
+         if(rd2 != 0 && MBDirOk(rd2) && MBHasTriggerNow(rd2))
          {
             dir = rd2;
             G_MB_FAST_TYPE = (int)OPP_TYPE_RANGE_EDGE;
@@ -691,7 +711,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
             bool early = !(G_MB_IMP_DIR[0] == md && G_MB_SPEED[0] >= MB_SPEED_LATE) &&
                          !(G_MB_IMP_DIR[1] == md && G_MB_SPEED[1] >= MB_SPEED_EXPIRED);
             bool in_box = (EnableRegimePlaybook && G_MB_RG == MB_RG_COMPRESSION && G_MB_LIVE_DIR != md);
-            if(disp && early && !in_box && md * G_MB_BIAS >= 0 && MBPressureSide(1) == md)
+            if(disp && early && !in_box && MBDirOk(md) && MBPressureSide(1) == md)
             {
                dir = md;
                G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;
@@ -699,6 +719,22 @@ bool MBFastEntryCandidate(int &dir, string &why)
                                   (G_MB_LIVE_DIR == md ? "live" : "fresh M1"), MBBiasName(G_MB_BIAS));
             }
          }
+      }
+   }
+
+   // 5. LOCAL LEG: against the global bias, the M1 / M5 structure and pressure have turned this way
+   //    and something triggers now - the bounce inside a falling day, the dip inside a rising one.
+   if(dir == 0 && EnableBrainEntries && EnableLocalTrading && G_MB_BIAS != 0)
+   {
+      int ld = -MBSign(G_MB_BIAS);
+      int lv = MBLocalLevel(ld);
+      bool late = (G_MB_IMP_DIR[0] == ld && G_MB_SPEED[0] >= MB_SPEED_LATE);
+      if(lv >= ((ld * G_MB_BIAS <= -3) ? 2 : 1) && !late && MBHasTriggerNow(ld))
+      {
+         dir = ld;
+         G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;
+         why = StringFormat("BRAIN LOCAL %s: local leg %s against %s (M1/M5 structure + pressure), trigger now",
+                            (ld > 0 ? "BUY" : "SELL"), (lv >= 2 ? "strong" : "clear"), MBBiasName(G_MB_BIAS));
       }
    }
 
@@ -764,6 +800,7 @@ int MBBrainScoreRelief(const int dir, string &why)
    else if(a >= 2 || (a == 1 && IsReversalOpportunityType(G_OPP_TYPE)))
       r = MathMax(0, MBReliefWeak);   // a == 1: V0 admits only reversal types there
    else if(a == 0 && th_with && MBCashbackTempo()) r = 1;
+   else if(a < 0 && MBLocalLevel(dir) >= ((a <= -3) ? 2 : 1)) r = MathMax(0, MBReliefWeak);   // a local leg
    if(r > 0)
       why = StringFormat("brain %s%s +%d", MBBiasName(G_MB_BIAS), (th_with ? ", thesis open" : ""), r);
    return r;

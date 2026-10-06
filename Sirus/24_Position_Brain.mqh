@@ -57,6 +57,7 @@ bool     G_MB_PB_RESCUED   = false;
 int      G_MB_PB_WAIT_ORDERS = -1;  // grid response wait: rung being held
 datetime G_MB_PB_CHECK_BAR   = 0;   // M1 bar of the last death / rescue check
 datetime G_MB_PB_WAIT_LAST   = 0;   // last time the grid asked for this rung
+bool     G_MB_PB_LOCAL       = false; // opened against the global bias (a local leg)
 datetime G_MB_PB_WAIT_SINCE  = 0;
 
 // Stage 16: Recovery Judge state for the open basket.
@@ -477,6 +478,7 @@ void MBPositionBrainUpdate()
       // gets its bookkeeping (result, last close, recovery log) before the state moves on.
       if(G_MB_PB_BASKET != 0 && opened != G_MB_PB_BASKET)
          MBPBCloseBookkeeping();
+      G_MB_PB_LOCAL = (dir * G_MB_BIAS < 0);
       G_MB_PB_BASKET = opened;
       G_MB_PB_DIR = dir;
       G_MB_PB_DEAD = false;
@@ -628,7 +630,9 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
    // all three, and no timeout opens them.
    string gm_why = "";
    int maxo = GridEffectiveMaxOrders(gm_why);
-   bool reserve = (GridReserveRungs > 0 && maxo - orders <= GridReserveRungs);
+   // A basket opened on a local leg against the global bias averages only like the reserve rungs:
+   // structure, a spent move against it and a response - never on time alone.
+   bool reserve = (GridReserveRungs > 0 && maxo - orders <= GridReserveRungs) || G_MB_PB_LOCAL;
    if(reserve)
    {
       if(response && at_structure && MBAdverseSpent(dir))

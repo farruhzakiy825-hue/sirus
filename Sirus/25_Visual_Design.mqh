@@ -669,6 +669,7 @@ void MBDrawPanel()
          if(StringLen(st_txt) > 0) board += "  ·  " + st_txt;
          MBPanelLine("B_EVB", board, muted, false, x0, w, lh);
       }
+      MBPanelLine("B_LOCAL", StringFormat("Lokal oqim: %s  (global: %s)", MBLocalText(), MBBiasArrow(G_MB_BIAS)), ink, false, x0, w, lh);
       MBPanelLine("B_TF", StringFormat("TF  M5 %s  M15 %s  H1 %s  H4 %s  ·  Bosim  M1 %s  M5 %s  M15 %s",
                                        MBBiasArrow(G_MB_TF_STATE[1]), MBBiasArrow(G_MB_TF_STATE[2]),
                                        MBBiasArrow(G_MB_TF_STATE[3]), MBBiasArrow(G_MB_TF_STATE[4]),

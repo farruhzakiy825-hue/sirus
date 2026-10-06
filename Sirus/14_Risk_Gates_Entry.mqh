@@ -4077,6 +4077,9 @@ bool MBOwnsGate(const bool location_gate)
                         G_OPP_TYPE == OPP_TYPE_MOMENTUM_SCALP);
       if(!location_gate || MBBiasAlign(d) >= 1 || (MBBiasAlign(d) == 0 && own_place))
          return true;
+      // A brain LOCAL / momentum entry against the global bias: the judge demands its own place.
+      if(MBBiasAlign(d) < 0 && own_place && MBStandsInFor(d, false))
+         return true;
    }
    return MBStandsInFor(d, location_gate);
 }

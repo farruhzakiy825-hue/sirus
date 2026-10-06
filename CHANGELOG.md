@@ -1,5 +1,20 @@
 # CHANGELOG — Sirus Brain V8
 
+## Lokal savdo: global yo'nalishga qarshi lokal oyoqlar
+
+- **Muammo:** robot faqat global yo'nalishda (M15 va undan yuqori) savdo qilardi. Global SELL bo'lsa, BUY ni bir necha joy birdaniga to'sardi: V0, hakam (tasdiqlangan reversal talabi), rejim qoidasi va miya kirishlari. Shuning uchun lokal ko'tarilishlar o'tkazib yuborilardi.
+- **Lokal daraja** (`EnableLocalTrading`, `MBLocalLevel`):
+  - **1:** M5 strukturasi shu tomonda va bosim bor, yoki M1 strukturasi shu tomonda va M1 bilan M5 bosimi ham shu tomonda.
+  - **2 (kuchli):** M5 va M1 strukturasi ham, ikkala bosim ham shu tomonda, ustiga so'nggi 30 daqiqada M1/M5 likvidlik reversali bor.
+- **Qayerga ta'sir qiladi:**
+  - **V0:** zaif yoki uyg'onayotgan qarshi biasda lokal 1 yetarli. Eng kuchli qarshi biasda lokal 2 kerak.
+  - **Hakam:** lokal setupda reversal isboti o'rnida lokal struktura ishlatiladi. Baribir trigger kerak, joy ham kerak (lokal 2 bo'lsa joy shart emas). Sifatga +10 / +15.
+  - **Miya kirishlari:** yangi **BRAIN LOCAL** turi qo'shildi. Sweep, diapazon va momentum kirishlari ham lokal ruxsat bilan qarshi tomonga ochila oladi.
+  - **Miya yengilligi:** lokal setupga +2.
+  - **Eski filtrlar:** ball solig'i filtrlari (HTF qarshi, eski daraja va boshqalar) lokal setupda chetga turadi. Eski joy himoyasi qoladi.
+- **Grid himoyasi:** globalga qarshi ochilgan savat faqat zaxira pog'onalar qoidasi bilan o'rtachalanadi: tuzilma, charchagan qarshi harakat va sham javobi. Vaqt o'tishi bilan pog'ona qo'shilmaydi.
+- **Panel:** "Lokal oqim: ▲ bor / kuchli (global: ▼)" qatori chiqadi.
+
 ## Yashirin xato: yo'nalish qulfi
 
 - **Xato:**

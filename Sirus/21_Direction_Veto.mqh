@@ -221,6 +221,10 @@ bool MBStandsInFor(const int dir, const bool location_gate)
       return true;
    if(a == 0)
       return !location_gate;
+   // A local leg against the global bias: the old score taxes (HTF against, old level...) are exactly
+   // what the local case overrides; the old location guards stay.
+   if(MBLocalLevel(dir) >= ((a <= -3) ? 2 : 1))
+      return !location_gate;
    return false;
 }
 
@@ -241,6 +245,13 @@ bool MBPermissionCheck(const int dir, string &why)
                          (int)((TimeCurrent() - G_MB_DEAD_TIME) / 60), side);
       return true;
    }
+   // LOCAL TRADING: against the global bias, a local leg that way may still be traded - a strong one
+   // against the strongest bias, an ordinary one against a weak or turning bias.
+   int lv = (a < 0) ? MBLocalLevel(dir) : 0;
+   if(a == -3 && lv >= 2)
+      return false;
+   if((a == -2 || a == -1) && lv >= 1)
+      return false;
    if(a == -3)
    {
       why = StringFormat("V0 permission: bias %s - %s blocked", MBBiasName(G_MB_BIAS), side);

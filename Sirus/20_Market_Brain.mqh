@@ -36,6 +36,7 @@ input bool   EnableMarketBrain        = true;   // Bozor haqida yagona fikr: 7 h
 input double MBPressureWeakGap        = 20.0;   // Bias WEAK bo'ladi: qarama-qarshi sham bosimi shuncha ko'p bo'lsa (0-100 shkala)
 input int    MBInvalidationMemoryM5   = 12;     // O'lgan thesis yo'nalishi ko'pi bilan shuncha M5 bar (1 soat) bloklanadi. HIDDEN-BUG FIX: 24 -> 12, va bozor shu yo'nalishni yangi struktura bilan qayta tasdiqlasa blok darhol ochiladi
 input bool   MBThesisPrintOnUse       = true;   // Thesis o'zgarishlarini jurnalga yozish ([SIRUS THESIS])
+input bool   EnableLocalTrading       = true;   // LOKAL SAVDO: global yo'nalishga qarshi LOKAL harakat (M1 / M5 struktura + bosim) aniq bo'lsa - o'sha tomonga ham kirish (veto, hakam, risk baribir tekshiradi; grid faqat tuzilma + javob bilan)
 input bool   EnableRegimePlaybook     = true;   // 15-BOSQICH (D1): M15 bozor rejimi (TREND / DIAPAZON / PORTLASH / SIQILISH) va har biriga o'z kirish qoidasi
 input int    RegimeLookbackM15        = 20;     // Rejim shuncha M15 bar bo'yicha o'qiladi
 input double RegimeTrendER            = 0.35;   // Samaradorlik (to'g'ri yo'l / yurilgan yo'l) >= shu: TREND
@@ -553,6 +554,45 @@ int MBContradiction(const int dir, const datetime since)
    if(w >= 12.0) return 2;
    if(w >= 5.0)  return 1;
    return 0;
+}
+
+//---------------------------------------------------------------------
+// LOCAL DIRECTION - the market under the global one
+//---------------------------------------------------------------------
+// The brain's bias is global (M15 with H1 / H4). A scalper also lives on the local legs inside it: a
+// bearish day still has bullish M1 / M5 legs worth a few dollars each. 0 = no local case for dir,
+// 1 = a local leg that way (M5 structure with pressure, or M1 structure with M1 and M5 pressure),
+// 2 = a strong one (M5 and M1 structure, both pressures, and a fresh M1 / M5 liquidity reversal).
+int MBLocalLevel(const int dir)
+{
+   if(!EnableLocalTrading || dir == 0)
+      return 0;
+   bool m5 = (MBSign(G_MB_TF_STATE[1]) == dir);
+   bool m1 = (G_MB_TREND[0] == dir);
+   bool p1 = (MBPressureSide(0) == dir);
+   bool p5 = (MBPressureSide(1) == dir);
+   bool lvl1 = (m5 && (p1 || p5)) || (m1 && p1 && p5);
+   if(!lvl1)
+      return 0;
+   if(m5 && m1 && p1 && p5)
+   {
+      string w = "";
+      datetime t = 0;
+      if(MBReversalAfter(dir, 0, 1, false, TimeCurrent() - 1800, w, t))
+         return 2;
+   }
+   return 1;
+}
+
+string MBLocalText()
+{
+   for(int d = 1; d >= -1; d -= 2)
+   {
+      int lv = MBLocalLevel(d);
+      if(lv > 0)
+         return StringFormat("%s %s", (d > 0 ? "▲" : "▼"), (lv >= 2 ? "kuchli" : "bor"));
+   }
+   return "-";
 }
 
 void MBBrainUpdate()
