@@ -69,7 +69,16 @@ bool MBVetoReversalFrom(const int dir, const int sw, string &why)
          return false;
       if((ty == MB_EV_LIQ_SWEEP || ty == MB_EV_FAKE_BREAK) && rk >= 1)
          return false;
+      // LOCK FIX: the trend simply resuming - an M15+ BOS or displacement our way - answers it too.
+      if((ty == MB_EV_BOS || ty == MB_EV_DISPLACEMENT) && rk >= 2)
+         return false;
    }
+   // LOCK FIX: and so does an M5 close beyond the sweep's own extreme - the swept side won after all.
+   double c5 = iClose(_Symbol, PERIOD_M5, 1);
+   double ext = G_MB_EV[sw].extreme;
+   if(c5 > 0.0 && ext > 0.0 && iTime(_Symbol, PERIOD_M5, 1) >= t0_close &&
+      ((dir > 0 && c5 > ext) || (dir < 0 && c5 < ext)))
+      return false;
 
    // Confirmations of the turn, after the sweep.
    bool disp = false, mss = false, reclaim = false;

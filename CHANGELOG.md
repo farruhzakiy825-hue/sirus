@@ -1,5 +1,29 @@
 # CHANGELOG — Sirus Brain V8
 
+## Muzlashga qarshi: 11 ta yashirin qulf tuzatildi
+
+Robotni harakatlanayotgan bozorda 10–60 daqiqa jim qoldiradigan qulflar:
+
+1. **Signal eskirishi:** anchor endi 15 daqiqa emas, 3 daqiqa yashaydi. Har jonli trigger (displacement, LIVE SWEEP, pullback qaytishi) yangi signal hisoblanadi. Trend + joy + trigger bo'lsa, eskirish jazosi yo'q.
+2. **V1 veto davom etuvchi trendda ochilmasdi:** endi M15+ BOS yoki displacement bizning tomonga bo'lsa, yoki M5 sweep ekstremumidan narida yopilsa, veto yechiladi.
+3. **Uyg'onish bosqichi:**
+   - reversal tasdig'i faqat hali dolzarb hodisalardan olinadi;
+   - a = 1 holatida kuchli sham (M1/M5 displacement, rejection, grab) "reversal isboti" o'rnida qabul qilinadi.
+4. **M1 impulsi EXPIRED da qotib qolardi:**
+   - M1 da 0.3 ATR(M5) qaytish ham soatni qaytadan boshlaydi;
+   - yosh M5 impulsi bo'lsa, M1 quvish jazosi bir pog'ona yumshaydi.
+5. **To'xtagan narx xotirasi abadiy edi:** endi 1 soatda yoki narx 3 ATR(M5) uzoqlashganda tozalanadi. Faqat sezilarli zarar yoziladi.
+6. **Tezlik guardi o'zini uzaytirardi:** endi blok bir marta qo'yiladi va o'z vaqtida tugaydi.
+7. **Flip zona (V2):** uchta M5 yopilish darajadan narida bo'lsa, retestsiz ham yangi rol qabul qilinadi.
+8. **Vaqt filtri o'zini abadiy qulflardi:** soat va hafta kuni statistikasi har kuni 10% ga eskiradi.
+9. **Tezis qarama-qarshiligi kunlab to'planardi:** endi faqat dolzarb hodisalar sanaladi.
+10. **Bir tomonlama qulflar:** dalil kuchaytirish har soat bir qadam kamayadi. "O'z-o'zini himoya" rejimi 4 soatdan keyin o'chadi.
+11. **Kunlik kirish limiti:** 200 → 600.
+
+Qo'shimcha tuzatilgan mayda xatolar:
+- vaqtinchalik blok tozalanganda ochiq savat statistikasi nolga tushirilmaydi;
+- zarar bilan yopilgan BUY ham post-SL hisobiga yoziladi.
+
 ## Lokal savdo: global yo'nalishga qarshi lokal oyoqlar
 
 - **Muammo:** robot faqat global yo'nalishda (M15 va undan yuqori) savdo qilardi. Global SELL bo'lsa, BUY ni bir necha joy birdaniga to'sardi: V0, hakam (tasdiqlangan reversal talabi), rejim qoidasi va miya kirishlari. Shuning uchun lokal ko'tarilishlar o'tkazib yuborilardi.

@@ -1181,7 +1181,8 @@ bool CloseNaviusBasket(const string reason)
          double cb_px = (cb_dir > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_BID)
                                      : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
 
-         if(pre_close_profit < 0.0) LocationBrainRecordStop(cb_dir, cb_px);
+         // LOCK FIX: a -$0.01 break-even close is not a stop.
+         if(pre_close_profit < -0.05 * MathMax(1.0, AccountInfoDouble(ACCOUNT_BALANCE)) / 100.0) LocationBrainRecordStop(cb_dir, cb_px);
          else                       LocationBrainClearStop(cb_dir);
       }
 

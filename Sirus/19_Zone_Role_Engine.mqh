@@ -413,6 +413,24 @@ string MBZoneText(const SMBZone &z)
 
 // What the zone at `level` says about an entry in direction dir.
 //   +1 allow, 0 wait (role about to be confirmed), -1 the zone does not support this entry.
+// LOCK FIX: a broken level the market has accepted beyond - the last three M5 closes all on the far
+// side by 0.1 ATR - has its new role, retest or not. Price that runs away from a break never comes
+// back to retest it, and the "not yet retested" veto then blocked the whole move.
+bool MBZoneAccepted(const int dir, const double level)
+{
+   double atr5 = G_MB_ATR[1] * _Point;
+   if(atr5 <= 0.0 || level <= 0.0)
+      return false;
+   for(int i = 1; i <= 3; i++)
+   {
+      double c = iClose(_Symbol, PERIOD_M5, i);
+      if(c <= 0.0) return false;
+      if(dir < 0 && c > level - 0.1 * atr5) return false;   // SELL: closes below the broken support
+      if(dir > 0 && c < level + 0.1 * atr5) return false;   // BUY: closes above the broken resistance
+   }
+   return true;
+}
+
 int MBZoneEntryVerdict(const int dir, const double level, string &why)
 {
    why = "";
@@ -432,7 +450,7 @@ int MBZoneEntryVerdict(const int dir, const double level, string &why)
                             ((z.state == MB_ZS_SWEPT || z.state == MB_ZS_RECLAIMED || z.prev_state == MB_ZS_SWEPT) ? " (swept and reclaimed)" : " (never genuinely broken)"));
          return -1;
       }
-      if(z.flipped && !z.flip_confirmed)
+      if(z.flipped && !z.flip_confirmed && !MBZoneAccepted(dir, level))
       {
          why = StringFormat("broken support %s not yet retested with a bearish rejection", DoubleToString(level, _Digits));
          return 0;
@@ -448,7 +466,7 @@ int MBZoneEntryVerdict(const int dir, const double level, string &why)
                          ((z.state == MB_ZS_SWEPT || z.state == MB_ZS_RECLAIMED || z.prev_state == MB_ZS_SWEPT) ? " (swept and reclaimed)" : " (never genuinely broken)"));
       return -1;
    }
-   if(z.flipped && !z.flip_confirmed)
+   if(z.flipped && !z.flip_confirmed && !MBZoneAccepted(dir, level))
    {
       why = StringFormat("broken resistance %s not yet retested with a bullish rejection", DoubleToString(level, _Digits));
       return 0;

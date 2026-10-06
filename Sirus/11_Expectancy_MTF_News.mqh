@@ -1523,6 +1523,22 @@ void SelfDefenseLoad()
 // Basket yopilishini kuzatadi (post-loss cooldown'dan MUSTAQIL - u o'chiq bo'lsa ham ishlaydi).
 void UpdateSelfDefense()
 {
+   // LOCK FIX: self-defense cleared only after wins it makes harder to get - it now expires after
+   // four hours on its own.
+   {
+      static datetime sd_since = 0;
+      if(G_SD_ACTIVE && sd_since == 0) sd_since = TimeCurrent();
+      if(!G_SD_ACTIVE) sd_since = 0;
+      if(G_SD_ACTIVE && sd_since > 0 && (TimeCurrent() - sd_since) > 4 * 3600)
+      {
+         G_SD_ACTIVE = false;
+         G_SD_LOSS_STREAK = 0;
+         G_SD_RECOVER_WINS = 0;
+         sd_since = 0;
+         SelfDefenseSave();
+         if(VerboseLogs) Print("[SIRUS v31 SELF-DEFENSE] expired after 4 hours - back to normal");
+      }
+   }
    if(G_SD_PREV_ORDERS > 0 && G_BASKET_ORDERS == 0)
    {
       bool was_loss = IsMeaningfulLoss(G_SD_PREV_PROFIT);   // BOSQICH 1
@@ -1544,7 +1560,7 @@ void UpdateSelfDefense()
 
       // V31.6j Post-SL same-direction cooldown: remember direction+bar only when the basket
       // closed in a LOSS (was_loss) - a win doesn't need extra caution on the next same-direction try.
-      if(EnablePostSLDirectionGuard && was_loss && G_SD_PREV_DIRECTION != 0)
+      if(EnablePostSLDirectionGuard && was_loss && G_SD_PREV_DIRECTION >= 0)   // AUDIT FIX: BUY is 0
       {
          G_LAST_SL_DIRECTION = (int)G_SD_PREV_DIRECTION;
          G_LAST_SL_BAR = G_BARS_SEEN;
@@ -1746,6 +1762,22 @@ bool SmartTimeFilterAllowsEntry(string &reason)
    int h   = SafeHourClamp(dt.hour);
    int dow = dt.day_of_week;   // 0=Sunday .. 6=Saturday
 
+   // LOCK FIX: a blocked hour never trades, so its record never changes - the same hour was shut
+   // every day forever. The hour / weekday records now fade 10% a day (in memory), so a bad slot
+   // drops below its sample minimum, gets traded again, and is judged on fresh results.
+   {
+      static int stf_day = -1;
+      if(stf_day != dt.day_of_year)
+      {
+         if(stf_day >= 0)
+         {
+            for(int i = 0; i < 24; i++) { G_HB_WINS[i] *= 0.9; G_HB_LOSSES[i] *= 0.9; }
+            for(int i = 0; i < NAVIUS_DOW_COUNT; i++) { G_DOW_WINS[i] *= 0.9; G_DOW_LOSSES[i] *= 0.9; }
+         }
+         stf_day = dt.day_of_year;
+      }
+   }
+
    if(TimeFilterUseHour && EnableHourBayes)
    {
       double h_samples = HourBayesSampleCount(h);
@@ -1901,7 +1933,10 @@ void TickVelocityUpdate()
    if(ratio >= VelocitySpikeRatio && move_points >= (double)VelocityMovePoints)
    {
       bool fresh = (now > G_VEL_SPIKE_UNTIL);
-      G_VEL_SPIKE_UNTIL = now + MathMax(5, VelocityHoldSec);
+      // LOCK FIX: every spike tick used to push the hold forward with no cap - a long fast move kept
+      // entries shut for its whole length. The hold is set once and runs out.
+      if(fresh)
+         G_VEL_SPIKE_UNTIL = now + MathMax(5, VelocityHoldSec);
       if(fresh)
       {
          if((VelocityPrintOnUse && VerboseLogs))

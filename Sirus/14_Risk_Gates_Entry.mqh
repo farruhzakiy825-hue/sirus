@@ -2281,6 +2281,19 @@ int      G_ADAPT_WINS   = 0;
 int      G_ADAPT_LOSSES = 0;
 string   G_ADAPT_TEXT   = "";
 
+// LOCK FIX: the extra location demand was released only by wins it suppresses; it now also fades one
+// step per hour without a new loss.
+void AdaptDecay()
+{
+   static datetime ad_last = 0;
+   if(ad_last == 0) { ad_last = TimeCurrent(); return; }
+   if(G_ADAPT_EXTRA > 0.0 && (TimeCurrent() - ad_last) >= 3600)
+   {
+      G_ADAPT_EXTRA = MathMax(0.0, G_ADAPT_EXTRA - EvidenceStep);
+      ad_last = TimeCurrent();
+   }
+}
+
 void AdaptRecord(const bool won)
 {
    if(!EnableEvidenceTighten) return;
@@ -3284,6 +3297,7 @@ string   G_LB_TEXT     = "";
 
 int      G_LB_LAST_STOP_DIR   = 0;
 double   G_LB_LAST_STOP_PRICE = 0.0;
+datetime G_LB_LAST_STOP_TIME  = 0;   // LOCK FIX: the memory expires
 int      G_LB_VERDICT  = LB_OK;
 string   G_LB_WHY      = "";
 int      G_LB_HELD     = 0;       // bars since anything was allowed through
@@ -3357,6 +3371,7 @@ int LocationBrainVerdict(const int dir, string &why)
    if(!EnableLocationBrain || dir == 0)
       return LB_OK;
 
+   AdaptDecay();
    LocationBrainScan();          // the leg - cached, closed candles only
 
    double lb_span = G_LB_HI - G_LB_LO;
@@ -3433,6 +3448,20 @@ int LocationBrainVerdict(const int dir, string &why)
    // --- 3. worse than the stop ----------------------------------------
    // The same direction again after a stop, at a price no better than the one that
    // failed, is the first mistake with a bigger lot behind it.
+   // LOCK FIX: the stop price used to be remembered until a win that way - which it blocked - so a
+   // SELL stopped on a spike at 2000 kept every SELL out while gold fell to 1950. It now expires after
+   // an hour, or once price has moved 3 ATR(M5) away from it.
+   if(G_LB_LAST_STOP_DIR != 0 && G_LB_LAST_STOP_PRICE > 0.0)
+   {
+      double atr5_lb = ATRPointsManual(PERIOD_M5, 14, 1) * _Point;
+      double px_lb = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      if((TimeCurrent() - G_LB_LAST_STOP_TIME) > 3600 ||
+         (atr5_lb > 0.0 && MathAbs(px_lb - G_LB_LAST_STOP_PRICE) > 3.0 * atr5_lb))
+      {
+         G_LB_LAST_STOP_DIR = 0;
+         G_LB_LAST_STOP_PRICE = 0.0;
+      }
+   }
    if(LBBlockWorseThanStop && G_LB_LAST_STOP_DIR == dir && G_LB_LAST_STOP_PRICE > 0.0)
    {
       double px = (dir > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
@@ -3464,6 +3493,7 @@ void LocationBrainRecordStop(const int dir, const double price)
 
    G_LB_LAST_STOP_DIR   = dir;
    G_LB_LAST_STOP_PRICE = price;
+   G_LB_LAST_STOP_TIME  = TimeCurrent();
 
    if((LocationBrainPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS BRAIN] %s stopped at %.2f - the next one that way has to be better",

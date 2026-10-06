@@ -176,6 +176,7 @@ bool MBReversalAfterCalc(const int dir, const int tf_lo, const int tf_hi, const 
       {
          if(G_MB_EV[idx].time < sw_close || G_MB_EV[idx].dir != dir) continue;
          if(MBEventRank(G_MB_EV[idx].tfi) < min_rank) continue;
+         if(!MBEventRelevant(idx)) continue;   // LOCK FIX: a confirmation that aged out confirms nothing now
          int ty = G_MB_EV[idx].type;
          if(ty == MB_EV_DISPLACEMENT || ty == MB_EV_MSS || ty == MB_EV_BOS || ty == MB_EV_RECLAIM)
          {
@@ -547,6 +548,7 @@ int MBContradiction(const int dir, const datetime since)
    {
       if(G_MB_EV[idx].time <= since || G_MB_EV[idx].dir != -dir) continue;
       if(MBEventRank(G_MB_EV[idx].tfi) < 1) continue;
+      if(!MBEventRelevant(idx)) continue;   // LOCK FIX: old arguments age out instead of piling up for days
       double ew = MBEventWeight(G_MB_EV[idx]);
       if(ew <= 0.0) continue;
       w += ew * G_MB_EV[idx].strength;

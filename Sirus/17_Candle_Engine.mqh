@@ -420,6 +420,9 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
       // running extreme; a pullback of 30% of the leg so far restarts the clock at its extreme.
       double base = origin;
       double ext = origin;
+      // LOCK FIX: on M1 a pullback of 0.3 ATR(M5) also restarts the clock - in a leg that keeps
+      // growing, 30% of the whole leg is a retrace a running trend never makes.
+      double pb_abs = (k == 0 && G_MB_ATR[1] > 0.0) ? 0.3 * G_MB_ATR[1] * _Point : DBL_MAX;
       double pb = (dir > 0) ? DBL_MAX : -DBL_MAX;
       for(int s = start; s >= 1; s--)
       {
@@ -429,7 +432,7 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
             else
             {
                pb = MathMin(pb, r[s].low);
-               if(ext - base > 0.0 && (ext - pb) >= 0.30 * (ext - base))
+               if(ext - base > 0.0 && ((ext - pb) >= 0.30 * (ext - base) || (ext - pb) >= pb_abs))
                { base = pb; ext = pb; pb = DBL_MAX; }
             }
          }
@@ -439,7 +442,7 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
             else
             {
                pb = MathMax(pb, r[s].high);
-               if(base - ext > 0.0 && (pb - ext) >= 0.30 * (base - ext))
+               if(base - ext > 0.0 && ((pb - ext) >= 0.30 * (base - ext) || (pb - ext) >= pb_abs))
                { base = pb; ext = pb; pb = -DBL_MAX; }
             }
          }

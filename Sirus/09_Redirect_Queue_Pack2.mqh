@@ -581,14 +581,8 @@ void ClearTempBlock(const string reason)
    G_GRID_ATTEMPTS = 0;
    G_GRID_SUCCESSES = 0;
    G_GRID_FAILS = 0;
-   G_BASKET_ORDERS = 0;
-   G_BASKET_VOLUME = 0.0;
-   G_BASKET_AVG_PRICE = 0.0;
-   G_BASKET_PROFIT = 0.0;
-   G_BASKET_POINTS = 0.0;
-   G_BASKET_DD_PERCENT = 0.0;
-   G_BASKET_DIRECTION = -1;
-   G_BASKET_LAST_GRID_PRICE = 0.0;
+   // AUDIT FIX: a temp-block clear is not a basket close - the live basket's stats are no longer
+   // zeroed here (an open basket read as "flat" for the rest of the tick).
    G_BASKET_ADVERSE_STREAK = 0;
    G_BASKET_DD_HISTORY_COUNT = 0;
    G_BASKET_DD_HISTORY_BAR = -1;

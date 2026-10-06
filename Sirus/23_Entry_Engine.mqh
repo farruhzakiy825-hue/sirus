@@ -336,6 +336,9 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       if(G_MB_SPEED[0] == MB_SPEED_EXPIRED) chase = 2;
       else if(G_MB_SPEED[0] == MB_SPEED_LATE) chase = 1;
    }
+   // LOCK FIX: an M1 leg reads EXPIRED inside a young M5 impulse - the M5 leg says it is still early.
+   if(chase > 0 && G_MB_IMP_DIR[1] == dir && G_MB_SPEED[1] == MB_SPEED_EARLY)
+      chase--;
    // Off a pullback the trend is resuming from a better price - one step less of a chase.
    bool pb_resume = (a >= 2 && MBPullbackResume(dir));
    if(pb_resume && chase > 0)
@@ -348,7 +351,11 @@ bool MBEntryJudgeAllows(const int dir, string &why)
 
    // Signal decay: the same signal, price running away from where it first appeared.
    int sig_type = (int)G_OPP_TYPE;
-   if(G_MB_SIG_DIR != dir || G_MB_SIG_TYPE != sig_type || (TimeCurrent() - G_MB_SIG_TIME) > 900)
+   // LOCK FIX: the anchor used to live 15 minutes, so a running trend decayed every entry into WAIT
+   // and then re-anchored at the extended price. Now: 3 minutes, and a live trigger (live
+   // displacement / live sweep / pullback resume) is a new signal from here.
+   bool fresh_sig = trig_live || (trig_event && StringFind(ev_what, "LIVE") == 0) || (a >= 2 && MBPullbackResume(dir));
+   if(G_MB_SIG_DIR != dir || G_MB_SIG_TYPE != sig_type || (TimeCurrent() - G_MB_SIG_TIME) > 180 || fresh_sig)
    {
       G_MB_SIG_DIR = dir;
       G_MB_SIG_TYPE = sig_type;
@@ -357,6 +364,8 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    }
    double moved = dir * (price - G_MB_SIG_PRICE) / atr1;
    double decay = (moved > 0.3) ? MBEntryDecayPerATR * (moved - 0.3) : 0.0;
+   if(a >= 2 && loc_ok && trig_ok)
+      decay = 0.0;   // trend + place + trigger now: the impulse speed judges lateness, not the anchor
 
    // Distance to invalidation.
    double inv = (G_MB_TH_DIR == dir && G_MB_TH_INVALID > 0.0) ? G_MB_TH_INVALID : 0.0;
@@ -460,7 +469,10 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    }
    else if(a == 1)
    {
-      if(!(trig_ok && rev_ok))
+      // LOCK FIX: a breakdown without a sweep never has a "confirmed liquidity reversal"; a strong
+      // candle the new way (displacement / rejection / grab) on M1 or M5, or a live one, is the proof.
+      bool mom_conf = (G_MB_LIVE_DIR == dir || MBCandleConfirms(0, dir) || MBCandleConfirms(1, dir));
+      if(!(trig_ok && (rev_ok || mom_conf)))
          missing = StringFormat("transition entry needs a trigger AND a confirmed liquidity reversal (trigger %s, reversal %s)",
                                 (trig_ok ? "ok" : "none"), (rev_ok ? "ok" : "none"));
    }
