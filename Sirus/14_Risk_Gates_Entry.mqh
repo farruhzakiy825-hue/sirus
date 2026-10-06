@@ -4586,6 +4586,20 @@ bool FirstEntryCanRun(string &reason)
       }
    }
 
+   // MARKET BRAIN VETO (engine plan, phase 4) - after everything else, so it judges the final
+   // direction. Refuses only on strong contrary evidence: a confirmed liquidity reversal, a zone
+   // whose history does not give it the role this entry needs, no room before a level that holds,
+   // or a move accelerating the other way.
+   {
+      int mb_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
+      string mb_why = "";
+      if(!MBVetoAllowsEntry(mb_dir, mb_why))
+      {
+         reason = "market brain veto: " + mb_why;
+         DecisionLog("VETO", mb_why);
+         return false;
+      }
+   }
 
    reason = "entry allowed";
    DecisionLog("OPEN", "all gates passed");

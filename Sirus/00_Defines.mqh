@@ -507,6 +507,7 @@ string ModuleHealthLine(string &silent_out);
 void DecisionLog(const string verdict, const string why);
 void MBCandleEngineUpdate();   // 17_Candle_Engine
 void MBEventEngineUpdate();    // 18_Event_Engine
+bool MBVetoAllowsEntry(const int dir, string &why);   // 20_Direction_Veto
 void ReasonCodeEntry(const string kind, const ENUM_ORDER_TYPE type, const double lot, const double fill_price, const ulong ticket);   // 90_Reason_Code
 void ReasonCodeGrid(const ENUM_ORDER_TYPE type, const double lot, const double fill_price, const ulong ticket, const int orders_before);
 int NewsOwnerState(string &why);

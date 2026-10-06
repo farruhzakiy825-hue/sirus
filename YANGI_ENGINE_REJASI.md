@@ -207,7 +207,7 @@ grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saql
 - Invalidation memory: o'lgan thesis qaytmaydi, eski zona signali "o'lik kontekst" deb belgilanadi.
 - *Natija:* narrative ("bullish pullback after sell-side sweep") dashboard va jurnalda ko'rinadi.
 
-### 4-bosqich: Direction Permission + Hard Veto (D), DD uchun eng tez foyda
+### 4-bosqich: Direction Permission + Hard Veto (D), DD uchun eng tez foyda — ✅ veto yozildi (`Sirus/20_Direction_Veto.mqh`); 7 holatli permission matritsasi 3-bosqich (bias) bilan birga
 - Ruxsat matritsasi (BUY uchun; SELL teskarisi):
   - `BULLISH` → to'liq ruxsat;
   - `BULLISH_WEAK` → selektiv;
