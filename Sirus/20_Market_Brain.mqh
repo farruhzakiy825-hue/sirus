@@ -373,6 +373,15 @@ void MBRegimeUpdate()
    G_MB_RG_LO = lo;
 }
 
+// REGIME DOMINANCE (A): in a RANGE or a COMPRESSION the market walks edge to edge, and a weak or
+// turning global bias (|bias| <= 2) says little about the next leg. There the bias is not a veto:
+// both edges are traded, and the judge asks for what a range trade needs - a place and a trigger.
+bool MBRangeRules()
+{
+   return (EnableRegimePlaybook && (G_MB_RG == MB_RG_RANGE || G_MB_RG == MB_RG_COMPRESSION) &&
+           MathAbs(G_MB_BIAS) <= 2);
+}
+
 // Stage 17 (D5 / D7): the H4 box and the M5 volatility percentile, once per M15 bar.
 void MBRangeLayersUpdate()
 {
@@ -572,12 +581,32 @@ int MBContradiction(const int dir, const datetime since)
 // A scalper lives on the legs inside the day: a bearish day still has bullish M1 / M5 legs worth a
 // few dollars each. MBLocalLevel says how strong the case is for a local leg in dir; MBLocalOkFor
 // says whether it is strong ENOUGH right now, after the guards below.
+// Local thesis state (filled by MBLocalThesisUpdate below).
+int      G_LOC_TH_DIR    = 0;
+double   G_LOC_TH_ORIGIN = 0.0;
+double   G_LOC_TH_TARGET = 0.0;
+double   G_LOC_TH_INVALID = 0.0;
+datetime G_LOC_TH_SINCE  = 0;
+string   G_LOC_TH_STATE  = "-";
+datetime G_LOC_TH_END    = 0;       // when the last local thesis ended
+
+// FIX(local-lag): the M5 structure only turns when a swing breaks - inside a range that is the end
+// of the leg, not its start. The local layer now reads, in order: a live M5 impulse (not late), the
+// net move of the last six M5 closes (>= 1 ATR), then the structure, then the pressure.
 int MBLayerLocal()
 {
+   if(G_MB_IMP_DIR[1] != 0 && G_MB_SPEED[1] <= MB_SPEED_NORMAL && G_MB_SPEED[1] != MB_SPEED_NONE)
+      return G_MB_IMP_DIR[1];
+   double atr5 = G_MB_ATR[1] * _Point;
+   double c1 = iClose(_Symbol, PERIOD_M5, 1), c7 = iClose(_Symbol, PERIOD_M5, 7);
+   if(atr5 > 0.0 && c1 > 0.0 && c7 > 0.0)
+   {
+      if(c1 - c7 >= atr5) return 1;
+      if(c7 - c1 >= atr5) return -1;
+   }
    int s5 = MBSign(G_MB_TF_STATE[1]);
    if(s5 != 0) return s5;
-   int p5 = MBPressureSide(1);
-   return p5;
+   return MBPressureSide(1);
 }
 
 int MBLayerMicro()
@@ -627,11 +656,15 @@ int MBLocalLevelRaw(const int dir)
 {
    if(!EnableLocalTrading || dir == 0)
       return 0;
-   bool m5 = (MBSign(G_MB_TF_STATE[1]) == dir);
+   bool m5 = (MBSign(G_MB_TF_STATE[1]) == dir) || (MBLayerLocal() == dir);
    bool m1 = (G_MB_TREND[0] == dir);
    bool p1 = (MBPressureSide(0) == dir);
    bool p5 = (MBPressureSide(1) == dir);
    bool lvl1 = (m5 && (p1 || p5)) || (m1 && p1 && p5);
+   // FIX(local-disagree): the local thesis already says a leg runs this way (target + invalidation) -
+   // the entry side must not then say "no local leg".
+   if(!lvl1 && G_LOC_TH_DIR == dir)
+      lvl1 = true;
    if(!lvl1)
       return 0;
    if(m5 && m1 && p1 && p5)
@@ -698,13 +731,6 @@ bool MBLocalOkFor(const int dir)
 // A bounce against the trend usually retraces 38-62% of the global leg. Target: half of the leg
 // from the local origin up to the global leg's top (M15, last 20 bars), or the nearest opposing zone
 // if that is closer. Invalidation: the local origin. Done or dead, the local thesis closes.
-int      G_LOC_TH_DIR    = 0;
-double   G_LOC_TH_ORIGIN = 0.0;
-double   G_LOC_TH_TARGET = 0.0;
-double   G_LOC_TH_INVALID = 0.0;
-datetime G_LOC_TH_SINCE  = 0;
-string   G_LOC_TH_STATE  = "-";
-datetime G_LOC_TH_END    = 0;       // when the last local thesis ended
 
 void MBLocalThesisUpdate(const double price)
 {

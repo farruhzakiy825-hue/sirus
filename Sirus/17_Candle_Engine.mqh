@@ -537,6 +537,19 @@ int MBPressureSide(const int tfi)
    double d = G_MB_BULL[tfi] - G_MB_BEAR[tfi];
    if(d >= MBPressureSideMin) return 1;
    if(d <= -MBPressureSideMin) return -1;
+   // FIX(pressure-blind): three weighted candles go neutral on one counter candle inside a $10 leg.
+   // When they are undecided, the net move of the last five closed candles decides (>= 1 ATR).
+   if(tfi <= 2 && G_MB_ATR[tfi] > 0.0)
+   {
+      ENUM_TIMEFRAMES tf = MBTF(tfi);
+      double c1 = iClose(_Symbol, tf, 1), c6 = iClose(_Symbol, tf, 6);
+      double atr = G_MB_ATR[tfi] * _Point;
+      if(c1 > 0.0 && c6 > 0.0)
+      {
+         if(c1 - c6 >= atr) return 1;
+         if(c6 - c1 >= atr) return -1;
+      }
+   }
    return 0;
 }
 

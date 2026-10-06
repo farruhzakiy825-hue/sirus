@@ -420,6 +420,7 @@ void MBShadowOnEntry(const int dir, const double price);
 void MBShadowUpdate();
 void MBDailyReportCheck();
 void MBShadowFlush();
+bool MBShadowValveOn(const int g);   // a quality gate relaxed by the shadow ledger
 string MBShadowPanelText();
 int MBBiasAlign(const int dir);
 int MBFastEntryType();

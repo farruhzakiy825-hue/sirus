@@ -34,6 +34,9 @@ input bool   EnableShadowLedger       = true;   // Rad etilgan setuplarni yashir
 input int    ShadowMaxMinutes         = 30;     // Soya shuncha daqiqada natija bermasa - TIMEOUT
 input bool   ShadowToFile             = true;   // Har natijani CSV ga yozish (Sirus_Shadow_<symbol>_<magic>.csv)
 input int    ShadowMinSamplesToJudge  = 10;     // Filtr bo'yicha xulosa uchun kamida shuncha natija
+input bool   EnableShadowValve        = true;   // SOYA KLAPANI: biror sifat filtri to'sgan setuplar olinganlardan ancha ko'p TP ga yetsa (>= 20 namuna), o'sha filtr vaqtincha yumshaydi. Risk / yangilik / spread / marja / yo'nalish veto'si HECH QACHON yumshamaydi
+input int    ShadowValveMinutes       = 30;     // Yumshatish shuncha daqiqa, keyin yangi dalil bilan qayta baholanadi
+input int    ShadowValveMinSamples    = 20;     // Qaror uchun shu filtr bo'yicha kamida shuncha natija
 input bool   EnableDailyReport        = true;   // 18-BOSQICH (B6): kun yakunida bitta qator - savdolar, lot, natija, soya, LIVE SWEEP, veto, tezlik (Sirus_DailyReport_<symbol>_<magic>.csv)
 
 //---------------------------------------------------------------------
@@ -177,6 +180,12 @@ int       G_SH_DAY = -1;
 int       G_SH_LAST_BAR[2] = {-100000, -100000};
 int       G_SH_ACTIVE = 0;      // SPEED: live shadows - the per-tick loop is skipped when none
 string    G_SH_BUF = "";        // SPEED: CSV rows waiting for the once-a-minute flush
+// Shadow valve state: blocked results per gate since its last decision, taken results, and the
+// time each gate's relaxation ends.
+int       G_SV_N[GATE_COUNT];
+int       G_SV_TP[GATE_COUNT];
+int       G_SV_TN = 0, G_SV_TTP = 0;
+datetime  G_SV_UNTIL[GATE_COUNT];
 datetime  G_SH_FLUSH_BAR = 0;
 
 string MBShadowGateName(const int g)
@@ -423,6 +432,70 @@ void MBShadowOnEntry(const int dir, const double price)
    MBShadowAdd(dir, MB_SH_TAKEN, price);
 }
 
+//---------------------------------------------------------------------
+// SHADOW VALVE (E): the robot corrects its own over-strict gate, on numbers
+//---------------------------------------------------------------------
+// Only quality gates can relax: the detector score, the location / zone / HTF-regime family and the
+// Entry Judge. A gate relaxes when its refused setups reached TP 15 points more often than the trades
+// that were taken (or than 55% while there are fewer than 10 taken) and at least 70% of the time,
+// over ShadowValveMinSamples results. It relaxes for ShadowValveMinutes, then needs fresh evidence.
+bool MBShadowValveEligible(const int g)
+{
+   return (g == GATE_SCORE || g == GATE_LOCATION || g == GATE_ZONE || g == GATE_REGIME || g == GATE_MBJUDGE);
+}
+
+bool MBShadowValveOn(const int g)
+{
+   if(!EnableShadowValve || g <= GATE_NONE || g >= GATE_COUNT)
+      return false;
+   return (TimeCurrent() < G_SV_UNTIL[g]);
+}
+
+void MBShadowValveFeed(const int g, const int outcome)
+{
+   if(!EnableShadowValve)
+      return;
+   if(g == MB_SH_TAKEN)
+   {
+      G_SV_TN++;
+      if(outcome == MB_SH_TP) G_SV_TTP++;
+      if(G_SV_TN >= 60) { G_SV_TN /= 2; G_SV_TTP /= 2; }   // keep it recent
+      return;
+   }
+   if(g <= GATE_NONE || g >= GATE_COUNT || !MBShadowValveEligible(g))
+      return;
+   G_SV_N[g]++;
+   if(outcome == MB_SH_TP) G_SV_TP[g]++;
+   int need = MathMax(5, ShadowValveMinSamples);
+   if(G_SV_N[g] < need || TimeCurrent() < G_SV_UNTIL[g])
+      return;
+   double rate = (double)G_SV_TP[g] / G_SV_N[g];
+   double base = (G_SV_TN >= 10) ? (double)G_SV_TTP / G_SV_TN : 0.55;
+   if(rate >= base + 0.15 && rate >= 0.70)
+   {
+      G_SV_UNTIL[g] = TimeCurrent() + MathMax(1, ShadowValveMinutes) * 60;
+      if(VerboseLogs)
+         PrintFormat("[SIRUS SHADOW VALVE] %s relaxed %d min: its refusals reached TP %.0f%% vs %.0f%% (n=%d)",
+                     GateName(g), ShadowValveMinutes, rate * 100.0, base * 100.0, G_SV_N[g]);
+      G_SV_N[g] = 0;
+      G_SV_TP[g] = 0;
+   }
+   else if(G_SV_N[g] >= 2 * need)
+   {
+      G_SV_N[g] /= 2;
+      G_SV_TP[g] /= 2;
+   }
+}
+
+string MBShadowValveText()
+{
+   string t = "";
+   for(int g = 1; g < GATE_COUNT; g++)
+      if(MBShadowValveOn(g))
+         t += StringFormat("%s%s %d daq", (StringLen(t) > 0 ? ", " : ""), MBGateUz(g), (int)((G_SV_UNTIL[g] - TimeCurrent()) / 60));
+   return t;
+}
+
 // Every tick: resolve the shadows price has decided.
 void MBShadowUpdate()
 {
@@ -465,6 +538,7 @@ void MBShadowUpdate()
 
       int g = MathMax(0, MathMin(MB_SH_SLOTS - 1, G_SH[i].gate));
       G_SH_TALLY[g][outcome]++;
+      MBShadowValveFeed(G_SH[i].gate, outcome);
       MBShadowCsv(G_SH[i], outcome, "");
       G_SH[i].active = false;
       G_SH_ACTIVE = MathMax(0, G_SH_ACTIVE - 1);
@@ -500,5 +574,8 @@ string MBShadowPanelText()
    }
    if(best >= 0 && tn >= ShadowMinSamplesToJudge && best_r >= taken + 0.10)
       t += StringFormat("  ·  ⚠ %s yaxshisini to'smoqda (%.0f%%)", MBShadowGateUz(best), best_r * 100.0);
+   string vt = MBShadowValveText();
+   if(StringLen(vt) > 0)
+      t += "  ·  ⚙ yumshatildi: " + vt;
    return t;
 }

@@ -4097,6 +4097,9 @@ bool G_MB_FAST_ACTIVE = false;
 // An older gate stands aside when the Market Brain answers its question (see MBStandsInFor).
 bool MBOwnsGate(const bool location_gate)
 {
+   // Shadow valve on the location / zone / HTF family: those gates stand aside for its window.
+   if(MBShadowValveOn(GATE_LOCATION) || MBShadowValveOn(GATE_ZONE) || MBShadowValveOn(GATE_REGIME))
+      return true;
    int d = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
    // AUDIT FIX: a fast entry skips the location / HTF gates only when the brain is with it - or, with
    // a neutral brain, when the entry carries its own place: a swept level, a range edge or the start

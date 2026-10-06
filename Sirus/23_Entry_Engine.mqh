@@ -476,6 +476,14 @@ bool MBEntryJudgeAllows(const int dir, string &why)
          missing = StringFormat("transition entry needs a trigger AND a confirmed liquidity reversal (trigger %s, reversal %s)",
                                 (trig_ok ? "ok" : "none"), (rev_ok ? "ok" : "none"));
    }
+   else if(a >= -2 && MBRangeRules())
+   {
+      // A range trade against a weak global bias: what a range trade needs - a place and a trigger.
+      bool range_ok = MBCashbackTempo() ? (loc_ok || trig_ok) && trig_ok : (loc_ok && trig_ok);
+      if(!range_ok)
+         missing = StringFormat("range trade needs location AND trigger (location %s, trigger %s)",
+                                (loc_ok ? "ok" : "none"), (trig_ok ? "ok" : "none"));
+   }
    else if(loc_lv >= 1)
    {
       // A local leg against the global bias: the local structure stands in for the reversal proof,
@@ -492,6 +500,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
 
    int exec_q = MBEntryExecuteQuality - (MBCashbackTempo() ? MathMax(0, CashbackTempoQualityCut) : 0);
    int caution_q = MBEntryCautionQuality - (MBCashbackTempo() ? MathMax(0, CashbackTempoQualityCut) : 0);
+   if(MBShadowValveOn(GATE_MBJUDGE)) { exec_q -= 10; caution_q -= 10; }   // shadow valve on the judge
    int decision;
    if(StringLen(missing) > 0)
       decision = MB_ED_WAIT;
@@ -607,6 +616,8 @@ bool MBDirOk(const int d)
    int a = d * G_MB_BIAS;
    if(a >= 0)
       return true;
+   if(a >= -2 && MBRangeRules())
+      return true;   // range / compression: both edges
    return MBLocalOkFor(d);
 }
 
@@ -791,7 +802,13 @@ bool MBFastEntryCandidate(int &dir, string &why)
 }
 
 bool MBJudgeBypassOn()  { return EnableJudgeScoreBypass && EnableMBEntryJudge && EnableMarketBrain && EnableMarketBrainEngines; }
-int  MBJudgeBypassMin() { return MathMax(1, MBJudgeBypassQuality); }
+int  MBJudgeBypassMin()
+{
+   // Shadow valve on the score gate: the judge's caution grade is enough to stand in for the score.
+   if(MBShadowValveOn(GATE_SCORE))
+      return MathMax(1, MathMin(MBJudgeBypassQuality, MBEntryCautionQuality));
+   return MathMax(1, MBJudgeBypassQuality);
+}
 
 int MBFastEntryType()
 {
@@ -839,7 +856,7 @@ int MBBrainScoreRelief(const int dir, string &why)
    else if(a >= 2 || (a == 1 && IsReversalOpportunityType(G_OPP_TYPE)))
       r = MathMax(0, MBReliefWeak);   // a == 1: V0 admits only reversal types there
    else if(a == 0 && th_with && MBCashbackTempo()) r = 1;
-   else if(a < 0 && MBLocalOkFor(dir)) r = MathMax(0, MBReliefWeak);   // a tradable local leg
+   else if(a < 0 && (MBLocalOkFor(dir) || (a >= -2 && MBRangeRules()))) r = MathMax(0, MBReliefWeak);   // local leg / range
    if(r > 0)
       why = StringFormat("brain %s%s +%d", MBBiasName(G_MB_BIAS), (th_with ? ", thesis open" : ""), r);
    return r;

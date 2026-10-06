@@ -1,5 +1,27 @@
 # CHANGELOG — Sirus Brain V8
 
+## Diapazon hukmronligi, tez lokal qatlam, barqaror bosim, soya klapani
+
+Jonli kuzatuv: narx $13 ko'tarildi, robot esa "global SELL" bo'yicha jim turdi. Soyada to'silgan setuplarning 94% i TP ga yetardi.
+
+- **A. Rejim hukmronligi** (`MBRangeRules`): DIAPAZON va SIQILISH rejimida zaif yoki uyg'onayotgan global bias (|bias| ≤ 2) veto bo'lmaydi.
+  - ikkala chekkada ham savdo qilinadi;
+  - hakam diapazon savdosidan joy va trigger talab qiladi;
+  - ball solig'i filtrlari chetga turadi;
+  - miya yengilligi beriladi.
+- **B. Lokal qatlam tezlashdi.** Lokal yo'nalish shu tartibda aniqlanadi:
+  1. jonli M5 impulsi (hali kech emas);
+  2. oxirgi 6 ta M5 yopilishning sof harakati (≥ 1 ATR);
+  3. M5 struktura;
+  4. bosim.
+- **C. Bosim barqaror bo'ldi:** 3 shamlik bosim noaniq bo'lsa, oxirgi 5 shamning sof harakati (≥ 1 ATR) qaror qiladi.
+- **D. Lokal g'oya va kirish kelishdi:** lokal g'oya faol bo'lsa, o'sha tomonda lokal oyoq bor deb hisoblanadi.
+- **E. Soya klapani** (`EnableShadowValve`, 30 daqiqa, 20 namuna):
+  - sifat filtri (ball, joy / zona / HTF, hakam) to'sgan setuplar olinganlardan 15% ko'proq va kamida 70% TP ga yetsa, o'sha filtr 30 daqiqa yumshaydi. Keyin qayta yumshashi uchun yangi dalil kerak.
+  - Yumshash qanday ishlaydi: ball filtrida hakamning EHTIYOT bahosi yetarli bo'ladi; joy oilasi filtrlari chetga turadi; hakam chegaralari 10 ballga pasayadi.
+  - Risk, yangilik, spread, marja va yo'nalish veto'si hech qachon yumshamaydi.
+  - Panelda "⚙ yumshatildi: ..." deb ko'rsatiladi.
+
 ## Lokal savdo mukammallashtirildi (uch qatlam, qo'l almashuvi, lokal g'oya)
 
 1. **Uch qatlam:** global (M15+), lokal (M5) va mikro (M1). Panelda "Qatlamlar: global · lokal · mikro" qatori chiqadi.
