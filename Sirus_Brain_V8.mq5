@@ -1348,6 +1348,9 @@ input double            MinGridLotFactor         = 0.5;    // Safety: the stacke
 input bool              EnableAbsoluteGridLotFloor = true;  // Keep ON. A firm floor on grid-add size anchored to StartLot x LotMultiplier^orders (which can't drift), fixing an old bug where adds silently shrank down the chain.
 input double            AbsoluteGridLotFloorFactor = 0.80;  // V222: 1.0 -> 0.80. At 1.0 this floor equalled the full intended progression, which meant every lot adjustment above it - grid intelligence, spread quality, margin level, swing correction, client safety, preset hardening - was computed and then discarded. Eight modules doing nothing. At 0.80 caution can trim up to a fifth of an addition, which is enough to matter and not enough to break the recovery arithmetic the ladder depends on.   // Fraction of the intended martingale step (StartLot x LotMultiplier^orders) below which a grid add can never fall. 1.0 = honour the full progression (0.25 -> 0.33 -> 0.42 -> 0.55 -> 0.71 -> 0.93): fastest recovery, largest risk build-up. Lower this (e.g. 0.7) to make the grid add more cautiously.
 input bool              EnableGridNeverBelowPrevious = false; // V222: true -> false. This forced each addition to be at least as large as the one before it, which sounds like protecting the progression and in practice overrode every quality reading - an addition into a worse location was guaranteed to be bigger than one into a better one. The absolute floor above still holds the progression at 80%; what is removed is the rule that made caution impossible. // Keep ON. Never let a grid add be SMALLER than the order it's averaging down (an undersized add takes full new risk while barely improving the escape price). If only a tiny step fits, the EA adds nothing instead.
+input bool              EnableGridCautionHold    = true;   // 3-muammo: ehtiyot modullari grid lotini poldan pastga tushirmoqchi bo'lsa, lot majburan ko'tarilmaydi - bu pog'ona vaqtincha ushlab turiladi
+input int               GridCautionMaxHoldBars   = 10;     // Ko'pi bilan shuncha bar (M1) kutadi, keyin pol lot bilan qo'shadi
+input double            GridCautionExtraDistFraction = 0.5; // Yoki narx grid masofasidan yana shuncha ulush uzoqlashsa (yaxshiroq o'rtacha narx) - darhol qo'shadi
 input bool              AdaptiveGridDistance     = true;      // ON = grid spacing adjusts to volatility (ATR) instead of a fixed GridDistancePoints, so adds are wider in fast markets and tighter in calm ones. Recommended ON.
 input double            AdaptiveGridATRMult      = 1.10;      // When AdaptiveGridDistance is ON: grid gap = ATR x this. Higher = wider spacing (adds farther apart).
 input int               GridMinDistancePoints    = 6000;      // Floor for the adaptive gap (3-digit: 6000 = $6.00). The gap never goes tighter than this even in very calm markets.
@@ -43845,6 +43848,12 @@ double EffectiveLastLot(const double last_lot, const int raw_orders)
    return last_lot;
 }
 
+bool   G_GRID_LOT_CAUTION_FLOORED = false;   // last NextGridLot(): soft cautions wanted less than the floor
+double G_GRID_LOT_SOFT_FACTOR     = 1.0;     // last NextGridLot(): combined soft caution factor vs target
+int    G_GCH_ORDERS               = -1;      // caution hold: rung (order count) being held
+int    G_GCH_BASKET_BAR           = -1;      // caution hold: basket it belongs to (G_BASKET_OPEN_BAR)
+int    G_GCH_START_BAR            = 0;       // caution hold: bar the hold began
+
 double NextGridLot(const double last_lot, const int current_orders)
 {
    double lot = last_lot;
@@ -43873,14 +43882,20 @@ double NextGridLot(const double last_lot, const int current_orders)
       pure_multiplier_target = MathMin(pure_multiplier_target, MaxLot);
    }
 
-   lot = Pack4MiniAdjustLot(lot, true);
-   // V31.6z27 UNIFICATION: same reasoning as the distance chain above - DRI/DRT's lot
-   // reduction was redundant with Grid Intelligence's now-15-sense consensus (which includes
-   // their genuinely unique signals as Senses 14-15). Disconnected to stop double-counting.
-   // lot = DeepRecoveryAdjustGridLot(lot);
-   // lot = RegimeTuneAdjustGridLot(lot);
-   lot = ClientSafetyAdjustGridLot(lot);
-   lot = PresetHardeningAdjustGridLot(lot);
+   // FIX(martingale-floor-override): the lot adjustments are two different kinds of thing, and the
+   // floor below used to override both:
+   //   HARD limits - the client lot cap (Pack4Mini), the client-safety throttle, preset hardening and
+   //                 the margin-level guard. These are account protection; nothing may undo them.
+   //   SOFT opinions - impulse/correction, spread vs ATR, grid intelligence, addition quality. These
+   //                 are the market read; they may trim an addition, down to the floor.
+   // Before, all of them ran first and the floor then lifted the result back to >= 80% of the
+   // martingale progression - so a margin-level or client-cap cut was silently reversed. Now the soft
+   // opinions run, the floor protects the averaging math against them only, and the hard limits are
+   // applied LAST. When the soft opinions want an addition smaller than the floor, the result is
+   // flagged (G_GRID_LOT_CAUTION_FLOORED) and GridCanOpen() holds that rung for a while instead of
+   // forcing a near-full-size add into conditions every caution module disagrees with.
+   // V31.6z27 UNIFICATION: DRI/DRT's lot reduction stays disconnected (double-counted Grid Intelligence).
+   double soft_target = lot;
 
    // V31.6l fix: grid previously bypassed ALL of the newer trend/reversal-aware caution
    // built this session - it used its own separate formula, never touching
@@ -43890,7 +43905,6 @@ double NextGridLot(const double last_lot, const int current_orders)
    ENUM_ORDER_TYPE grid_dir_type = (G_BASKET_DIRECTION == POSITION_TYPE_BUY) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
    lot = SwingImpulseCorrectionLotAdjust(lot, grid_dir_type);
    lot = SpreadATRQualityLotAdjust(lot);
-   lot = MarginLevelLotAdjust(lot);
    lot = GridIntelligenceLotAdjust(lot, G_BASKET_DIRECTION, current_orders);
 
    // V222: and how good is this particular addition? The ladder multiplies by a fixed amount
@@ -43955,6 +43969,9 @@ double NextGridLot(const double last_lot, const int current_orders)
          floor_lot = absolute_floor;
    }
 
+   G_GRID_LOT_SOFT_FACTOR = (soft_target > 0.0) ? (lot / soft_target) : 1.0;
+   G_GRID_LOT_CAUTION_FLOORED = (lot < floor_lot * 0.99);
+
    if(lot < floor_lot)
    {
       if((GridIntelligencePrintOnUse && VerboseLogs) && lot < floor_lot * 0.99)
@@ -43962,6 +43979,12 @@ double NextGridLot(const double last_lot, const int current_orders)
                      lot, floor_lot, current_orders, pure_multiplier_target);
       lot = floor_lot;
    }
+
+   // Hard limits last - the floor cannot undo account protection.
+   lot = Pack4MiniAdjustLot(lot, true);
+   lot = ClientSafetyAdjustGridLot(lot);
+   lot = PresetHardeningAdjustGridLot(lot);
+   lot = MarginLevelLotAdjust(lot);
 
    if(MaxLot > 0.0 && lot > MaxLot)
       lot = MaxLot;
@@ -44683,6 +44706,37 @@ bool GridCanOpen(string &reason)
       reason = StringFormat("waiting distance | need=%.0f next=%.2f last=%.2f | DD %.2f/%.2f%%",
                             distance, next_price, last_price, dd, recovery_dd_trigger);
       return false;
+   }
+
+   // FIX(martingale-floor-override): every soft caution wants this addition smaller than the floor.
+   // Lifting it to the floor anyway meant adding near-full size into exactly the conditions they were
+   // warning about; adding a fragment is no better (full new risk, almost no improvement of the average).
+   // So hold this rung: if the cautions clear, it goes in at its proper size; if price runs a further
+   // part of the grid distance, the add happens at a better price; and after GridCautionMaxHoldBars it
+   // goes in at the floor regardless, so the recovery is delayed, never abandoned.
+   if(EnableGridCautionHold && G_GRID_LOT_CAUTION_FLOORED)
+   {
+      if(G_GCH_ORDERS != orders || G_GCH_BASKET_BAR != G_BASKET_OPEN_BAR || G_GCH_START_BAR > G_BARS_SEEN)
+      {
+         G_GCH_ORDERS = orders;
+         G_GCH_BASKET_BAR = G_BASKET_OPEN_BAR;
+         G_GCH_START_BAR = G_BARS_SEEN;
+      }
+      double gch_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      double gch_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      double gch_adverse = (direction == POSITION_TYPE_BUY) ? (last_price - gch_bid) / _Point
+                                                            : (gch_ask - last_price) / _Point;
+      double gch_release = distance * (1.0 + MathMax(0.0, GridCautionExtraDistFraction));
+      int    gch_held = G_BARS_SEEN - G_GCH_START_BAR;
+      if(gch_held < MathMax(0, GridCautionMaxHoldBars) && gch_adverse < gch_release)
+      {
+         reason = StringFormat("holding rung - cautions cut lot to x%.2f of target (below floor) | %d/%d bars | %.0f/%.0f pts",
+                               G_GRID_LOT_SOFT_FACTOR, gch_held, GridCautionMaxHoldBars, gch_adverse, gch_release);
+         return false;
+      }
+      if(VerboseLogs)
+         PrintFormat("[SIRUS GRID CAUTION HOLD] released after %d bars / %.0f pts - adding at floor lot %.2f",
+                     gch_held, gch_adverse, G_NEXT_GRID_LOT);
    }
 
    // V31.6 Smart Zone Recovery: the smart add fires with a reduced lot, and the one-shot

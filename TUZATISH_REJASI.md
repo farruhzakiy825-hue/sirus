@@ -6,7 +6,7 @@
 |---|---|---|
 | 1 | Broker tomonida himoya yo'q | ✅ Cashback trailing qo'shildi: savat TP'ga yetganda yopilmaydi, trailing'ga o'tadi. Trailing qulfi brokerga **real SL** sifatida yoziladi (faqat foydadagi savatga). Zarardagi grid'ga SL qo'yilmaydi |
 | 2 | Risk limitlari 50% | ➖ Egasining qarori: 50% qoladi |
-| 3 | Martingeyl pollari | ⏳ Keyingi bosqich |
+| 3 | Martingeyl pollari | ✅ Qattiq cheklovlar (margin, mijoz lot chegarasi) endi poldan KEYIN qo'llanadi, pol ularni bekor qilmaydi. Bozor ehtiyot modullari lotni poldan pastga tushirmoqchi bo'lsa, pog'ona 10 bargacha ushlab turiladi yoki narx yana 0.5 masofa ketguncha kutiladi, keyin pol lot bilan qo'shiladi |
 | 5 | Hisob turi | ✅ Avtomatik aniqlanadi. Hedging bo'lmasa, yangi kirish va grid o'chadi |
 | 6, 10, 11 | Server litsenziyasi / WebRequest | ✅ Modul butunlay olib tashlandi |
 | 7, 8 | Yopishda qayta urinish, qisman yopish | ✅ Retcode bo'yicha tarmoqlash, urinishlar orasida pauza, qisman yopishda chiqish deviatsiyasi va natija tekshiruvi |
