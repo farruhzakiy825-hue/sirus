@@ -34,6 +34,7 @@ input bool   EnableShadowLedger       = true;   // Rad etilgan setuplarni yashir
 input int    ShadowMaxMinutes         = 30;     // Soya shuncha daqiqada natija bermasa - TIMEOUT
 input bool   ShadowToFile             = true;   // Har natijani CSV ga yozish (Sirus_Shadow_<symbol>_<magic>.csv)
 input int    ShadowMinSamplesToJudge  = 10;     // Filtr bo'yicha xulosa uchun kamida shuncha natija
+input bool   EnableDailyReport        = true;   // 18-BOSQICH (B6): kun yakunida bitta qator - savdolar, lot, natija, soya, LIVE SWEEP, veto, tezlik (Sirus_DailyReport_<symbol>_<magic>.csv)
 
 //---------------------------------------------------------------------
 // PROFILER
@@ -277,6 +278,97 @@ void MBShadowAdd(const int dir, const int gate, const double entry)
    G_SH[k].mae = 0.0;
 }
 
+//---------------------------------------------------------------------
+// STAGE 18 (B6): DAILY REPORT - one CSV line per finished day, so tuning reads numbers, not memory.
+//---------------------------------------------------------------------
+datetime G_DR_DAY0      = 0;
+int      G_DR_LSW_BASE  = 0;
+int      G_DR_VETO_BASE = 0;
+
+datetime MBDayStart(const datetime t)
+{
+   MqlDateTime dt;
+   TimeToStruct(t, dt);
+   return t - (dt.hour * 3600 + dt.min * 60 + dt.sec);
+}
+
+void MBDailyReportWrite(const datetime from, const datetime to)
+{
+   int entries = 0, wins = 0, losses = 0;
+   double lots = 0.0, net = 0.0;
+   if(HistorySelect(from, to))
+   {
+      int n = HistoryDealsTotal();
+      for(int i = 0; i < n; i++)
+      {
+         ulong d = HistoryDealGetTicket(i);
+         if(d == 0) continue;
+         if(HistoryDealGetString(d, DEAL_SYMBOL) != _Symbol) continue;
+         if(HistoryDealGetInteger(d, DEAL_MAGIC) != MagicNumber) continue;
+         ENUM_DEAL_ENTRY en = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(d, DEAL_ENTRY);
+         if(en == DEAL_ENTRY_IN)
+         {
+            entries++;
+            lots += HistoryDealGetDouble(d, DEAL_VOLUME);
+         }
+         else
+         {
+            double p = HistoryDealGetDouble(d, DEAL_PROFIT) + HistoryDealGetDouble(d, DEAL_SWAP) + HistoryDealGetDouble(d, DEAL_COMMISSION);
+            net += p;
+            if(p > 0.0) wins++; else if(p < 0.0) losses++;
+         }
+      }
+   }
+   int bn = 0, btp = 0;
+   for(int g = 0; g < GATE_COUNT; g++)
+   {
+      bn += G_SH_TALLY[g][MB_SH_TP] + G_SH_TALLY[g][MB_SH_GRID] + G_SH_TALLY[g][MB_SH_TIMEOUT];
+      btp += G_SH_TALLY[g][MB_SH_TP];
+   }
+   int tn = 0;
+   double ttp = MBShadowTPRate(MB_SH_TAKEN, tn);
+   int lsw = G_MB_LSW_COUNT - G_DR_LSW_BASE;
+   int vet = G_MB_VETO_COUNT - G_DR_VETO_BASE;
+   G_DR_LSW_BASE = G_MB_LSW_COUNT;
+   G_DR_VETO_BASE = G_MB_VETO_COUNT;
+
+   string row = StringFormat("%s;%d;%.2f;%.2f;%d;%d;%d;%.0f;%d;%.0f;%d;%d;%.2f",
+                             TimeToString(from, TIME_DATE), entries, lots, net, wins, losses,
+                             bn, (bn > 0 ? 100.0 * btp / bn : 0.0), tn, MathMax(0.0, ttp) * 100.0,
+                             lsw, vet, G_PROF_AVG[MB_PROF_TICK] / 1000.0);
+   PrintFormat("[SIRUS DAY REPORT] %s | entries %d lots %.2f net %.2f (+%d/-%d) | shadow blocked %d TP %.0f%% taken %d TP %.0f%% | live sweeps %d | vetoes %d | tick %.2f ms",
+               TimeToString(from, TIME_DATE), entries, lots, net, wins, losses, bn, (bn > 0 ? 100.0 * btp / bn : 0.0),
+               tn, MathMax(0.0, ttp) * 100.0, lsw, vet, G_PROF_AVG[MB_PROF_TICK] / 1000.0);
+   string name = StringFormat("Sirus_DailyReport_%s_%I64d.csv", _Symbol, MagicNumber);
+   int h = FileOpen(name, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_SHARE_READ);
+   if(h == INVALID_HANDLE)
+      return;
+   if(FileSize(h) == 0)
+      FileWriteString(h, "date;entries;lots;net;win_closes;loss_closes;shadow_blocked;shadow_blocked_tp_pct;shadow_taken;shadow_taken_tp_pct;live_sweeps;vetoes;tick_ms\r\n");
+   FileSeek(h, 0, SEEK_END);
+   FileWriteString(h, row + "\r\n");
+   FileClose(h);
+}
+
+// Called every tick before the shadow tallies roll over, so the day's shadow numbers are still there.
+void MBDailyReportCheck()
+{
+   if(!EnableDailyReport)
+      return;
+   datetime day0 = MBDayStart(TimeCurrent());
+   if(G_DR_DAY0 == 0)
+   {
+      G_DR_DAY0 = day0;
+      G_DR_LSW_BASE = G_MB_LSW_COUNT;
+      G_DR_VETO_BASE = G_MB_VETO_COUNT;
+      return;
+   }
+   if(day0 == G_DR_DAY0)
+      return;
+   MBDailyReportWrite(G_DR_DAY0, day0);
+   G_DR_DAY0 = day0;
+}
+
 // A refusal: one shadow per direction per M1 bar, filed under the gate that said no.
 void MBShadowOnDecision(const bool ready, const string reason)
 {
@@ -309,6 +401,7 @@ void MBShadowOnEntry(const int dir, const double price)
 // Every tick: resolve the shadows price has decided.
 void MBShadowUpdate()
 {
+   MBDailyReportCheck();   // stage 18 (B6) - before the shadow tallies roll over
    if(!EnableShadowLedger)
       return;
    MBShadowDayRoll();

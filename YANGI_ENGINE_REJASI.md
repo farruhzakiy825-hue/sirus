@@ -685,7 +685,7 @@ ishlaydi. Basket SL 50%, Emergency 50% va Force close 52% o'zgarmaydi.
 | 15 ✅ | D1 rejim + A6 FVG retest + A3 ketma-ketlik | Savdo soni ↑↑, adashish ↓ |
 | 16 ✅ | A7 + E1–E9 aqlli grid va aqlli chiqish (25% → 50%) | DD ↓, savat himoyasi |
 | 17 ✅ | B1–B3 + D2 + D3 + D5 + D7 (B4 o'rniga D7: sessiya koeffitsiyenti o'rniga volatillik foizi; TP / grid o'zgartirilmadi) | Nozik aniqlik |
-| 18 | B5 + B6 + C3 limit order + tozalash (D4 natijasiga ko'ra) | Yakun |
+| 18 🟡 | B5 ✅ + B6 ✅ · C3 limit order va tozalash: soya buxgalteriyasi raqamlari va backtestdan keyin | Yakun |
 
 Har bosqichdan keyin: kompilyatsiya, 4126 regression testi, 3 kunlik backtest (savdo/kun, max DD, yutuq foizi)
 va soya buxgalteriyasi hisoboti.

@@ -1,5 +1,13 @@
 # CHANGELOG — Sirus Brain V8
 
+## 18-bosqich: dalillar tablosi va kunlik hisobot
+
+- **B5. Dalillar tablosi:** panelda "Dalillar" qatori chiqadi: eng katta likvidlik hodisasi (H1/H4/KEY) va eng yangi M15+ struktura (MSS/BOS).
+- **B6. Kunlik hisobot** (`EnableDailyReport`): har kun yakunida `Sirus_DailyReport_<symbol>_<magic>.csv` fayliga va jurnalga `[SIRUS DAY REPORT]` qatori yoziladi. Unda: kirishlar soni, lot, natija, yutgan/yutqazgan yopilishlar, soya statistikasi (to'silgan va olingan setuplar, ularning TP %), LIVE SWEEP soni, veto soni va o'rtacha tik vaqti.
+- **Keyinga qoldirildi:**
+  - C3 limit orderlar;
+  - eski filtrlarni tozalash (soya buxgalteriyasi va backtest raqamlari kelgach).
+
 ## 17-bosqich: nozik aniqlik
 
 - **B1. Tick hajmi:** o'rtacha hajmdan ×0.7 dan past bo'lgan displacement, breakout yoki continuation shami trigger hisoblanmaydi. ×1.5 dan baland hajmda sifat +3.

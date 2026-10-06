@@ -642,6 +642,27 @@ void MBDrawPanel()
       MBVisText("B_CONF_TX", StringFormat("ishonch %d%%", G_MB_BIAS_CONF), x0 + w - 12, G_MB_PANEL_Y + 1, muted, PanelFontSize - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
       G_MB_PANEL_Y += lh + 2;
       MBPanelLine("B_WHY", "Sabab: " + MBWhyUz(G_MB_BIAS_WHY), ink, false, x0, w, lh);
+      // Stage 18 (B5): the evidence board - the biggest liquidity event and the latest M15+ structure.
+      {
+         string ev_txt = "";
+         SMBEvent e;
+         int best_rank = -1;
+         for(int ty = MB_EV_LIQ_SWEEP; ty <= MB_EV_FAKE_BREAK; ty++)
+            if(MBEventFind(ty, 0, 3, e) && MBEventRank(e.tfi) > best_rank)
+            {
+               best_rank = MBEventRank(e.tfi);
+               ev_txt = StringFormat("%s %s %s %s", MBTFName(e.tfi), (e.dir > 0 ? "▲" : "▼"), MBEventUz(e.type), DoubleToString(e.level, _Digits));
+            }
+         SMBEvent st;
+         bool have_st = MBEventFind(MB_EV_MSS, 0, 2, st);
+         SMBEvent bos;
+         if(MBEventFind(MB_EV_BOS, 0, 2, bos) && (!have_st || bos.time > st.time)) { st = bos; have_st = true; }
+         string st_txt = have_st ? StringFormat("%s %s %s", MBTFName(st.tfi), (st.dir > 0 ? "▲" : "▼"), MBEventUz(st.type)) : "";
+         string board = "Dalillar: ";
+         board += (StringLen(ev_txt) > 0 ? ev_txt : "katta likvidlik hodisasi yo'q");
+         if(StringLen(st_txt) > 0) board += "  ·  " + st_txt;
+         MBPanelLine("B_EVB", board, muted, false, x0, w, lh);
+      }
       MBPanelLine("B_TF", StringFormat("TF  M5 %s  M15 %s  H1 %s  H4 %s  ·  Bosim  M1 %s  M5 %s  M15 %s",
                                        MBBiasArrow(G_MB_TF_STATE[1]), MBBiasArrow(G_MB_TF_STATE[2]),
                                        MBBiasArrow(G_MB_TF_STATE[3]), MBBiasArrow(G_MB_TF_STATE[4]),
