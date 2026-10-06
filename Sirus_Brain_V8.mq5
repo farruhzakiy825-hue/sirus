@@ -42,6 +42,7 @@
 #include "Sirus/22_Memory.mqh"           // Market Brain H: Entry DNA and bounded evidence learning
 #include "Sirus/23_Entry_Engine.mqh"     // Market Brain E+F: entry location, timing, quality and the judge
 #include "Sirus/24_Position_Brain.mqh"   // Market Brain G: smart grid, thesis monitor, break-even exit
+#include "Sirus/25_Visual_Design.mqh"    // Watermark and the Sirus panel (card dashboard)
 #include "Sirus/90_Reason_Code.mqh"      // Reason Code (always last): why every order was opened (journal + CSV)
 
 //==================================================================//
@@ -775,6 +776,7 @@ void OnDeinit(const int reason)
    NaviusReleaseADXHandles(); // FIX(handle-leak): ADX cache was never released
    Comment("");               // FIX(input-validation): clear any INIT-abort message from the chart
    DeleteDashboard();
+   MBDeleteAllVisuals();   // watermark + Sirus panel
    LegacyDeleteZoneObjects();
    PremiumVisualDeleteObjects();
 

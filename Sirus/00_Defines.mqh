@@ -516,6 +516,11 @@ bool MBGridAllows(const int dir, const int orders, string &reason);
 bool MBBasketBreakEvenExit(const double basket_points, string &why);
 string MBPositionText();
 void MBMemoryOnEntry(const int dir, const double price);   // 22_Memory
+void MBDrawWatermark();          // 25_Visual_Design
+void MBDeleteWatermark();
+void MBDrawPanel();
+void MBDeletePanel();
+void MBDeleteAllVisuals();
 void ReasonCodeEntry(const string kind, const ENUM_ORDER_TYPE type, const double lot, const double fill_price, const ulong ticket);   // 90_Reason_Code
 void ReasonCodeGrid(const ENUM_ORDER_TYPE type, const double lot, const double fill_price, const ulong ticket, const int orders_before);
 int NewsOwnerState(string &why);

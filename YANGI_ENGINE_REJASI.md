@@ -272,7 +272,7 @@ grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saql
 Tartib: 4126 testi va 1–2 haftalik backtest'dan keyin har guruhni o'chirib solishtiramiz.
 Natija yomonlashmasa, kod va inputlar olib tashlanadi.
 
-### 10-bosqich: Vizual dizayn (watermark + dashboard)
+### 10-bosqich: Vizual dizayn (watermark + dashboard) — ✅ kod yozildi (`Sirus/25_Visual_Design.mqh`)
 Egasining so'rovi: chartdagi watermark oddiy bo'lmasin, chiroyli dizayn va shriftlar bo'lsin;
 dashboard ham qayta ko'rib chiqilsin.
 - **Watermark:** "SIRUS" yirik zamonaviy shriftda, ostida harflari keng yoyilgan "BY ZAKIY",

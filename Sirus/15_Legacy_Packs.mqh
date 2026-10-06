@@ -1550,7 +1550,19 @@ void PremiumVisualDrawZoneMidline(const string suffix,
 void PremiumVisualDrawWatermark()
 {
    if(!PremiumShowWatermark)
+   {
+      MBDeleteWatermark();
       return;
+   }
+
+   // Phase 10: the designed watermark replaces the plain label.
+   if(EnableNewWatermark)
+   {
+      PremiumVisualDeleteExact("WM_1");
+      MBDrawWatermark();
+      return;
+   }
+   MBDeleteWatermark();
 
    int chart_w = (int)ChartGetInteger(0, CHART_WIDTH_IN_PIXELS, 0);
    int chart_h = (int)ChartGetInteger(0, CHART_HEIGHT_IN_PIXELS, 0);

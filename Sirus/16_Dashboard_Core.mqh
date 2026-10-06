@@ -973,6 +973,7 @@ void DrawDashboard()
    if(!ShowDashboard)
    {
       DeleteDashboard();
+      MBDeletePanel();
       return;
    }
 
@@ -981,6 +982,20 @@ void DrawDashboard()
       return;
 
    G_LAST_DASHBOARD = now;
+
+   // Phase 10: the Sirus panel (card design). The old detailed text dashboard stays available.
+   if(EnableNewDashboard)
+   {
+      static bool legacy_cleared = false;
+      if(!legacy_cleared)
+      {
+         DeleteDashboard();
+         legacy_cleared = true;
+      }
+      MBDrawPanel();
+      return;
+   }
+   MBDeletePanel();
 
    color env_color   = G_ENV_READY ? clrLime : clrOrangeRed;
    color risk_color  = G_RISK_HARD_BLOCK ? clrOrangeRed : clrLime;

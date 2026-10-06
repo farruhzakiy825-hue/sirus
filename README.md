@@ -49,6 +49,7 @@ MQL5/Experts/Sirus/
 | `22_Memory.mqh` | Market Brain: Entry DNA, savat natijasi, chegaralangan o'rganish |
 | `23_Entry_Engine.mqh` | Market Brain: kirish joyi, vaqti, sifati va yakuniy qaror (EXECUTE / CAUTION / WAIT) |
 | `24_Position_Brain.mqh` | Market Brain: aqlli grid, savat thesis'i kuzatuvi, thesis o'lsa break-even chiqish, qutqaruv |
+| `25_Visual_Design.mqh` | Chiroyli watermark va "karta" dashboard (Sirus panel) |
 | `90_Reason_Code.mqh` | Har ochilgan order sababi (jurnal + CSV), doim oxirgi |
 | `Sirus_Brain_V8.mq5` | `#property`, qismlarni ulash, `OnInit` / `OnDeinit` / `OnTick` / `OnTimer` |
 
