@@ -679,7 +679,7 @@ ishlaydi. Basket SL 50%, Emergency 50% va Force close 52% o'zgarmaydi.
 ### 13.6. Bosqichlar tartibi
 | Bosqich | Tarkib | Asosiy foyda |
 |---|---|---|
-| 12 | C6 profiler + D4 soya buxgalteriyasi | O'lchov: keyingi har qadamni raqam bilan baholaymiz |
+| 12 ✅ | C6 profiler + D4 soya buxgalteriyasi (`Sirus/26_Measure.mqh`) | O'lchov: keyingi har qadamni raqam bilan baholaymiz |
 | 13 | A1 + A2 + A4 + A5 | Yo'nalish × sham asosi: aniqlik ↑↑ |
 | 14 | C1 + C2 + C4 + C5 | Haqiqiy tezlik: kechikish soniyalardan millisekundlarga |
 | 15 | D1 rejim + A6 FVG retest + A3 ketma-ketlik | Savdo soni ↑↑, adashish ↓ |

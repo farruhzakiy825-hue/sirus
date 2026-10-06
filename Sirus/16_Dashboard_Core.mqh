@@ -791,10 +791,13 @@ void CoreUpdate(const string source)
    UpdateBarTracker(source);
    // Market Brain facts (engine plan, phases 1 / 1b). They only describe the market for now; each
    // timeframe is read once per new bar, the forming M1 candle on every tick.
+   MBProfBegin(MB_PROF_BRAIN);
    MBCandleEngineUpdate();
    MBEventEngineUpdate();
    MBBrainUpdate();
    MBPositionBrainUpdate();
+   MBProfEnd(MB_PROF_BRAIN);
+   MBProfBegin(MB_PROF_SCAN);
    UpdateEconomicCalendarGuard();
    UpdateKalmanTrendFilter();
    UpdateDailyBias();   // FEATURE(daily-bias): compute PDH/PDL + prior-day bias before zones/scanner use them
@@ -845,6 +848,8 @@ void CoreUpdate(const string source)
    UpdateBlockExpiryEngine(source);
    if(G_BLOCK_JUST_EXPIRED && (G_SCORE_DECISION == SCORE_DECISION_PASS || G_SCORE_DECISION == SCORE_DECISION_MICRO_PASS))
       UpdateMicroScalpLayer("BLOCK_EXPIRY_RESCORE");
+   MBProfEnd(MB_PROF_SCAN);
+   MBProfBegin(MB_PROF_GUARDS);
    UpdateRiskEngine(source);
    UpdateVPSLiveValidation(source);
    UpdateLegacyPack3(source);
@@ -868,12 +873,18 @@ void CoreUpdate(const string source)
    // already diagnosed and fixed exactly this for the per-scan reset path (see the note in
    // ResetOpportunity) and left the OnInit hole open. Nothing is lost by skipping one pass: the
    // engines run again on the very next tick, with real state.
+   MBProfEnd(MB_PROF_GUARDS);
    if(source != "INIT")
    {
+      MBProfBegin(MB_PROF_GRID);
       UpdateGridRecoveryEngine(source);
       UpdateLegacyPack2("POST_GRID");
+      MBProfEnd(MB_PROF_GRID);
+      MBProfBegin(MB_PROF_ENTRY);
       UpdateFirstEntryEngine(source);
+      MBProfEnd(MB_PROF_ENTRY);
    }
+   MBProfBegin(MB_PROF_POST);
    UpdateLegacyPack3("POST_ENTRY");
    UpdatePack4MiniLicense("POST_ENTRY");
    UpdatePack4MiniLotCaps("POST_ENTRY");
@@ -884,6 +895,7 @@ void CoreUpdate(const string source)
    UpdateLiveValidationProbe("POST_ENTRY");
    UpdatePremiumVisualEngine(source);
    UpdatePremiumLogEngine(source);
+   MBProfEnd(MB_PROF_POST);
 
    G_CORE_READY = (G_LAST_BAR_TIME > 0);
 }
@@ -996,7 +1008,9 @@ void DrawDashboard()
          DeleteDashboard();
          legacy_cleared = true;
       }
+      MBProfBegin(MB_PROF_PANEL);
       MBDrawPanel();
+      MBProfEnd(MB_PROF_PANEL);
       return;
    }
    MBDeletePanel();

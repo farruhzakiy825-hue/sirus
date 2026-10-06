@@ -682,6 +682,9 @@ void MBDrawPanel()
                   (G_QUIET_BARS >= 30 ? MBVisAmber() : muted), false, x0, w, lh);
    else
       MBPanelLine("E_QUIET", "To'siqlar bugun: " + MBGateTopUz(3), muted, false, x0, w, lh);
+   string sh = MBShadowPanelText();
+   if(StringLen(sh) > 0)
+      MBPanelLine("E_SHADOW", sh, (StringFind(sh, "⚠") >= 0 ? MBVisAmber() : muted), false, x0, w, lh);
 
    // --- basket ---
    MBPanelSection("S_BASKET", "SAVAT", x0, w, lh);
@@ -756,6 +759,9 @@ void MBDrawPanel()
    G_MB_PANEL_Y += 2;
    MBPanelLine("F1", StringFormat("spread %d  ·  server %s", G_LAST_SPREAD_POINTS, TimeToString(TimeTradeServer(), TIME_MINUTES)),
                muted, false, x0, w, lh);
+   string prof = MBProfText();
+   if(StringLen(prof) > 0)
+      MBPanelLine("F2", prof, muted, false, x0, w, lh);
 
    // Size the card to what was drawn.
    ObjectSetInteger(0, MB_VIS_PREFIX + "P_CARD", OBJPROP_YSIZE, G_MB_PANEL_Y - y0 + 8);

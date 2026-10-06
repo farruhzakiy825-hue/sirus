@@ -43,6 +43,7 @@
 #include "Sirus/23_Entry_Engine.mqh"     // Market Brain E+F: entry location, timing, quality and the judge
 #include "Sirus/24_Position_Brain.mqh"   // Market Brain G: smart grid, thesis monitor, break-even exit
 #include "Sirus/25_Visual_Design.mqh"    // Watermark and the Sirus panel (card dashboard)
+#include "Sirus/26_Measure.mqh"          // Stage 12: profiler + shadow ledger
 #include "Sirus/90_Reason_Code.mqh"      // Reason Code (always last): why every order was opened (journal + CSV)
 
 //==================================================================//
@@ -1386,6 +1387,8 @@ string ModuleHealthLine(string &silent_out)
 
 void OnTick()
 {
+   MBProfBegin(MB_PROF_TICK);
+   MBProfBegin(MB_PROF_PRE);
    // SAFETY VALVE: has an added guard been doing all the refusing? Once a bar.
    if(EnableSafetyValve) SafetyValveCheck();
 
@@ -1411,8 +1414,14 @@ void OnTick()
    // to be shown, whether that's from OnTick's own throttled DrawDashboard() call below or from
    // OnTimer's unconditional one (which is what keeps it live while the market is closed).
    DuplicateInstanceCheck(); // V31.6k: same-terminal duplicate EA detection (warning-only)
+   MBProfEnd(MB_PROF_PRE);
 
    CoreUpdate("TICK");
+
+   MBProfBegin(MB_PROF_SHADOW);
+   MBShadowUpdate();
+   MBProfEnd(MB_PROF_SHADOW);
+   MBProfEnd(MB_PROF_TICK);
 
    // PERF(tester-speed): the dashboard and heartbeat are purely visual/logging - they do NOT
    // affect trade decisions, but drawing 40+ objects and printing on EVERY tick is the single

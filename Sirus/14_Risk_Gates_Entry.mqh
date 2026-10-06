@@ -4688,6 +4688,7 @@ void UpdateFirstEntryEngine(const string source)
    // name and a counter.
    if(!G_ENTRY_READY)
       GateRecord(G_OPP_DIR != OPP_DIR_NONE ? reason : "no setup: " + reason);
+   MBShadowOnDecision(G_ENTRY_READY, reason);   // stage 12: follow the refused setup in the shadows
 
    // And how long it has been since anything got through. Eleven guards that do not know about
    // each other can add up to silence without any one of them being wrong.
@@ -5019,6 +5020,7 @@ void UpdateFirstEntryEngine(const string source)
       ReasonCodeEntry("FIRST", order_type, lot, G_TRADE.ResultPrice(), G_LAST_ENTRY_TICKET);
       MBMemoryOnEntry((order_type == ORDER_TYPE_BUY ? 1 : -1), G_TRADE.ResultPrice());
       MBFastEntryFilled();
+      MBShadowOnEntry((order_type == ORDER_TYPE_BUY ? 1 : -1), G_TRADE.ResultPrice());
       if(EnableSlippageTracking)
       {
          double slip_filled = G_TRADE.ResultPrice();

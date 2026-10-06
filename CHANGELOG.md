@@ -1,5 +1,21 @@
 # CHANGELOG — Sirus Brain V8
 
+## 12-bosqich: o'lchov (profiler + soya buxgalteriyasi)
+
+- **Profiler** (`EnableProfiler`):
+  - har tik 9 bo'lak bo'yicha o'lchanadi: tayyorlov, miya, skaner, himoyalar, grid, kirish, post, soya, panel;
+  - panel pastida o'rtacha va eng katta vaqt hamda eng og'ir bo'lak chiqadi;
+  - jurnalga soatiga bir qator `[SIRUS PROF]` yoziladi.
+- **Soya buxgalteriyasi** (`EnableShadowLedger`):
+  - har rad etilgan setup yashirin kuzatiladi: TP ga yetadimi (TP), birinchi grid qadamigacha qaytadimi (GRID) yoki 30 daqiqada hech biri bo'lmaydimi (TIMEOUT);
+  - natija rad etgan filtr nomi bilan yoziladi;
+  - haqiqatan olingan kirishlar ham shu tarzda kuzatiladi va solishtirish uchun TAKEN deb yoziladi;
+  - panelda `Soya: to'silgan … → TP …% · olingan … → TP …%` qatori chiqadi;
+  - filtr yaxshi savdolarni to'sayotgan bo'lsa, ⚠ belgisi bilan ogohlantiradi;
+  - har natija CSV ga yoziladi: `Sirus_Shadow_<symbol>_<magic>.csv`;
+  - kun oxirida `[SIRUS SHADOW DAY]` xulosasi chiqadi: `BLOCKS-GOOD` / `EARNS-ITS-PLACE`.
+- Savdo mantig'iga ta'siri yo'q.
+
 ## Savdo soni va yo'nalish: ikki qatlam, FVG, sham aniqligi, tezlik
 
 - **Ikki qatlam muammosi hal qilindi** (`MBOwnsDuplicateGates`). Market Brain savdo tomonida bo'lsa, xuddi shu savolni beradigan eski filtrlar chetga turadi: joy himoyasi, Location Brain, impuls quvish, HTF bias, eski daraja, singan daraja va yo'nalish aniqligi. Javobni miya veto'si va hakami beradi.

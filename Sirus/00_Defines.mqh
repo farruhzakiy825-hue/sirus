@@ -397,6 +397,25 @@ double ZoneMapNearestResistance(const double price);
 double ZoneMapNearestSupport(const double price);
 double ZoneMapStrength(const double level);
 bool CloseNaviusBasket(const string reason);
+// Stage 12 profiler segments (26_Measure.mqh)
+#define MB_PROF_TICK     0
+#define MB_PROF_PRE      1
+#define MB_PROF_BRAIN    2
+#define MB_PROF_SCAN     3
+#define MB_PROF_GUARDS   4
+#define MB_PROF_GRID     5
+#define MB_PROF_ENTRY    6
+#define MB_PROF_POST     7
+#define MB_PROF_PANEL    8
+#define MB_PROF_SHADOW   9
+#define MB_PROF_SEGS     10
+void MBProfBegin(const int seg);
+void MBProfEnd(const int seg);
+string MBProfText();
+void MBShadowOnDecision(const bool ready, const string reason);
+void MBShadowOnEntry(const int dir, const double price);
+void MBShadowUpdate();
+string MBShadowPanelText();
 bool MBStandsInFor(const int dir, const bool location_gate);   // Market Brain owns the duplicate old gates - read by the entry gates before its definition
 int MBBrainScoreRelief(const int dir, string &why);   // score the Market Brain adds to a detector setup it agrees with
 bool MBCashbackTempo();   // cashback tempo switch - read by the entry judge before its definition
