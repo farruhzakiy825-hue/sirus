@@ -1,5 +1,5 @@
 ﻿//+------------------------------------------------------------------+
-//| Sirus_Brain_V8 - 20_Direction_Veto                               |
+//| Sirus_Brain_V8 - 21_Direction_Veto                               |
 //| Market Brain D: hard vetoes built on events and zone roles       |
 //| Part of Sirus_Brain_V8.mq5. Include ORDER matters - do not       |
 //| compile this file on its own; compile Sirus_Brain_V8.mq5.        |
@@ -23,6 +23,11 @@
 //   V3 NO ROOM    a level that still holds sits between the entry and its target.
 //   V4 AGAINST    the move is accelerating the other way right now (live M1 displacement
 //                 against, or an accelerating displacement candle against).
+//   V0 PERMISSION the Market Brain bias decides which entries a direction may take:
+//                 aligned trend -> all; transition toward it -> reversal / reclaim types only;
+//                 neutral -> all; transition away -> wait; weak opposite -> only an exceptional
+//                 reversal setup; strong opposite -> none. A thesis that was just invalidated is
+//                 not re-entered in the same direction without a strong bias (invalidation memory).
 //
 // Case 1 (4142 SELL): sell-side sweep -> bullish displacement -> MSS        -> V1.
 // Case 2 (4126 SELL): 4125 support swept and reclaimed, H4 sell-side sweep -> V1, V2, V3.
@@ -38,24 +43,12 @@ input bool   MBVetoNoRoom             = true;   // V3: maqsadgacha ushlab turgan
 input double MBVetoRoomTPMult         = 1.0;    // V3: zonagacha masofa < savat TP x shu bo'lsa - joy yo'q
 input bool   MBVetoAcceleration       = true;   // V4: harakat hozir qarama-qarshi tomonga tezlashmoqda
 input bool   MBVetoPrintOnUse         = true;   // Veto'ni jurnalga yozish ([SIRUS VETO])
+input bool   EnableMBPermission       = true;   // V0: Market Brain yo'nalish ruxsati (BEARISH da BUY yo'q, TRANSITION da faqat reversal turi ...)
+input int    MBPermExceptionMargin    = 2;      // V0: zaif qarama-qarshi bias'da faqat reversal setup va ball >= minimum + shu
 
 int      G_MB_VETO_COUNT = 0;
 string   G_MB_VETO_LAST = "";
 datetime G_MB_VETO_LAST_PRINT = 0;
-
-int MBEventRank(const int tfi)
-{
-   return (tfi == MB_POOL_KEY) ? 4 : tfi;
-}
-
-bool MBEventRelevant(const int idx)
-{
-   if(G_MB_EV[idx].time <= 0)
-      return false;
-   int tfi = G_MB_EV[idx].tfi;
-   int lim = (tfi == MB_POOL_KEY) ? 2 * MBRelevantBarsHTF : MBRelevantLimit(tfi);   // key levels: 2x on M5 bars
-   return (MBEventAgeBars(G_MB_EV[idx]) <= lim);
-}
 
 // V1. True when the market has just turned against `dir`.
 bool MBVetoReversalCheck(const int dir, string &why)
@@ -181,6 +174,48 @@ bool MBVetoAccelerationCheck(const int dir, string &why)
    return false;
 }
 
+// V0. Direction permission from the Market Brain bias.
+bool MBPermissionCheck(const int dir, string &why)
+{
+   if(!EnableMBPermission || !EnableMarketBrain)
+      return false;
+
+   int a = dir * G_MB_BIAS;   // +3 strongly aligned ... -3 strongly against
+   string side = (dir > 0) ? "BUY" : "SELL";
+   bool reversal_type = IsReversalOpportunityType(G_OPP_TYPE);
+
+   if(G_MB_DEAD_DIR == dir && TimeCurrent() < G_MB_DEAD_UNTIL && a < 3)
+   {
+      why = StringFormat("V0 invalidation memory: the %s thesis died %d min ago - no %s without a strong bias",
+                         (dir > 0 ? "bullish" : "bearish"),
+                         (int)((TimeCurrent() - (G_MB_DEAD_UNTIL - MathMax(1, MBInvalidationMemoryM5) * PeriodSeconds(PERIOD_M5))) / 60), side);
+      return true;
+   }
+   if(a == -3)
+   {
+      why = StringFormat("V0 permission: bias %s - %s blocked", MBBiasName(G_MB_BIAS), side);
+      return true;
+   }
+   if(a == -2 && !(reversal_type && G_SCORE_FINAL >= G_SCORE_MIN_REQUIRED + MathMax(0, MBPermExceptionMargin)))
+   {
+      why = StringFormat("V0 permission: bias %s - %s only on an exceptional reversal setup (score %d, needs %d)",
+                         MBBiasName(G_MB_BIAS), side, G_SCORE_FINAL, G_SCORE_MIN_REQUIRED + MathMax(0, MBPermExceptionMargin));
+      return true;
+   }
+   if(a == -1)
+   {
+      why = StringFormat("V0 permission: market is %s - no %s while it turns away", MBBiasName(G_MB_BIAS), side);
+      return true;
+   }
+   if(a == 1 && !reversal_type)
+   {
+      why = StringFormat("V0 permission: %s - only reversal / reclaim %s entries (this is %s)",
+                         MBBiasName(G_MB_BIAS), side, OpportunityTypeToString(G_OPP_TYPE));
+      return true;
+   }
+   return false;
+}
+
 // The gate. true = allowed.
 bool MBVetoAllowsEntry(const int dir, string &why)
 {
@@ -191,7 +226,9 @@ bool MBVetoAllowsEntry(const int dir, string &why)
    double price = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
    bool blocked = false;
 
-   if(MBVetoReversal && MBVetoReversalCheck(dir, why))
+   if(MBPermissionCheck(dir, why))
+      blocked = true;
+   else if(MBVetoReversal && MBVetoReversalCheck(dir, why))
       blocked = true;
    else if(MBVetoZoneCheck(dir, price, why))
       blocked = true;

@@ -194,7 +194,7 @@ grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saql
 - Zone interaction memory: zonada oxirgi marta nima bo'lgani saqlanadi.
 - *Natija:* 4126 xatosi yo'qoladi, chunki support haqiqiy buzilmaguncha SELL zone bo'lmaydi.
 
-### 3-bosqich: Market Brain + Thesis (C)
+### 3-bosqich: Market Brain + Thesis (C) — ✅ kod yozildi (`Sirus/20_Market_Brain.mqh`), ruxsat matritsasi `21_Direction_Veto.mqh` (V0)
 - TF bo'yicha bias holati: `BULLISH, BULLISH_WEAK, TRANSITION_UP, NEUTRAL, TRANSITION_DOWN,
   BEARISH_WEAK, BEARISH`.
 - **Draw on Liquidity + keyingi qadam:** bozor qaysi likvidlikni oldi va endi qaysisiga boryapti

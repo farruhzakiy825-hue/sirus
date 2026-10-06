@@ -129,10 +129,10 @@ void RCWriteCsv(const string kind, const int dir, const double lot, const double
    if(FileSize(h) == 0)
       FileWriteString(h, "seq;time;kind;dir;lot;price;ticket;signal;score;min_score;decision;market;regime;"
                          "chain;htf_chain;event;verdict;ms_m1;ms_m5;ms_m15;leg_pos;leg_stretch;"
-                         "support;resistance;news;conflicts;signal_reason;extra;candle;events\r\n");
+                         "support;resistance;news;conflicts;signal_reason;extra;candle;events;brain\r\n");
    FileSeek(h, 0, SEEK_END);
 
-   string row = StringFormat("%d;%s;%s;%s;%.2f;%s;%I64u;%s;%d;%d;%s;%s;%s;%d;%d;%s;%d;%d/%s;%d/%s;%d/%s;%.2f;%.1f;%s;%s;%s;%s;%s;%s;%s;%s\r\n",
+   string row = StringFormat("%d;%s;%s;%s;%.2f;%s;%I64u;%s;%d;%d;%s;%s;%s;%d;%d;%s;%d;%d/%s;%d/%s;%d/%s;%.2f;%.1f;%s;%s;%s;%s;%s;%s;%s;%s;%s\r\n",
                              G_RC_SEQ,
                              TimeToString(TimeCurrent(), TIME_DATE | TIME_SECONDS),
                              kind,
@@ -162,7 +162,8 @@ void RCWriteCsv(const string kind, const int dir, const double lot, const double
                              RCCsvSafe(G_OPP_REASON),
                              RCCsvSafe(extra),
                              RCCsvSafe(MBCandleText()),
-                             RCCsvSafe(MBEventText(8)));
+                             RCCsvSafe(MBEventText(8)),
+                             RCCsvSafe(MBBrainText()));
    FileWriteString(h, row);
    FileClose(h);
 }
@@ -225,6 +226,7 @@ void RCPrintContext(const int dir, const double price, double &sup, double &res,
             PrintFormat("   ZONE ROLE: entering right on a %s that holds (%s)", MBZoneRoleName(zo.role), MBZoneStateName(zo.state));
       }
    }
+   PrintFormat("   BRAIN    : %s", MBBrainText());
    PrintFormat("   CANDLE   : %s", MBCandleText());
    PrintFormat("   EVENTS   : %s", MBEventText(8));
 

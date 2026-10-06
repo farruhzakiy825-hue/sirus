@@ -178,6 +178,22 @@ double MBEventWeight(const SMBEvent &ev)
    return 0.0;
 }
 
+// Key levels rank with H4.
+int MBEventRank(const int tfi)
+{
+   return (tfi == MB_POOL_KEY) ? 4 : tfi;
+}
+
+// Still inside its relevant window (key levels: twice the HTF window, in M5 bars).
+bool MBEventRelevant(const int idx)
+{
+   if(G_MB_EV[idx].time <= 0)
+      return false;
+   int tfi = G_MB_EV[idx].tfi;
+   int lim = (tfi == MB_POOL_KEY) ? 2 * MBRelevantBarsHTF : MBRelevantLimit(tfi);   // key levels: 2x on M5 bars
+   return (MBEventAgeBars(G_MB_EV[idx]) <= lim);
+}
+
 // Time of the latest matching event on slot tfi at or after `since`, 0 when none.
 datetime MBEventTimeAt(const int type, const int dir, const int tfi, const double level, const datetime since, const double tol)
 {

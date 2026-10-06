@@ -1,0 +1,471 @@
+﻿//+------------------------------------------------------------------+
+//| Sirus_Brain_V8 - 20_Market_Brain                                 |
+//| Market Brain C: bias states, dealing range, DOL, thesis          |
+//| Part of Sirus_Brain_V8.mq5. Include ORDER matters - do not       |
+//| compile this file on its own; compile Sirus_Brain_V8.mq5.        |
+//+------------------------------------------------------------------+
+
+//=====================================================================
+// MARKET BRAIN (engine plan, phase 3)
+//---------------------------------------------------------------------
+// One opinion about the market instead of seventy separate votes. Built only from the facts of
+// the Event and Candle engines, refreshed once per M1 bar ("what changed?"):
+//
+//   BIAS per timeframe (M5, M15, H1, H4), seven states:
+//      BULLISH / BULLISH_WEAK / TRANSITION_UP / NEUTRAL / TRANSITION_DOWN / BEARISH_WEAK / BEARISH
+//      - the last structure event decides who owns the timeframe (BOS = trend, an MSS not yet
+//        followed by a BOS = transition);
+//      - a confirmed opposite liquidity reversal after it, opposite pressure or a decelerating
+//        move make it WEAK.
+//   COMPOSITE (scalping scheme): M15 gives the direction, M5 detects a transition against it,
+//      a fresh H1/H4/daily liquidity reversal is a transition by itself, H1/H4 add or remove
+//      confidence.
+//   DEALING RANGE: the H1 swing high and swing low around price; premium above the middle,
+//      discount below.
+//   DRAW ON LIQUIDITY: the nearest untouched pool (M15/H1/H4 swing, PDH/PDL, Asia) on the side
+//      the bias points to - where price is expected to go next.
+//   THESIS: direction, confidence, invalidation level, target, preferred entry type and its life:
+//      ACTIVATED (a transition) -> CONFIRMED (a BOS in its direction) -> DONE (target reached)
+//      or INVALIDATED (M5 close beyond the invalidation level). An invalidated thesis is
+//      remembered: the same direction is not revived for a while without a strong bias.
+//   CONTRADICTION: how much relevant evidence has appeared against the thesis since it started.
+//=====================================================================
+
+input group "44 — MARKET BRAIN: BIAS + THESIS"
+input bool   EnableMarketBrain        = true;   // Bozor haqida yagona fikr: 7 holatli bias, dealing range, likvidlik maqsadi, thesis
+input double MBPressureWeakGap        = 20.0;   // Bias WEAK bo'ladi: qarama-qarshi sham bosimi shuncha ko'p bo'lsa (0-100 shkala)
+input int    MBInvalidationMemoryM5   = 24;     // O'lgan thesis yo'nalishi shuncha M5 bar (2 soat) kuchli bias'siz qayta tirilmaydi
+input bool   MBThesisPrintOnUse       = true;   // Thesis o'zgarishlarini jurnalga yozish ([SIRUS THESIS])
+
+#define MB_BIAS_BEARISH          -3
+#define MB_BIAS_BEARISH_WEAK     -2
+#define MB_BIAS_TRANSITION_DOWN  -1
+#define MB_BIAS_NEUTRAL           0
+#define MB_BIAS_TRANSITION_UP     1
+#define MB_BIAS_BULLISH_WEAK      2
+#define MB_BIAS_BULLISH           3
+
+#define MB_TH_NONE               0
+#define MB_TH_ACTIVATED          1
+#define MB_TH_CONFIRMED          2
+#define MB_TH_DONE               3
+#define MB_TH_INVALIDATED        4
+
+int      G_MB_TF_STATE[MB_TF_COUNT];      // per timeframe (index 0 = M1 unused)
+int      G_MB_BIAS       = MB_BIAS_NEUTRAL;
+int      G_MB_BIAS_CONF  = 50;            // 0..100
+string   G_MB_BIAS_WHY   = "";
+datetime G_MB_BRAIN_BAR  = 0;
+
+double   G_MB_DR_HI  = 0.0;               // H1 dealing range
+double   G_MB_DR_LO  = 0.0;
+double   G_MB_DR_POS = 0.5;               // 0 = range low, 1 = range high
+double   G_MB_DOL      = 0.0;             // draw on liquidity (target)
+string   G_MB_DOL_WHAT = "";
+
+int      G_MB_TH_DIR     = 0;
+int      G_MB_TH_STATE   = MB_TH_NONE;
+datetime G_MB_TH_SINCE   = 0;
+double   G_MB_TH_INVALID = 0.0;
+double   G_MB_TH_TARGET  = 0.0;
+int      G_MB_TH_CONTRA  = 0;             // 0 low, 1 medium, 2 high
+string   G_MB_TH_TEXT    = "";
+int      G_MB_DEAD_DIR   = 0;             // invalidation memory
+datetime G_MB_DEAD_UNTIL = 0;
+
+string MBBiasName(const int b)
+{
+   switch(b)
+   {
+      case MB_BIAS_BEARISH:         return "BEARISH";
+      case MB_BIAS_BEARISH_WEAK:    return "BEARISH_WEAK";
+      case MB_BIAS_TRANSITION_DOWN: return "TRANSITION_DOWN";
+      case MB_BIAS_NEUTRAL:         return "NEUTRAL";
+      case MB_BIAS_TRANSITION_UP:   return "TRANSITION_UP";
+      case MB_BIAS_BULLISH_WEAK:    return "BULLISH_WEAK";
+      case MB_BIAS_BULLISH:         return "BULLISH";
+   }
+   return "?";
+}
+
+string MBThesisStateName(const int st)
+{
+   switch(st)
+   {
+      case MB_TH_ACTIVATED:   return "ACTIVATED";
+      case MB_TH_CONFIRMED:   return "CONFIRMED";
+      case MB_TH_DONE:        return "DONE (target reached)";
+      case MB_TH_INVALIDATED: return "INVALIDATED";
+   }
+   return "none";
+}
+
+int MBSign(const int v)
+{
+   if(v > 0) return 1;
+   if(v < 0) return -1;
+   return 0;
+}
+
+// Latest structure event (BOS/MSS) on slot tfi, any age still in the ring. -1 when none.
+int MBLastStructureEvent(const int tfi)
+{
+   int best = -1;
+   int base = tfi * MB_EV_PER_TF;
+   for(int i = 0; i < MB_EV_PER_TF; i++)
+   {
+      int idx = base + i;
+      if(G_MB_EV[idx].time <= 0) continue;
+      if(G_MB_EV[idx].type != MB_EV_MSS && G_MB_EV[idx].type != MB_EV_BOS) continue;
+      if(best < 0 || G_MB_EV[idx].time > G_MB_EV[best].time)
+         best = idx;
+   }
+   return best;
+}
+
+// A confirmed liquidity reversal toward `dir` on slots [tf_lo..tf_hi] (or KEY when key=true)
+// after time `after`: sweep / fake break plus a displacement, MSS/BOS or reclaim. Relevant only.
+bool MBReversalAfter(const int dir, const int tf_lo, const int tf_hi, const bool key, const datetime after, string &what, datetime &sweep_time)
+{
+   sweep_time = 0;
+   int sw = -1;
+   for(int idx = 0; idx < MB_EV_MAX; idx++)
+   {
+      if(G_MB_EV[idx].time <= after || G_MB_EV[idx].dir != dir) continue;
+      if(G_MB_EV[idx].type != MB_EV_LIQ_SWEEP && G_MB_EV[idx].type != MB_EV_FAKE_BREAK) continue;
+      int tfi = G_MB_EV[idx].tfi;
+      bool in_range = (tfi >= tf_lo && tfi <= tf_hi) || (key && tfi == MB_POOL_KEY);
+      if(!in_range) continue;
+      int lim = (tfi == MB_POOL_KEY) ? 2 * MBRelevantBarsHTF : MBRelevantLimit(tfi);
+      if(MBEventAgeBars(G_MB_EV[idx]) > lim) continue;
+      if(sw < 0 || G_MB_EV[idx].time > G_MB_EV[sw].time)
+         sw = idx;
+   }
+   if(sw < 0)
+      return false;
+   for(int idx = 0; idx < MB_EV_MAX; idx++)
+   {
+      if(G_MB_EV[idx].time < G_MB_EV[sw].time || G_MB_EV[idx].dir != dir) continue;
+      int ty = G_MB_EV[idx].type;
+      if(ty == MB_EV_DISPLACEMENT || ty == MB_EV_MSS || ty == MB_EV_BOS || ty == MB_EV_RECLAIM)
+      {
+         sweep_time = G_MB_EV[sw].time;
+         what = StringFormat("%s %s %s @ %s + %s %s", MBTFName(G_MB_EV[sw].tfi),
+                             (dir > 0 ? "sell-side" : "buy-side"), MBEventName(G_MB_EV[sw].type),
+                             DoubleToString(G_MB_EV[sw].level, _Digits),
+                             MBTFName(G_MB_EV[idx].tfi), MBEventName(ty));
+         return true;
+      }
+   }
+   return false;
+}
+
+// Seven-state bias of one timeframe (tfi 1..4).
+int MBTimeframeState(const int tfi)
+{
+   int le = MBLastStructureEvent(tfi);
+   if(le < 0)
+      return MB_BIAS_NEUTRAL;
+
+   int d = G_MB_EV[le].dir;
+   datetime t_le = G_MB_EV[le].time;
+
+   // An MSS not yet followed by a BOS the same way is a transition.
+   if(G_MB_EV[le].type == MB_EV_MSS)
+      return (d > 0) ? MB_BIAS_TRANSITION_UP : MB_BIAS_TRANSITION_DOWN;
+
+   // A trend - strong unless something is already arguing with it.
+   string w = "";
+   datetime swt = 0;
+   bool counter = MBReversalAfter(-d, MathMax(0, tfi - 1), tfi, (tfi >= 3), t_le, w, swt);
+   double gap = (d > 0) ? (G_MB_BEAR[tfi] - G_MB_BULL[tfi]) : (G_MB_BULL[tfi] - G_MB_BEAR[tfi]);
+   bool decel = (G_MB_ACCEL[tfi] < 0 && G_MB_ACCEL_DIR[tfi] == d);
+   if(counter || gap >= MBPressureWeakGap || decel)
+      return (d > 0) ? MB_BIAS_BULLISH_WEAK : MB_BIAS_BEARISH_WEAK;
+   return (d > 0) ? MB_BIAS_BULLISH : MB_BIAS_BEARISH;
+}
+
+// H1 dealing range: the most recent swing high above price and swing low below it.
+void MBDealingRangeUpdate(const double price)
+{
+   MqlRates r[];
+   ArraySetAsSeries(r, true);
+   int n = CopyRates(_Symbol, PERIOD_H1, 0, 160, r);
+   if(n < 20)
+      return;
+   int len = MathMax(1, MBSwingLenHTF);
+   double hi = 0.0, lo = 0.0;
+   for(int k = 1 + len; k <= n - 1 - len && (hi == 0.0 || lo == 0.0); k++)
+   {
+      bool is_hi = true, is_lo = true;
+      for(int j = 1; j <= len; j++)
+      {
+         if(r[k].high <= r[k - j].high || r[k].high < r[k + j].high) is_hi = false;
+         if(r[k].low  >= r[k - j].low  || r[k].low  > r[k + j].low)  is_lo = false;
+      }
+      if(is_hi && hi == 0.0 && r[k].high > price) hi = r[k].high;
+      if(is_lo && lo == 0.0 && r[k].low < price)  lo = r[k].low;
+   }
+   if(hi > lo && lo > 0.0)
+   {
+      G_MB_DR_HI = hi;
+      G_MB_DR_LO = lo;
+      G_MB_DR_POS = (price - lo) / (hi - lo);
+   }
+}
+
+// Nearest untouched pool beyond price on side `side` (+1 above, -1 below), on one timeframe.
+void MBNearestIntactPool(const ENUM_TIMEFRAMES tf, const int bars, const int len, const int side, const double price,
+                         const double min_pierce, const double eq_tol, double &best, string &what, const string tf_name)
+{
+   MqlRates r[];
+   ArraySetAsSeries(r, true);
+   int n = CopyRates(_Symbol, tf, 0, bars, r);
+   if(n < 20)
+      return;
+   MBBuildSwingPools(r, n, 1, len, eq_tol);
+   for(int p = 0; p < G_MB_PL_COUNT; p++)
+   {
+      if(G_MB_PL_SIDE[p] != side) continue;
+      double lvl = G_MB_PL_LEVEL[p];
+      if(side > 0 && lvl <= price) continue;
+      if(side < 0 && lvl >= price) continue;
+      // Untouched since it formed, up to and including the forming bar.
+      bool intact = true;
+      for(int j = 0; j < n; j++)
+      {
+         if(r[j].time <= G_MB_PL_FROM[p]) break;
+         if(side > 0 && r[j].high > lvl + min_pierce) { intact = false; break; }
+         if(side < 0 && r[j].low  < lvl - min_pierce) { intact = false; break; }
+      }
+      if(!intact) continue;
+      if(best == 0.0 || MathAbs(lvl - price) < MathAbs(best - price))
+      {
+         best = lvl;
+         what = StringFormat("%s %s", tf_name, MBPoolKindName(G_MB_PL_KIND[p], side));
+      }
+   }
+}
+
+void MBDrawOnLiquidityUpdate(const int dir, const double price)
+{
+   G_MB_DOL = 0.0;
+   G_MB_DOL_WHAT = "";
+   if(dir == 0)
+      return;
+   double atr5 = ((G_MB_ATR[1] > 0.0) ? G_MB_ATR[1] : 100.0) * _Point;
+   double min_pierce = MBSweepMinATR * atr5;
+   double eq_tol = MBEqualLevelATR * atr5;
+   double best = 0.0;
+   string what = "";
+   MBNearestIntactPool(PERIOD_M15, 160, MathMax(1, MBSwingLenHTF), dir, price, min_pierce, eq_tol, best, what, "M15");
+   MBNearestIntactPool(PERIOD_H1,  160, MathMax(1, MBSwingLenHTF), dir, price, min_pierce, eq_tol, best, what, "H1");
+   MBNearestIntactPool(PERIOD_H4,  120, MathMax(1, MBSwingLenHTF), dir, price, min_pierce, eq_tol, best, what, "H4");
+   // Yesterday's high / low when still untouched today.
+   double pd = (dir > 0) ? iHigh(_Symbol, PERIOD_D1, 1) : iLow(_Symbol, PERIOD_D1, 1);
+   double today_ext = (dir > 0) ? iHigh(_Symbol, PERIOD_D1, 0) : iLow(_Symbol, PERIOD_D1, 0);
+   bool pd_intact = (dir > 0) ? (pd > 0.0 && today_ext <= pd) : (pd > 0.0 && today_ext >= pd);
+   if(pd_intact && ((dir > 0 && pd > price) || (dir < 0 && pd < price)) &&
+      (best == 0.0 || MathAbs(pd - price) < MathAbs(best - price)))
+   {
+      best = pd;
+      what = (dir > 0) ? "PDH" : "PDL";
+   }
+   G_MB_DOL = best;
+   G_MB_DOL_WHAT = what;
+}
+
+// Invalidation for a new thesis: the extreme of the sweep that started it, or the nearest
+// M15 swing on the other side of price.
+double MBThesisInvalidation(const int dir, const double price)
+{
+   double inv = 0.0;
+   for(int idx = 0; idx < MB_EV_MAX; idx++)
+   {
+      if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != dir) continue;
+      if(G_MB_EV[idx].type != MB_EV_LIQ_SWEEP && G_MB_EV[idx].type != MB_EV_FAKE_BREAK) continue;
+      if(MBEventRank(G_MB_EV[idx].tfi) < 1) continue;
+      int lim = (G_MB_EV[idx].tfi == MB_POOL_KEY) ? 2 * MBRelevantBarsHTF : MBRelevantLimit(G_MB_EV[idx].tfi);
+      if(MBEventAgeBars(G_MB_EV[idx]) > lim) continue;
+      double x = G_MB_EV[idx].extreme;
+      if(dir > 0 && x < price && (inv == 0.0 || x < inv)) inv = x;
+      if(dir < 0 && x > price && (inv == 0.0 || x > inv)) inv = x;
+   }
+   if(inv > 0.0)
+      return inv;
+
+   MqlRates r[];
+   ArraySetAsSeries(r, true);
+   int n = CopyRates(_Symbol, PERIOD_M15, 0, 120, r);
+   int len = MathMax(1, MBSwingLenHTF);
+   for(int k = 1 + len; k <= n - 1 - len; k++)
+   {
+      bool is_hi = true, is_lo = true;
+      for(int j = 1; j <= len; j++)
+      {
+         if(r[k].high <= r[k - j].high || r[k].high < r[k + j].high) is_hi = false;
+         if(r[k].low  >= r[k - j].low  || r[k].low  > r[k + j].low)  is_lo = false;
+      }
+      if(dir > 0 && is_lo && r[k].low < price) return r[k].low;
+      if(dir < 0 && is_hi && r[k].high > price) return r[k].high;
+   }
+   return 0.0;
+}
+
+int MBContradiction(const int dir, const datetime since)
+{
+   double w = 0.0;
+   for(int idx = 0; idx < MB_EV_MAX; idx++)
+   {
+      if(G_MB_EV[idx].time <= since || G_MB_EV[idx].dir != -dir) continue;
+      if(MBEventRank(G_MB_EV[idx].tfi) < 1) continue;
+      double ew = MBEventWeight(G_MB_EV[idx]);
+      if(ew <= 0.0) continue;
+      w += ew * G_MB_EV[idx].strength;
+   }
+   if(w >= 12.0) return 2;
+   if(w >= 5.0)  return 1;
+   return 0;
+}
+
+void MBBrainUpdate()
+{
+   if(!EnableMarketBrain || !EnableMarketBrainEngines)
+      return;
+   datetime bar = iTime(_Symbol, PERIOD_M1, 0);
+   if(bar <= 0 || bar == G_MB_BRAIN_BAR)
+      return;
+   G_MB_BRAIN_BAR = bar;
+
+   double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(price <= 0.0)
+      return;
+
+   for(int tfi = 1; tfi < MB_TF_COUNT; tfi++)
+      G_MB_TF_STATE[tfi] = MBTimeframeState(tfi);
+   G_MB_TF_STATE[0] = MB_BIAS_NEUTRAL;
+
+   int s5 = G_MB_TF_STATE[1], s15 = G_MB_TF_STATE[2], s1h = G_MB_TF_STATE[3], s4h = G_MB_TF_STATE[4];
+   int bias = s15;
+   string why = StringFormat("M15 %s", MBBiasName(s15));
+
+   if(s15 == MB_BIAS_NEUTRAL && s5 != MB_BIAS_NEUTRAL)
+   {
+      bias = (MathAbs(s5) == 3) ? 2 * MBSign(s5) : s5;   // M5 alone carries less authority
+      why = StringFormat("M15 neutral, M5 %s", MBBiasName(s5));
+   }
+   else if(MBSign(s5) != 0 && MBSign(s5) != MBSign(s15) && (MathAbs(s5) == 1 || MathAbs(s5) == 3))
+   {
+      bias = (s5 > 0) ? MB_BIAS_TRANSITION_UP : MB_BIAS_TRANSITION_DOWN;
+      why = StringFormat("M15 %s, but M5 %s", MBBiasName(s15), MBBiasName(s5));
+   }
+
+   // A fresh confirmed reversal at H1 / H4 / daily liquidity is a transition by itself - unless
+   // M15 has since made structure the other way (the market already answered it).
+   int le15 = MBLastStructureEvent(2);
+   for(int d = -1; d <= 1; d += 2)
+   {
+      string w = "";
+      datetime swt = 0;
+      if(MBSign(bias) != d && MBReversalAfter(d, 3, 4, true, 0, w, swt) &&
+         !(le15 >= 0 && G_MB_EV[le15].dir == -d && G_MB_EV[le15].time > swt))
+      {
+         bias = (d > 0) ? MB_BIAS_TRANSITION_UP : MB_BIAS_TRANSITION_DOWN;
+         why = "HTF liquidity reversal: " + w;
+      }
+   }
+
+   int conf = 50 + 12 * MathAbs(bias);
+   if(MBSign(s1h) != 0) conf += (MBSign(s1h) == MBSign(bias)) ? 8 : -10;
+   if(MBSign(s4h) != 0) conf += (MBSign(s4h) == MBSign(bias)) ? 6 : -6;
+   G_MB_BIAS = bias;
+   G_MB_BIAS_WHY = why;
+
+   MBDealingRangeUpdate(price);
+   MBDrawOnLiquidityUpdate(MBSign(bias), price);
+
+   // --- Thesis life ---
+   double c1 = iClose(_Symbol, PERIOD_M5, 1);
+   datetime now = TimeCurrent();
+   int bdir = MBSign(bias);
+
+   if(G_MB_TH_DIR != 0 && (G_MB_TH_STATE == MB_TH_ACTIVATED || G_MB_TH_STATE == MB_TH_CONFIRMED))
+   {
+      bool invalid = (G_MB_TH_INVALID > 0.0 && c1 > 0.0) &&
+                     ((G_MB_TH_DIR > 0 && c1 < G_MB_TH_INVALID) || (G_MB_TH_DIR < 0 && c1 > G_MB_TH_INVALID));
+      bool done = (G_MB_TH_TARGET > 0.0) &&
+                  ((G_MB_TH_DIR > 0 && iHigh(_Symbol, PERIOD_M1, 1) >= G_MB_TH_TARGET) ||
+                   (G_MB_TH_DIR < 0 && iLow(_Symbol, PERIOD_M1, 1) <= G_MB_TH_TARGET));
+      if(invalid)
+      {
+         G_MB_TH_STATE = MB_TH_INVALIDATED;
+         G_MB_DEAD_DIR = G_MB_TH_DIR;
+         G_MB_DEAD_UNTIL = now + MathMax(1, MBInvalidationMemoryM5) * PeriodSeconds(PERIOD_M5);
+         if((MBThesisPrintOnUse && VerboseLogs))
+            PrintFormat("[SIRUS THESIS] %s thesis INVALIDATED: M5 closed %s beyond %s - that story is dead",
+                        (G_MB_TH_DIR > 0 ? "BULLISH" : "BEARISH"), DoubleToString(c1, _Digits), DoubleToString(G_MB_TH_INVALID, _Digits));
+      }
+      else if(done)
+      {
+         G_MB_TH_STATE = MB_TH_DONE;
+         if((MBThesisPrintOnUse && VerboseLogs))
+            PrintFormat("[SIRUS THESIS] %s thesis DONE: target %s reached - watching for the other side's liquidity",
+                        (G_MB_TH_DIR > 0 ? "BULLISH" : "BEARISH"), DoubleToString(G_MB_TH_TARGET, _Digits));
+      }
+      else if(G_MB_TH_STATE == MB_TH_ACTIVATED && bdir == G_MB_TH_DIR && MathAbs(bias) >= 2)
+      {
+         G_MB_TH_STATE = MB_TH_CONFIRMED;
+         if((MBThesisPrintOnUse && VerboseLogs))
+            PrintFormat("[SIRUS THESIS] %s thesis CONFIRMED (%s)", (G_MB_TH_DIR > 0 ? "BULLISH" : "BEARISH"), MBBiasName(bias));
+      }
+   }
+
+   bool thesis_open = (G_MB_TH_DIR != 0 && (G_MB_TH_STATE == MB_TH_ACTIVATED || G_MB_TH_STATE == MB_TH_CONFIRMED));
+   if(bdir != 0 && (!thesis_open || bdir != G_MB_TH_DIR))
+   {
+      bool dead = (bdir == G_MB_DEAD_DIR && now < G_MB_DEAD_UNTIL && MathAbs(bias) < 3);
+      if(!dead)
+      {
+         G_MB_TH_DIR = bdir;
+         G_MB_TH_STATE = (MathAbs(bias) >= 2) ? MB_TH_CONFIRMED : MB_TH_ACTIVATED;
+         G_MB_TH_SINCE = now;
+         G_MB_TH_INVALID = MBThesisInvalidation(bdir, price);
+         G_MB_TH_TARGET = G_MB_DOL;
+         if((MBThesisPrintOnUse && VerboseLogs))
+            PrintFormat("[SIRUS THESIS] new %s thesis %s | %s | target %s (%s) | invalid beyond %s",
+                        (bdir > 0 ? "BULLISH" : "BEARISH"), MBThesisStateName(G_MB_TH_STATE), why,
+                        (G_MB_TH_TARGET > 0.0 ? DoubleToString(G_MB_TH_TARGET, _Digits) : "-"), G_MB_DOL_WHAT,
+                        (G_MB_TH_INVALID > 0.0 ? DoubleToString(G_MB_TH_INVALID, _Digits) : "-"));
+      }
+   }
+
+   G_MB_TH_CONTRA = (G_MB_TH_DIR != 0) ? MBContradiction(G_MB_TH_DIR, G_MB_TH_SINCE) : 0;
+   conf -= 8 * G_MB_TH_CONTRA;
+   G_MB_BIAS_CONF = (int)MathMax(5, MathMin(95, conf));
+
+   // Narrative.
+   string loc = "";
+   if(G_MB_DR_HI > G_MB_DR_LO)
+      loc = StringFormat("%s (%.2f) of H1 range %s-%s",
+                         (G_MB_DR_POS >= 0.55 ? "PREMIUM" : (G_MB_DR_POS <= 0.45 ? "DISCOUNT" : "EQUILIBRIUM")),
+                         G_MB_DR_POS, DoubleToString(G_MB_DR_LO, _Digits), DoubleToString(G_MB_DR_HI, _Digits));
+   string pref = "-";
+   if(MathAbs(bias) == 1) pref = "reversal / reclaim entries";
+   else if(MathAbs(bias) >= 2) pref = "continuation / pullback entries";
+   G_MB_TH_TEXT = StringFormat("%s %d%% (%s) | M5 %s, M15 %s, H1 %s, H4 %s | %s | DOL %s %s | thesis %s %s, invalid %s, contradiction %s | prefer %s",
+                               MBBiasName(bias), G_MB_BIAS_CONF, why,
+                               MBBiasName(s5), MBBiasName(s15), MBBiasName(s1h), MBBiasName(s4h),
+                               (StringLen(loc) > 0 ? loc : "no H1 range"),
+                               (G_MB_DOL > 0.0 ? DoubleToString(G_MB_DOL, _Digits) : "-"), G_MB_DOL_WHAT,
+                               (G_MB_TH_DIR > 0 ? "BULL" : (G_MB_TH_DIR < 0 ? "BEAR" : "-")), MBThesisStateName(G_MB_TH_STATE),
+                               (G_MB_TH_INVALID > 0.0 ? DoubleToString(G_MB_TH_INVALID, _Digits) : "-"),
+                               (G_MB_TH_CONTRA == 2 ? "HIGH" : (G_MB_TH_CONTRA == 1 ? "MEDIUM" : "LOW")),
+                               pref);
+}
+
+string MBBrainText()
+{
+   if(!EnableMarketBrain || !EnableMarketBrainEngines)
+      return "off";
+   return G_MB_TH_TEXT;
+}

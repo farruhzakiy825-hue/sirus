@@ -793,6 +793,7 @@ void CoreUpdate(const string source)
    // timeframe is read once per new bar, the forming M1 candle on every tick.
    MBCandleEngineUpdate();
    MBEventEngineUpdate();
+   MBBrainUpdate();
    UpdateEconomicCalendarGuard();
    UpdateKalmanTrendFilter();
    UpdateDailyBias();   // FEATURE(daily-bias): compute PDH/PDL + prior-day bias before zones/scanner use them
