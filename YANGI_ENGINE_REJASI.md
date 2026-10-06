@@ -57,9 +57,16 @@ bo'lganini farqlamaydi. Shuning uchun soxta break → 4126 da SELL chiqadi.
 | Chase detector / Speed budget / Entry quality decay | 🟡 Qisman | `LateEntry`, arming bor; vaqt bilan ball pasayishi yo'q |
 | Impulse origin / Impulse age | ❌ Yo'q | |
 | Compression → Expansion | 🟡 Juda kam | |
-| Candle Intent (displacement / rejection / absorption …) | 🟡 Qisman | `CandleSequence`, `Authorship`, `LiveBar`, `Evolution` bor, lekin tarqoq |
-| Candle Pressure / Acceleration | 🟡 Qisman | `ConsecutivePressure`, `TickVelocity` |
-| Live candle (yopilishni kutmaslik) | 🟡 Qisman | `LiveSample` bor |
+| Candle Intent (9 xil niyat) | 🟡 Qisman | Sham holatlari bor (expanding / contracting / inside / rejection / absorption), lekin "displacement, liquidity-grab, fake-breakout, exhaustion" kabi yagona tasnif yo'q |
+| Candle Anatomy (body %, wick %, close position) | ✅ Bor | `CandleBodyPoints`, `CandleWickAuthorship`, `CandleParticipation` |
+| Candle × Location | 🟡 Qisman | `CandleLocationWeight`, `CandlePatternLocation` bor, zona roli bilan bog'lanmagan |
+| Candle Sequence (order-flow story) | 🟡 Qisman | `CandleSequenceRead`, `CandleProgression`, `WickOrderBias` bor |
+| Candle Pressure Score (bull / bear 0-100) | ❌ Yo'q | `ConsecutivePressure` faqat yo'nalish beradi |
+| Candle Acceleration / Deceleration | 🟡 Qisman | `RecentThrustExhausted`, expanding / contracting holati |
+| Live candle (yopilishni kutmaslik) | 🟡 Qisman | `LiveBarRead`, `LiveBarEvolution` bor (wick failed / sustained / absorbed) |
+| Wick rejection quality (joy + likvidlik + keyingi sham) | 🟡 Qisman | `CandleRejectionReliability`, `CandleBreakQuality` |
+| M1 → M5 → M15 sham bosimi solishtirish | 🟡 Qisman | `CandleHTFAgreement` |
+| Har sham manbasining aniqligini o'rganish | ✅ Bor | 10 ta manba uchun `CandleSource*` (Bayes) |
 | Minimum Necessary Evidence (holatga qarab) | ❌ Yo'q | Hozir bir xil talab |
 | Contradiction engine | 🟡 Qisman | `CandleConflict`, `RegimeContradiction` |
 | Grid faqat thesis + sham tasdig'i bilan | 🟡 Qisman | `PremiseDead`, `StructureAgainstBasket`, `GridDirectionDoubt` |
@@ -78,6 +85,9 @@ Yangi engine noldan yozilmaydi. Mavjud o'lchovlar (structure, sweep, candle, loc
 
 ```
 MARKET DATA (har tik / har bar)
+   │
+   ▼
+A0. CANDLE ENGINE      – har sham: intent, anatomy, pressure (bull / bear), acceleration, jonli holat
    │
    ▼
 A. EVENT ENGINE        – faktlar: sweep, displacement, BOS/MSS, reclaim, acceptance, rejection
@@ -137,6 +147,43 @@ tester'da yonma-yon solishtirish mumkin. Har bosqichdan keyin: kompilyatsiya →
 - *Natija:* "pastda likvidlik olindi → bullish displacement → MSS" ketma-ketligini robot
   ko'ra oladi.
 
+### 1b-bosqich: Candle Intelligence Engine (A0)
+Sham hech qachon yolg'iz signal bermaydi, lekin **kirish vaqtini** beradi:
+Market Brain "QAYERDA va NIMA UCHUN?" degan savolga, Candle Engine "HOZIRMI?" degan savolga javob beradi.
+Mavjud tarqoq sham modullari bitta engine'ga yig'iladi.
+
+1. **Candle Intent.** Har sham quyidagilardan biri sifatida tasniflanadi: `DISPLACEMENT`,
+   `REJECTION`, `ABSORPTION`, `CONTINUATION`, `EXHAUSTION`, `INDECISION`, `LIQUIDITY_GRAB`,
+   `BREAKOUT`, `FAKE_BREAKOUT`. Bu "qizil sham = SELL" emas, "sham qayerdan boshlandi va nimani
+   buzdi?" degan savolga javob.
+2. **Candle Anatomy.** Body %, yuqori va pastki wick %, diapazon, yopilish joyi, oldingi sham
+   bilan solishtirish. Misol: katta bullish tana + ulkan yuqori wick + resistance ostida yopilish
+   = bullish ko'rinishli **rejection**.
+3. **Candle × Location.** Bir xil sham ikki joyda ikki xil ma'no beradi. Support + sweep +
+   bullish sham = kuchli BUY dalili. Oldingi high + buy-side likvidlik + bullish sham + uzun
+   yuqori wick = exhaustion yoki trap.
+4. **Candle Sequence.** Ketma-ketlik voqea sifatida o'qiladi: `🔴🔴🔴🔴🟢🔴` = bosim davom etmoqda
+   (rejection zonasi). `🔴🔴🔴🟢🟢🟢` = bearish bosim so'nib, reversal boshlanmoqda.
+5. **Candle Pressure Score.** Bull va bear bosimi alohida 0-100: tana (30) + yopilish joyi (20)
+   + displacement (20) + struktura buzish (15) + likvidlik reaksiyasi (10) + follow-through (5).
+   M1, M5, M15 bo'yicha solishtiriladi.
+6. **Candle Acceleration.** Oxirgi 5 sham harakati: `3 → 4 → 7 → 12 → 22` = tezlashish;
+   `22 → 15 → 8 → 4` = so'nish. "Tezlashayotgan harakatga qarshi kirma" qoidasi va reversalni
+   erta sezish shundan olinadi.
+7. **Live Candle State.** Sham yopilishini kutmaydi. Jonli shamda kuchli tana, high yaqinida
+   turish, oldingi high buzilishi, likvidlik olinishi bo'lsa → "early displacement", kirish
+   tayyorlanadi. Sham kuchini yo'qotsa, signal bekor qilinadi.
+8. **Wick Rejection Quality.** Wick bor bo'lishi yetarli emas: qayerda, likvidlik oldimi,
+   yopilish qayerda, keyingi sham nima qildi, wick'dan keyin displacement bormi.
+9. **Impulse Origin / Compression → Expansion.** Birinchi displacement shamini topish
+   (impulse yoshi shundan hisoblanadi) va siqilishdan chiqishni alohida hodisa sifatida belgilash.
+10. **Grid uchun Candle Response.** Savat zararda bo'lganda zonada bullish rejection + mikro
+    displacement bo'lsa (BUY savat uchun), "aqlli qo'shish". Support buzilib, bearish displacement
+    bo'lsa, masofa yetgan bo'lsa ham qo'shilmaydi.
+
+*Natija:* Event Engine (displacement, sweep sham, rejection), Zone Role, Entry trigger va aqlli
+grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saqlanadi.
+
 ### 2-bosqich: Zone Role Engine (B)
 - Har zona uchun holat: `UNTOUCHED → APPROACHING → TOUCHED → SWEPT / REJECTED / BROKEN →
   RECLAIMED / RETESTED / FAILED → EXPIRED`.
@@ -178,9 +225,10 @@ tester'da yonma-yon solishtirish mumkin. Har bosqichdan keyin: kompilyatsiya →
 - Location: premium / discount (dealing range ichida), structural room,
   distance-to-invalidation.
 - Chase detector + impulse origin / age + entry quality decay ("signal yaxshi, entry yomon").
-- Candle Intent (displacement / rejection / absorption / exhaustion / liquidity-grab /
-  fake-breakout …) × Location; Candle Pressure (bull / bear 0-100); acceleration / deceleration.
-- Live trigger: sham yopilishini kutmasdan, sham kuchini yo'qotsa signal bekor qilinadi.
+- Trigger 1b-bosqichdagi Candle Engine'dan olinadi (intent × location, pressure, live state).
+- First pullback preference: yangi impulsdan keyingi birinchi sog'lom pullback ustun
+  (kuchli boshlang'ich displacement bo'lsa early entry ham mumkin).
+- Reclaim quality: break'ning o'zi emas, break'dan keyin daraja qanday ushlanganini o'qish.
 - Minimum Necessary Evidence: trend uchun 3 dalil, reversal uchun 4-5 dalil.
 - Speed budget: `EARLY / NORMAL / LATE / EXPIRED`.
 
@@ -236,9 +284,10 @@ tester'da yonma-yon solishtirish mumkin. Har bosqichdan keyin: kompilyatsiya →
 
 ## 6. Taklif etilgan tartib
 
-**0 → 1 → 2 → 4 → 3 → 5 → 6 → 7 → 8 → 9**
+**0 → 1 + 1b → 2 → 4 → 3 → 5 → 6 → 7 → 8 → 9**
 
-4-bosqichni (veto) 3-bosqichdan oldin, faqat Event Engine va Zone Role ustida qilsak, DD'ga
+Event Engine va Candle Engine birga quriladi, chunki displacement, sweep sham va rejection
+aynan sham tahlilidan chiqadi. 4-bosqichni (veto) 3-bosqichdan oldin, Event, Candle va Zone Role ustida qilsak, DD'ga
 olib kelgan 4142 / 4126 turidagi xatolar eng tez yopiladi. To'liq Market Brain esa undan keyin
 quriladi.
 
@@ -256,7 +305,7 @@ quriladi.
 | 6 | Thesis o'lsa | Grid to'xtaydi, savat **break-even'da chiqadi** (10-bo'lim) |
 | 7 | Eski detektorlar | Nomzod sifatida qoladi. Yangi engine ruxsat va veto beradi, keyin natijaga qarab kamaytiriladi |
 | 8 | Ball og'irliklari | Boshida qat'iy. O'rganish 8-bosqichda, chegaralangan holda (11-bo'lim) |
-| 9 | Test holati | Broker vaqti bilan 06:15. Sana aniqlanishi kerak |
+| 9 | Test holati | **4126 SELL: 2026-10-06, broker vaqti 06:15** (Exness). Shu kun tester'da real tick'lar bilan qayta o'ynatiladi |
 | 10 | Entry competition | Bitta eng yaxshi nomzod tanlanadi |
 
 ---
@@ -283,6 +332,13 @@ ham avtomatik hisobga olinadi. `ATR1` = M1 ATR, `ATR5` = M5 ATR.
 | **Chase / Speed budget** | Impulse boshidan ≥ 30% pullback'siz yurilgan masofa: < 1.5 × ATR1 = `EARLY`; < 2.5 × ATR1 = `NORMAL`; < 4 × ATR1 = `LATE`; undan ko'p = `EXPIRED` (continuation kirish uchun) |
 | **Compression** | Oxirgi 10 M1 bar diapazoni ≤ 1.5 × ATR1. Undan displacement bilan chiqish = "compression release" |
 | **Structural room** | Qarama-qarshi kuchli zonagacha ≥ max(1.5 × savat TP, 1 × ATR5) |
+| **Kuchli tana** | tana / diapazon ≥ 0.60 |
+| **Indecision** | tana / diapazon ≤ 0.25 va diapazon ≤ 0.7 × ATR1 |
+| **Rejection wick** | daraja tomonidagi wick ≥ 0.50 × diapazon |
+| **Absorption** | diapazon ≥ 1.3 × ATR1, lekin tana ≤ 0.35 × diapazon (katta harakat, natija yo'q) |
+| **Exhaustion** | impulse ≥ 3-to'lqinda + so'nish (har sham diapazoni oldingisidan kichik) + qarama-qarshi wick |
+| **Acceleration** | oxirgi 5 sham diapazoni ketma-ket o'smoqda va oxirgisi ≥ 1.5 × o'rtacha |
+| **Early (live) displacement** | jonli sham tanasi ≥ 0.8 × ATR1, narx diapazonning chetki 25% ida, oldingi sham high / low buzilgan |
 
 Bu qiymatlar input sifatida chiqariladi va tester'da sozlanadi.
 
