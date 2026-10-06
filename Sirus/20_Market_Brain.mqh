@@ -56,6 +56,9 @@ int      G_MB_BIAS       = MB_BIAS_NEUTRAL;
 int      G_MB_BIAS_CONF  = 50;            // 0..100
 string   G_MB_BIAS_WHY   = "";
 datetime G_MB_BRAIN_BAR  = 0;
+int      G_MB_BIAS_CAND   = MB_BIAS_NEUTRAL;   // bias waiting to be confirmed (hysteresis)
+int      G_MB_BIAS_CAND_N = 0;
+bool     G_MB_BRAIN_PRIMED = false;
 
 double   G_MB_DR_HI  = 0.0;               // H1 dealing range
 double   G_MB_DR_LO  = 0.0;
@@ -364,10 +367,27 @@ void MBBrainUpdate()
       bias = (MathAbs(s5) == 3) ? 2 * MBSign(s5) : s5;   // M5 alone carries less authority
       why = StringFormat("M15 neutral, M5 %s", MBBiasName(s5));
    }
-   else if(MBSign(s5) != 0 && MBSign(s5) != MBSign(s15) && (MathAbs(s5) == 1 || MathAbs(s5) == 3))
+   else if(MBSign(s5) != 0 && MBSign(s15) != 0 && MBSign(s5) != MBSign(s15))
    {
-      bias = (s5 > 0) ? MB_BIAS_TRANSITION_UP : MB_BIAS_TRANSITION_DOWN;
-      why = StringFormat("M15 %s, but M5 %s", MBBiasName(s15), MBBiasName(s5));
+      // FIX(bias-flip-flop): an M5 structure against M15 is usually just a pullback. Treating every
+      // one as a transition flipped the bias on each M5 swing, and the permission matrix then blocked
+      // one side and the other in turn - the EA hesitated between directions. A transition now needs
+      // a CONFIRMED M5 liquidity reversal (sweep / fake break plus displacement, MSS or reclaim) after
+      // M15 last made structure; otherwise M15 keeps the direction, one notch weaker.
+      int le15b = MBLastStructureEvent(2);
+      datetime since15 = (le15b >= 0) ? G_MB_EV[le15b].time : 0;
+      string w5 = "";
+      datetime t5 = 0;
+      if(MBReversalAfter(MBSign(s5), 1, 1, false, since15, w5, t5))
+      {
+         bias = (s5 > 0) ? MB_BIAS_TRANSITION_UP : MB_BIAS_TRANSITION_DOWN;
+         why = StringFormat("M15 %s, but M5 reversal: %s", MBBiasName(s15), w5);
+      }
+      else
+      {
+         bias = (MathAbs(s15) == 3) ? 2 * MBSign(s15) : s15;
+         why = StringFormat("M15 %s, M5 pullback (%s)", MBBiasName(s15), MBBiasName(s5));
+      }
    }
 
    // A fresh confirmed reversal at H1 / H4 / daily liquidity is a transition by itself - unless
@@ -384,6 +404,33 @@ void MBBrainUpdate()
          why = "HTF liquidity reversal: " + w;
       }
    }
+
+   // FIX(bias-flip-flop): a new bias must hold for two consecutive M1 bars before it replaces the old
+   // one - except a strengthening in the same direction or an HTF liquidity reversal, which apply at
+   // once. One noisy bar no longer swings the permission matrix.
+   bool htf_driven = (StringFind(why, "HTF liquidity reversal") == 0);
+   bool same_side_stronger = (MBSign(bias) == MBSign(G_MB_BIAS) && MathAbs(bias) >= MathAbs(G_MB_BIAS));
+   if(bias != G_MB_BIAS && !htf_driven && !same_side_stronger && G_MB_BRAIN_PRIMED)
+   {
+      if(bias == G_MB_BIAS_CAND)
+         G_MB_BIAS_CAND_N++;
+      else
+      {
+         G_MB_BIAS_CAND = bias;
+         G_MB_BIAS_CAND_N = 1;
+      }
+      if(G_MB_BIAS_CAND_N < 2)
+      {
+         why = G_MB_BIAS_WHY;   // keep the standing view this bar
+         bias = G_MB_BIAS;
+      }
+   }
+   else
+   {
+      G_MB_BIAS_CAND = bias;
+      G_MB_BIAS_CAND_N = 0;
+   }
+   G_MB_BRAIN_PRIMED = true;
 
    int conf = 50 + 12 * MathAbs(bias);
    if(MBSign(s1h) != 0) conf += (MBSign(s1h) == MBSign(bias)) ? 8 : -10;

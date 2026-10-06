@@ -657,7 +657,11 @@ void MBEventEngineUpdate()
       if(!G_MB_EV_FILLED[tfi])
       {
          // First run: replay the recent past, oldest first, so recent HTF events are already known.
+         // M5..H4 replay deeper (up to 100 bars) so the structure owner of each timeframe is known at
+         // once - a timeframe with no BOS/MSS in the replay starts NEUTRAL and slows the first trades.
          int depth = MathMin(n - 40, MathMax(3, 3 * MBRelevantLimit(tfi == MB_POOL_KEY ? 0 : tfi)));
+         if(tfi >= 1 && tfi <= 4)
+            depth = MathMin(n - 40, MathMax(depth, 100));
          if(tfi == MB_POOL_KEY)
             depth = MathMin(n - 40, 120);
          G_MB_EV_REPLAYING = true;
