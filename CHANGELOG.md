@@ -1,5 +1,21 @@
 # CHANGELOG — Sirus Brain V8
 
+## Yashirin xato: qaytarib berilgan impuls "yosh" deb qolardi (BE dan keyingi jimlik)
+
+- **Holat (6-oktabr, 19:18–19:36):**
+  - savat BE da yopildi, keyin narx M5 da ~$8 pastga sirpandi va 18 daqiqa birorta ham kirish bo'lmadi;
+  - panelda lokal ▲ edi, M1/M5 bosimi esa ▼.
+- **Sabab:**
+  - impuls oxirgi 60 bar ichidagi so'nggi displacement'dan olinardi;
+  - tezlik soati har pullback'da qaytadan boshlanardi;
+  - shuning uchun 19:00 dagi M5 ko'tarilishi to'liq qaytarib berilganda ham (pastga displacement bo'lmagan, mayda shamlar) u "YOSH impuls ▲" deb qolaverdi.
+- **Natija:**
+  - lokal qatlam ▲ ni ko'rsatdi;
+  - lokal SELL "global oyoq yangi" deb yopildi;
+  - BUY'ni esa shamlar to'g'ri yopdi;
+  - hech qaysi tomon ochilmadi.
+- **Tuzatish (`MBImpulseGiveBack = 0.62`):** impuls boshlanish nuqtasidan o'tib yopilsa yoki butun harakatining 62% ini qaytarib bersa, tugagan hisoblanadi. M1 va M5 impulsiga birdek tegishli. Lokal qatlam endi M5 dagi sof harakatni o'qiydi (bu holatda ▼). Lokal SELL va BRAIN ALIGNED o'z vaqtida ochiladi.
+
 ## Kirish kengashi: lokal + shamlar + zona birga hal qiladi
 
 - **Holat (6-oktabr, 18:42):** BRAIN SWEEP SELL 4168.905 da ochildi. O'sha paytda:

@@ -46,6 +46,7 @@ input double MBSpeedLateATR           = 4.0;    // < shu = LATE, undan ko'p = EX
 input bool   MBCandlePrintOnUse       = false;  // Har yangi M5 / M15 / H1 / H4 sham o'qilishini jurnalga yozish
 input bool   EnableCandleDirectionLink = true;  // 13-BOSQICH: yo'nalish va sham bog'lanadi - almashuvni sham tasdiqlaydi (A1), M1/M5/M15 bosimi hakamga (A2)
 input bool   EnableCandleReadingGate  = true;   // Shamni o'qish: M5+M15 qarshi bo'lsa yoki qarshi harakat M1+M5 da davom etsa - burilish shamini kutadi (bullishda SELL / bearishda BUY yo'q)
+input double MBImpulseGiveBack       = 0.62;   // Impuls o'z harakatining shuncha qismini qaytarib bersa (yoki boshlanish nuqtasidan o'tib yopilsa) - impuls tugagan hisoblanadi (eski impuls 'yosh' deb qolib ketmasin)
 input double MBPressureSideMin        = 15.0;   // Bosim tomoni: |buqa - ayiq| >= shu bo'lsa o'sha tomon (0..100 shkala)
 input bool   EnableExhaustionVeto     = true;   // A4: charchagan impuls (3-to'lqin yoki EXPIRED + charchoq / absorbsiya / rejection shami) tomoniga yangi kirish yo'q
 input bool   EnableTickVolume         = true;   // 17-BOSQICH (B1): sham tick hajmi - o'rtachadan x0.7 past displacement / breakout / continuation trigger emas, x1.5 baland - kuchli
@@ -391,14 +392,16 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
       }
    }
 
+   int dir = 0, start = 0, waves = 0;
+   double origin = 0.0, travel = 0.0;
    if(d > 0)
    {
-      int dir = cd.dir;
+      dir = cd.dir;
       // The impulse starts at the oldest same-direction displacement of the run: walk back past d
       // until an opposite displacement, a bar beyond the run's start (price came INTO the start from
       // the other side - a different move), or 15 bars without another displacement.
-      int start = d;
-      int waves = 1;
+      start = d;
+      waves = 1;
       SMBCandle cw;
       for(int s = d + 1; s <= limit; s++)
       {
@@ -415,7 +418,7 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
             start = s;
          }
       }
-      double origin = r[start].open;
+      origin = r[start].open;
 
       // Speed is measured from the last healthy pullback. Walk forward from the start, tracking the
       // running extreme; a pullback of 30% of the leg so far restarts the clock at its extreme.
@@ -448,9 +451,28 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
             }
          }
       }
-      double travel = (dir > 0) ? (r[1].close - base) / atr : (base - r[1].close) / atr;
+      travel = (dir > 0) ? (r[1].close - base) / atr : (base - r[1].close) / atr;
       travel = MathMax(0.0, travel);
 
+      // FIX(dead-impulse): the impulse is the last displacement of the last 60 bars, and the speed
+      // clock restarts on every pullback - so a leg that was given back entirely (an M5 rally, then a
+      // slow slide of small candles with no displacement down) kept reading as a YOUNG impulse up:
+      // the local layer said "up" through a $8 fall, "global leg fresh" refused every local SELL, and
+      // the EA sat silent. An impulse that closed back through its origin, or gave back
+      // MBImpulseGiveBack of its whole leg, is over.
+      double peak = origin;
+      for(int s = start; s >= 1; s--)
+         peak = (dir > 0) ? MathMax(peak, r[s].high) : MathMin(peak, r[s].low);
+      double leg = MathAbs(peak - origin);
+      double back = (dir > 0) ? (peak - r[1].close) : (r[1].close - peak);
+      bool given_back = (dir > 0 ? r[1].close <= origin : r[1].close >= origin) ||
+                        (leg > 0.0 && MBImpulseGiveBack > 0.0 && back >= MBImpulseGiveBack * leg);
+      if(given_back)
+         d = 0;
+   }
+
+   if(d > 0)
+   {
       G_MB_IMP_DIR[k] = dir;
       G_MB_IMP_AGE[k] = start;
       G_MB_IMP_WAVES[k] = waves;
