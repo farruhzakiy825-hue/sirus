@@ -100,6 +100,7 @@ int      G_MB_TREND[MB_POOL_TF_COUNT];        // +1 / -1 from the last BOS/MSS, 
 datetime G_MB_LAST_BROKEN_HI[MB_POOL_TF_COUNT];
 datetime G_MB_LAST_BROKEN_LO[MB_POOL_TF_COUNT];
 bool     G_MB_EV_REPLAYING  = false;
+int      G_MB_EV_VERSION    = 0;          // SPEED: bumped on every new event - event-only answers are memoised on it
 
 // Pools of the current evaluation (rebuilt per call)
 double   G_MB_PL_LEVEL[MB_POOL_MAX];
@@ -240,6 +241,7 @@ void MBEventAdd(const int type, const int dir, const int tfi, const double level
    G_MB_EV[idx].strength = MBTFWeight(tfi) * MathMax(0.1, quality);
    G_MB_EV_NOTE[idx] = note;
    G_MB_EV_N[tfi]++;
+   G_MB_EV_VERSION++;
 
    // M1 structure and displacement events are frequent - keep the journal to what matters.
    bool notable = (tfi >= 1) || (type == MB_EV_LIQ_SWEEP || type == MB_EV_FAKE_BREAK ||
@@ -901,10 +903,26 @@ string MBSweepStatKey(const int kind, const int sess, const bool won)
    return StringFormat("SIRUS_SWS_%s_%I64d_%d_%d_%s", _Symbol, MagicNumber, kind, sess, (won ? "W" : "L"));
 }
 
+// SPEED: read from the terminal once, then kept in memory; every update is written through.
+double G_MB_SS_CACHE[3][4][2];
+bool   G_MB_SS_LOADED = false;
+
 double MBSweepStatGet(const int kind, const int sess, const bool won)
 {
-   string k = MBSweepStatKey(kind, sess, won);
-   return GlobalVariableCheck(k) ? GlobalVariableGet(k) : 0.0;
+   if(kind < 0 || kind > 2 || sess < 0 || sess > 3)
+      return 0.0;
+   if(!G_MB_SS_LOADED)
+   {
+      G_MB_SS_LOADED = true;
+      for(int a = 0; a < 3; a++)
+         for(int b = 0; b < 4; b++)
+            for(int c = 0; c < 2; c++)
+            {
+               string key = MBSweepStatKey(a, b, c == 1);
+               G_MB_SS_CACHE[a][b][c] = GlobalVariableCheck(key) ? GlobalVariableGet(key) : 0.0;
+            }
+   }
+   return G_MB_SS_CACHE[kind][sess][won ? 1 : 0];
 }
 
 // Win rate of live sweeps of this kind in this session, -1 below 30 samples.
@@ -947,7 +965,10 @@ void MBSweepStatUpdate(const double bid)
       if(res < 0)
          continue;
       string key = MBSweepStatKey(G_MB_SS_KIND[k], G_MB_SS_SESS[k], res == 1);
-      GlobalVariableSet(key, MBSweepStatGet(G_MB_SS_KIND[k], G_MB_SS_SESS[k], res == 1) + 1.0);
+      double nv = MBSweepStatGet(G_MB_SS_KIND[k], G_MB_SS_SESS[k], res == 1) + 1.0;
+      if(G_MB_SS_KIND[k] >= 0 && G_MB_SS_KIND[k] <= 2 && G_MB_SS_SESS[k] >= 0 && G_MB_SS_SESS[k] <= 3)
+         G_MB_SS_CACHE[G_MB_SS_KIND[k]][G_MB_SS_SESS[k]][res == 1 ? 1 : 0] = nv;
+      GlobalVariableSet(key, nv);
       G_MB_SS_T[k] = 0;
    }
 }

@@ -419,6 +419,7 @@ void MBShadowOnDecision(const bool ready, const string reason);
 void MBShadowOnEntry(const int dir, const double price);
 void MBShadowUpdate();
 void MBDailyReportCheck();
+void MBShadowFlush();
 string MBShadowPanelText();
 bool MBStandsInFor(const int dir, const bool location_gate);   // Market Brain owns the duplicate old gates - read by the entry gates before its definition
 int MBBrainScoreRelief(const int dir, string &why);   // score the Market Brain adds to a detector setup it agrees with
@@ -540,7 +541,7 @@ double MBEntryLotAdjust(const double lot);
 void MBPositionBrainUpdate();   // 24_Position_Brain
 bool MBGridAllows(const int dir, const int orders, string &reason);
 bool MBRecoveryExit(string &why);   // stage 16 smart exit - read by the basket exit check above its definition
-bool MBBasketBreakEvenExit(const double basket_points, string &why);
+bool MBBasketBreakEvenExit(const double basket_points, const double profit, string &why);
 string MBPositionText();
 void MBMemoryOnEntry(const int dir, const double price);   // 22_Memory
 void MBDrawWatermark();          // 25_Visual_Design

@@ -1517,7 +1517,7 @@ bool CheckBasketExit()
    // Position Brain (phase 7): once the basket's thesis is dead, the first return to break-even closes it.
    {
       string be_why = "";
-      if(MBBasketBreakEvenExit(basket_points, be_why))
+      if(MBBasketBreakEvenExit(basket_points, profit, be_why))
       {
          CloseNaviusBasket(be_why);
          return true;

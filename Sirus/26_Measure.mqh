@@ -90,6 +90,11 @@ void MBProfEnd(const int seg)
 {
    if(!EnableProfiler || seg < 0 || seg >= MB_PROF_SEGS || G_PROF_START[seg] == 0)
       return;
+   if(G_TICK_COUNT == 0)   // OnInit's pass replays history - not a tick
+   {
+      G_PROF_START[seg] = 0;
+      return;
+   }
    ulong us = GetMicrosecondCount() - G_PROF_START[seg];
    G_PROF_START[seg] = 0;
    G_PROF_N[seg]++;
@@ -168,6 +173,9 @@ int       G_SH_NEXT = 0;
 int       G_SH_TALLY[MB_SH_SLOTS][3];   // today's results per gate: TP / GRID / TIMEOUT
 int       G_SH_DAY = -1;
 int       G_SH_LAST_BAR[2] = {-100000, -100000};
+int       G_SH_ACTIVE = 0;      // SPEED: live shadows - the per-tick loop is skipped when none
+string    G_SH_BUF = "";        // SPEED: CSV rows waiting for the once-a-minute flush
+datetime  G_SH_FLUSH_BAR = 0;
 
 string MBShadowGateName(const int g)
 {
@@ -183,9 +191,11 @@ string MBShadowGateUz(const int g)
    return MBGateUz(g);
 }
 
-void MBShadowCsv(const SMBShadow &s, const int outcome, const string extra)
+// Rows are buffered and written once per M1 bar (and on deinit) - a fast move can resolve dozens of
+// shadows on one tick, and a file open per row is milliseconds of I/O inside that tick.
+void MBShadowFlush()
 {
-   if(!ShadowToFile)
+   if(StringLen(G_SH_BUF) == 0)
       return;
    string name = StringFormat("Sirus_Shadow_%s_%I64d.csv", _Symbol, MagicNumber);
    int h = FileOpen(name, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_SHARE_READ);
@@ -194,13 +204,23 @@ void MBShadowCsv(const SMBShadow &s, const int outcome, const string extra)
    if(FileSize(h) == 0)
       FileWriteString(h, "time;resolved;gate;dir;entry;tp;grid_step;outcome;minutes;mfe_pts;mae_pts;brain_bias;extra\r\n");
    FileSeek(h, 0, SEEK_END);
+   FileWriteString(h, G_SH_BUF);
+   FileClose(h);
+   G_SH_BUF = "";
+}
+
+void MBShadowCsv(const SMBShadow &s, const int outcome, const string extra)
+{
+   if(!ShadowToFile || MQLInfoInteger(MQL_OPTIMIZATION))
+      return;
    string oc = (outcome == MB_SH_TP) ? "TP" : ((outcome == MB_SH_GRID) ? "GRID" : ((outcome == MB_SH_TIMEOUT) ? "TIMEOUT" : "SUMMARY"));
-   FileWriteString(h, StringFormat("%s;%s;%s;%s;%s;%s;%s;%s;%d;%.0f;%.0f;%d;%s\r\n",
+   G_SH_BUF += StringFormat("%s;%s;%s;%s;%s;%s;%s;%s;%d;%.0f;%.0f;%d;%s\r\n",
                                    TimeToString(s.t, TIME_DATE | TIME_SECONDS), TimeToString(TimeCurrent(), TIME_DATE | TIME_SECONDS),
                                    MBShadowGateName(s.gate), (s.dir > 0 ? "BUY" : (s.dir < 0 ? "SELL" : "-")),
                                    DoubleToString(s.entry, _Digits), DoubleToString(s.tp_px, _Digits), DoubleToString(s.adv_px, _Digits),
-                                   oc, (int)((TimeCurrent() - s.t) / 60), s.mfe / _Point, s.mae / _Point, G_MB_BIAS, extra));
-   FileClose(h);
+                                   oc, (int)((TimeCurrent() - s.t) / 60), s.mfe / _Point, s.mae / _Point, G_MB_BIAS, extra);
+   if(StringLen(G_SH_BUF) > 60000)
+      MBShadowFlush();
 }
 
 // TP share of one tally slot, -1 when there is nothing to judge.
@@ -268,6 +288,8 @@ void MBShadowAdd(const int dir, const int gate, const double entry)
       return;
    int k = G_SH_NEXT;
    G_SH_NEXT = (G_SH_NEXT + 1) % MB_SH_MAX;
+   if(!G_SH[k].active)
+      G_SH_ACTIVE++;          // overwriting a live slot keeps the count unchanged
    G_SH[k].active = true;
    G_SH[k].t = TimeCurrent();
    G_SH[k].dir = dir;
@@ -406,6 +428,14 @@ void MBShadowUpdate()
    if(!EnableShadowLedger)
       return;
    MBShadowDayRoll();
+   datetime fb = iTime(_Symbol, PERIOD_M1, 0);
+   if(fb != G_SH_FLUSH_BAR)
+   {
+      G_SH_FLUSH_BAR = fb;
+      MBShadowFlush();
+   }
+   if(G_SH_ACTIVE <= 0)
+      return;
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    if(bid <= 0.0 || ask <= 0.0)
@@ -435,6 +465,7 @@ void MBShadowUpdate()
       G_SH_TALLY[g][outcome]++;
       MBShadowCsv(G_SH[i], outcome, "");
       G_SH[i].active = false;
+      G_SH_ACTIVE = MathMax(0, G_SH_ACTIVE - 1);
    }
 }
 

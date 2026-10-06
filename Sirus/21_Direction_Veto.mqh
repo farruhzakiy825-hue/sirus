@@ -103,10 +103,10 @@ bool MBVetoReversalCheck(const int dir, string &why)
    {
       for(int idx = 0; idx < MB_EV_MAX; idx++)
       {
-         if(!MBEventRelevant(idx)) continue;
-         if(G_MB_EV[idx].dir != -dir) continue;
+         if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != -dir) continue;   // cheap filters first
          if(G_MB_EV[idx].type != MB_EV_LIQ_SWEEP && G_MB_EV[idx].type != MB_EV_FAKE_BREAK) continue;
          if(MBEventRank(G_MB_EV[idx].tfi) != rank) continue;
+         if(!MBEventRelevant(idx)) continue;
          if(MBVetoReversalFrom(dir, idx, why))
             return true;
       }
@@ -282,7 +282,18 @@ bool MBVetoAllowsEntry(const int dir, string &why)
    if(!blocked)
       return true;
 
-   G_MB_VETO_COUNT++;
+   // Counted per decision, not per tick: once per M1 bar for the same reason.
+   {
+      static datetime vc_bar = 0;
+      static string vc_why = "";
+      datetime vb = iTime(_Symbol, PERIOD_M1, 0);
+      if(vb != vc_bar || why != vc_why)
+      {
+         G_MB_VETO_COUNT++;
+         vc_bar = vb;
+         vc_why = why;
+      }
+   }
    if((MBVetoPrintOnUse && VerboseLogs) && (why != G_MB_VETO_LAST || (TimeCurrent() - G_MB_VETO_LAST_PRINT) >= 60))
    {
       PrintFormat("[SIRUS VETO] %s %s @ %s blocked | %s",

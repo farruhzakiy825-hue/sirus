@@ -55,6 +55,7 @@ datetime G_MB_PB_DEAD_TIME = 0;
 string   G_MB_PB_DEAD_WHY  = "";
 bool     G_MB_PB_RESCUED   = false;
 int      G_MB_PB_WAIT_ORDERS = -1;  // grid response wait: rung being held
+datetime G_MB_PB_CHECK_BAR   = 0;   // M1 bar of the last death / rescue check
 datetime G_MB_PB_WAIT_SINCE  = 0;
 
 // Stage 16: Recovery Judge state for the open basket.
@@ -74,6 +75,54 @@ double   G_MB_RC_WORST    = 0.0;     // worst price since armed
 double   G_MB_RC_PEAK_DD  = 0.0;     // deepest DD of this basket
 int      G_MB_RC_WORST_STATE = MB_RC_NONE;
 
+// AUDIT FIX: the basket's judgement survives a terminal restart or an input change. Saved in terminal
+// global variables keyed by the basket's open time; restored only for that same basket.
+string MBPBKey(const string f)
+{
+   return StringFormat("SIRUS_PB_%s_%I64d_%s", _Symbol, MagicNumber, f);
+}
+
+void MBRecoverySave()
+{
+   if(G_MB_PB_BASKET == 0 || MQLInfoInteger(MQL_OPTIMIZATION))
+      return;
+   GlobalVariableSet(MBPBKey("BASKET"), (double)G_MB_PB_BASKET);
+   GlobalVariableSet(MBPBKey("DEAD"), G_MB_PB_DEAD ? 1.0 : 0.0);
+   GlobalVariableSet(MBPBKey("DEADT"), (double)G_MB_PB_DEAD_TIME);
+   GlobalVariableSet(MBPBKey("PEAK"), G_MB_RC_PEAK_DD);
+   GlobalVariableSet(MBPBKey("ARMED"), G_MB_RC_ARMED ? 1.0 : 0.0);
+   GlobalVariableSet(MBPBKey("ARMDD"), G_MB_RC_ARM_DD);
+   GlobalVariableSet(MBPBKey("WORSTST"), (double)G_MB_RC_WORST_STATE);
+}
+
+void MBRecoveryRestore(const datetime opened)
+{
+   if(!GlobalVariableCheck(MBPBKey("BASKET")) || (datetime)GlobalVariableGet(MBPBKey("BASKET")) != opened)
+      return;
+   G_MB_PB_DEAD = (GlobalVariableGet(MBPBKey("DEAD")) > 0.5);
+   G_MB_PB_DEAD_TIME = (datetime)GlobalVariableGet(MBPBKey("DEADT"));
+   if(G_MB_PB_DEAD) G_MB_PB_DEAD_WHY = "restored after restart";
+   G_MB_RC_PEAK_DD = GlobalVariableGet(MBPBKey("PEAK"));
+   G_MB_RC_ARMED = (GlobalVariableGet(MBPBKey("ARMED")) > 0.5);
+   G_MB_RC_ARM_DD = GlobalVariableGet(MBPBKey("ARMDD"));
+   G_MB_RC_WORST_STATE = (int)GlobalVariableGet(MBPBKey("WORSTST"));
+   G_MB_RC_WORST = (G_MB_PB_DIR > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   if((MBPositionPrintOnUse && VerboseLogs))
+      PrintFormat("[SIRUS POSITION] basket state restored: dead %s, peak DD %.1f%%, exit armed %s",
+                  (G_MB_PB_DEAD ? "yes" : "no"), G_MB_RC_PEAK_DD, (G_MB_RC_ARMED ? "yes" : "no"));
+}
+
+void MBRecoveryForget()
+{
+   GlobalVariableDel(MBPBKey("BASKET"));
+   GlobalVariableDel(MBPBKey("DEAD"));
+   GlobalVariableDel(MBPBKey("DEADT"));
+   GlobalVariableDel(MBPBKey("PEAK"));
+   GlobalVariableDel(MBPBKey("ARMED"));
+   GlobalVariableDel(MBPBKey("ARMDD"));
+   GlobalVariableDel(MBPBKey("WORSTST"));
+}
+
 // Open time of the oldest position of this EA's basket, 0 when flat.
 datetime MBBasketOpenTime()
 {
@@ -89,6 +138,23 @@ datetime MBBasketOpenTime()
          oldest = t;
    }
    return oldest;
+}
+
+// Direction of this EA's open basket from the positions themselves (+1 / -1, 0 when flat or mixed).
+int MBBasketDirReal()
+{
+   int d = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+      if((long)PositionGetInteger(POSITION_MAGIC) != MagicNumber) continue;
+      int pd = ((ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ? 1 : -1;
+      if(d == 0) d = pd;
+      else if(d != pd) return 0;
+   }
+   return d;
 }
 
 // Why the basket's thesis is dead, or "" when it is not.
@@ -168,6 +234,17 @@ void MBRecoveryEvaluate(const int dir, const datetime opened)
 {
    double dd = G_BASKET_DD_PERCENT;
    G_MB_RC_PEAK_DD = MathMax(G_MB_RC_PEAK_DD, dd);
+   // AUDIT FIX: a thesis back on the basket's side cancels a pending exit - checked before the DD
+   // early return, so a basket that recovered above RecoveryStartDD is released too.
+   if(G_MB_RC_ARMED && G_MB_TH_DIR == dir && (G_MB_TH_STATE == MB_TH_ACTIVATED || G_MB_TH_STATE == MB_TH_CONFIRMED) &&
+      !G_MB_TH_THREAT && dir * G_MB_BIAS >= 1)
+   {
+      G_MB_RC_ARMED = false;
+      G_MB_RC_PERSIST = 0;
+      MBRecoverySave();
+      if((MBPositionPrintOnUse && VerboseLogs))
+         PrintFormat("[SIRUS RECOVERY] exit cancelled - a %s thesis is back on the basket's side", (dir > 0 ? "bullish" : "bearish"));
+   }
    if(!EnableRecoveryJudge || dd < RecoveryStartDD)
    {
       if(G_MB_RC_STATE != MB_RC_NONE && !G_MB_RC_ARMED)
@@ -195,8 +272,10 @@ void MBRecoveryEvaluate(const int dir, const datetime opened)
 
    // 1. Thesis.
    bool th_alive = (G_MB_TH_DIR == dir && (G_MB_TH_STATE == MB_TH_ACTIVATED || G_MB_TH_STATE == MB_TH_CONFIRMED) && !G_MB_TH_THREAT);
-   if(G_MB_PB_DEAD || (G_MB_TH_DIR == dir && G_MB_TH_THREAT))
-   { neg++; key = true; wn += (G_MB_PB_DEAD ? "thesis dead; " : "thesis threatened; "); }
+   if(G_MB_PB_DEAD)
+   { neg++; key = true; wn += "thesis dead; "; }
+   else if(G_MB_TH_DIR == dir && G_MB_TH_THREAT)
+   { neg++; wn += "thesis threatened; "; }   // a warning, not proof - it does not count as the key reading
    else if(th_alive) { pos++; wp += "thesis alive; "; }
    // 2. Brain bias.
    int a = dir * G_MB_BIAS;
@@ -212,43 +291,40 @@ void MBRecoveryEvaluate(const int dir, const datetime opened)
    { neg++; wn += "adverse move still fresh; "; }
    // 5. A place to be rescued from.
    string sw = "";
-   if(MBStructureNear(dir, px, RecoveryZoneATR15 * atr15, sw)) { pos++; wp += "rescue " + sw + "; "; }
+   double px_in = (dir > 0) ? ask : bid;   // same side as the grid's check - one zone lookup, not two
+   if(MBStructureNear(dir, px_in, RecoveryZoneATR15 * atr15, sw)) { pos++; wp += "rescue " + sw + "; "; }
    else { neg++; wn += "no structure near (in the air); "; }
    // 6. Ladder left.
+   // 6 + 7. Depth: ladder used up and break-even far away are what a deep basket looks like by
+   // definition (a full ladder sits at 33-41% DD) - together they count as ONE reading, never as proof.
    string gr = "";
    int maxo = GridEffectiveMaxOrders(gr);
    double ml = AccountInfoDouble(ACCOUNT_MARGIN_LEVEL);
-   if(G_BASKET_ORDERS >= maxo || (ml > 0.0 && ml < 300.0)) { neg++; wn += "ladder exhausted / margin thin; "; }
-   else { pos++; wp += StringFormat("%d rungs left; ", maxo - G_BASKET_ORDERS); }
-   // 7. Distance back to break-even.
    double be = (G_BASKET_AVG_PRICE > 0.0) ? dir * (G_BASKET_AVG_PRICE - px) / atr15 : 0.0;
-   if(be >= 4.0) { neg++; wn += StringFormat("BE %.1f ATR15 away; ", be); }
-   else if(be <= 2.0) { pos++; wp += StringFormat("BE only %.1f ATR15 away; ", be); }
+   bool ladder_out = (G_BASKET_ORDERS >= maxo || (ml > 0.0 && ml < 300.0));
+   if(ladder_out || be >= 4.0)
+   { neg++; wn += StringFormat("depth: %s, BE %.1f ATR15 away; ", (ladder_out ? "ladder used / margin thin" : "rungs left"), be); }
+   else if(be <= 2.0 || maxo - G_BASKET_ORDERS >= 2)
+   { pos++; wp += StringFormat("%d rungs left, BE %.1f ATR15; ", maxo - G_BASKET_ORDERS, be); }
    // 8. H1 and H4 both against.
    if(MBSign(G_MB_TF_STATE[3]) == -dir && MBSign(G_MB_TF_STATE[4]) == -dir) { neg++; wn += "H1 and H4 against; "; }
-   // 9. High-impact news live.
-   if(G_CAL_ACTIVE) { neg++; wn += "news window; "; }
+   // 9. A release that already came out and surprised (AUDIT FIX: the window before the release can be
+   // the very move that rescues the basket - it is not evidence against it).
+   if(G_CAL_ACTIVE && G_CAL_MINUTES_FROM_EVENT < 0 && G_CAL_BIG_SURPRISE) { neg++; wn += "news surprise; "; }
 
    int need = (dd >= 45.0) ? 2 : ((dd >= 35.0) ? 3 : 4);
-   bool need_key = (dd < 35.0);
+   bool need_key = true;   // AUDIT FIX: always - a dead thesis or a confirmed reversal, at every depth
    int st = MB_RC_POSSIBLE;
    if(neg >= need && (!need_key || key) && neg > pos)
       st = MB_RC_IMPOSSIBLE;
    else if(neg >= 2 && neg >= pos)
       st = MB_RC_DOUBTFUL;
 
-   // A new thesis back on the basket's side cancels a pending exit.
-   if(G_MB_RC_ARMED && th_alive && a >= 1)
-   {
-      G_MB_RC_ARMED = false;
-      if((MBPositionPrintOnUse && VerboseLogs))
-         PrintFormat("[SIRUS RECOVERY] exit cancelled - a %s thesis is back on the basket's side", (dir > 0 ? "bullish" : "bearish"));
-   }
 
    G_MB_RC_PERSIST = (st == MB_RC_IMPOSSIBLE) ? G_MB_RC_PERSIST + 1 : 0;
    if(st != G_MB_RC_STATE && (MBPositionPrintOnUse && VerboseLogs))
-      PrintFormat("[SIRUS RECOVERY] %s basket DD %.1f%% -> %s (against %d / for %d, need %d%s) | against: %s| for: %s",
-                  (dir > 0 ? "BUY" : "SELL"), dd, MBRecoveryStateName(st), neg, pos, need, (need_key ? " incl. thesis/reversal" : ""), wn, wp);
+      PrintFormat("[SIRUS RECOVERY] %s basket DD %.1f%% -> %s (against %d / for %d, need %d incl. dead thesis or reversal: %s) | against: %s| for: %s",
+                  (dir > 0 ? "BUY" : "SELL"), dd, MBRecoveryStateName(st), neg, pos, need, (key ? "yes" : "no"), wn, wp);
    G_MB_RC_STATE = st;
    G_MB_RC_NEG = neg;
    G_MB_RC_POS = pos;
@@ -260,6 +336,7 @@ void MBRecoveryEvaluate(const int dir, const datetime opened)
       G_MB_RC_ARMED = true;
       G_MB_RC_ARM_DD = dd;
       G_MB_RC_WORST = px;
+      MBRecoverySave();
       if((MBPositionPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS RECOVERY] EXIT ARMED at DD %.1f%% - closing on the first %.1f ATR bounce, or at once if DD reaches %.1f%%",
                      dd, RecoveryBounceATR, dd + RecoveryWorsenDD);
@@ -270,7 +347,10 @@ void MBRecoveryEvaluate(const int dir, const datetime opened)
 // bounce in the basket's favour closes it; a further RecoveryWorsenDD of drawdown closes it at once.
 bool MBRecoveryExit(string &why)
 {
-   if(!EnableRecoveryJudge || !G_MB_RC_ARMED || G_BASKET_ORDERS <= 0 || G_MB_PB_DIR == 0)
+   if(!EnableRecoveryJudge || !EnableMBPositionBrain || !EnableMarketBrainEngines ||
+      !G_MB_RC_ARMED || G_BASKET_ORDERS <= 0 || G_MB_PB_DIR == 0)
+      return false;
+   if(G_MB_PB_BASKET != MBBasketOpenTime())   // AUDIT FIX: only the basket that was judged
       return false;
    int dir = G_MB_PB_DIR;
    double px = (dir > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -345,9 +425,18 @@ string MBRecoveryText()
 void MBPositionBrainUpdate()
 {
    if(!EnableMBPositionBrain || !EnableMarketBrainEngines)
+   {
+      // AUDIT FIX: switched off - no judgement of an old basket may survive to close a new one.
+      G_MB_PB_BASKET = 0;
+      G_MB_PB_DIR = 0;
+      G_MB_PB_DEAD = false;
+      MBRecoveryReset();
       return;
+   }
 
-   datetime opened = (G_BASKET_ORDERS > 0) ? MBBasketOpenTime() : 0;
+   // AUDIT FIX: decided on the real positions - at OnInit G_BASKET_ORDERS is still 0 while a basket is
+   // open, and treating that as "closed" wrote a fake result and dropped the basket's state.
+   datetime opened = MBBasketOpenTime();
    if(opened == 0)
    {
       if(G_MB_PB_BASKET != 0)
@@ -360,6 +449,7 @@ void MBPositionBrainUpdate()
          G_MB_LAST_CLOSE_TIME = TimeCurrent();
          MBMemoryOnBasketClosed(G_MB_PB_BASKET);   // Memory (phase 8): write the result next to the Entry DNA
          MBRecoveryLog(G_MB_PB_BASKET, G_MB_PB_DIR, res);   // stage 16 (E8)
+         MBRecoveryForget();
       }
       MBRecoveryReset();
       G_MB_PB_BASKET = 0;
@@ -372,7 +462,7 @@ void MBPositionBrainUpdate()
       return;
    }
 
-   int dir = (G_BASKET_DIRECTION == POSITION_TYPE_BUY) ? 1 : ((G_BASKET_DIRECTION == POSITION_TYPE_SELL) ? -1 : 0);
+   int dir = MBBasketDirReal();
    if(dir == 0)
       return;
 
@@ -386,6 +476,18 @@ void MBPositionBrainUpdate()
       G_MB_PB_RESCUED = false;
       G_MB_PB_WAIT_ORDERS = -1;
       MBRecoveryReset();
+      G_MB_PB_CHECK_BAR = 0;
+      MBRecoveryRestore(opened);   // same basket after a restart / input change: its judgement comes back
+   }
+
+   // SPEED: death and rescue read events and the thesis, which change once per M1 bar.
+   datetime pb_bar = iTime(_Symbol, PERIOD_M1, 0);
+   bool pb_check = (pb_bar != G_MB_PB_CHECK_BAR);
+   G_MB_PB_CHECK_BAR = pb_bar;
+   if(!pb_check)
+   {
+      MBRecoveryEvaluate(dir, opened);
+      return;
    }
 
    if(!G_MB_PB_DEAD)
@@ -399,6 +501,7 @@ void MBPositionBrainUpdate()
          G_MB_PB_DEAD_TIME = TimeCurrent();
          G_MB_PB_DEAD_WHY = why;
          G_MB_PB_RESCUED = false;
+         MBRecoverySave();
          if((MBPositionPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS POSITION] %s basket thesis DEAD (%d orders, %.0f pts) | %s | grid stopped, exit at break-even",
                         (dir > 0 ? "BUY" : "SELL"), G_BASKET_ORDERS, G_BASKET_POINTS, why);
@@ -421,6 +524,7 @@ void MBPositionBrainUpdate()
          G_MB_PB_DEAD = false;
          G_MB_PB_RESCUED = true;
          G_MB_PB_DEAD_TIME = TimeCurrent();
+         MBRecoverySave();
          if((MBPositionPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS POSITION] %s basket RESCUE allowed: %s - additions and the normal target are back",
                         (dir > 0 ? "BUY" : "SELL"), what);
@@ -428,6 +532,7 @@ void MBPositionBrainUpdate()
    }
 
    MBRecoveryEvaluate(dir, opened);   // stage 16 (E1): from RecoveryStartDD, once per M1 bar
+   MBRecoverySave();                  // once per M1 bar (this path runs on the bar's first tick)
 }
 
 // Grid gate. true = the addition may go now.
@@ -447,7 +552,12 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
       reason = "holding - basket thesis threatened (" + G_MB_TH_THREAT_WHY + ")";
       return false;
    }
-   // Stage 16 (E1/E4): a doubtful or impossible basket gets no more rungs.
+   // Stage 16 (E1/E4): a doubtful or impossible basket - or one whose exit is armed - gets no more rungs.
+   if(EnableRecoveryJudge && G_MB_RC_ARMED)
+   {
+      reason = "holding - smart exit armed, waiting for the exit bounce";
+      return false;
+   }
    if(EnableRecoveryJudge && G_MB_RC_STATE >= MB_RC_DOUBTFUL)
    {
       reason = StringFormat("holding - recovery %s (%s)", MBRecoveryStateName(G_MB_RC_STATE), G_MB_RC_WHY);
@@ -503,7 +613,8 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
    // Stage 16 (E2/E3): the response must come AT a structure - a zone or FVG on the basket's side.
    double atr5 = G_MB_ATR[1] * _Point;
    string st_what = "";
-   bool at_structure = !EnableGridAtStructure || (atr5 > 0.0 && MBStructureNear(dir, px, GridStructureATR5 * atr5, st_what));
+   bool at_structure = !EnableGridAtStructure ||
+                       (response && atr5 > 0.0 && MBStructureNear(dir, px, GridStructureATR5 * atr5, st_what));
    // Stage 16 (E5): the last rungs are a reserve - structure, a spent adverse move and a response,
    // all three, and no timeout opens them.
    string gm_why = "";
@@ -545,9 +656,11 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
 }
 
 // Exit hook: a dead thesis closes the basket at break-even plus the cover.
-bool MBBasketBreakEvenExit(const double basket_points, string &why)
+bool MBBasketBreakEvenExit(const double basket_points, const double profit, string &why)
 {
-   if(!EnableMBPositionBrain)
+   if(!EnableMBPositionBrain || !EnableMarketBrainEngines || G_MB_PB_DIR == 0)
+      return false;
+   if(G_MB_PB_BASKET != MBBasketOpenTime())   // AUDIT FIX: only the basket that was judged
       return false;
    // Stage 16 (E7): break-even is also the exit for a doubtful basket, and for one that came back
    // from deep drawdown without a live thesis on its side - waiting for the full target there asks
@@ -555,10 +668,12 @@ bool MBBasketBreakEvenExit(const double basket_points, string &why)
    bool th_with = (G_MB_TH_DIR == G_MB_PB_DIR && (G_MB_TH_STATE == MB_TH_ACTIVATED || G_MB_TH_STATE == MB_TH_CONFIRMED) &&
                    !G_MB_TH_THREAT && G_MB_PB_DIR * G_MB_BIAS >= 1);
    bool doubtful = EnableRecoveryJudge && G_MB_RC_STATE >= MB_RC_DOUBTFUL;
-   bool deep_back = EnableRecoveryJudge && G_MB_RC_PEAK_DD >= RecoveryStartDD && !th_with;
+   // AUDIT FIX: a deep basket alone is normal for a full ladder - only one that was also judged doubtful.
+   bool deep_back = EnableRecoveryJudge && G_MB_RC_PEAK_DD >= RecoveryStartDD && G_MB_RC_WORST_STATE >= MB_RC_DOUBTFUL && !th_with;
    if(!G_MB_PB_DEAD && !doubtful && !deep_back)
       return false;
-   if(basket_points >= (double)MathMax(0, MBBreakEvenCoverPoints))
+   // AUDIT FIX: break-even in money too - points ignore swap and commission.
+   if(basket_points >= (double)MathMax(0, MBBreakEvenCoverPoints) && profit >= 0.0)
    {
       if(G_MB_PB_DEAD)
          why = StringFormat("thesis dead - break-even exit at +%.0f pts (%s)", basket_points, G_MB_PB_DEAD_WHY);

@@ -778,6 +778,7 @@ void OnDeinit(const int reason)
    Comment("");               // FIX(input-validation): clear any INIT-abort message from the chart
    DeleteDashboard();
    MBDeleteAllVisuals();   // watermark + Sirus panel
+   MBShadowFlush();        // stage 12: write the buffered shadow rows
    LegacyDeleteZoneObjects();
    PremiumVisualDeleteObjects();
 

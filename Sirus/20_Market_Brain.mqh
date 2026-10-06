@@ -136,7 +136,7 @@ int MBLastStructureEvent(const int tfi)
 
 // A confirmed liquidity reversal toward `dir` on slots [tf_lo..tf_hi] (or KEY when key=true)
 // after time `after`: sweep / fake break plus a displacement, MSS/BOS or reclaim. Relevant only.
-bool MBReversalAfter(const int dir, const int tf_lo, const int tf_hi, const bool key, const datetime after, string &what, datetime &sweep_time)
+bool MBReversalAfterCalc(const int dir, const int tf_lo, const int tf_hi, const bool key, const datetime after, string &what, datetime &sweep_time)
 {
    sweep_time = 0;
    // Every relevant sweep / fake break toward `dir` in range, newest first; the first one followed
@@ -179,6 +179,49 @@ bool MBReversalAfter(const int dir, const int tf_lo, const int tf_hi, const bool
       }
    }
    return false;
+}
+
+// SPEED: the answer depends only on the events and their age, so it is remembered per (event version,
+// M1 bar, arguments). The veto, the judge, the bias and the Position Brain ask it many times a tick.
+#define MB_RA_SLOTS 16
+int      G_RA_VER[MB_RA_SLOTS];
+datetime G_RA_BAR[MB_RA_SLOTS];
+int      G_RA_ARGS[MB_RA_SLOTS][4];
+datetime G_RA_AFTER[MB_RA_SLOTS];
+bool     G_RA_RES[MB_RA_SLOTS];
+string   G_RA_WHAT[MB_RA_SLOTS];
+datetime G_RA_SWT[MB_RA_SLOTS];
+bool     G_RA_USED[MB_RA_SLOTS];
+int      G_RA_NEXT = 0;
+
+bool MBReversalAfter(const int dir, const int tf_lo, const int tf_hi, const bool key, const datetime after, string &what, datetime &sweep_time)
+{
+   datetime bar = iTime(_Symbol, PERIOD_M1, 0);
+   int k_key = key ? 1 : 0;
+   for(int i = 0; i < MB_RA_SLOTS; i++)
+   {
+      if(!G_RA_USED[i] || G_RA_VER[i] != G_MB_EV_VERSION || G_RA_BAR[i] != bar || G_RA_AFTER[i] != after) continue;
+      if(G_RA_ARGS[i][0] != dir || G_RA_ARGS[i][1] != tf_lo || G_RA_ARGS[i][2] != tf_hi || G_RA_ARGS[i][3] != k_key) continue;
+      if(G_RA_RES[i]) what = G_RA_WHAT[i];
+      sweep_time = G_RA_SWT[i];
+      return G_RA_RES[i];
+   }
+   string w = "";
+   datetime st = 0;
+   bool res = MBReversalAfterCalc(dir, tf_lo, tf_hi, key, after, w, st);
+   int k = G_RA_NEXT;
+   G_RA_NEXT = (G_RA_NEXT + 1) % MB_RA_SLOTS;
+   G_RA_USED[k] = true;
+   G_RA_VER[k] = G_MB_EV_VERSION;
+   G_RA_BAR[k] = bar;
+   G_RA_AFTER[k] = after;
+   G_RA_ARGS[k][0] = dir; G_RA_ARGS[k][1] = tf_lo; G_RA_ARGS[k][2] = tf_hi; G_RA_ARGS[k][3] = k_key;
+   G_RA_RES[k] = res;
+   G_RA_WHAT[k] = w;
+   G_RA_SWT[k] = st;
+   if(res) what = w;
+   sweep_time = st;
+   return res;
 }
 
 // Seven-state bias of one timeframe (tfi 1..4).

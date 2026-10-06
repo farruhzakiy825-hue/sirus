@@ -2831,8 +2831,8 @@ datetime G_FVG_CACHE_BAR = 0;
 void FVGCacheRefresh()
 {
    datetime t0 = iTime(_Symbol, FVGTimeframe, 0);
-   if(t0 > 0 && t0 == G_FVG_CACHE_BAR)
-      return;
+   if(t0 == G_FVG_CACHE_BAR || (t0 <= 0 && G_FVG_CACHE_BAR > 0))
+      return;   // same bar, or history not loaded yet - keep the list we have
    G_FVG_CACHE_BAR = t0;
    G_FVG_BU_N = 0;
    G_FVG_BE_N = 0;
@@ -3588,7 +3588,7 @@ double ZoneMapNearestSupportCalc(const double price)
 // cannot change inside one tick, so it is remembered per (tick, price). The strongest-nearby search
 // calls back in with its own guard set and gets a different answer on purpose - that path is never
 // cached.
-#define ZM_MEMO_SLOTS 6
+#define ZM_MEMO_SLOTS 16
 ulong  G_ZM_MEMO_TICK[2][ZM_MEMO_SLOTS];
 double G_ZM_MEMO_PX[2][ZM_MEMO_SLOTS];
 double G_ZM_MEMO_VAL[2][ZM_MEMO_SLOTS];
