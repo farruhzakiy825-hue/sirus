@@ -34,6 +34,7 @@
 #include "Sirus/14_Risk_Gates_Entry.mqh"   // Risk governor, gates, first entry engine
 #include "Sirus/15_Legacy_Packs.mqh"   // VPS validation, legacy/deep/RC packs, client safety
 #include "Sirus/16_Dashboard_Core.mqh"   // Client dashboard, CoreUpdate pipeline, dashboard drawing
+#include "Sirus/17_Reason_Code.mqh"      // Reason Code: why every order was opened (journal + CSV)
 
 //==================================================================//
 //  MT5 EVENTS

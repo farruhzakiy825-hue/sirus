@@ -130,7 +130,7 @@ Har bir bosqich alohida kalit (`Enable…`) bilan qo'shiladi. Shunda eski va yan
 tester'da yonma-yon solishtirish mumkin. Har bosqichdan keyin: kompilyatsiya → backtest
 → demo.
 
-### 0-bosqich: Regression holatlari va Reason Code (asos)
+### 0-bosqich: Regression holatlari va Reason Code (asos) — ✅ kod yozildi (`Sirus/17_Reason_Code.mqh`), test: `REGRESSION_TEST.md`
 - 4142 va 4126 holatlarining aniq sana va vaqtini olish. Ular "har o'zgarishdan keyin
   tekshiriladigan" test holatlari bo'ladi.
 - Har bir ochilgan savdo uchun tuzilgan **Reason Code** jurnalga yoziladi: thesis, WHY ro'yxati,

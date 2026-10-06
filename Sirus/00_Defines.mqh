@@ -505,6 +505,8 @@ string ModuleHealthLine(string &silent_out);
 // a function defined later only when it has seen a declaration first.
 // ----------------------------------------------------------------------------
 void DecisionLog(const string verdict, const string why);
+void ReasonCodeEntry(const string kind, const ENUM_ORDER_TYPE type, const double lot, const double fill_price, const ulong ticket);   // 17_Reason_Code
+void ReasonCodeGrid(const ENUM_ORDER_TYPE type, const double lot, const double fill_price, const ulong ticket, const int orders_before);
 int NewsOwnerState(string &why);
 bool NewsOwnerBlocksEntry(string &why);
 bool NewsOwnerBlocksGrid(string &why);

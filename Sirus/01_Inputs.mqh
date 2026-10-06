@@ -5,6 +5,8 @@
 //| compile this file on its own; compile Sirus_Brain_V8.mq5.        |
 //+------------------------------------------------------------------+
 
+input bool              EnableReasonCode         = true;      // Har ochilgan order (birinchi kirish, grid, scale-in) uchun "nega ochildi" yozuvi: signal, ball, struktura, zonalar, joylashuv, yangilik, qarshi dalillar (CONFLICTS)
+input bool              ReasonCodeToFile         = true;      // Shu yozuvni MQL5/Files/Sirus_ReasonCode_<symbol>_<magic>.csv fayliga ham yozadi (tester'da: agent papkasidagi MQL5/Files)
 input bool              VerboseLogs              = true;      // FIX(log-noise): master switch for the ~170 "...PrintOnUse" diagnostic logs. false = quiet journal (trades, closes, errors and warnings still print). Each individual PrintOnUse switch still works when this is true.
 input group "01 — SIRUS CORE / MODE"
 input string            NaviusBuildName          = "SIRUS v31.6 PRO AUTO GRID SAFETY READY";

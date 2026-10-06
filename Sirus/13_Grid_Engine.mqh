@@ -2593,6 +2593,8 @@ void UpdateGridRecoveryEngine(const string source)
          if(si_sent)
          {
             G_SCALEIN_EXTRA_ORDERS++;
+            ReasonCodeEntry("SCALE-IN", (G_SCALEIN_DIR > 0 ? ORDER_TYPE_BUY : ORDER_TYPE_SELL),
+                            G_TRADE.ResultVolume(), G_TRADE.ResultPrice(), G_TRADE.ResultOrder());
             if((ScaleInPrintOnUse && VerboseLogs))
                PrintFormat("[SIRUS v161 SCALE-IN] completed with %.2f lots - %s", si_lot, si_reason);
             ScaleInReset();
@@ -2772,6 +2774,7 @@ void UpdateGridRecoveryEngine(const string source)
          PrintFormat("[SIRUS v31.6 PHASE 21.3 GRID SENT] %s | %s",
                      G_GRID_STATUS,
                      G_GRID_DETAIL);
+         ReasonCodeGrid(order_type, G_NEXT_GRID_LOT, G_TRADE.ResultPrice(), G_TRADE.ResultOrder(), G_BASKET_ORDERS);
       }
       else
       {
