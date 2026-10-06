@@ -251,6 +251,7 @@ void MBShadowDayRoll()
    TimeToStruct(TimeCurrent(), dt);
    if(G_SH_DAY == dt.day_of_year)
       return;
+   MBDailyReportCheck();   // AUDIT FIX: the day report reads the shadow tallies - write it before they reset
    if(G_SH_DAY >= 0)
       MBShadowDaySummary();
    G_SH_DAY = dt.day_of_year;

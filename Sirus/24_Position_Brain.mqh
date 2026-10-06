@@ -305,10 +305,12 @@ void MBRecoveryLog(const datetime opened, const int dir, const double result)
    if(FileSize(h) == 0)
       FileWriteString(h, "opened;closed;dir;peak_dd;worst_state;armed;result;last_reason\r\n");
    FileSeek(h, 0, SEEK_END);
+   string why_csv = G_MB_RC_WHY;
+   StringReplace(why_csv, ";", ",");   // AUDIT FIX: the reasons use "; " - keep them in one CSV column
    FileWriteString(h, StringFormat("%s;%s;%s;%.1f;%s;%s;%.2f;%s\r\n", TimeToString(opened, TIME_DATE | TIME_SECONDS),
                                    TimeToString(TimeCurrent(), TIME_DATE | TIME_SECONDS), (dir > 0 ? "BUY" : "SELL"),
                                    G_MB_RC_PEAK_DD, MBRecoveryStateName(G_MB_RC_WORST_STATE), (G_MB_RC_ARMED ? "yes" : "no"),
-                                   result, G_MB_RC_WHY));
+                                   result, why_csv));
    FileClose(h);
 }
 

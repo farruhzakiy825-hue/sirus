@@ -585,16 +585,18 @@ bool MBExhausted(const int dir, string &why)
 // -1 (all down) .. +1 (all up). Read at most once a second.
 double G_MB_FLOW_IMB = 0.0;
 int    G_MB_FLOW_N   = 0;
-uint   G_MB_FLOW_MS  = 0;
+datetime G_MB_FLOW_T = 0;
 
 void MBTickFlowUpdate()
 {
    if(!EnableTickFlow)
       return;
-   uint now_ms = GetTickCount();
-   if(G_MB_FLOW_MS != 0 && (now_ms - G_MB_FLOW_MS) < 1000)
+   // AUDIT FIX: throttle on the server clock - GetTickCount is wall time, so in a fast tester run the
+   // flow went stale for simulated minutes.
+   datetime now_t = TimeCurrent();
+   if(now_t == G_MB_FLOW_T)
       return;
-   G_MB_FLOW_MS = now_ms;
+   G_MB_FLOW_T = now_t;
    MqlTick ticks[];
    ulong from = (ulong)((long)TimeCurrent() - MathMax(5, TickFlowSeconds)) * 1000;
    int n = CopyTicks(_Symbol, ticks, COPY_TICKS_INFO, from, 3000);

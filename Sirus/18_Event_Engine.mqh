@@ -49,12 +49,12 @@ input bool   MBEventPrintOnUse        = true;   // Har yangi hodisani jurnalga y
 input bool   EnableLiveSweep          = true;   // 14-BOSQICH (C1): likvidlik yechilishini TIKDA ko'rish - bar yopilishini kutmasdan (M5 / M15 / H1 swing, PDH / PDL, Osiyo)
 input double LiveSweepPierceATR       = 0.15;   // Darajadan kamida ATR(M1) x shu (va 1 spread) o'tishi kerak
 input int    LiveSweepReclaimSec      = 45;     // Shuncha soniya ichida darajaning ichiga qaytsa - LIVE SWEEP
-input int    LiveSweepValidSec        = 120;
+input int    LiveSweepValidSec        = 120;    // LIVE SWEEP shuncha soniya trigger bo'lib turadi (narx qaytgan tomonda qolsa)
 input bool   EnableRoundLevels        = true;   // 17-BOSQICH (B3): yumaloq narxlar (XX00 / XX50) likvidlik hovuzi sifatida
 input double RoundLevelStep           = 50.0;   // Yumaloq daraja qadami (narx birligida, oltin uchun $50)
 input int    NYOpenHour               = 13;     // 17-BOSQICH (B2): Nyu-York ochilishi (server vaqti). London = MBAsiaEndHour
 input int    SessionOpenWindowH       = 2;      // Ochilishdan keyin shuncha soat - "sessiya ochilishi" oynasi
-input bool   EnableSweepStats         = true;   // 17-BOSQICH (D3): har LIVE SWEEP natijasi (hovuz turi x sessiya) eslab qolinadi; >= 30 namunada yo'nalish ehtimoli sifatida ishlatiladi    // LIVE SWEEP shuncha soniya trigger bo'lib turadi (narx qaytgan tomonda qolsa)
+input bool   EnableSweepStats         = true;   // 17-BOSQICH (D3): har LIVE SWEEP natijasi (hovuz turi x sessiya) eslab qolinadi; >= 30 namunada yo'nalish ehtimoli sifatida ishlatiladi
 
 #define MB_EV_NONE           0
 #define MB_EV_LIQ_SWEEP      1
@@ -748,7 +748,24 @@ void MBLivePoolPut(const double level, const int side, const int tfi, const doub
 
 void MBLivePoolsRebuild(const double price)
 {
-   G_MB_LP_N = 0;
+   // AUDIT FIX: a pool pierced but not yet reclaimed is mid-sweep - the reclaim often comes after the
+   // minute turns. Carry those over; the rebuild would otherwise drop them (price is beyond them and
+   // the piercing bar now fails the intact check) and the sweep would never be seen.
+   int keep = 0;
+   for(int i = 0; i < G_MB_LP_N; i++)
+   {
+      if(G_MB_LP_PIERCE[i] == 0 || G_MB_LP_DONE[i])
+         continue;
+      G_MB_LP_LEVEL[keep] = G_MB_LP_LEVEL[i];
+      G_MB_LP_SIDE[keep] = G_MB_LP_SIDE[i];
+      G_MB_LP_TFI[keep] = G_MB_LP_TFI[i];
+      G_MB_LP_PIERCE[keep] = G_MB_LP_PIERCE[i];
+      G_MB_LP_EXT[keep] = G_MB_LP_EXT[i];
+      G_MB_LP_DONE[keep] = false;
+      G_MB_LP_KIND[keep] = G_MB_LP_KIND[i];
+      keep++;
+   }
+   G_MB_LP_N = keep;
    double atr1 = G_MB_ATR[0] * _Point;
    double atr5 = G_MB_ATR[1] * _Point;
    if(atr1 <= 0.0 || atr5 <= 0.0 || price <= 0.0)

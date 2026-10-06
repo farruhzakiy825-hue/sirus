@@ -418,6 +418,7 @@ string MBProfText();
 void MBShadowOnDecision(const bool ready, const string reason);
 void MBShadowOnEntry(const int dir, const double price);
 void MBShadowUpdate();
+void MBDailyReportCheck();
 string MBShadowPanelText();
 bool MBStandsInFor(const int dir, const bool location_gate);   // Market Brain owns the duplicate old gates - read by the entry gates before its definition
 int MBBrainScoreRelief(const int dir, string &why);   // score the Market Brain adds to a detector setup it agrees with

@@ -386,7 +386,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    // STAGE 15 (D1): the playbook's hard lines - never against an expansion, and never against a
    // trend regime the brain does not side with, without a confirmed liquidity reversal.
    if(flow_against)
-      missing = StringFormat("tick flow against: %.0f%% of the last %d ticks the other way", -flow * 100.0, G_MB_FLOW_N);
+      missing = StringFormat("tick flow against: imbalance %.0f%% the other way over %d ticks", -flow * 100.0, G_MB_FLOW_N);
    else if(rg == MB_RG_EXPANSION && dir == -G_MB_RG_DIR && !rev_ok)
       missing = "playbook: against an M15 expansion without a confirmed reversal";
    else if(rg == MB_RG_TREND && dir == -G_MB_RG_DIR && a <= 0 && !rev_ok)

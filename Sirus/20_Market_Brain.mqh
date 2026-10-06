@@ -206,7 +206,6 @@ int MBTimeframeState(const int tfi)
    return (d > 0) ? MB_BIAS_BULLISH : MB_BIAS_BEARISH;
 }
 
-// H1 dealing range: the most recent swing high above price and swing low below it.
 //---------------------------------------------------------------------
 // STAGE 15 (D1): MARKET REGIME + PLAYBOOK
 //---------------------------------------------------------------------
@@ -247,16 +246,20 @@ string MBRegimeName(const int rg)
    return "-";
 }
 
+void MBRangeLayersUpdate();
+
 void MBRegimeUpdate()
 {
-   if(!EnableRegimePlaybook)
-   {
-      G_MB_RG = MB_RG_NONE;
-      return;
-   }
    datetime t0 = iTime(_Symbol, PERIOD_M15, 0);
    if(t0 <= 0 || t0 == G_MB_RG_BAR)
       return;
+   MBRangeLayersUpdate();   // H4 box + volatility percentile: used even with the playbook off
+   if(!EnableRegimePlaybook)
+   {
+      G_MB_RG = MB_RG_NONE;
+      G_MB_RG_BAR = t0;
+      return;
+   }
    int look = MathMax(10, RegimeLookbackM15);
    MqlRates r[];
    ArraySetAsSeries(r, true);
@@ -309,7 +312,11 @@ void MBRegimeUpdate()
    G_MB_RG_DIR = dir;
    G_MB_RG_HI = hi;
    G_MB_RG_LO = lo;
+}
 
+// Stage 17 (D5 / D7): the H4 box and the M5 volatility percentile, once per M15 bar.
+void MBRangeLayersUpdate()
+{
    // Stage 17 (D5): the H4 box, for the three-layer cheap / expensive reading.
    MqlRates h4[];
    ArraySetAsSeries(h4, true);
@@ -349,6 +356,7 @@ void MBRegimeUpdate()
    }
 }
 
+// H1 dealing range: the most recent swing high above price and swing low below it.
 void MBDealingRangeUpdate(const double price)
 {
    MqlRates r[];
@@ -694,7 +702,7 @@ void MBBrainUpdate()
          else if(MBCandleConfirms(1, td) || (MBCandleConfirms(0, td) && MBPressureSide(1) != -td))
             G_MB_TH_THREAT = false;
       }
-      if(G_MB_TH_THREAT != was && (MBThesisPrintOnUse && VerboseLogs))
+      if(G_MB_TH_THREAT != was && open_th && (MBThesisPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS THESIS] %s thesis %s%s", (G_MB_TH_DIR > 0 ? "BULLISH" : "BEARISH"),
                      (G_MB_TH_THREAT ? "THREATENED: " : "no longer threatened"), (G_MB_TH_THREAT ? G_MB_TH_THREAT_WHY : ""));
    }
