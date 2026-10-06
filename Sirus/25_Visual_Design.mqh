@@ -792,6 +792,10 @@ void MBDrawPanel()
       if(G_MB_PB_DEAD) state = "G'oya yiqildi - grid to'xtadi, BE'da chiqamiz";
       else if(G_MB_PB_RESCUED) state = "Qutqaruv rejimi - yangi g'oya savat tomonida";
       MBPanelLine("K3", state, (G_MB_PB_DEAD ? MBVisAmber() : muted), false, x0, w, lh);
+      if(StringLen(G_MB_ENTRY_KIND) > 0)
+         MBPanelLine("K6", "Kirish: " + G_MB_ENTRY_KIND + (G_MB_PB_LOCAL ? " · LOKAL savat" : ""), muted, false, x0, w, lh);
+      else
+         ObjectDelete(0, MB_VIS_PREFIX + "K6");
       MBPanelLine("K4", StringFormat("Keyingi grid: %.0f pt narida, lot %.2f", G_NEXT_GRID_DISTANCE, G_NEXT_GRID_LOT),
                   muted, false, x0, w, lh);
       string rc = MBRecoveryText();
@@ -808,6 +812,7 @@ void MBDrawPanel()
       ObjectDelete(0, MB_VIS_PREFIX + "K3");
       ObjectDelete(0, MB_VIS_PREFIX + "K4");
       ObjectDelete(0, MB_VIS_PREFIX + "K5");
+      ObjectDelete(0, MB_VIS_PREFIX + "K6");
    }
 
    // --- events ---

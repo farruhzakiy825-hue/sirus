@@ -781,32 +781,58 @@ void MBLocalThesisUpdate(const double price)
    }
 }
 
-// (3) HANDOFF: the local leg has run into the global side's place (its target, a premium / discount
-// zone of the H1 range, or an opposing zone) and the micro layer has turned back the global way. The
-// best global entry of the day: the top of the bounce.
+// Is the leg running toward ldir spent? Its M1 or M5 impulse reads late / expired, an exhaustion
+// candle has arrived, or the M5 pressure no longer pushes that way.
+bool MBLocalLegSpent(const int ldir)
+{
+   string w = "";
+   if(MBExhausted(ldir, w))
+      return true;
+   if((G_MB_IMP_DIR[0] == ldir && G_MB_SPEED[0] >= MB_SPEED_LATE) ||
+      (G_MB_IMP_DIR[1] == ldir && G_MB_SPEED[1] >= MB_SPEED_LATE))
+      return true;
+   return (MBPressureSide(1) != ldir);
+}
+
+// A real reaction the gdir way: a strong closed candle (displacement / rejection / liquidity grab /
+// failed break) on M1 or M5, or a fresh live liquidity sweep that way. One small candle is not one.
+bool MBReactionCandle(const int gdir)
+{
+   if(MBCandleConfirms(0, gdir) || MBCandleConfirms(1, gdir))
+      return true;
+   string w = "";
+   return (MBLiveSweepFresh(gdir, w) && (TimeCurrent() - G_MB_LSW_TIME) <= 90);
+}
+
+// (3) HANDOFF: the local leg has run into a REAL place of the global side - its own target or an
+// opposing zone (not merely "the upper part of the H1 range"), the leg is spent, and the candles
+// show the reaction. FIX(handoff-early): it used to fire on the H1 premium band (a $14-wide area) and
+// one small M1 candle - and sold in the middle of a running bullish leg.
 bool MBHandoffNow(const int gdir, string &why)
 {
    why = "";
    if(gdir == 0 || MBLayerLocal() != -gdir)
       return false;
-   if(MBLayerMicro() != gdir)
-      return false;
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double atr5 = G_MB_ATR[1] * _Point;
+   if(atr5 <= 0.0)
+      return false;
    bool at_place = false;
    string place = "";
    if(G_LOC_TH_DIR == -gdir && G_LOC_TH_TARGET > 0.0 && MathAbs(bid - G_LOC_TH_TARGET) <= 0.3 * atr5)
    { at_place = true; place = "local target"; }
-   if(!at_place && G_MB_DR_HI > G_MB_DR_LO && ((gdir < 0 && G_MB_DR_POS >= 0.60) || (gdir > 0 && G_MB_DR_POS <= 0.40)))
-   { at_place = true; place = (gdir < 0 ? "H1 premium" : "H1 discount"); }
-   if(!at_place && atr5 > 0.0)
+   if(!at_place)
    {
       double z = (gdir < 0) ? ZoneMapNearestResistance(bid) : ZoneMapNearestSupport(bid);
-      if(z > 0.0 && MathAbs(z - bid) <= 0.5 * atr5) { at_place = true; place = "opposing zone"; }
+      if(z > 0.0 && MathAbs(z - bid) <= 0.5 * atr5) { at_place = true; place = "opposing zone " + DoubleToString(z, _Digits); }
    }
    if(!at_place)
       return false;
-   why = StringFormat("local leg ran into %s and turned", place);
+   if(!MBLocalLegSpent(-gdir))
+      return false;                     // the leg is still running - do not stand in front of it
+   if(!MBReactionCandle(gdir))
+      return false;                     // reached the place, but the candles have not reacted yet
+   why = StringFormat("local leg spent at %s, reaction candle", place);
    return true;
 }
 

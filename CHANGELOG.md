@@ -1,5 +1,19 @@
 # CHANGELOG — Sirus Brain V8
 
+## Shamlarni o'qish: zonaga yetdi degani uchungina kirmaydi
+
+Jonli kuzatuv: robot 4164.04 da SELL ochdi. Bu kuchli ko'tarilayotgan lokal oyoqning o'rtasi edi: uchala bosim ▲ edi, qarshilik zonasi esa $2 yuqorida (4166.26).
+
+- **HANDOFF qattiqlashtirildi:**
+  - Faqat haqiqiy joyda ishlaydi: lokal maqsad (±0.3 ATR) yoki qarshi zona (0.5 ATR(M5) ichida). "H1 premium" ($14 lik oraliq) endi joy hisoblanmaydi.
+  - Lokal oyoq charchagan bo'lishi shart (`MBLocalLegSpent`): impuls kech, charchoq shami bor yoki M5 bosimi aylangan.
+  - Reaksiya shami kerak (`MBReactionCandle`): M1/M5 da displacement, rejection, grab yoki fake breakout, yoki yangi LIVE SWEEP. Bitta mayda sham yetmaydi.
+- **Hakamda "avval shamni o'qi" qoidasi** (barcha kirish turlari uchun):
+  - qarshi tomonga lokal oyoq yuguryapti (lokal qatlam, M1 va M5 bosimi qarshi, oyoq charchamagan) → kutadi. Faqat kuchli qaytish shami bo'lsa kiradi;
+  - oxirgi yopilgan shamlar hali qarshi itaryapti → kutadi;
+  - kirishning yagona sababi zona, diapazon chekkasi yoki FVG bo'lsa → reaksiya shamini kutadi.
+- **Panel:** SAVAT bo'limida ochiq savat qaysi kirish turi bilan ochilgani ko'rinadi: "Kirish: BRAIN HANDOFF SELL · sifat 72 · LOKAL savat".
+
 ## Diapazon hukmronligi, tez lokal qatlam, barqaror bosim, soya klapani
 
 Jonli kuzatuv: narx $13 ko'tarildi, robot esa "global SELL" bo'yicha jim turdi. Soyada to'silgan setuplarning 94% i TP ga yetardi.

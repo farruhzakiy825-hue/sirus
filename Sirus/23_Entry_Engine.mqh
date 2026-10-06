@@ -445,7 +445,27 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    string missing = "";
    // STAGE 15 (D1): the playbook's hard lines - never against an expansion, and never against a
    // trend regime the brain does not side with, without a confirmed liquidity reversal.
-   if(flow_against)
+   // READ THE CANDLES FIRST (owner rule): reaching a zone is not a reason to enter.
+   //  - a local leg running against this entry (local layer, M1 and M5 pressure all the other way,
+   //    the leg not spent) - do not stand in front of it unless a strong reversal candle is here;
+   //  - the last closed candles still pushing the other way - wait;
+   //  - an entry whose only reason is a zone / range edge / FVG needs a reaction candle there.
+   bool rev_candle = (G_MB_LIVE_DIR == dir || MBCandleConfirms(0, dir) || MBCandleConfirms(1, dir));
+   bool leg_against = (MBLayerLocal() == -dir && MBPressureSide(0) == -dir && MBPressureSide(1) == -dir &&
+                       !MBLocalLegSpent(-dir) && !rev_candle);
+   bool candles_against = (MBCandleOpposes(0, dir) && (MBCandleOpposes(1, dir) || MBPressureSide(0) == -dir) &&
+                           G_MB_LIVE_DIR != dir);
+   bool zone_only = (zone_ok || range_edge || fvg_ok) && !(pullback_ok || early_loc || swept_loc || disc_ok);
+   bool reaction = MBReactionCandle(dir) ||
+                   (trig_event && (StringFind(ev_what, "REJECTION") >= 0 || StringFind(ev_what, "SWEEP") >= 0 ||
+                                   StringFind(ev_what, "FAKE") >= 0 || StringFind(ev_what, "RECLAIM") >= 0));
+   if(leg_against)
+      missing = "a local leg is running against this entry (local layer and M1/M5 pressure the other way, not spent)";
+   else if(candles_against)
+      missing = "the last candles still push the other way - waiting for them to turn";
+   else if(zone_only && !reaction)
+      missing = "at the zone - waiting for a reaction candle (rejection / grab / displacement)";
+   else if(flow_against)
       missing = StringFormat("tick flow against: imbalance %.0f%% the other way over %d ticks", -flow * 100.0, G_MB_FLOW_N);
    else if(rg == MB_RG_EXPANSION && dir == -G_MB_RG_DIR && !rev_ok)
       missing = "playbook: against an M15 expansion without a confirmed reversal";
@@ -599,6 +619,7 @@ bool     G_MB_LAST_CLOSE_WIN  = false;
 datetime G_MB_LAST_CLOSE_TIME = 0;
 int      G_MB_FAST_TODAY      = 0;
 int      G_MB_FAST_TYPE       = 0;     // ENUM_OPPORTUNITY_TYPE the brain entry carries (V0 reads the type)
+string   G_MB_ENTRY_KIND      = "";    // what opened the current basket (panel)
 int      G_MB_FAST_DAY        = -1;
 
 bool MBHasTriggerNow(const int dir)
@@ -826,6 +847,14 @@ void MBFastEntryFilled()
 {
    if(StringFind(G_OPP_REASON, "FAST ") == 0 || StringFind(G_OPP_REASON, "BRAIN ") == 0)
       G_MB_FAST_TODAY++;
+   if(G_BASKET_ORDERS <= 1)
+   {
+      int colon = StringFind(G_OPP_REASON, ":");
+      G_MB_ENTRY_KIND = (StringFind(G_OPP_REASON, "BRAIN ") == 0 || StringFind(G_OPP_REASON, "FAST ") == 0)
+                        ? ((colon > 0) ? StringSubstr(G_OPP_REASON, 0, colon) : G_OPP_REASON)
+                        : "detektor " + OpportunityTypeToString(G_OPP_TYPE);
+      G_MB_ENTRY_KIND += StringFormat(" · sifat %d", G_MB_ENTRY_QUALITY);
+   }
    // The signal was taken. Decay measures a signal price ran away from WITHOUT us; after a fill the
    // next entry is a fresh decision from here. FIX(reentry-decay): the anchor used to stay at the
    // first signal for 15 minutes, so every winning re-entry in the same direction lost quality
