@@ -924,6 +924,7 @@ double LotForCurrentEntry(const bool apply_side_effects)
    lot = SwingImpulseCorrectionLotAdjust(lot, current_order_type);  LT_STEP("swingImpulse")
    lot = MarketConfidenceLotAdjust(lot, G_OPP_TYPE);  LT_STEP("bayesConf")
    lot = SelfDefenseLotAdjust(lot);                  // V31: himoya rejimida kamaytirish  LT_STEP("defense")
+   lot = MBEntryLotAdjust(lot);                      LT_STEP("judgeCaution")   // Market Brain: CAUTION entries are smaller
 
    // V31.6 new: global floor. Multiple trim guards measure overlapping conditions
    // (trend-against + HTF-counter + DXY-against are near-triplicates), so stacked
@@ -4597,6 +4598,14 @@ bool FirstEntryCanRun(string &reason)
       {
          reason = "market brain veto: " + mb_why;
          DecisionLog("VETO", mb_why);
+         return false;
+      }
+      // ENTRY JUDGE (phases 5-6): right place and right moment - EXECUTE, CAUTION (smaller lot) or WAIT.
+      string mb_jwhy = "";
+      if(!MBEntryJudgeAllows(mb_dir, mb_jwhy))
+      {
+         reason = "entry judge: wait - " + mb_jwhy;
+         DecisionLog("WAIT", mb_jwhy);
          return false;
       }
    }

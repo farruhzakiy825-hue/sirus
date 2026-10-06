@@ -46,6 +46,7 @@ MQL5/Experts/Sirus/
 | `19_Zone_Role_Engine.mqh` | Market Brain: zonaning roli tarixidan (sweep, reclaim, haqiqiy / soxta break, retest) |
 | `20_Market_Brain.mqh` | Market Brain: 7 holatli bias, dealing range, likvidlik maqsadi (DOL), thesis hayoti |
 | `21_Direction_Veto.mqh` | Market Brain: veto (V1 likvidlik reversal, V2 zona roli, V3 joy yo'q, V4 qarama-qarshi tezlashish) |
+| `22_Entry_Engine.mqh` | Market Brain: kirish joyi, vaqti, sifati va yakuniy qaror (EXECUTE / CAUTION / WAIT) |
 | `90_Reason_Code.mqh` | Har ochilgan order sababi (jurnal + CSV), doim oxirgi |
 | `Sirus_Brain_V8.mq5` | `#property`, qismlarni ulash, `OnInit` / `OnDeinit` / `OnTick` / `OnTimer` |
 

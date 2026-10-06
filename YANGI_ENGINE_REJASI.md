@@ -222,7 +222,7 @@ grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saql
 - `FirstEntryCanRun` ga ball hisoblanishidan **oldin** ulanadi.
 - *Natija:* 4142 va 4126 holatlari bloklanadi. Detektorlar o'zgarmaydi.
 
-### 5-bosqich: Entry Engine + Candle Intelligence (E)
+### 5-bosqich: Entry Engine + Candle Intelligence (E) — ✅ kod yozildi (`Sirus/22_Entry_Engine.mqh`)
 - Entry type: continuation / pullback / reversal / breakout / liquidity-reclaim.
 - Location: premium / discount (dealing range ichida), structural room,
   distance-to-invalidation.
@@ -234,7 +234,7 @@ grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saql
 - Minimum Necessary Evidence: trend uchun 3 dalil, reversal uchun 4-5 dalil.
 - Speed budget: `EARLY / NORMAL / LATE / EXPIRED`.
 
-### 6-bosqich: Entry Judge (F)
+### 6-bosqich: Entry Judge (F) — ✅ `Sirus/22_Entry_Engine.mqh` ichida
 - Direction ↔ Entry matritsasi → `EXECUTE / CAUTION / WAIT / BLOCK`.
 - Bir vaqtda bir nechta nomzod bo'lsa, real vaqtda pasayadigan ball bilan reyting tuziladi.
 - Counterfactual: BUY NOW / WAIT / SELL savollari bo'yicha Reason Code'ga yoziladi.
