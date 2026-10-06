@@ -77,6 +77,7 @@ struct SMBCandle
    bool     strong;       // displacement at MBStrongDispBodyATR or more
    double   bull;         // bull pressure of this candle, 0..100
    double   bear;         // bear pressure, 0..100
+   double   close;        // close price of the candle
 };
 
 SMBCandle G_MB_LAST[MB_TF_COUNT];        // last closed candle per timeframe
@@ -196,6 +197,7 @@ bool MBPriorExtremes(const MqlRates &r[], const int n, const int from, const int
 void MBReadCandle(const MqlRates &r[], const int n, const int s, const double atr, SMBCandle &out)
 {
    out.time = r[s].time;
+   out.close = r[s].close;
    out.intent = MB_CI_NONE;
    out.dir = 0;
    out.candle_color = MBColor(r[s]);
@@ -352,6 +354,7 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
    int limit = MathMin(n - 4, 60);
    int d = -1;
    SMBCandle cd;
+   ZeroMemory(cd);
    for(int s = 1; s <= limit; s++)
    {
       MBReadCandle(r, n, s, atr, cd);
