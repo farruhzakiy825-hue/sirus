@@ -4954,6 +4954,7 @@ void UpdateFirstEntryEngine(const string source)
       }
       G_LAST_ENTRY_TICKET = G_TRADE.ResultOrder();
       ReasonCodeEntry("FIRST", order_type, lot, G_TRADE.ResultPrice(), G_LAST_ENTRY_TICKET);
+      MBMemoryOnEntry((order_type == ORDER_TYPE_BUY ? 1 : -1), G_TRADE.ResultPrice());
       if(EnableSlippageTracking)
       {
          double slip_filled = G_TRADE.ResultPrice();

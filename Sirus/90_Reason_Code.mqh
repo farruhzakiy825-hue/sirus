@@ -229,6 +229,8 @@ void RCPrintContext(const int dir, const double price, double &sup, double &res,
    PrintFormat("   BRAIN    : %s", MBBrainText());
    if(EnableMBEntryJudge && StringLen(G_MB_ENTRY_TEXT) > 0)
       PrintFormat("   JUDGE    : %s", G_MB_ENTRY_TEXT);
+   if(EnableMBMemory)
+      PrintFormat("   MEMORY   : %s", MBMemoryText());
    PrintFormat("   CANDLE   : %s", MBCandleText());
    PrintFormat("   EVENTS   : %s", MBEventText(8));
 

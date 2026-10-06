@@ -1,5 +1,5 @@
 ﻿//+------------------------------------------------------------------+
-//| Sirus_Brain_V8 - 23_Position_Brain                               |
+//| Sirus_Brain_V8 - 24_Position_Brain                               |
 //| Market Brain G: smart grid, thesis monitor, break-even exit      |
 //| Part of Sirus_Brain_V8.mq5. Include ORDER matters - do not       |
 //| compile this file on its own; compile Sirus_Brain_V8.mq5.        |
@@ -98,6 +98,8 @@ void MBPositionBrainUpdate()
    datetime opened = (G_BASKET_ORDERS > 0) ? MBBasketOpenTime() : 0;
    if(opened == 0)
    {
+      if(G_MB_PB_BASKET != 0)
+         MBMemoryOnBasketClosed(G_MB_PB_BASKET);   // Memory (phase 8): write the result next to the Entry DNA
       G_MB_PB_BASKET = 0;
       G_MB_PB_DIR = 0;
       G_MB_PB_DEAD = false;

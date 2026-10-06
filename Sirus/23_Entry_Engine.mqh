@@ -1,5 +1,5 @@
 ﻿//+------------------------------------------------------------------+
-//| Sirus_Brain_V8 - 22_Entry_Engine                                 |
+//| Sirus_Brain_V8 - 23_Entry_Engine                                 |
 //| Market Brain E+F: entry location, timing, quality and the judge  |
 //| Part of Sirus_Brain_V8.mq5. Include ORDER matters - do not       |
 //| compile this file on its own; compile Sirus_Brain_V8.mq5.        |
@@ -225,12 +225,18 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    double inv_atr = (inv > 0.0) ? MathAbs(price - inv) / atr5 : 0.0;
    bool far = (inv > 0.0 && inv_atr > MBMaxInvalidationATR5);
 
-   // --- QUALITY ---
+   // --- QUALITY --- (evidence weights learn within ±MBLearnMaxShift once Memory has enough results)
+   int align_key = (a >= 3) ? MB_DNA_ALIGN_STRONG : ((a == 2) ? MB_DNA_ALIGN_WEAK : ((a == 1) ? MB_DNA_TRANS_TOWARD : ((a == 0) ? MB_DNA_NEUTRAL : MB_DNA_COUNTER)));
+   bool trig_candle = (trig_m1 || trig_m5);
+   double f_dir = MBLearnFactor(align_key);
+   double f_loc = MBLearnFactorOf(MB_DNA_LOC_DISCOUNT, disc_ok, MB_DNA_LOC_ZONE, zone_ok, MB_DNA_LOC_PULLBACK, pullback_ok);
+   double f_trig = MBLearnFactorOf(MB_DNA_TRIG_CANDLE, trig_candle, MB_DNA_TRIG_LIVE, trig_live, MB_DNA_TRIG_EVENT, trig_event);
+   double f_rev = MBLearnFactor(MB_DNA_REVERSAL);
    double q = 40.0;
-   q += (a >= 3) ? 25.0 : ((a == 2) ? 18.0 : ((a == 1) ? 12.0 : ((a == 0) ? 5.0 : 0.0)));
-   if(loc_ok) q += 15.0 + ((loc_n >= 2) ? 5.0 : 0.0);
-   if(trig_ok) q += 15.0 + (trig_event ? 5.0 : 0.0);
-   if(rev_ok && a <= 1) q += 10.0;
+   q += f_dir * ((a >= 3) ? 25.0 : ((a == 2) ? 18.0 : ((a == 1) ? 12.0 : ((a == 0) ? 5.0 : 0.0))));
+   if(loc_ok) q += f_loc * (15.0 + ((loc_n >= 2) ? 5.0 : 0.0));
+   if(trig_ok) q += f_trig * (15.0 + (trig_event ? 5.0 : 0.0));
+   if(rev_ok && a <= 1) q += f_rev * 10.0;
    q -= (chase == 2) ? 30.0 : ((chase == 1) ? 12.0 : 0.0);
    if(far) q -= 10.0;
    if(G_MB_TH_DIR == dir) q -= 8.0 * G_MB_TH_CONTRA;
@@ -283,6 +289,25 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    }
    G_MB_ENTRY_DECISION = decision;
 
+   // Entry DNA of this judgement - kept by Memory if the entry fills.
+   for(int k = 0; k < MB_DNA_COUNT; k++)
+      G_MB_DNA_PENDING[k] = false;
+   G_MB_DNA_PENDING[align_key] = true;
+   G_MB_DNA_PENDING[MB_DNA_LOC_DISCOUNT] = disc_ok;
+   G_MB_DNA_PENDING[MB_DNA_LOC_ZONE] = zone_ok;
+   G_MB_DNA_PENDING[MB_DNA_LOC_PULLBACK] = pullback_ok;
+   G_MB_DNA_PENDING[MB_DNA_TRIG_CANDLE] = trig_candle && trig_ok;
+   G_MB_DNA_PENDING[MB_DNA_TRIG_LIVE] = trig_live && trig_ok;
+   G_MB_DNA_PENDING[MB_DNA_TRIG_EVENT] = trig_event;
+   G_MB_DNA_PENDING[MB_DNA_REVERSAL] = rev_ok;
+   G_MB_DNA_PENDING[MB_DNA_LATE] = (chase >= 1);
+   G_MB_DNA_PENDING[MB_DNA_CAUTION] = (decision == MB_ED_CAUTION);
+   string htf_what = "";
+   datetime htf_t = 0;
+   G_MB_DNA_PENDING[MB_DNA_HTF_SWEEP] = MBReversalAfter(dir, 3, 4, true, 0, htf_what, htf_t);
+   G_MB_DNA_PENDING[MB_DNA_TYPE_REVERSAL] = IsReversalOpportunityType(G_OPP_TYPE);
+   G_MB_DNA_PENDING_QUALITY = G_MB_ENTRY_QUALITY;
+
    G_MB_ENTRY_TEXT = StringFormat("%s q%d | %s %s | bias %s | location: %s | trigger: %s%s | speed %s%s%s",
                                   MBEntryDecisionName(decision), G_MB_ENTRY_QUALITY, etype, (dir > 0 ? "BUY" : "SELL"),
                                   MBBiasName(G_MB_BIAS), loc, trig,
@@ -290,6 +315,8 @@ bool MBEntryJudgeAllows(const int dir, string &why)
                                   (G_MB_IMP_DIR[0] == dir ? MBSpeedName(G_MB_SPEED[0]) : "-"),
                                   (inv > 0.0 ? StringFormat(" | invalid %.1f ATR5", inv_atr) : ""),
                                   (decay > 0.0 ? StringFormat(" | late -%.0f", decay) : ""));
+
+   G_MB_DNA_PENDING_TEXT = G_MB_ENTRY_TEXT;
 
    if((MBEntryPrintOnUse && VerboseLogs))
    {
