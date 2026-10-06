@@ -225,7 +225,35 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       pullback_ok = true;
       loc += StringFormat("%spullback inside M15 pressure", (StringLen(loc) > 0 ? ", " : ""));
    }
-   int loc_n = (disc_ok ? 1 : 0) + (zone_ok ? 1 : 0) + (pullback_ok ? 1 : 0);
+   // STAGE 15 (A6): first return into an unfilled FVG left by the move this way - where the
+   // displacement's unfilled orders sit. Only the first touch counts (a touched gap is filled).
+   bool fvg_ok = false;
+   if(EnableFVGZones)
+   {
+      FVGCacheRefresh();
+      int fn = (dir > 0) ? G_FVG_BU_N : G_FVG_BE_N;
+      for(int k = 0; k < fn && !fvg_ok; k++)
+      {
+         double glo = (dir > 0) ? G_FVG_BU_LO[k] : G_FVG_BE_LO[k];
+         double ghi = (dir > 0) ? G_FVG_BU_HI[k] : G_FVG_BE_HI[k];
+         bool in_gap = (dir > 0) ? (price >= glo - 0.1 * atr5 && price <= ghi + 0.2 * atr5)
+                                 : (price <= ghi + 0.1 * atr5 && price >= glo - 0.2 * atr5);
+         if(in_gap)
+         {
+            fvg_ok = true;
+            loc += StringFormat("%sFVG retest %s-%s", (StringLen(loc) > 0 ? ", " : ""),
+                                DoubleToString(glo, _Digits), DoubleToString(ghi, _Digits));
+         }
+      }
+   }
+   // STAGE 15 (D1): where in the regime box. RANGE edges are the place; the middle is not.
+   int rg = EnableRegimePlaybook ? G_MB_RG : MB_RG_NONE;
+   double rg_pos = (G_MB_RG_HI > G_MB_RG_LO) ? (price - G_MB_RG_LO) / (G_MB_RG_HI - G_MB_RG_LO) : 0.5;
+   bool range_edge = (rg == MB_RG_RANGE) && ((dir > 0 && rg_pos <= RegimeRangeEdge) || (dir < 0 && rg_pos >= 1.0 - RegimeRangeEdge));
+   bool range_mid = (rg == MB_RG_RANGE) && !range_edge && rg_pos > RegimeRangeEdge && rg_pos < 1.0 - RegimeRangeEdge;
+   if(range_edge)
+      loc += StringFormat("%srange edge %.2f", (StringLen(loc) > 0 ? ", " : ""), rg_pos);
+   int loc_n = (disc_ok ? 1 : 0) + (zone_ok ? 1 : 0) + (pullback_ok ? 1 : 0) + (fvg_ok ? 1 : 0) + (range_edge ? 1 : 0);
    bool loc_ok = (loc_n > 0);
    if(!loc_ok) loc = "none";
 
@@ -240,7 +268,11 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(trig_m5) trig += StringFormat("%sM5 %s", (StringLen(trig) > 0 ? ", " : ""), MBIntentName(G_MB_LAST[1].intent));
    if(trig_live) trig += StringFormat("%slive early displacement", (StringLen(trig) > 0 ? ", " : ""));
    if(trig_event) trig += StringFormat("%s%s", (StringLen(trig) > 0 ? ", " : ""), ev_what);
-   bool trig_ok = trig_m1 || trig_m5 || trig_live || trig_event;
+   // STAGE 15 (A3): M5 sequence "pressure resumes after a one-candle pause" is a trigger this way.
+   bool trig_seq = EnableCandleDirectionLink && G_MB_SEQ_STORY[1] == 1 && G_MB_SEQ_DIR[1] == dir;
+   if(trig_seq) trig += StringFormat("%sM5 pressure resumes", (StringLen(trig) > 0 ? ", " : ""));
+   bool seq_against = EnableCandleDirectionLink && G_MB_SEQ_STORY[1] == 2 && G_MB_SEQ_DIR[1] == -dir;
+   bool trig_ok = trig_m1 || trig_m5 || trig_live || trig_event || trig_seq;
    // (A failed live spike this way already cancelled the M1 reading in MBCandleTriggerNow.)
    if(!trig_ok && G_MB_LIVE_FAILED == dir)
       trig = "live displacement failed";
@@ -295,6 +327,15 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(far) q -= 10.0;
    if(G_MB_TH_DIR == dir) q -= 8.0 * G_MB_TH_CONTRA;
    q -= decay;
+   // STAGE 15: playbook, candles and FVG.
+   if(fvg_ok) q += 5.0;
+   if(seq_against) q -= 6.0;   // an M5 reversal is forming against this entry
+   bool rg_live_break = (trig_live || (trig_event && StringFind(ev_what, "LIVE") == 0) ||
+                         (trig_event && StringFind(ev_what, "COMP-RELEASE") >= 0));
+   if(rg == MB_RG_TREND)            q += (dir == G_MB_RG_DIR) ? 4.0 : -4.0;
+   else if(rg == MB_RG_RANGE)       q += range_edge ? 5.0 : (range_mid ? -8.0 : 0.0);
+   else if(rg == MB_RG_EXPANSION)   q += (dir == G_MB_RG_DIR) ? 4.0 : 0.0;
+   else if(rg == MB_RG_COMPRESSION) q += rg_live_break ? 4.0 : -6.0;
    if(EnableCandleDirectionLink)
    {
       if(press_aligned) q += 6.0;
@@ -310,7 +351,13 @@ bool MBEntryJudgeAllows(const int dir, string &why)
 
    // --- MINIMUM NECESSARY EVIDENCE ---
    string missing = "";
-   if(chase == 2 && !rev_ok)
+   // STAGE 15 (D1): the playbook's hard lines - never against an expansion, and never against a
+   // trend regime the brain does not side with, without a confirmed liquidity reversal.
+   if(rg == MB_RG_EXPANSION && dir == -G_MB_RG_DIR && !rev_ok)
+      missing = "playbook: against an M15 expansion without a confirmed reversal";
+   else if(rg == MB_RG_TREND && dir == -G_MB_RG_DIR && a <= 0 && !rev_ok)
+      missing = "playbook: against the M15 trend regime without a confirmed reversal";
+   else if(chase == 2 && !rev_ok)
       missing = StringFormat("chasing: M1 impulse EXPIRED (%.1f ATR without a pullback)", G_MB_IMP_TRAVEL[0]);
    else if(a >= 2)
    {
@@ -356,6 +403,9 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    }
    // A tired move (M15 and M5 pressure both against) is never a full-size entry.
    if(decision == MB_ED_EXECUTE && press_tired)
+      decision = MB_ED_CAUTION;
+   // Middle of a range, or inside a compression without a break: a coin flip is never full size.
+   if(decision == MB_ED_EXECUTE && (range_mid || (rg == MB_RG_COMPRESSION && !rg_live_break)))
       decision = MB_ED_CAUTION;
    G_MB_ENTRY_DECISION = decision;
 

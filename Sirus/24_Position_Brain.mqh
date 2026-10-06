@@ -193,6 +193,12 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
                   (G_MB_LAST[1].intent == MB_CI_DISPLACEMENT && G_MB_LAST[1].dir == -dir) ||
                   (G_MB_LIVE_DIR == -dir);
    string against_what = against ? "displacement against the basket" : "";
+   // Stage 15 (A3): an M5 reversal forming against the basket - do not average into it yet.
+   if(!against && EnableCandleDirectionLink && G_MB_SEQ_STORY[1] == 2 && G_MB_SEQ_DIR[1] == -dir)
+   {
+      against = true;
+      against_what = "M5 reversal sequence forming against the basket";
+   }
    if(!against)
    {
       for(int tfi = 0; tfi <= 1 && !against; tfi++)

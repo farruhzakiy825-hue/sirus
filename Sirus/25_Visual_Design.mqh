@@ -653,6 +653,20 @@ void MBDrawPanel()
                             (G_MB_DR_POS >= 0.55 ? "PREMIUM ZONA" : (G_MB_DR_POS <= 0.45 ? "CHEGIRMA ZONASI" : "MUVOZANAT")), G_MB_DR_POS * 100.0,
                             DoubleToString(G_MB_DR_LO, _Digits), DoubleToString(G_MB_DR_HI, _Digits));
       MBPanelLine("B_LOC", loc, ink, false, x0, w, lh);
+      if(EnableRegimePlaybook && G_MB_RG != MB_RG_NONE)
+      {
+         string rg_uz = "DIAPAZON";
+         if(G_MB_RG == MB_RG_TREND)            rg_uz = (G_MB_RG_DIR > 0 ? "TREND ▲" : "TREND ▼");
+         else if(G_MB_RG == MB_RG_EXPANSION)   rg_uz = (G_MB_RG_DIR > 0 ? "PORTLASH ▲" : "PORTLASH ▼");
+         else if(G_MB_RG == MB_RG_COMPRESSION) rg_uz = "SIQILISH";
+         string rg_play = "chekkada kirish, o'rtada ehtiyot";
+         if(G_MB_RG == MB_RG_TREND)            rg_play = "pullback'da trend tomonga";
+         else if(G_MB_RG == MB_RG_EXPANSION)   rg_play = "faqat portlash tomonga, erta";
+         else if(G_MB_RG == MB_RG_COMPRESSION) rg_play = "chiqish shamini kutish";
+         MBPanelLine("B_RG", StringFormat("Rejim (M15): %s  ·  %s", rg_uz, rg_play), ink, false, x0, w, lh);
+      }
+      else
+         ObjectDelete(0, MB_VIS_PREFIX + "B_RG");
       MBPanelLine("B_TGT", StringFormat("Nishon %s  ·  G'oya chegarasi %s",
                                         (G_MB_TH_TARGET > 0.0 ? DoubleToString(G_MB_TH_TARGET, _Digits) : "-"),
                                         (G_MB_TH_INVALID > 0.0 ? DoubleToString(G_MB_TH_INVALID, _Digits) : "-")), muted, false, x0, w, lh);

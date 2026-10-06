@@ -1,5 +1,19 @@
 # CHANGELOG — Sirus Brain V8
 
+## 15-bosqich: bozor rejimi, FVG retest, sham ketma-ketligi
+
+- **D1. M15 rejimi** (`EnableRegimePlaybook`): TREND, DIAPAZON, PORTLASH yoki SIQILISH. Har M15 barda bir marta o'qiladi. Hakamdagi o'yin kitobi:
+  - **TREND:** trend tomoniga sifat +4, teskari tomoniga −4. Miya ham tomonda bo'lmasa, tasdiqlangan reversal kerak.
+  - **DIAPAZON:** chekkasi yaxshi joy (+5). O'rtasida sifat −8 va faqat EHTIYOT lot.
+  - **PORTLASH:** portlash tomoniga +4. Teskari tomonga reversalsiz kirish yo'q.
+  - **SIQILISH:** ichida sifat −6 va EHTIYOT lot. Siqilishdan chiqish shamida (jonli displacement / LIVE SWEEP / COMP-RELEASE) +4.
+  - Panelda "Rejim (M15)" qatori chiqadi.
+- **A6. FVG retest:** narx shu yo'nalishdagi to'lmagan FVG'ga birinchi marta qaytsa, bu joy hisoblanadi va sifat +5.
+- **A3. M5 ketma-ketlik:**
+  - "bosim pauzadan keyin davom etyapti" trigger bo'ladi;
+  - "burilish shakllanyapti" kirishga qarshi bo'lsa, sifat −6;
+  - savatga qarshi bo'lsa, grid qo'shmaydi.
+
 ## 14-bosqich: haqiqiy tezlik
 
 - **C1. LIVE SWEEP** (`EnableLiveSweep`): likvidlik yechilishi tikda ko'rinadi.

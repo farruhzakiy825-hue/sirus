@@ -36,6 +36,12 @@ input bool   EnableMarketBrain        = true;   // Bozor haqida yagona fikr: 7 h
 input double MBPressureWeakGap        = 20.0;   // Bias WEAK bo'ladi: qarama-qarshi sham bosimi shuncha ko'p bo'lsa (0-100 shkala)
 input int    MBInvalidationMemoryM5   = 24;     // O'lgan thesis yo'nalishi shuncha M5 bar (2 soat) kuchli bias'siz qayta tirilmaydi
 input bool   MBThesisPrintOnUse       = true;   // Thesis o'zgarishlarini jurnalga yozish ([SIRUS THESIS])
+input bool   EnableRegimePlaybook     = true;   // 15-BOSQICH (D1): M15 bozor rejimi (TREND / DIAPAZON / PORTLASH / SIQILISH) va har biriga o'z kirish qoidasi
+input int    RegimeLookbackM15        = 20;     // Rejim shuncha M15 bar bo'yicha o'qiladi
+input double RegimeTrendER            = 0.35;   // Samaradorlik (to'g'ri yo'l / yurilgan yo'l) >= shu: TREND
+input double RegimeExpansionRatio     = 1.40;   // ATR(14) / ATR(50) >= shu va oxirgi 4 bar kuchli yurgan: PORTLASH
+input double RegimeCompressionATR     = 2.0;    // Oxirgi 12 bar diapazoni <= ATR x shu va ATR pasaygan: SIQILISH
+input double RegimeRangeEdge          = 0.35;   // DIAPAZON: BUY pastki shu ulushda, SELL yuqori shu ulushda - chekka (yaxshi joy)
 
 #define MB_BIAS_BEARISH          -3
 #define MB_BIAS_BEARISH_WEAK     -2
@@ -199,6 +205,107 @@ int MBTimeframeState(const int tfi)
 }
 
 // H1 dealing range: the most recent swing high above price and swing low below it.
+//---------------------------------------------------------------------
+// STAGE 15 (D1): MARKET REGIME + PLAYBOOK
+//---------------------------------------------------------------------
+// The same entry is right in one regime and wrong in another: a pullback buy is the trade in a
+// trend and a coin flip in the middle of a range; fading a range edge is the trade in a range and
+// suicide in an expansion. Read once per M15 bar:
+//   EXPANSION    ATR(14)/ATR(50) high and the last four bars travelled hard one way
+//   COMPRESSION  the last twelve bars inside a narrow box and ATR falling
+//   TREND        efficiency (net move / walked distance) over the lookback is high
+//   RANGE        everything else, with the lookback's high / low as the box
+// The Entry Judge applies the playbook (23_Entry_Engine.mqh).
+#define MB_RG_NONE        0
+#define MB_RG_TREND       1
+#define MB_RG_RANGE       2
+#define MB_RG_EXPANSION   3
+#define MB_RG_COMPRESSION 4
+
+int      G_MB_RG      = MB_RG_NONE;
+int      G_MB_RG_DIR  = 0;
+double   G_MB_RG_HI   = 0.0;
+double   G_MB_RG_LO   = 0.0;
+double   G_MB_RG_ER   = 0.0;
+double   G_MB_RG_RATIO = 0.0;
+datetime G_MB_RG_BAR  = 0;
+
+string MBRegimeName(const int rg)
+{
+   switch(rg)
+   {
+      case MB_RG_TREND:       return "TREND";
+      case MB_RG_RANGE:       return "RANGE";
+      case MB_RG_EXPANSION:   return "EXPANSION";
+      case MB_RG_COMPRESSION: return "COMPRESSION";
+   }
+   return "-";
+}
+
+void MBRegimeUpdate()
+{
+   if(!EnableRegimePlaybook)
+   {
+      G_MB_RG = MB_RG_NONE;
+      return;
+   }
+   datetime t0 = iTime(_Symbol, PERIOD_M15, 0);
+   if(t0 <= 0 || t0 == G_MB_RG_BAR)
+      return;
+   int look = MathMax(10, RegimeLookbackM15);
+   MqlRates r[];
+   ArraySetAsSeries(r, true);
+   int n = CopyRates(_Symbol, PERIOD_M15, 0, MathMax(look, 50) + 3, r);
+   if(n < MathMax(look, 50) + 2)
+      return;
+   G_MB_RG_BAR = t0;
+
+   // True ranges of closed bars 1..50.
+   double tr[];
+   ArrayResize(tr, 51);
+   for(int i = 1; i <= 50; i++)
+      tr[i] = MathMax(r[i].high, r[i + 1].close) - MathMin(r[i].low, r[i + 1].close);
+   double a14 = 0.0, a50 = 0.0;
+   for(int i = 1; i <= 50; i++) { a50 += tr[i]; if(i <= 14) a14 += tr[i]; }
+   a14 /= 14.0;
+   a50 /= 50.0;
+   if(a14 <= 0.0 || a50 <= 0.0)
+      return;
+   G_MB_RG_RATIO = a14 / a50;
+
+   double walk = 0.0;
+   for(int i = 1; i <= look; i++)
+      walk += MathAbs(r[i].close - r[i + 1].close);
+   double net = r[1].close - r[look + 1].close;
+   G_MB_RG_ER = (walk > 0.0) ? MathAbs(net) / walk : 0.0;
+
+   double hi12 = -DBL_MAX, lo12 = DBL_MAX, hi = -DBL_MAX, lo = DBL_MAX;
+   for(int i = 1; i <= look; i++)
+   {
+      hi = MathMax(hi, r[i].high);
+      lo = MathMin(lo, r[i].low);
+      if(i <= 12) { hi12 = MathMax(hi12, r[i].high); lo12 = MathMin(lo12, r[i].low); }
+   }
+   double move4 = r[1].close - r[5].close;
+
+   int rg = MB_RG_RANGE, dir = 0;
+   if(G_MB_RG_RATIO >= RegimeExpansionRatio && MathAbs(move4) >= 1.5 * a14)
+   { rg = MB_RG_EXPANSION; dir = (move4 > 0.0) ? 1 : -1; }
+   else if((hi12 - lo12) <= RegimeCompressionATR * a50 && G_MB_RG_RATIO <= 0.85)
+   { rg = MB_RG_COMPRESSION; hi = hi12; lo = lo12; }
+   else if(G_MB_RG_ER >= RegimeTrendER)
+   { rg = MB_RG_TREND; dir = (net > 0.0) ? 1 : -1; }
+
+   if(rg != G_MB_RG && (MBThesisPrintOnUse && VerboseLogs))
+      PrintFormat("[SIRUS REGIME] %s%s | ER %.2f | ATR14/50 %.2f | box %s-%s", MBRegimeName(rg),
+                  (dir > 0 ? " UP" : (dir < 0 ? " DOWN" : "")), G_MB_RG_ER, G_MB_RG_RATIO,
+                  DoubleToString(lo, _Digits), DoubleToString(hi, _Digits));
+   G_MB_RG = rg;
+   G_MB_RG_DIR = dir;
+   G_MB_RG_HI = hi;
+   G_MB_RG_LO = lo;
+}
+
 void MBDealingRangeUpdate(const double price)
 {
    MqlRates r[];
@@ -356,6 +463,7 @@ void MBBrainUpdate()
 
    for(int tfi = 1; tfi < MB_TF_COUNT; tfi++)
       G_MB_TF_STATE[tfi] = MBTimeframeState(tfi);
+   MBRegimeUpdate();   // stage 15: once per M15 bar
    G_MB_TF_STATE[0] = MB_BIAS_NEUTRAL;
 
    int s5 = G_MB_TF_STATE[1], s15 = G_MB_TF_STATE[2], s1h = G_MB_TF_STATE[3], s4h = G_MB_TF_STATE[4];
