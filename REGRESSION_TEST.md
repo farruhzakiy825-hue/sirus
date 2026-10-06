@@ -22,6 +22,15 @@ reclaim, discount). Jurnalda veto sababi yoziladi.
 6. Inputs: hozirgi live `.set` faylingizni yuklang. `EnableReasonCode = true`, `ReasonCodeToFile = true`.
 7. Start. 06:15 atrofida sekinlashtirib kuzating.
 
+### 1-bosqichdan keyin tekshiriladi (Event + Candle Engine)
+Jurnalda `[SIRUS EVENT]` qatorlari paydo bo'ladi. 2026-10-06 tongida kutilayotganlar:
+- H4 yoki H1 **SWEEP BULLISH** ≈ 4110.5 atrofida (sell-side likvidlik olindi, narx qaytib yopildi);
+- keyin RECLAIM, M5 / M15 da MSS yoki BOS BULLISH, bullish DISPLACEMENT.
+
+Agar 06:15 da yana SELL ochilsa, uning Reason Code'ida `EVENTS` va `CONFLICTS` qatorlarida shu
+bullish hodisalar ko'rinishi kerak. Bu hali bloklamaydi: veto 4-bosqichda qo'shiladi. Hozir
+tekshiramiz: **robot bu hodisalarni ko'ryaptimi?**
+
 ### Natijani yuborish
 - Tester'ning **Journal** (Журнал) oynasidan `[SIRUS REASON` bilan boshlanadigan qatorlar,
   ayniqsa 06:00–06:30 oralig'idagilar.

@@ -34,7 +34,9 @@
 #include "Sirus/14_Risk_Gates_Entry.mqh"   // Risk governor, gates, first entry engine
 #include "Sirus/15_Legacy_Packs.mqh"   // VPS validation, legacy/deep/RC packs, client safety
 #include "Sirus/16_Dashboard_Core.mqh"   // Client dashboard, CoreUpdate pipeline, dashboard drawing
-#include "Sirus/17_Reason_Code.mqh"      // Reason Code: why every order was opened (journal + CSV)
+#include "Sirus/17_Candle_Engine.mqh"    // Market Brain A0: candle intent, pressure, acceleration, impulse
+#include "Sirus/18_Event_Engine.mqh"     // Market Brain A: liquidity pools and market events, every TF
+#include "Sirus/19_Reason_Code.mqh"      // Reason Code: why every order was opened (journal + CSV)
 
 //==================================================================//
 //  MT5 EVENTS

@@ -789,6 +789,10 @@ void CoreUpdate(const string source)
    UpdateClockState();
    UpdateTickState();
    UpdateBarTracker(source);
+   // Market Brain facts (engine plan, phases 1 / 1b). They only describe the market for now; each
+   // timeframe is read once per new bar, the forming M1 candle on every tick.
+   MBCandleEngineUpdate();
+   MBEventEngineUpdate();
    UpdateEconomicCalendarGuard();
    UpdateKalmanTrendFilter();
    UpdateDailyBias();   // FEATURE(daily-bias): compute PDH/PDL + prior-day bias before zones/scanner use them

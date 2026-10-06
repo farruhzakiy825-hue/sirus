@@ -11,7 +11,7 @@ MQL5/Experts/Sirus/
     ├── 00_Defines.mqh
     ├── 01_Inputs.mqh
     ├── ...
-    └── 17_Reason_Code.mqh
+    └── 19_Reason_Code.mqh
 ```
 
 1. Butun papkani `MQL5/Experts/` ichiga ko'chiring (masalan, `MQL5/Experts/Sirus/`).
@@ -41,7 +41,9 @@ MQL5/Experts/Sirus/
 | `14_Risk_Gates_Entry.mqh` | Risk, kirish filtrlari, birinchi kirish |
 | `15_Legacy_Packs.mqh` | VPS tekshiruvi, eski paketlar, mijoz xavfsizligi |
 | `16_Dashboard_Core.mqh` | Dashboard, `CoreUpdate` oqimi |
-| `17_Reason_Code.mqh` | Har ochilgan order sababi (jurnal + CSV) |
+| `17_Candle_Engine.mqh` | Market Brain: sham niyati, bosim, tezlashish, impulse yoshi, jonli sham |
+| `18_Event_Engine.mqh` | Market Brain: likvidlik havzalari va hodisalar (sweep, MSS, reclaim, haqiqiy / soxta break) M1…H4 |
+| `19_Reason_Code.mqh` | Har ochilgan order sababi (jurnal + CSV) |
 | `Sirus_Brain_V8.mq5` | `#property`, qismlarni ulash, `OnInit` / `OnDeinit` / `OnTick` / `OnTimer` |
 
 Tuzatishlar tarixi `CHANGELOG.md` da, tahlil va reja esa `TUZATISH_REJASI.md` da.

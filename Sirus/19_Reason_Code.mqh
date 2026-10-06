@@ -1,5 +1,5 @@
 ﻿//+------------------------------------------------------------------+
-//| Sirus_Brain_V8 - 17_Reason_Code                                  |
+//| Sirus_Brain_V8 - 19_Reason_Code                                  |
 //| Reason Code: why every order was opened (journal + CSV)          |
 //| Part of Sirus_Brain_V8.mq5. Include ORDER matters - do not       |
 //| compile this file on its own; compile Sirus_Brain_V8.mq5.        |
@@ -83,6 +83,23 @@ string RCConflicts(const int dir)
       c += StringFormat(" situation %s favours %s;", SituationName(G_SITUATION), RCDirText(G_SITUATION_DIR));
    if(EnableEconomicCalendarGuard && G_CAL_ACTIVE)
       c += StringFormat(" news window %s;", G_CAL_EVENT_NAME);
+   // Market Brain facts that point the other way (M5 and above, still relevant).
+   if(EnableMarketBrainEngines)
+   {
+      int against[5] = {MB_EV_LIQ_SWEEP, MB_EV_FAKE_BREAK, MB_EV_MSS, MB_EV_ACCEPTANCE, MB_EV_RECLAIM};
+      for(int i = 0; i < 5; i++)
+      {
+         SMBEvent ev;
+         if(MBEventFind(against[i], -dir, 1, ev))
+            c += StringFormat(" %s %s %s @ %s (%d bars);", MBTFName(ev.tfi), MBEventName(ev.type),
+                              (ev.dir > 0 ? "bull" : "bear"), DoubleToString(ev.level, _Digits), MBEventAgeBars(ev));
+      }
+      int m1_imp = G_MB_IMP_DIR[0];
+      if(m1_imp == dir && G_MB_SPEED[0] >= MB_SPEED_LATE)
+         c += StringFormat(" chasing: M1 impulse %s %.1f ATR;", MBSpeedName(G_MB_SPEED[0]), G_MB_IMP_TRAVEL[0]);
+      if(G_MB_LIVE_DIR == -dir)
+         c += " live M1 candle displacing against;";
+   }
    if(StringLen(c) == 0)
       return "none";
    return StringSubstr(c, 1);
@@ -112,10 +129,10 @@ void RCWriteCsv(const string kind, const int dir, const double lot, const double
    if(FileSize(h) == 0)
       FileWriteString(h, "seq;time;kind;dir;lot;price;ticket;signal;score;min_score;decision;market;regime;"
                          "chain;htf_chain;event;verdict;ms_m1;ms_m5;ms_m15;leg_pos;leg_stretch;"
-                         "support;resistance;news;conflicts;signal_reason;extra\r\n");
+                         "support;resistance;news;conflicts;signal_reason;extra;candle;events\r\n");
    FileSeek(h, 0, SEEK_END);
 
-   string row = StringFormat("%d;%s;%s;%s;%.2f;%s;%I64u;%s;%d;%d;%s;%s;%s;%d;%d;%s;%d;%d/%s;%d/%s;%d/%s;%.2f;%.1f;%s;%s;%s;%s;%s;%s\r\n",
+   string row = StringFormat("%d;%s;%s;%s;%.2f;%s;%I64u;%s;%d;%d;%s;%s;%s;%d;%d;%s;%d;%d/%s;%d/%s;%d/%s;%.2f;%.1f;%s;%s;%s;%s;%s;%s;%s;%s\r\n",
                              G_RC_SEQ,
                              TimeToString(TimeCurrent(), TIME_DATE | TIME_SECONDS),
                              kind,
@@ -143,7 +160,9 @@ void RCWriteCsv(const string kind, const int dir, const double lot, const double
                              (G_CAL_ACTIVE ? RCCsvSafe(G_CAL_EVENT_NAME) : ""),
                              RCCsvSafe(conflicts),
                              RCCsvSafe(G_OPP_REASON),
-                             RCCsvSafe(extra));
+                             RCCsvSafe(extra),
+                             RCCsvSafe(MBCandleText()),
+                             RCCsvSafe(MBEventText(8)));
    FileWriteString(h, row);
    FileClose(h);
 }
@@ -180,6 +199,9 @@ void RCPrintContext(const int dir, const double price, double &sup, double &res,
                (EnableEconomicCalendarGuard && G_CAL_ACTIVE)
                   ? StringFormat("%s (%d min)%s", G_CAL_EVENT_NAME, G_CAL_MINUTES_FROM_EVENT, (G_CAL_BIG_SURPRISE ? " surprise" : ""))
                   : "clear");
+
+   PrintFormat("   CANDLE   : %s", MBCandleText());
+   PrintFormat("   EVENTS   : %s", MBEventText(8));
 
    conflicts = RCConflicts(dir);
    PrintFormat("   CONFLICTS: %s", conflicts);

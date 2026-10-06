@@ -137,7 +137,7 @@ tester'da yonma-yon solishtirish mumkin. Har bosqichdan keyin: kompilyatsiya →
   invalidation, confidence, qaysi veto'lar tekshirilgan.
 - *Natija:* keyingi bosqichlar ta'sirini aniq o'lchash mumkin bo'ladi.
 
-### 1-bosqich: Event Engine (A: faktlar)
+### 1-bosqich: Event Engine (A: faktlar) — ✅ kod yozildi (`Sirus/18_Event_Engine.mqh`)
 - Hodisalar halqa buferi (oxirgi ~50 hodisa), har biri: turi, yo'nalishi, darajasi, TF, kuchi,
   yaratilgan bar, yoshi.
 - Hodisa turlari: `LIQ_SWEEP` (buy-side / sell-side, **har TF: M1…H4**), `DISPLACEMENT`, `BOS`, `MSS/CHoCH`,
@@ -147,7 +147,7 @@ tester'da yonma-yon solishtirish mumkin. Har bosqichdan keyin: kompilyatsiya →
 - *Natija:* "pastda likvidlik olindi → bullish displacement → MSS" ketma-ketligini robot
   ko'ra oladi.
 
-### 1b-bosqich: Candle Intelligence Engine (A0)
+### 1b-bosqich: Candle Intelligence Engine (A0) — ✅ kod yozildi (`Sirus/17_Candle_Engine.mqh`)
 Sham hech qachon yolg'iz signal bermaydi, lekin **kirish vaqtini** beradi:
 Market Brain "QAYERDA va NIMA UCHUN?" degan savolga, Candle Engine "HOZIRMI?" degan savolga javob beradi.
 Mavjud tarqoq sham modullari bitta engine'ga yig'iladi.
