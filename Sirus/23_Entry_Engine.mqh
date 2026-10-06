@@ -54,6 +54,7 @@ input int    CashbackReentryBars      = 40;     // Cashback tempida tezkor re-en
 input bool   EnableMBScoreRelief      = true;   // MIYA YENGILLIGI: eski detektor balli yetmasa, lekin Market Brain shu yo'nalishni tasdiqlasa - yetishmagan ball to'ldiriladi. Keyin veto va hakam (joy + trigger) baribir tekshiradi. Miya qarshi yoki neytral bo'lsa yengillik yo'q
 input int    MBReliefStrong           = 4;      // Miya kuchli tomonda (ustun/hukmron) va g'oya ochiq: shuncha ball
 input int    MBReliefWeak             = 2;      // Miya uyg'onmoqda (transition) yoki g'oya yo'q: shuncha ball
+input bool   SmartFillMomentumSkip    = true;   // 14-BOSQICH (C4): momentum lahzasida (jonli displacement, LIVE SWEEP, hozirgina yopilgan M1 displacement) SmartFill pullback kutmaydi - darhol kiradi
 
 #define MB_ED_EXECUTE   0
 #define MB_ED_CAUTION   1
@@ -143,6 +144,8 @@ bool MBCandleTriggerNow(const int tfi, const int dir, const double price)
 // A fresh M1 / M5 event in direction dir that can serve as the trigger.
 bool MBFreshTriggerEvent(const int dir, string &what)
 {
+   if(MBLiveSweepFresh(dir, what))   // stage 14 (C1): the sweep seen on the tick, before any bar closes
+      return true;
    for(int tfi = 0; tfi <= 1; tfi++)
    {
       int base = tfi * MB_EV_PER_TF;
@@ -529,6 +532,21 @@ int MBBrainScoreRelief(const int dir, string &why)
    if(r > 0)
       why = StringFormat("brain %s%s +%d", MBBiasName(G_MB_BIAS), (th_with ? ", thesis open" : ""), r);
    return r;
+}
+
+// STAGE 14 (C4): is this a momentum moment for dir? Waiting for a pullback here gives the move away -
+// the fill SmartFill is waiting for is the one the momentum will not offer.
+bool MBMomentumNow(const int dir)
+{
+   if(!SmartFillMomentumSkip || dir == 0)
+      return false;
+   if(G_MB_LIVE_DIR == dir)
+      return true;
+   string w = "";
+   if(MBLiveSweepFresh(dir, w) && (TimeCurrent() - G_MB_LSW_TIME) <= 30)
+      return true;
+   return (G_MB_LAST[0].intent == MB_CI_DISPLACEMENT && G_MB_LAST[0].dir == dir &&
+           G_MB_LAST[0].time == iTime(_Symbol, PERIOD_M1, 1) && (TimeCurrent() - iTime(_Symbol, PERIOD_M1, 0)) <= 20);
 }
 
 // Cashback tempo is on: rebate mode with the tempo switch.

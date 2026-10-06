@@ -409,6 +409,9 @@ bool CloseNaviusBasket(const string reason);
 #define MB_PROF_PANEL    8
 #define MB_PROF_SHADOW   9
 #define MB_PROF_SEGS     10
+void MBLiveSweepUpdate();   // stage 14 live sweep - called by the event engine above its definition
+bool MBLiveSweepFresh(const int dir, string &what);
+bool MBMomentumNow(const int dir);
 void MBProfBegin(const int seg);
 void MBProfEnd(const int seg);
 string MBProfText();

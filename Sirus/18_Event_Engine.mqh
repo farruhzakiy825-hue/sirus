@@ -46,6 +46,10 @@ input int    MBRelevantBarsHTF        = 12;     // ... shuncha bargacha "dolzarb
 input int    MBAsiaStartHour          = 0;      // Osiyo sessiyasi (server vaqti) boshlanishi
 input int    MBAsiaEndHour            = 7;      // Osiyo sessiyasi tugashi
 input bool   MBEventPrintOnUse        = true;   // Har yangi hodisani jurnalga yozish ([SIRUS EVENT])
+input bool   EnableLiveSweep          = true;   // 14-BOSQICH (C1): likvidlik yechilishini TIKDA ko'rish - bar yopilishini kutmasdan (M5 / M15 / H1 swing, PDH / PDL, Osiyo)
+input double LiveSweepPierceATR       = 0.15;   // Darajadan kamida ATR(M1) x shu (va 1 spread) o'tishi kerak
+input int    LiveSweepReclaimSec      = 45;     // Shuncha soniya ichida darajaning ichiga qaytsa - LIVE SWEEP
+input int    LiveSweepValidSec        = 120;    // LIVE SWEEP shuncha soniya trigger bo'lib turadi (narx qaytgan tomonda qolsa)
 
 #define MB_EV_NONE           0
 #define MB_EV_LIQ_SWEEP      1
@@ -683,6 +687,199 @@ void MBEventEngineUpdate()
       for(int s = from_s; s >= 1; s--)
          MBEvaluateBar(tfi, r, n, s, atr, spread);
    }
+   MBLiveSweepUpdate();   // stage 14 (C1): on every tick
+}
+
+//---------------------------------------------------------------------
+// STAGE 14 (C1): LIVE SWEEP - a liquidity sweep seen on the tick, not at the bar close
+//---------------------------------------------------------------------
+// Bar-close detection is late by up to a minute on M1 and five on M5, and in a sweep that is the
+// whole trade: the run on the stops and the snap back take seconds. Once per M1 bar the untaken
+// pools near price are collected (M5 / M15 / H1 swings and equal highs/lows, PDH / PDL, the Asia
+// range). On every tick: price goes through a pool by a little, then comes back inside within
+// LiveSweepReclaimSec -> LIVE SWEEP the other way, usable as a trigger at once. If price stays
+// through it, the pool was taken and nothing is said. The bar-close engine above still records the
+// confirmed SWEEP / FAKE_BREAK as before.
+#define MB_LP_MAX 32
+double   G_MB_LP_LEVEL[MB_LP_MAX];
+int      G_MB_LP_SIDE[MB_LP_MAX];       // +1 buy-side (highs), -1 sell-side (lows)
+int      G_MB_LP_TFI[MB_LP_MAX];        // pool timeframe slot (KEY for daily / session levels)
+datetime G_MB_LP_PIERCE[MB_LP_MAX];     // when price went through, 0 = not yet
+double   G_MB_LP_EXT[MB_LP_MAX];
+bool     G_MB_LP_DONE[MB_LP_MAX];
+int      G_MB_LP_N = 0;
+datetime G_MB_LP_BAR = 0;
+
+int      G_MB_LSW_DIR   = 0;            // last live sweep: direction it favours
+datetime G_MB_LSW_TIME  = 0;
+double   G_MB_LSW_LEVEL = 0.0;
+double   G_MB_LSW_EXT   = 0.0;
+int      G_MB_LSW_TFI   = 0;
+int      G_MB_LSW_COUNT = 0;
+
+void MBLivePoolPut(const double level, const int side, const int tfi, const double merge_tol)
+{
+   if(level <= 0.0)
+      return;
+   for(int i = 0; i < G_MB_LP_N; i++)
+      if(G_MB_LP_SIDE[i] == side && MathAbs(G_MB_LP_LEVEL[i] - level) <= merge_tol)
+      {
+         if(MBEventRank(tfi) > MBEventRank(G_MB_LP_TFI[i])) G_MB_LP_TFI[i] = tfi;   // keep the bigger owner
+         return;
+      }
+   if(G_MB_LP_N >= MB_LP_MAX)
+      return;
+   G_MB_LP_LEVEL[G_MB_LP_N] = level;
+   G_MB_LP_SIDE[G_MB_LP_N] = side;
+   G_MB_LP_TFI[G_MB_LP_N] = tfi;
+   G_MB_LP_PIERCE[G_MB_LP_N] = 0;
+   G_MB_LP_EXT[G_MB_LP_N] = 0.0;
+   G_MB_LP_DONE[G_MB_LP_N] = false;
+   G_MB_LP_N++;
+}
+
+void MBLivePoolsRebuild(const double price)
+{
+   G_MB_LP_N = 0;
+   double atr1 = G_MB_ATR[0] * _Point;
+   double atr5 = G_MB_ATR[1] * _Point;
+   if(atr1 <= 0.0 || atr5 <= 0.0 || price <= 0.0)
+      return;
+   double reach = 3.0 * atr5;               // only pools price can actually get to soon
+   double merge = 0.10 * atr1 + _Point;
+
+   for(int tfi = 1; tfi <= 3; tfi++)
+   {
+      MqlRates r[];
+      ArraySetAsSeries(r, true);
+      int n = CopyRates(_Symbol, MBTF(tfi), 0, 150, r);
+      if(n < 20)
+         continue;
+      double atr_tf = (G_MB_ATR[tfi] > 0.0 ? G_MB_ATR[tfi] : G_MB_ATR[1]) * _Point;
+      MBBuildSwingPools(r, n, 1, MathMax(1, MBSwingLenHTF), MBEqualLevelATR * atr_tf);
+      // Copy out before anything rebuilds the shared pool arrays.
+      int    pn = G_MB_PL_COUNT;
+      double lv[MB_POOL_MAX];
+      int    sd[MB_POOL_MAX], ix[MB_POOL_MAX];
+      for(int p = 0; p < pn; p++) { lv[p] = G_MB_PL_LEVEL[p]; sd[p] = G_MB_PL_SIDE[p]; ix[p] = G_MB_PL_IDX[p]; }
+      for(int p = 0; p < pn; p++)
+      {
+         if(MathAbs(lv[p] - price) > reach)
+            continue;
+         if(sd[p] > 0 && lv[p] <= price) continue;   // a high already below price was taken
+         if(sd[p] < 0 && lv[p] >= price) continue;
+         bool intact = true;
+         for(int k = ix[p] - 1; k >= 1 && intact; k--)
+            if((sd[p] > 0 && r[k].high > lv[p]) || (sd[p] < 0 && r[k].low < lv[p]))
+               intact = false;
+         if(intact)
+            MBLivePoolPut(lv[p], sd[p], tfi, merge);
+      }
+   }
+
+   // Daily and session levels, if still untaken today.
+   MBBuildKeyPools(TimeCurrent());
+   int kn = G_MB_PL_COUNT;
+   double klv[MB_POOL_MAX];
+   int ksd[MB_POOL_MAX];
+   datetime kfrom[MB_POOL_MAX];
+   for(int p = 0; p < kn; p++) { klv[p] = G_MB_PL_LEVEL[p]; ksd[p] = G_MB_PL_SIDE[p]; kfrom[p] = G_MB_PL_FROM[p]; }
+   for(int p = 0; p < kn; p++)
+   {
+      if(MathAbs(klv[p] - price) > reach) continue;
+      if(ksd[p] > 0 && klv[p] <= price) continue;
+      if(ksd[p] < 0 && klv[p] >= price) continue;
+      MqlRates a[];
+      int na = CopyRates(_Symbol, PERIOD_M5, kfrom[p] + 1, TimeCurrent(), a);
+      bool intact = true;
+      for(int k = 0; k < na && intact; k++)
+         if((ksd[p] > 0 && a[k].high > klv[p]) || (ksd[p] < 0 && a[k].low < klv[p]))
+            intact = false;
+      if(intact)
+         MBLivePoolPut(klv[p], ksd[p], MB_POOL_KEY, merge);
+   }
+}
+
+// Every tick.
+void MBLiveSweepUpdate()
+{
+   if(!EnableLiveSweep)
+      return;
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(bid <= 0.0)
+      return;
+   datetime m1 = iTime(_Symbol, PERIOD_M1, 0);
+   if(m1 > 0 && m1 != G_MB_LP_BAR)
+   {
+      G_MB_LP_BAR = m1;
+      MBLivePoolsRebuild(bid);
+   }
+   double atr1 = G_MB_ATR[0] * _Point;
+   if(atr1 <= 0.0)
+      return;
+   double spread = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) * _Point;
+   double pierce = MathMax(LiveSweepPierceATR * atr1, spread);
+   datetime now = TimeCurrent();
+
+   for(int i = 0; i < G_MB_LP_N; i++)
+   {
+      if(G_MB_LP_DONE[i])
+         continue;
+      double lvl = G_MB_LP_LEVEL[i];
+      int side = G_MB_LP_SIDE[i];
+      double atr_tf = (G_MB_LP_TFI[i] >= 1 && G_MB_LP_TFI[i] <= 4 && G_MB_ATR[G_MB_LP_TFI[i]] > 0.0)
+                      ? G_MB_ATR[G_MB_LP_TFI[i]] * _Point : G_MB_ATR[1] * _Point;
+      if(G_MB_LP_PIERCE[i] == 0)
+      {
+         if((side > 0 && bid > lvl + pierce) || (side < 0 && bid < lvl - pierce))
+         {
+            G_MB_LP_PIERCE[i] = now;
+            G_MB_LP_EXT[i] = bid;
+         }
+         continue;
+      }
+      G_MB_LP_EXT[i] = (side > 0) ? MathMax(G_MB_LP_EXT[i], bid) : MathMin(G_MB_LP_EXT[i], bid);
+      // Too far through is a break, not a sweep.
+      if(MathAbs(G_MB_LP_EXT[i] - lvl) > MBSweepMaxATR * atr_tf)
+      {
+         G_MB_LP_DONE[i] = true;
+         continue;
+      }
+      bool back = (side > 0) ? (bid < lvl) : (bid > lvl);
+      if(back)
+      {
+         G_MB_LP_DONE[i] = true;
+         G_MB_LSW_DIR = -side;              // a buy-side sweep favours SELL, a sell-side sweep BUY
+         G_MB_LSW_TIME = now;
+         G_MB_LSW_LEVEL = lvl;
+         G_MB_LSW_EXT = G_MB_LP_EXT[i];
+         G_MB_LSW_TFI = G_MB_LP_TFI[i];
+         G_MB_LSW_COUNT++;
+         if(MBEventPrintOnUse && VerboseLogs)
+            PrintFormat("[SIRUS EVENT] LIVE SWEEP %s: %s %s pool %s taken to %s and reclaimed in %d s",
+                        (G_MB_LSW_DIR > 0 ? "BULLISH" : "BEARISH"), MBTFName(G_MB_LSW_TFI),
+                        (side > 0 ? "buy-side" : "sell-side"), DoubleToString(lvl, _Digits),
+                        DoubleToString(G_MB_LSW_EXT, _Digits), (int)(now - G_MB_LP_PIERCE[i]));
+      }
+      else if((now - G_MB_LP_PIERCE[i]) > MathMax(5, LiveSweepReclaimSec))
+         G_MB_LP_DONE[i] = true;            // it stayed through - the pool was simply taken
+   }
+}
+
+// A live sweep the way of dir, still valid: recent, and price still on the reclaimed side.
+bool MBLiveSweepFresh(const int dir, string &what)
+{
+   if(!EnableLiveSweep || dir == 0 || G_MB_LSW_DIR != dir)
+      return false;
+   if((TimeCurrent() - G_MB_LSW_TIME) > MathMax(10, LiveSweepValidSec))
+      return false;
+   // Price must still be on the reclaimed side - a retest of the level is fine, a return through it is not.
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double slack = 0.25 * G_MB_ATR[0] * _Point;
+   if(dir > 0 ? (bid < G_MB_LSW_LEVEL - slack) : (bid > G_MB_LSW_LEVEL + slack))
+      return false;
+   what = StringFormat("LIVE %s sweep @ %s", MBTFName(G_MB_LSW_TFI), DoubleToString(G_MB_LSW_LEVEL, _Digits));
+   return true;
 }
 
 // Latest event of a type and direction on timeframe slot >= min_tfi (KEY ranks with H4), still

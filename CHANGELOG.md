@@ -1,5 +1,15 @@
 # CHANGELOG — Sirus Brain V8
 
+## 14-bosqich: haqiqiy tezlik
+
+- **C1. LIVE SWEEP** (`EnableLiveSweep`): likvidlik yechilishi tikda ko'rinadi.
+  - Har M1 barda narx yaqinidagi olinmagan hovuzlar yig'iladi: M5/M15/H1 swing va teng high/low, PDH/PDL, Osiyo.
+  - Narx hovuzdan biroz o'tib, 45 soniya ichida qaytsa, darhol trigger beriladi. Avval bu bar yopilishini kutardi: M1 da 60 soniyagacha, M5 da 5 daqiqagacha.
+  - Savdoga qarshi tomonga M5+ LIVE SWEEP bo'lsa, V4 veto ishlaydi.
+- **C4. SmartFill momentumda kutmaydi** (`SmartFillMomentumSkip`): jonli displacement, yangi LIVE SWEEP yoki hozirgina yopilgan M1 displacement bo'lsa, darhol kiradi. Qolgan holatlarda avvalgidek yaxshi narxni kutadi.
+- **C2** alohida kod talab qilmadi: kirish quvuri har tikda ishlaydi, endi triggerlar ham tikda keladi.
+- **C5** (eski skanerni jilovlash) profiler raqamlari kelgandan keyin qilinadi.
+
 ## 13-bosqich: yo'nalish × sham
 
 - **A1. Yo'nalish almashuvi:** yangi yo'nalish tomonida M1 yoki M5 da kuchli sham bo'lsa (displacement, rejection, liq-grab, fake breakout), miya darhol almashadi. Eski yo'nalishni itarayotgan shamlar bo'lsa, 3–4 bar kutadi. Sham yo'q bo'lsa, avvalgidek 2 bar.

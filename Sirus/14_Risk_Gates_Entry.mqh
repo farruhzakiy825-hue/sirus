@@ -4881,7 +4881,15 @@ void UpdateFirstEntryEngine(const string source)
       if(G_SF_ACTIVE && (sf_dir_now != G_SF_DIR || (sf_now - G_SF_ARM_TIME) > SmartFillTimeoutSec * 3))
          G_SF_ACTIVE = false; // yo'nalish o'zgardi yoki eskirib qoldi - qayta qurollanadi
 
-      if(!G_SF_ACTIVE)
+      // Stage 14 (C4): a momentum moment does not wait for a pullback it will not get.
+      bool sf_momentum = MBMomentumNow(sf_dir_now);
+      if(sf_momentum)
+      {
+         G_SF_ACTIVE = false;
+         if((SmartFillPrintOnUse && VerboseLogs))
+            PrintFormat("[SIRUS SMARTFILL] skipped - momentum %s now", (sf_dir_now > 0 ? "up" : "down"));
+      }
+      else if(!G_SF_ACTIVE)
       {
          G_SF_ACTIVE     = true;
          G_SF_DIR        = sf_dir_now;
@@ -4894,30 +4902,33 @@ void UpdateFirstEntryEngine(const string source)
          return;
       }
 
-      bool sf_timeout  = ((sf_now - G_SF_ARM_TIME) >= MathMax(2, SmartFillTimeoutSec));
-      double sf_pull   = (G_SF_DIR > 0 ? (G_SF_ARM_BID - sf_bid) : (sf_bid - G_SF_ARM_BID)) / _Point;
-      bool sf_pullback = (SmartFillPullbackPoints > 0 && sf_pull >= (double)SmartFillPullbackPoints);
-      bool sf_spreddip = (SmartFillSpreadDipPoints > 0 && (G_SF_ARM_SPREAD - sf_spread) >= SmartFillSpreadDipPoints);
-
-      if(!sf_timeout && !sf_pullback && !sf_spreddip)
+      if(!sf_momentum)
       {
-         G_ENTRY_STATUS = StringFormat("ENTRY: SMARTFILL waiting | pull=%.0f/%d | spread %d->%d | %ds left",
-                                       sf_pull, SmartFillPullbackPoints,
-                                       G_SF_ARM_SPREAD, sf_spread,
-                                       (int)(SmartFillTimeoutSec - (sf_now - G_SF_ARM_TIME)));
-         SetStatus(G_ENTRY_STATUS, "FirstEntryEngine");
-         return;
-      }
+         bool sf_timeout  = ((sf_now - G_SF_ARM_TIME) >= MathMax(2, SmartFillTimeoutSec));
+         double sf_pull   = (G_SF_DIR > 0 ? (G_SF_ARM_BID - sf_bid) : (sf_bid - G_SF_ARM_BID)) / _Point;
+         bool sf_pullback = (SmartFillPullbackPoints > 0 && sf_pull >= (double)SmartFillPullbackPoints);
+         bool sf_spreddip = (SmartFillSpreadDipPoints > 0 && (G_SF_ARM_SPREAD - sf_spread) >= SmartFillSpreadDipPoints);
 
-      // Kirish sharti bajarildi
-      G_SF_ACTIVE = false;
-      G_SF_FILL_COUNT++;
-      if(sf_pullback && sf_pull > 0.0)
-         G_SF_SAVED_POINTS += sf_pull;
-      if((SmartFillPrintOnUse && VerboseLogs))
-         PrintFormat("[SIRUS v31.3 SMARTFILL] fire: %s | pull=%.0f pts | spread %d->%d | fills=%d savedTotal=%.0f pts",
-                     (sf_pullback ? "PULLBACK" : (sf_spreddip ? "SPREAD-DIP" : "TIMEOUT")),
-                     sf_pull, G_SF_ARM_SPREAD, sf_spread, G_SF_FILL_COUNT, G_SF_SAVED_POINTS);
+         if(!sf_timeout && !sf_pullback && !sf_spreddip)
+         {
+            G_ENTRY_STATUS = StringFormat("ENTRY: SMARTFILL waiting | pull=%.0f/%d | spread %d->%d | %ds left",
+                                          sf_pull, SmartFillPullbackPoints,
+                                          G_SF_ARM_SPREAD, sf_spread,
+                                          (int)(SmartFillTimeoutSec - (sf_now - G_SF_ARM_TIME)));
+            SetStatus(G_ENTRY_STATUS, "FirstEntryEngine");
+            return;
+         }
+
+         // Kirish sharti bajarildi
+         G_SF_ACTIVE = false;
+         G_SF_FILL_COUNT++;
+         if(sf_pullback && sf_pull > 0.0)
+            G_SF_SAVED_POINTS += sf_pull;
+         if((SmartFillPrintOnUse && VerboseLogs))
+            PrintFormat("[SIRUS v31.3 SMARTFILL] fire: %s | pull=%.0f pts | spread %d->%d | fills=%d savedTotal=%.0f pts",
+                        (sf_pullback ? "PULLBACK" : (sf_spreddip ? "SPREAD-DIP" : "TIMEOUT")),
+                        sf_pull, G_SF_ARM_SPREAD, sf_spread, G_SF_FILL_COUNT, G_SF_SAVED_POINTS);
+      }
    }
 
 

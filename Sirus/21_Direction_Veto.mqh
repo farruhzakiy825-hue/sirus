@@ -172,6 +172,14 @@ bool MBVetoAccelerationCheck(const int dir, string &why)
       why = "V4 against: the forming M1 candle is displacing the other way";
       return true;
    }
+   // Stage 14 (C1): liquidity was just swept and reclaimed the other way on M5 or higher - the bar-close
+   // engine will call it a reversal in a moment; do not enter into it in the meantime.
+   string lsw = "";
+   if(G_MB_LSW_TFI >= 1 && (TimeCurrent() - G_MB_LSW_TIME) <= 60 && MBLiveSweepFresh(-dir, lsw))
+   {
+      why = "V4 against: " + lsw + " the other way";
+      return true;
+   }
    if(G_MB_LAST[0].intent == MB_CI_DISPLACEMENT && G_MB_LAST[0].dir == -dir &&
       G_MB_ACCEL[0] > 0 && G_MB_ACCEL_DIR[0] == -dir)
    {
