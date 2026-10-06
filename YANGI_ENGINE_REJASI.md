@@ -512,6 +512,7 @@ band ikkalasidan biriga xizmat qiladi va qaysi biriga ekani yozilgan. Kod hali y
 | 2 | Trend charchaganda | O'sha tomonga **yangi birinchi kirish yo'q**. Sog'lom pullback (tezlik qayta EARLY bo'lishi) bilan yana ochiladi |
 | 3 | G'oya "xavf ostida" | **Grid to'xtaydi** (qadam kengaymaydi), savat BE'ga tayyorlanadi. Hedge va REDUCE yo'q (7-bo'lim) |
 | 4 | B g'oyalari | Hammasi qabul qilindi |
+| 5 | Zarardagi savatni yopish (7-bo'lim, 5-qaror yangilandi) | Qisman yopish (REDUCE) hamon **yo'q**. Lekin **butun savat aqlli chiqish bilan yopilishi mumkin**: 25% dan boshlab qutqarish imkoniyati baholanadi. **Imkonsiz** bo'lsa, savat yopiladi. **Imkon bo'lsa**, 50% gacha ushlab turiladi (13.7) |
 
 ### 13.2. A guruhi: yo'nalish bilan shamni bog'lash
 - **A1. Almashuvni sham tasdiqlaydi.** Hozir almashuvni 2 ta M1 bar kutish tasdiqlaydi. Yangi qoida:
@@ -613,6 +614,68 @@ band ikkalasidan biriga xizmat qiladi va qaysi biriga ekani yozilgan. Kod hali y
 - **D7. Volatillik foiziga moslashgan chegaralar.** Qat'iy "1.2 ATR" o'rniga oxirgi 5 kunlik ATR taqsimotidagi foiz
   ishlatiladi. Tinch va shiddatli kunlarda bir xil ma'noni beradi.
 
+### 13.7. E guruhi: aqlli grid va aqlli chiqish (25% → 50%)
+
+**Asosiy g'oya:** savat chuqurlashganda savol "qancha zarar?" emas, **"savat hali qutqarilishi mumkinmi?"**.
+DD — savat zarari balansga nisbatan, `G_BASKET_DD_PERCENT`. Hozirgi to'liq 5 pog'onali grid 33–41% DD gacha boradi,
+shuning uchun 25% da faqat **haqiqatan imkonsiz** savat yopiladi. Imkon bor savat esa grid bilan qutqariladi.
+
+**E1. Qutqarish imkoniyati bahosi (Recovery Judge).** 25% DD dan boshlab har M1 barda baholanadi.
+
+| Omil | Imkon bor (+) | Imkonsiz (−) |
+|---|---|---|
+| Savat g'oyasi (thesis) | Tirik | O'lgan yoki xavf ostida (A7) |
+| Market Brain yo'nalishi | Savat tomonida yoki neytral | Kuchli qarshi (ustun yoki hukmron) |
+| Teskari likvidlik burilishi | Yo'q | M15+ da tasdiqlangan sweep + MSS/displacement, savatga qarshi |
+| Qarshi harakat tezligi | LATE/EXPIRED + charchoq shami: qaytish yaqin | EARLY/NORMAL, tezlanmoqda |
+| Qutqaruv joyi | Yaqinda (≤1.5 ATR M15) ushlab turgan zona, FVG yoki likvidlik hovuzi | Hech narsa yo'q, narx "havoda" |
+| Grid zaxirasi | Pul yetadigan pog'onalar qolgan | Grid tugagan yoki marja yetmaydi |
+| BE'gacha masofa | ≤ 2 ATR(M15) | ≥ 4 ATR(M15) |
+| HTF (H1/H4) | Savat tomonida yoki neytral | Ikkalasi ham qarshi |
+| Yangilik | Yaqin 30 daqiqada yo'q | Yaqin 30 daqiqada yuqori ta'sirli yangilik, qarshi harakat paytida |
+
+**Natija 3 holatda:**
+- **IMKON BOR:** savat 50% gacha ushlab turiladi. Grid aqlli rejimda ishlaydi (E2–E5).
+- **SHUBHALI:** yangi pog'ona qo'shilmaydi. Narx BE'ga qaytsa, darhol chiqiladi. Har barda qayta baholanadi.
+- **IMKONSIZ:** savat yopiladi (E6 vaqti bilan).
+  - 25–35% DD: kamida **4 ta** kuchli "−" omil kerak, shu jumladan g'oya o'lgan yoki teskari burilish.
+  - 35–45% DD: kamida **3 ta**.
+  - 45% dan yuqori: kamida **2 ta**.
+  - 50% — eski qattiq SL, o'zgarmaydi.
+  - Tasodifiy shovqin bilan yopilmasligi uchun holat **3 ta M1 bar** saqlanishi kerak.
+
+**E2. Grid strukturada.** Keyingi pog'ona qat'iy masofada emas, keyingi tuzilma joyida qo'yiladi: ushlab turgan zona,
+FVG yoki likvidlik hovuzi (D6). Shu bilan birga minimal va maksimal masofa chegarasi bo'ladi.
+Narx "havoda" bo'lsa, pog'ona kutadi.
+
+**E3. Sham javobi + joy.** Pog'ona joyga yetib, u yerda savat tomonida sham javobi bo'lsa qo'yiladi. Javob turlari:
+rejection, liq-grab, jonli displacement. 10-bo'lim qoidasiga "joyda" sharti qo'shiladi (audit topgan bo'shliq).
+
+**E4. Lot qutqarish imkoniyatiga qarab.**
+- IMKON BOR + qarshi harakat charchagan → odatiy multiplier.
+- SHUBHALI → pog'ona yo'q.
+- Tezlanayotgan qarshi harakatga hech qachon lot oshirilmaydi.
+
+**E5. Oxirgi pog'onalar zaxirada.** Oxirgi 1–2 pog'ona faqat "joy + charchoq + sham javobi" uchtasi bir paytda bo'lganda
+ishlatiladi. Zaxira "havoda" sarflanmaydi.
+
+**E6. Aqlli chiqish vaqti.** Savat IMKONSIZ deb topilsa, eng yomon tikda yopilmaydi:
+- narxning savat foydasiga birinchi 0.3 ATR(M1) qaytishi kutiladi va o'sha qaytishda yopiladi;
+- DD yana +3% oshsa yoki 50% ga yetsa, darhol yopiladi;
+- yangi g'oya savat tomonida paydo bo'lsa, holat qayta IMKON BOR ga o'tadi va savat yopilmaydi.
+
+**E7. Chiqish maqsadi g'oyaga qarab.**
+- Chuqur DD dan qaytgan savat, g'oyasi tirik va miya tomonda bo'lsa → to'liq TP kutiladi.
+- Aks holda BE + qoplama bilan chiqiladi (V290 mantig'i miyaga ulanadi).
+
+**E8. O'rganish.** Har chuqur savat yoziladi: DD, omillar, natija (qutqarildi yoki yopildi). Keyin "IMKONSIZ" chegaralari
+raqam asosida sozlanadi (D3/D4 bilan birga).
+
+**E9. Panel.** SAVAT bo'limida: `Qutqarish: IMKON BOR / SHUBHALI / IMKONSIZ · sabablari · 25%…50% chizig'i`.
+
+Eski Smart Early Exit (42%, 3/4 eski signal) zaxira himoya sifatida qoladi. Yangi Recovery Judge undan oldin va aniqroq
+ishlaydi. Basket SL 50%, Emergency 50% va Force close 52% o'zgarmaydi.
+
 ### 13.6. Bosqichlar tartibi
 | Bosqich | Tarkib | Asosiy foyda |
 |---|---|---|
@@ -620,7 +683,7 @@ band ikkalasidan biriga xizmat qiladi va qaysi biriga ekani yozilgan. Kod hali y
 | 13 | A1 + A2 + A4 + A5 | Yo'nalish × sham asosi: aniqlik ↑↑ |
 | 14 | C1 + C2 + C4 + C5 | Haqiqiy tezlik: kechikish soniyalardan millisekundlarga |
 | 15 | D1 rejim + A6 FVG retest + A3 ketma-ketlik | Savdo soni ↑↑, adashish ↓ |
-| 16 | A7 + D6 aqlli grid | DD ↓, savat himoyasi |
+| 16 | A7 + E1–E9 aqlli grid va aqlli chiqish (25% → 50%) | DD ↓, savat himoyasi |
 | 17 | B1–B4 + D2 + D3 + D5 + D7 | Nozik aniqlik |
 | 18 | B5 + B6 + C3 limit order + tozalash (D4 natijasiga ko'ra) | Yakun |
 
