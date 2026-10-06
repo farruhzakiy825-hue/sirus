@@ -184,7 +184,7 @@ Mavjud tarqoq sham modullari bitta engine'ga yig'iladi.
 *Natija:* Event Engine (displacement, sweep sham, rejection), Zone Role, Entry trigger va aqlli
 grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saqlanadi.
 
-### 2-bosqich: Zone Role Engine (B)
+### 2-bosqich: Zone Role Engine (B) — ✅ kod yozildi (`Sirus/19_Zone_Role_Engine.mqh`)
 - Har zona uchun holat: `UNTOUCHED → APPROACHING → TOUCHED → SWEPT / REJECTED / BROKEN →
   RECLAIMED / RETESTED / FAILED → EXPIRED`.
 - Rol **tarix bo'yicha** aniqlanadi:
@@ -254,6 +254,22 @@ grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saql
 - Yangi engine bilan takrorlanib qolgan eski filtrlar va detektorlarni bosqichma-bosqich o'chirish,
   inputlarni qisqartirish.
 
+### 10-bosqich: Vizual dizayn (watermark + dashboard)
+Egasining so'rovi: chartdagi watermark oddiy bo'lmasin, chiroyli dizayn va shriftlar bo'lsin;
+dashboard ham qayta ko'rib chiqilsin.
+- **Watermark:** "SIRUS" yirik zamonaviy shriftda, ostida harflari keng yoyilgan "BY ZAKIY",
+  ingichka aksent chiziq. Rang chart foniga moslashadi (och / to'q fon avtomatik), shamlar orqasida
+  turadi va chart o'lchami o'zgarganda markazda qoladi.
+- **Dashboard:** fonli "karta" ko'rinishidagi panel, sarlavha va bo'limlar (Market Brain fikri,
+  savat, risk, yangiliklar), rangli holat belgilari, bir xil shrift tizimi (matn uchun bitta,
+  raqamlar uchun monospace), ixcham. Yangi Market Brain ma'lumotlari (bias, oxirgi hodisalar,
+  zona roli, veto) dashboard'da ko'rinadi.
+
+### 11-bosqich: Yakuniy tekshiruv
+- Butun kodni qayta o'qib chiqish (kompilyatsiya xavflari, mantiq, chegaraviy holatlar).
+- Regression holatlari (4142, 4126) tester'da: kutilgan natija bilan solishtirish.
+- Baseline (v31.68) bilan backtest solishtiruvi: savdolar soni (kuniga 250–450), DD, foyda.
+
 ---
 
 ## 5. Hujjatlardagi bo'sh joylar: kelishib olish kerak
@@ -286,7 +302,7 @@ grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saql
 
 ## 6. Taklif etilgan tartib
 
-**0 → 1 + 1b → 2 → 4 → 3 → 5 → 6 → 7 → 8 → 9**
+**0 → 1 + 1b → 2 → 4 → 3 → 5 → 6 → 7 → 8 → 9 → 10 (dizayn) → 11 (yakuniy tekshiruv)**
 
 Event Engine va Candle Engine birga quriladi, chunki displacement, sweep sham va rejection
 aynan sham tahlilidan chiqadi. 4-bosqichni (veto) 3-bosqichdan oldin, Event, Candle va Zone Role ustida qilsak, DD'ga

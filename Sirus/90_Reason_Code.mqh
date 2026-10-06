@@ -1,5 +1,5 @@
 ﻿//+------------------------------------------------------------------+
-//| Sirus_Brain_V8 - 19_Reason_Code                                  |
+//| Sirus_Brain_V8 - 90_Reason_Code                                  |
 //| Reason Code: why every order was opened (journal + CSV)          |
 //| Part of Sirus_Brain_V8.mq5. Include ORDER matters - do not       |
 //| compile this file on its own; compile Sirus_Brain_V8.mq5.        |
@@ -200,6 +200,31 @@ void RCPrintContext(const int dir, const double price, double &sup, double &res,
                   ? StringFormat("%s (%d min)%s", G_CAL_EVENT_NAME, G_CAL_MINUTES_FROM_EVENT, (G_CAL_BIG_SURPRISE ? " surprise" : ""))
                   : "clear");
 
+   if(EnableZoneRoleEngine)
+   {
+      SMBZone zs, zr;
+      string vs = "", vr = "";
+      bool hs = (sup > 0.0 && MBZoneRead(sup, zs));
+      bool hr = (res > 0.0 && MBZoneRead(res, zr));
+      PrintFormat("   ZONE BELOW: %s", (hs ? MBZoneText(zs) : "-"));
+      PrintFormat("   ZONE ABOVE: %s", (hr ? MBZoneText(zr) : "-"));
+      // The zone this entry leans on: a SELL leans on the zone above (or the one it sits in),
+      // a BUY on the zone below. Preview of the phase 4 veto.
+      double lean = (dir < 0) ? res : sup;
+      if(lean > 0.0)
+      {
+         int verdict = MBZoneEntryVerdict(dir, lean, vs);
+         PrintFormat("   ZONE ROLE: %s -> %s", vs, (verdict > 0 ? "OK" : (verdict == 0 ? "WAIT" : "AGAINST")));
+      }
+      // And the zone on the other side: selling right on top of a support that still holds.
+      double other = (dir < 0) ? sup : res;
+      if(other > 0.0 && MathAbs(price - other) <= 1.0 * G_MB_ATR[1] * _Point)
+      {
+         SMBZone zo;
+         if(MBZoneRead(other, zo) && ((dir < 0 && zo.role > 0) || (dir > 0 && zo.role < 0)))
+            PrintFormat("   ZONE ROLE: entering right on a %s that holds (%s)", MBZoneRoleName(zo.role), MBZoneStateName(zo.state));
+      }
+   }
    PrintFormat("   CANDLE   : %s", MBCandleText());
    PrintFormat("   EVENTS   : %s", MBEventText(8));
 

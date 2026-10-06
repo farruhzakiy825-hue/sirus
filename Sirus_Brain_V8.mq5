@@ -36,7 +36,8 @@
 #include "Sirus/16_Dashboard_Core.mqh"   // Client dashboard, CoreUpdate pipeline, dashboard drawing
 #include "Sirus/17_Candle_Engine.mqh"    // Market Brain A0: candle intent, pressure, acceleration, impulse
 #include "Sirus/18_Event_Engine.mqh"     // Market Brain A: liquidity pools and market events, every TF
-#include "Sirus/19_Reason_Code.mqh"      // Reason Code: why every order was opened (journal + CSV)
+#include "Sirus/19_Zone_Role_Engine.mqh" // Market Brain B: a zone's role from its history, not from price
+#include "Sirus/90_Reason_Code.mqh"      // Reason Code (always last): why every order was opened (journal + CSV)
 
 //==================================================================//
 //  MT5 EVENTS
