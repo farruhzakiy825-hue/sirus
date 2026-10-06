@@ -36,7 +36,12 @@ input bool   EnableMarketBrain        = true;   // Bozor haqida yagona fikr: 7 h
 input double MBPressureWeakGap        = 20.0;   // Bias WEAK bo'ladi: qarama-qarshi sham bosimi shuncha ko'p bo'lsa (0-100 shkala)
 input int    MBInvalidationMemoryM5   = 12;     // O'lgan thesis yo'nalishi ko'pi bilan shuncha M5 bar (1 soat) bloklanadi. HIDDEN-BUG FIX: 24 -> 12, va bozor shu yo'nalishni yangi struktura bilan qayta tasdiqlasa blok darhol ochiladi
 input bool   MBThesisPrintOnUse       = true;   // Thesis o'zgarishlarini jurnalga yozish ([SIRUS THESIS])
-input bool   EnableLocalTrading       = true;   // LOKAL SAVDO: global yo'nalishga qarshi LOKAL harakat (M1 / M5 struktura + bosim) aniq bo'lsa - o'sha tomonga ham kirish (veto, hakam, risk baribir tekshiradi; grid faqat tuzilma + javob bilan)
+input bool   EnableLocalTrading       = true;
+input int    LocalGridMaxRungs        = 3;      // Lokal (globalga qarshi) savat ko'pi bilan shuncha order
+input int    LocalBasketMaxMinutes    = 20;     // Lokal savat shuncha daqiqadan keyin BE yoki foydada bo'lsa yopiladi
+input int    LocalLossPauseCount      = 2;      // Ketma-ket shuncha lokal zarar ...
+input int    LocalLossPauseMinutes    = 30;     // ... bo'lsa lokal savdo shuncha daqiqa to'xtaydi (global savdo davom etadi)
+input bool   ShowLocalOnChart         = true;   // Lokal oyoq maqsadi va chegarasini chartda chiziq bilan ko'rsatish   // LOKAL SAVDO: global yo'nalishga qarshi LOKAL harakat (M1 / M5 struktura + bosim) aniq bo'lsa - o'sha tomonga ham kirish (veto, hakam, risk baribir tekshiradi; grid faqat tuzilma + javob bilan)
 input bool   EnableRegimePlaybook     = true;   // 15-BOSQICH (D1): M15 bozor rejimi (TREND / DIAPAZON / PORTLASH / SIQILISH) va har biriga o'z kirish qoidasi
 input int    RegimeLookbackM15        = 20;     // Rejim shuncha M15 bar bo'yicha o'qiladi
 input double RegimeTrendER            = 0.35;   // Samaradorlik (to'g'ri yo'l / yurilgan yo'l) >= shu: TREND
@@ -559,13 +564,66 @@ int MBContradiction(const int dir, const datetime since)
 }
 
 //---------------------------------------------------------------------
-// LOCAL DIRECTION - the market under the global one
+// LOCAL DIRECTION - the market under the global one (three layers)
 //---------------------------------------------------------------------
-// The brain's bias is global (M15 with H1 / H4). A scalper also lives on the local legs inside it: a
-// bearish day still has bullish M1 / M5 legs worth a few dollars each. 0 = no local case for dir,
-// 1 = a local leg that way (M5 structure with pressure, or M1 structure with M1 and M5 pressure),
-// 2 = a strong one (M5 and M1 structure, both pressures, and a fresh M1 / M5 liquidity reversal).
-int MBLocalLevel(const int dir)
+//   GLOBAL  M15 / H1 / H4  - the brain's bias            (G_MB_BIAS)
+//   LOCAL   M5             - the leg running now          (MBLayerLocal)
+//   MICRO   M1             - the moment                   (MBLayerMicro)
+// A scalper lives on the legs inside the day: a bearish day still has bullish M1 / M5 legs worth a
+// few dollars each. MBLocalLevel says how strong the case is for a local leg in dir; MBLocalOkFor
+// says whether it is strong ENOUGH right now, after the guards below.
+int MBLayerLocal()
+{
+   int s5 = MBSign(G_MB_TF_STATE[1]);
+   if(s5 != 0) return s5;
+   int p5 = MBPressureSide(1);
+   return p5;
+}
+
+int MBLayerMicro()
+{
+   if(G_MB_LIVE_DIR != 0) return G_MB_LIVE_DIR;
+   int p1 = MBPressureSide(0);
+   if(p1 != 0) return p1;
+   return G_MB_TREND[0];
+}
+
+// Local learning / protection state (results of baskets opened against the global bias).
+int      G_LOC_RES[30];          // 1 win, 0 loss, -1 empty
+int      G_LOC_RES_N = 0;
+int      G_LOC_LOSS_STREAK = 0;
+datetime G_LOC_PAUSE_UNTIL = 0;
+bool     G_LOC_RES_INIT = false;
+
+double MBLocalWinRate(int &n)
+{
+   if(!G_LOC_RES_INIT) { ArrayInitialize(G_LOC_RES, -1); G_LOC_RES_INIT = true; }
+   int w = 0;
+   n = 0;
+   for(int i = 0; i < 30; i++)
+      if(G_LOC_RES[i] >= 0) { n++; w += G_LOC_RES[i]; }
+   return (n > 0) ? (double)w / n : -1.0;
+}
+
+// Called by the Position Brain when a local basket closes.
+void MBLocalRecord(const bool won)
+{
+   if(!G_LOC_RES_INIT) { ArrayInitialize(G_LOC_RES, -1); G_LOC_RES_INIT = true; }
+   G_LOC_RES[G_LOC_RES_N % 30] = won ? 1 : 0;
+   G_LOC_RES_N++;
+   G_LOC_LOSS_STREAK = won ? 0 : G_LOC_LOSS_STREAK + 1;
+   if(!won && G_LOC_LOSS_STREAK >= MathMax(1, LocalLossPauseCount))
+   {
+      G_LOC_PAUSE_UNTIL = TimeCurrent() + MathMax(1, LocalLossPauseMinutes) * 60;   // bounded - never a freeze
+      G_LOC_LOSS_STREAK = 0;
+      if(VerboseLogs)
+         PrintFormat("[SIRUS LOCAL] %d local losses in a row - local trading paused %d min (global trading continues)",
+                     LocalLossPauseCount, LocalLossPauseMinutes);
+   }
+}
+
+// 0 = no local case for dir, 1 = a local leg, 2 = a strong one.
+int MBLocalLevelRaw(const int dir)
 {
    if(!EnableLocalTrading || dir == 0)
       return 0;
@@ -586,13 +644,158 @@ int MBLocalLevel(const int dir)
    return 1;
 }
 
+// Why a local leg in dir is NOT tradable right now ("" = it may be).
+string MBLocalBlockReason(const int dir)
+{
+   int g = MBSign(G_MB_BIAS);
+   if(g == 0 || dir != -g)
+      return "";                                   // not against the global bias - nothing to guard
+   if(TimeCurrent() < G_LOC_PAUSE_UNTIL)
+      return StringFormat("local paused %d min after losses", (int)((G_LOC_PAUSE_UNTIL - TimeCurrent()) / 60));
+   // (4) the global leg is fresh: a young M5 impulse the global way - bounces against it are small.
+   if(G_MB_IMP_DIR[1] == g && G_MB_SPEED[1] == MB_SPEED_EARLY)
+      return "global leg fresh (young M5 impulse)";
+   // (4) never against an expansion.
+   if(EnableRegimePlaybook && G_MB_RG == MB_RG_EXPANSION && G_MB_RG_DIR == g)
+      return "global expansion";
+   // (6) only the first two local waves.
+   if(G_MB_IMP_DIR[0] == dir && G_MB_IMP_WAVES[0] >= 3)
+      return "local leg in its 3rd wave";
+   return "";
+}
+
+// How strong a local case must be now: strongest global bias, a trend regime at a session open, or a
+// poor local record each ask for the strong grade.
+int MBLocalNeed(const int dir)
+{
+   int a = dir * G_MB_BIAS;
+   int need = (a <= -3) ? 2 : 1;
+   if(EnableRegimePlaybook && G_MB_RG == MB_RG_TREND && G_MB_RG_DIR == -dir && MBSessionOpenWindow())
+      need = 2;                                    // (8) trend legs run at the session opens
+   int n = 0;
+   double wr = MBLocalWinRate(n);
+   if(n >= 30 && wr < 0.40)
+      need = 2;                                    // (7) the local record says be pickier
+   return need;
+}
+
+int MBLocalLevel(const int dir)
+{
+   int lv = MBLocalLevelRaw(dir);
+   if(lv > 0 && StringLen(MBLocalBlockReason(dir)) > 0)
+      return 0;
+   return lv;
+}
+
+bool MBLocalOkFor(const int dir)
+{
+   return (MBLocalLevel(dir) >= MBLocalNeed(dir));
+}
+
+//---------------------------------------------------------------------
+// LOCAL THESIS (2): a counter leg has its own target and invalidation
+//---------------------------------------------------------------------
+// A bounce against the trend usually retraces 38-62% of the global leg. Target: half of the leg
+// from the local origin up to the global leg's top (M15, last 20 bars), or the nearest opposing zone
+// if that is closer. Invalidation: the local origin. Done or dead, the local thesis closes.
+int      G_LOC_TH_DIR    = 0;
+double   G_LOC_TH_ORIGIN = 0.0;
+double   G_LOC_TH_TARGET = 0.0;
+double   G_LOC_TH_INVALID = 0.0;
+datetime G_LOC_TH_SINCE  = 0;
+string   G_LOC_TH_STATE  = "-";
+datetime G_LOC_TH_END    = 0;       // when the last local thesis ended
+
+void MBLocalThesisUpdate(const double price)
+{
+   int g = MBSign(G_MB_BIAS);
+   int ld = -g;
+   double atr5 = G_MB_ATR[1] * _Point;
+   if(G_LOC_TH_DIR != 0)
+   {
+      bool dead = (G_LOC_TH_DIR > 0) ? (price < G_LOC_TH_INVALID) : (price > G_LOC_TH_INVALID);
+      bool done = (G_LOC_TH_TARGET > 0.0) && ((G_LOC_TH_DIR > 0) ? (price >= G_LOC_TH_TARGET) : (price <= G_LOC_TH_TARGET));
+      if(dead || done || g == 0 || G_LOC_TH_DIR != ld)
+      {
+         G_LOC_TH_STATE = dead ? "yiqildi" : (done ? "maqsadga yetdi" : "global o'zgardi");
+         G_LOC_TH_DIR = 0;
+         G_LOC_TH_END = TimeCurrent();
+      }
+   }
+   if(G_LOC_TH_DIR == 0 && g != 0 && atr5 > 0.0 && MBLocalLevelRaw(ld) >= 1)
+   {
+      MqlRates m1[];
+      ArraySetAsSeries(m1, true);
+      MqlRates m15[];
+      ArraySetAsSeries(m15, true);
+      if(CopyRates(_Symbol, PERIOD_M1, 1, 30, m1) < 10 || CopyRates(_Symbol, PERIOD_M15, 1, 20, m15) < 10)
+         return;
+      double origin = (ld > 0) ? DBL_MAX : -DBL_MAX;
+      for(int i = 0; i < ArraySize(m1); i++)
+         origin = (ld > 0) ? MathMin(origin, m1[i].low) : MathMax(origin, m1[i].high);
+      double top = (ld > 0) ? -DBL_MAX : DBL_MAX;
+      for(int i = 0; i < ArraySize(m15); i++)
+         top = (ld > 0) ? MathMax(top, m15[i].high) : MathMin(top, m15[i].low);
+      double target = origin + 0.5 * (top - origin);
+      double zone = (ld > 0) ? ZoneMapNearestResistance(price) : ZoneMapNearestSupport(price);
+      if(zone > 0.0 && MathAbs(zone - price) >= 0.5 * atr5 && ((ld > 0) ? (zone < target) : (zone > target)))
+         target = zone;
+      if(MathAbs(target - price) < 0.5 * atr5)
+         return;   // no room for a local leg
+      G_LOC_TH_DIR = ld;
+      G_LOC_TH_ORIGIN = origin;
+      G_LOC_TH_INVALID = origin - ld * 0.1 * atr5;
+      G_LOC_TH_TARGET = target;
+      G_LOC_TH_SINCE = TimeCurrent();
+      G_LOC_TH_STATE = "faol";
+      if(MBThesisPrintOnUse && VerboseLogs)
+         PrintFormat("[SIRUS LOCAL] new local %s leg against %s | target %s | invalid beyond %s",
+                     (ld > 0 ? "BULLISH" : "BEARISH"), MBBiasName(G_MB_BIAS),
+                     DoubleToString(target, _Digits), DoubleToString(G_LOC_TH_INVALID, _Digits));
+   }
+}
+
+// (3) HANDOFF: the local leg has run into the global side's place (its target, a premium / discount
+// zone of the H1 range, or an opposing zone) and the micro layer has turned back the global way. The
+// best global entry of the day: the top of the bounce.
+bool MBHandoffNow(const int gdir, string &why)
+{
+   why = "";
+   if(gdir == 0 || MBLayerLocal() != -gdir)
+      return false;
+   if(MBLayerMicro() != gdir)
+      return false;
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double atr5 = G_MB_ATR[1] * _Point;
+   bool at_place = false;
+   string place = "";
+   if(G_LOC_TH_DIR == -gdir && G_LOC_TH_TARGET > 0.0 && MathAbs(bid - G_LOC_TH_TARGET) <= 0.3 * atr5)
+   { at_place = true; place = "local target"; }
+   if(!at_place && G_MB_DR_HI > G_MB_DR_LO && ((gdir < 0 && G_MB_DR_POS >= 0.60) || (gdir > 0 && G_MB_DR_POS <= 0.40)))
+   { at_place = true; place = (gdir < 0 ? "H1 premium" : "H1 discount"); }
+   if(!at_place && atr5 > 0.0)
+   {
+      double z = (gdir < 0) ? ZoneMapNearestResistance(bid) : ZoneMapNearestSupport(bid);
+      if(z > 0.0 && MathAbs(z - bid) <= 0.5 * atr5) { at_place = true; place = "opposing zone"; }
+   }
+   if(!at_place)
+      return false;
+   why = StringFormat("local leg ran into %s and turned", place);
+   return true;
+}
+
 string MBLocalText()
 {
    for(int d = 1; d >= -1; d -= 2)
    {
-      int lv = MBLocalLevel(d);
+      int lv = MBLocalLevelRaw(d);
       if(lv > 0)
-         return StringFormat("%s %s", (d > 0 ? "▲" : "▼"), (lv >= 2 ? "kuchli" : "bor"));
+      {
+         string blk = MBLocalBlockReason(d);
+         string t = StringFormat("%s %s", (d > 0 ? "▲" : "▼"), (lv >= 2 ? "kuchli" : "bor"));
+         if(StringLen(blk) > 0) t += " (to'siq: " + blk + ")";
+         return t;
+      }
    }
    return "-";
 }
@@ -740,6 +943,7 @@ void MBBrainUpdate()
 
    MBDealingRangeUpdate(price);
    MBDrawOnLiquidityUpdate(MBSign(bias), price);
+   MBLocalThesisUpdate(price);   // the local leg's own target and invalidation
 
    // --- Thesis life ---
    double c1 = iClose(_Symbol, PERIOD_M5, 1);

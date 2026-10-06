@@ -1529,6 +1529,12 @@ bool CheckBasketExit()
          CloseNaviusBasket(be_why);
          return true;
       }
+      // Local basket: a short visit against the global bias, closed at break-even or better.
+      if(MBLocalBasketExit(profit, be_why))
+      {
+         CloseNaviusBasket(be_why);
+         return true;
+      }
    }
 
    if(RebateTrailingOn())

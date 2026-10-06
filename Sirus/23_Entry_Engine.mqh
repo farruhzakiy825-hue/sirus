@@ -217,7 +217,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
 
    int a = dir * G_MB_BIAS;
    string etype = MBEntryTypeName(dir, a);
-   int loc_lv = (a < 0) ? MBLocalLevel(dir) : 0;   // a local leg against the global bias
+   int loc_lv = (a < 0 && MBLocalOkFor(dir)) ? MBLocalLevel(dir) : 0;   // a tradable local leg against the global bias
 
    // --- DIRECTION ---
    bool dir_ok = (a >= 1) || (a == 0 && dir * G_MB_TF_STATE[1] > 0);
@@ -607,7 +607,7 @@ bool MBDirOk(const int d)
    int a = d * G_MB_BIAS;
    if(a >= 0)
       return true;
-   return MBLocalLevel(d) >= ((a <= -3) ? 2 : 1);
+   return MBLocalOkFor(d);
 }
 
 bool MBFastEntryCandidate(int &dir, string &why)
@@ -669,6 +669,33 @@ bool MBFastEntryCandidate(int &dir, string &why)
          why = StringFormat("BRAIN TREND %s: %s, thesis %s, %s", (d > 0 ? "BUY" : "SELL"),
                             MBBiasName(G_MB_BIAS), MBThesisStateName(G_MB_TH_STATE),
                             (fresh_trend ? "trigger now" : "pullback resuming"));
+      }
+
+      // 1b. HANDOFF (local -> global): the bounce against the trend ran into the global side's place
+      //     and the micro layer turned back - sell the top of the bounce (buy the bottom of the dip).
+      if(dir == 0 && G_MB_BIAS != 0)
+      {
+         int gd = MBSign(G_MB_BIAS);
+         string hw = "";
+         if(MBHandoffNow(gd, hw) && MBHasTriggerNow(gd))
+         {
+            dir = gd;
+            G_MB_FAST_TYPE = (int)OPP_TYPE_EXHAUSTION_REVERSAL;
+            why = StringFormat("BRAIN HANDOFF %s: %s - back with %s", (gd > 0 ? "BUY" : "SELL"), hw, MBBiasName(G_MB_BIAS));
+         }
+      }
+
+      // 1c. LAYER PULLBACK: global and local agree, the micro layer pulled back and is now resuming.
+      if(dir == 0 && MathAbs(G_MB_BIAS) >= 2)
+      {
+         int gd = MBSign(G_MB_BIAS);
+         if(MBLayerLocal() == gd && MBPullbackResume(gd))
+         {
+            dir = gd;
+            G_MB_FAST_TYPE = (int)OPP_TYPE_PULLBACK_CONTINUATION;
+            why = StringFormat("BRAIN PULLBACK %s: global and local %s, micro pullback resuming", (gd > 0 ? "BUY" : "SELL"),
+                               (gd > 0 ? "up" : "down"));
+         }
       }
 
       // 2. LIQUIDITY HUNT: liquidity was just taken and reclaimed - trade the return. Not against a
@@ -741,7 +768,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       int ld = -MBSign(G_MB_BIAS);
       int lv = MBLocalLevel(ld);
       bool late = (G_MB_IMP_DIR[0] == ld && G_MB_SPEED[0] >= MB_SPEED_LATE);
-      if(lv >= ((ld * G_MB_BIAS <= -3) ? 2 : 1) && !late && MBHasTriggerNow(ld))
+      if(MBLocalOkFor(ld) && !late && MBHasTriggerNow(ld))
       {
          dir = ld;
          G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;
@@ -812,7 +839,7 @@ int MBBrainScoreRelief(const int dir, string &why)
    else if(a >= 2 || (a == 1 && IsReversalOpportunityType(G_OPP_TYPE)))
       r = MathMax(0, MBReliefWeak);   // a == 1: V0 admits only reversal types there
    else if(a == 0 && th_with && MBCashbackTempo()) r = 1;
-   else if(a < 0 && MBLocalLevel(dir) >= ((a <= -3) ? 2 : 1)) r = MathMax(0, MBReliefWeak);   // a local leg
+   else if(a < 0 && MBLocalOkFor(dir)) r = MathMax(0, MBReliefWeak);   // a tradable local leg
    if(r > 0)
       why = StringFormat("brain %s%s +%d", MBBiasName(G_MB_BIAS), (th_with ? ", thesis open" : ""), r);
    return r;

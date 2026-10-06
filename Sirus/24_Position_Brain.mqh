@@ -376,6 +376,34 @@ bool MBRecoveryExit(string &why)
    return false;
 }
 
+// LOCAL BASKET EXIT (5): a basket opened against the global bias is a short visit, not a position to
+// nurse. At break-even or better it closes when: it has been open LocalBasketMaxMinutes; the global
+// side displaces back (live or a fresh M1 / M5 displacement); the handoff moment arrives (the bounce
+// ran into the global side's place and turned); or its local thesis has ended (target or invalid).
+bool MBLocalBasketExit(const double profit, string &why)
+{
+   if(!EnableLocalTrading || !EnableMBPositionBrain || !EnableMarketBrainEngines || !G_MB_PB_LOCAL)
+      return false;
+   if(G_MB_PB_BASKET == 0 || G_MB_PB_BASKET != MBBasketOpenTime() || G_MB_PB_DIR == 0)
+      return false;
+   if(profit < 0.0)
+      return false;
+   int ld = G_MB_PB_DIR, gd = -ld;
+   string hw = "";
+   if((TimeCurrent() - G_MB_PB_BASKET) >= (long)MathMax(1, LocalBasketMaxMinutes) * 60)
+      why = StringFormat("local basket open %d min - closed at +%.2f", (int)((TimeCurrent() - G_MB_PB_BASKET) / 60), profit);
+   else if(G_MB_LIVE_DIR == gd || (G_MB_LAST[0].intent == MB_CI_DISPLACEMENT && G_MB_LAST[0].dir == gd &&
+                                   G_MB_LAST[0].time >= G_MB_PB_BASKET) ||
+           (G_MB_LAST[1].intent == MB_CI_DISPLACEMENT && G_MB_LAST[1].dir == gd && G_MB_LAST[1].time >= G_MB_PB_BASKET))
+      why = StringFormat("global side displaced back - local basket closed at +%.2f", profit);
+   else if(MBHandoffNow(gd, hw))
+      why = StringFormat("handoff: %s - local basket closed at +%.2f", hw, profit);
+   else if(G_LOC_TH_DIR != ld && G_LOC_TH_END >= G_MB_PB_BASKET &&
+           (G_LOC_TH_STATE == "maqsadga yetdi" || G_LOC_TH_STATE == "yiqildi"))
+      why = StringFormat("local thesis %s - local basket closed at +%.2f", G_LOC_TH_STATE, profit);
+   return (StringLen(why) > 0);
+}
+
 // E8: one line per deep basket, for tuning the thresholds on evidence.
 void MBRecoveryLog(const datetime opened, const int dir, const double result)
 {
@@ -433,6 +461,8 @@ void MBPBCloseBookkeeping()
    G_MB_LAST_CLOSE_WIN = (res > 0.0);
    G_MB_LAST_CLOSE_TIME = TimeCurrent();
    MBMemoryOnBasketClosed(G_MB_PB_BASKET);   // Memory (phase 8): write the result next to the Entry DNA
+   if(G_MB_PB_LOCAL)
+      MBLocalRecord(res > 0.0);              // local record: auto-tune + loss pause
    MBRecoveryLog(G_MB_PB_BASKET, G_MB_PB_DIR, res);   // stage 16 (E8)
    MBRecoveryForget();
 }
@@ -561,6 +591,12 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
    if(G_MB_TH_THREAT && G_MB_TH_DIR == dir)
    {
       reason = "holding - basket thesis threatened (" + G_MB_TH_THREAT_WHY + ")";
+      return false;
+   }
+   // Local basket (opened against the global bias): a shallow ladder only.
+   if(G_MB_PB_LOCAL && orders >= MathMax(1, LocalGridMaxRungs))
+   {
+      reason = StringFormat("holding - local basket keeps at most %d orders", LocalGridMaxRungs);
       return false;
    }
    // Stage 16 (E1/E4): a doubtful or impossible basket - or one whose exit is armed - gets no more rungs.

@@ -669,7 +669,39 @@ void MBDrawPanel()
          if(StringLen(st_txt) > 0) board += "  ·  " + st_txt;
          MBPanelLine("B_EVB", board, muted, false, x0, w, lh);
       }
-      MBPanelLine("B_LOCAL", StringFormat("Lokal oqim: %s  (global: %s)", MBLocalText(), MBBiasArrow(G_MB_BIAS)), ink, false, x0, w, lh);
+      // Three layers: global (M15+) · local (M5) · micro (M1), and the local leg's own thesis.
+      MBPanelLine("B_LOCAL", StringFormat("Qatlamlar: global %s · lokal %s · mikro %s  ·  lokal oqim %s",
+                                          MBBiasArrow(G_MB_BIAS), MBBiasArrow(2 * MBLayerLocal()), MBBiasArrow(2 * MBLayerMicro()),
+                                          MBLocalText()), ink, false, x0, w, lh);
+      int ln = 0;
+      double lwr = MBLocalWinRate(ln);
+      string lrec = (ln > 0) ? StringFormat(" · lokal natija %d/%d", (int)MathRound(lwr * ln), ln) : "";
+      if(G_LOC_TH_DIR != 0)
+         MBPanelLine("B_LOCTH", StringFormat("Lokal oyoq %s: maqsad %s · chegara %s%s", (G_LOC_TH_DIR > 0 ? "▲" : "▼"),
+                                             DoubleToString(G_LOC_TH_TARGET, _Digits), DoubleToString(G_LOC_TH_INVALID, _Digits), lrec),
+                     muted, false, x0, w, lh);
+      else
+         MBPanelLine("B_LOCTH", StringFormat("Lokal oyoq: yo'q (oxirgisi: %s)%s", G_LOC_TH_STATE, lrec), muted, false, x0, w, lh);
+      // Chart lines for the local leg.
+      string lt = MB_VIS_PREFIX + "LOC_TGT", li = MB_VIS_PREFIX + "LOC_INV";
+      if(ShowLocalOnChart && G_LOC_TH_DIR != 0)
+      {
+         if(ObjectFind(0, lt) < 0) { ObjectCreate(0, lt, OBJ_HLINE, 0, 0, G_LOC_TH_TARGET); ObjectSetInteger(0, lt, OBJPROP_STYLE, STYLE_DASH);
+                                     ObjectSetInteger(0, lt, OBJPROP_SELECTABLE, false); ObjectSetInteger(0, lt, OBJPROP_HIDDEN, true); }
+         if(ObjectFind(0, li) < 0) { ObjectCreate(0, li, OBJ_HLINE, 0, 0, G_LOC_TH_INVALID); ObjectSetInteger(0, li, OBJPROP_STYLE, STYLE_DOT);
+                                     ObjectSetInteger(0, li, OBJPROP_SELECTABLE, false); ObjectSetInteger(0, li, OBJPROP_HIDDEN, true); }
+         ObjectSetDouble(0, lt, OBJPROP_PRICE, G_LOC_TH_TARGET);
+         ObjectSetDouble(0, li, OBJPROP_PRICE, G_LOC_TH_INVALID);
+         ObjectSetInteger(0, lt, OBJPROP_COLOR, MBVisGreen());
+         ObjectSetInteger(0, li, OBJPROP_COLOR, MBVisAmber());
+         ObjectSetString(0, lt, OBJPROP_TEXT, "Lokal maqsad");
+         ObjectSetString(0, li, OBJPROP_TEXT, "Lokal chegara");
+      }
+      else
+      {
+         if(ObjectFind(0, lt) >= 0) ObjectDelete(0, lt);
+         if(ObjectFind(0, li) >= 0) ObjectDelete(0, li);
+      }
       MBPanelLine("B_TF", StringFormat("TF  M5 %s  M15 %s  H1 %s  H4 %s  ·  Bosim  M1 %s  M5 %s  M15 %s",
                                        MBBiasArrow(G_MB_TF_STATE[1]), MBBiasArrow(G_MB_TF_STATE[2]),
                                        MBBiasArrow(G_MB_TF_STATE[3]), MBBiasArrow(G_MB_TF_STATE[4]),

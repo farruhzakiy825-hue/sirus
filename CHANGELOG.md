@@ -1,5 +1,28 @@
 # CHANGELOG — Sirus Brain V8
 
+## Lokal savdo mukammallashtirildi (uch qatlam, qo'l almashuvi, lokal g'oya)
+
+1. **Uch qatlam:** global (M15+), lokal (M5) va mikro (M1). Panelda "Qatlamlar: global · lokal · mikro" qatori chiqadi.
+2. **Lokal g'oya:** globalga qarshi lokal oyoqning o'z maqsadi va chegarasi bor.
+   - maqsad: global oyoqning 50% i yoki undan yaqin bo'lsa, qarshi zona;
+   - chegara: oyoq boshlangan nuqta.
+   - Chartda chiziq bilan ko'rsatiladi (`ShowLocalOnChart`).
+3. **Lokal → global qo'l almashuvi (BRAIN HANDOFF):** lokal oyoq global tomonning joyiga yetib (lokal maqsad, H1 premium/discount yoki qarshi zona) mikro qatlam qaytsa, global tomonga kiriladi. Bu ko'tarilish cho'qqisida SELL, tushish tubida BUY degani. Ochiq lokal savat esa shu lahzada BE yoki foydada yopiladi.
+4. **Qatlamli pullback (BRAIN PULLBACK):** global va lokal bir tomonda bo'lsa, mikro qaytishdan keyin davom etilganda kiriladi.
+5. **Lokal savat qoidalari:**
+   - ko'pi bilan 3 order (`LocalGridMaxRungs`);
+   - 20 daqiqadan keyin BE yoki foydada yopiladi (`LocalBasketMaxMinutes`);
+   - global tomon qayta displacement qilsa, qo'l almashuv bo'lsa yoki lokal g'oya tugasa, BE/foydada yopiladi.
+6. **Global oyoq holati va lokal to'lqinlar:** lokal savdo uch holatda yo'q:
+   - global M5 impulsi yosh bo'lsa;
+   - global portlash (expansion) bo'lsa;
+   - lokal oyoq 3-to'lqinida bo'lsa.
+7. **O'rganish va himoya:**
+   - oxirgi 30 ta lokal natija yoziladi; yutuq 40% dan past bo'lsa, faqat "kuchli" lokal qabul qilinadi;
+   - ketma-ket 2 ta lokal zarar bo'lsa, lokal savdo 30 daqiqaga to'xtaydi. Global savdo davom etadi. Pauza vaqt bilan cheklangan, muzlatib qo'ymaydi.
+8. **Sessiya:** London yoki NY ochilishida, TREND rejimida trendga qarshi lokal uchun "kuchli" daraja talab qilinadi.
+9. **Vizual:** panelda lokal oyoq maqsadi, chegarasi, holati va lokal natija. Chartda maqsad va chegara chiziqlari.
+
 ## Muzlashga qarshi: 11 ta yashirin qulf tuzatildi
 
 Robotni harakatlanayotgan bozorda 10–60 daqiqa jim qoldiradigan qulflar:
