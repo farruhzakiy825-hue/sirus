@@ -234,7 +234,9 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    // Distance to invalidation.
    double inv = (G_MB_TH_DIR == dir && G_MB_TH_INVALID > 0.0) ? G_MB_TH_INVALID : 0.0;
    double inv_atr = (inv > 0.0) ? MathAbs(price - inv) / atr5 : 0.0;
-   bool far = (inv > 0.0 && inv_atr > MBMaxInvalidationATR5);
+   // A cashback basket targets a few points and the basket stop is the account's, not the thesis
+   // line - a far invalidation is not this trade's risk. Lateness is still caught by the impulse speed.
+   bool far = (inv > 0.0 && inv_atr > MBMaxInvalidationATR5) && !MBCashbackTempo();
 
    // --- QUALITY --- (evidence weights learn within ±MBLearnMaxShift once Memory has enough results)
    int align_key = (a >= 3) ? MB_DNA_ALIGN_STRONG : ((a == 2) ? MB_DNA_ALIGN_WEAK : ((a == 1) ? MB_DNA_TRANS_TOWARD : ((a == 0) ? MB_DNA_NEUTRAL : MB_DNA_COUNTER)));
@@ -395,7 +397,10 @@ bool MBFastEntryCandidate(int &dir, string &why)
    if(G_MB_LAST_CLOSE_WIN && rd != 0 && (TimeCurrent() - G_MB_LAST_CLOSE_TIME) <= (long)MathMax(1, reentry_bars) * 60)
    {
       bool not_expired = !(G_MB_IMP_DIR[0] == rd && G_MB_SPEED[0] == MB_SPEED_EXPIRED);
-      if(rd * G_MB_BIAS >= 1 && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBHasTriggerNow(rd))
+      // Cashback tempo: the basket just paid this way and the thesis is still open - a neutral
+      // bias (hysteresis catching up) does not stop the next one. Against-bias still does.
+      int bias_min = MBCashbackTempo() ? 0 : 1;
+      if(rd * G_MB_BIAS >= bias_min && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBHasTriggerNow(rd))
       {
          dir = rd;
          why = StringFormat("FAST RE-ENTRY %s: last basket won %d min ago, thesis still %s (%s)",
@@ -445,6 +450,13 @@ void MBFastEntryFilled()
 {
    if(StringFind(G_OPP_REASON, "FAST ") == 0)
       G_MB_FAST_TODAY++;
+   // The signal was taken. Decay measures a signal price ran away from WITHOUT us; after a fill the
+   // next entry is a fresh decision from here. FIX(reentry-decay): the anchor used to stay at the
+   // first signal for 15 minutes, so every winning re-entry in the same direction lost quality
+   // (five quick cashback wins = about 20 points) until the judge said WAIT in a move that was
+   // paying.
+   G_MB_SIG_PRICE = SymbolInfoDouble(_Symbol, (G_OPP_DIR == OPP_DIR_BUY ? SYMBOL_ASK : SYMBOL_BID));
+   G_MB_SIG_TIME = TimeCurrent();
 }
 
 // Cashback tempo is on: rebate mode with the tempo switch.
