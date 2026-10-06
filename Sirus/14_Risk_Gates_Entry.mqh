@@ -1137,13 +1137,33 @@ double LotForCurrentEntry(const bool apply_side_effects)
    return NormalizeVolumeSafe(lot);
 }
 
+// BRAND: every order carries the SIRUS brand and what opened it, in plain ASCII (some brokers strip
+// other characters) and within MT5's ~31-character comment limit:
+//   "SIRUS by Zakiy | TREND"  "SIRUS by Zakiy | SWEEP"  "SIRUS by Zakiy | GRID 3"
+string SirusEntryKindShort()
+{
+   string r = G_OPP_REASON;
+   if(StringFind(r, "BRAIN ") == 0)
+   {
+      string rest = StringSubstr(r, 6);
+      int sp = StringFind(rest, " ");
+      return (sp > 0) ? StringSubstr(rest, 0, sp) : rest;   // TREND / SWEEP / RANGE / MOMENTUM / LOCAL / HANDOFF / PULLBACK
+   }
+   if(StringFind(r, "FAST RE-ENTRY") == 0) return "RE-ENTRY";
+   if(StringFind(r, "FAST ") == 0) return "FAST";
+   return (G_SCORE_DECISION == SCORE_DECISION_MICRO_PASS) ? "MICRO" : "SIGNAL";
+}
+
+string SirusOrderComment(const string kind)
+{
+   string c = StringFormat("%s | %s", OrderBrand, kind);
+   if(StringLen(c) > 31) c = StringSubstr(c, 0, 31);
+   return c;
+}
+
 string BuildOrderComment()
 {
-   // MT5 truncates order comments near 31 chars, so keep the brand (F.Zakiy) plus the two useful
-   // fields (mode + entry type) and drop the version string, which was what pushed the old comment
-   // past the limit and got the mode/type cut off. "Navius by Zakiy BAL FIRST" = 25 chars.
-   string entry_type = (G_SCORE_DECISION == SCORE_DECISION_MICRO_PASS ? "MICRO" : "FIRST");
-   return StringFormat("Navius by Zakiy %s %s", ModeToShortString(G_ACTIVE_MODE), entry_type);
+   return SirusOrderComment(SirusEntryKindShort());
 }
 
 int CountNaviusPositions()
@@ -4438,7 +4458,7 @@ bool FirstEntryCanRun(string &reason)
 
    if(OneBasketAtATime && HasOpenNaviusPosition())
    {
-      reason = StringFormat("existing Navius position count=%d", CountNaviusPositions());
+      reason = StringFormat("existing SIRUS position count=%d", CountNaviusPositions());
       return false;
    }
 

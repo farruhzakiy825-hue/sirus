@@ -1,5 +1,31 @@
 # CHANGELOG — Sirus Brain V8
 
+## Aqlli TP (yuguruvchi) va SIRUS brendi
+
+- **Topilgan ziddiyat:** TP 2500 × TPScale 0.85 ≈ 2125 pt, trailing esa 2300 da boshlanardi. Savat TP da yopilib ketar, trailing hech qachon ishlamasdi.
+- **Aqlli yuguruvchi** (`EnableSmartRunner`, faqat oddiy rejimda): savat TP da yopilmaydi, trailing va uzoq maqsad bilan yuradi. Shartlar:
+  - TREND yoki PORTLASH rejimi savat tomonida, yoki miya ustun tomonda va g'oya tirik (xavf ostida emas);
+  - savatda ko'pi bilan 2 order;
+  - savat lokal emas, g'oyasi o'lmagan va hech qachon chuqur DD bo'lmagan;
+  - yangilik oynasi yo'q;
+  - eng yaqin qarshi zonagacha kamida 1.5 × TP.
+- **Raqamlar:**
+  - trailing boshlanishi 2200 pt (TP undan kichik bo'lsa, TP × 0.88);
+  - qulf 2000 pt (TP past bo'lsa, boshlanish nuqtasining 90% i);
+  - kuzatish masofasi max(300 pt, 0.5 × ATR(M5));
+  - uzoq maqsad: 2.5 × TP yoki likvidlik maqsadi (DOL), qaysi biri yaqin bo'lsa.
+- **Yuguruvchidan chiqish:**
+  - narx qulfga qaytsa;
+  - uzoq maqsadga yetsa;
+  - TP dan yuqorida teskari reaksiya shami chiqsa;
+  - 10 daqiqa yangi cho'qqi bo'lmasa.
+- **Himoya:** yuguruvchi yoqilganda brokerdagi TP olib tashlanadi, qulf esa brokerga real SL sifatida yoziladi. Eski Pack2 trailing yuguruvchi ishlayotganda chetga turadi.
+- **Panel:** savat yuguruvchi rejimida bo'lsa, "YUGURUVCHI: qulf · cho'qqi · maqsad" qatori chiqadi.
+- **Brend:**
+  - order izohlari endi "Navius by Zakiy ..." emas, `SIRUS by Zakiy | TREND`, `| SWEEP`, `| GRID 3`, `| SCALE-IN` shaklida;
+  - brend nomi `OrderBrand` sozlamasida;
+  - terminal global o'zgaruvchilaridagi eski kalitlar o'zgartirilmadi, robot yig'gan statistika saqlanadi.
+
 ## Shamlarni o'qish: zonaga yetdi degani uchungina kirmaydi
 
 Jonli kuzatuv: robot 4164.04 da SELL ochdi. Bu kuchli ko'tarilayotgan lokal oyoqning o'rtasi edi: uchala bosim ▲ edi, qarshilik zonasi esa $2 yuqorida (4166.26).

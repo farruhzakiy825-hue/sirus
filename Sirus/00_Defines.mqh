@@ -547,6 +547,9 @@ double MBEntryLotAdjust(const double lot);
 void MBPositionBrainUpdate();   // 24_Position_Brain
 bool MBGridAllows(const int dir, const int orders, string &reason);
 bool MBRecoveryExit(string &why);
+bool MBRunnerManage(const double basket_points, const double tp_points, string &why);
+bool MBRunnerActive();
+string SirusOrderComment(const string kind);   // brand comment - used by the grid before its definition
 bool MBLocalBasketExit(const double profit, string &why);   // stage 16 smart exit - read by the basket exit check above its definition
 bool MBBasketBreakEvenExit(const double basket_points, const double profit, string &why);
 string MBPositionText();

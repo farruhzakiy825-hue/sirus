@@ -10,6 +10,7 @@ input bool              ReasonCodeToFile         = true;      // Shu yozuvni MQL
 input bool              VerboseLogs              = true;      // FIX(log-noise): master switch for the ~170 "...PrintOnUse" diagnostic logs. false = quiet journal (trades, closes, errors and warnings still print). Each individual PrintOnUse switch still works when this is true.
 input group "01 — SIRUS CORE / MODE"
 input string            NaviusBuildName          = "SIRUS v31.6 PRO AUTO GRID SAFETY READY";
+input string            OrderBrand               = "SIRUS by Zakiy";   // BREND: har order izohining boshi ("SIRUS by Zakiy | TREND", "... | GRID 3")
 input ENUM_NAVIUS_MODE  NaviusMode               = NAVIUS_MODE_AUTO;
 input long              MagicNumber              = 240007;
 input ENUM_NAVIUS_MODE  DefaultAutoMode          = NAVIUS_MODE_BALANCED;

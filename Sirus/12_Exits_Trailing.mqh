@@ -1537,13 +1537,23 @@ bool CheckBasketExit()
       }
    }
 
+   // Smart runner (normal mode): the right baskets trail past the TP toward a far target.
+   {
+      string run_why = "";
+      if(!RebateTrailingOn() && MBRunnerManage(basket_points, tp_points, run_why))
+      {
+         CloseNaviusBasket(run_why);
+         return true;
+      }
+   }
+
    if(RebateTrailingOn())
    {
       // Rebate trailing: the target arms the trail instead of closing the basket.
       if(RebateTrailManage(basket_points, tp_points, orders))
          return true;
    }
-   else if(UseBasketTPPoints && basket_points >= tp_points)
+   else if(UseBasketTPPoints && basket_points >= tp_points && !MBRunnerActive())
    {
       CloseNaviusBasket(StringFormat("Basket TP points %.0f/%.0f orders=%d", basket_points, tp_points, orders));
       return true;

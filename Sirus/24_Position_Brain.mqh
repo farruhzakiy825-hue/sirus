@@ -46,7 +46,14 @@ input double RecoveryZoneATR15        = 1.5;    // Qutqaruv joyi (zona / FVG) sa
 input bool   EnableGridAtStructure    = true;   // Grid pog'onasi narx tuzilmaga (zona / FVG / likvidlik) yetganda qo'yiladi; havoda - javob kutish vaqti ichida kutadi
 input double GridStructureATR5        = 0.5;    // Tuzilma narxdan ATR(M5) x shu ichida bo'lsa - "tuzilmada"
 input int    GridReserveRungs         = 2;      // Oxirgi shuncha pog'ona ZAXIRA: faqat tuzilma + qarshi harakat charchagan + sham javobi bo'lsa (vaqt bilan ochilmaydi)
-input bool   RecoveryLogToFile        = true;   // Chuqur savatlar natijasini CSV ga yozish (Sirus_Recovery_<symbol>_<magic>.csv)
+input bool   RecoveryLogToFile        = true;
+input bool   EnableSmartRunner        = true;   // AQLLI TP (oddiy rejim): trend + tirik g'oya + joy bo'lsa, savat TP da yopilmaydi - trailing va uzoq maqsad bilan yuguradi. Diapazon / lokal / chuqur / ko'p orderli savatda oddiy TP
+input int    RunnerArmPoints          = 2200;   // Trailing shu foydada yoqiladi (TP dan kichik bo'lsa TP x 0.88)
+input int    RunnerLockPoints         = 2000;   // Yoqilgandan keyin kamida shuncha foyda qulflanadi
+input int    RunnerMinStepPoints      = 300;    // Kuzatish masofasi kamida shuncha (amalda max(shu, ATR(M5) x 0.5))
+input double RunnerFarTPMult          = 2.5;    // Uzoq maqsad: TP x shu yoki likvidlik maqsadi (DOL), qaysi yaqin bo'lsa
+input int    RunnerMaxOrders          = 2;      // Shundan ko'p orderli savat yugurmaydi
+input int    RunnerStallMinutes       = 10;     // Yangi cho'qqi shuncha daqiqa bo'lmasa - yopiladi   // Chuqur savatlar natijasini CSV ga yozish (Sirus_Recovery_<symbol>_<magic>.csv)
 
 datetime G_MB_PB_BASKET    = 0;     // open time of the first position of the watched basket
 int      G_MB_PB_DIR       = 0;
@@ -404,6 +411,139 @@ bool MBLocalBasketExit(const double profit, string &why)
    return (StringLen(why) > 0);
 }
 
+//---------------------------------------------------------------------
+// SMART RUNNER (normal mode): let the right baskets run past the TP
+//---------------------------------------------------------------------
+// The fixed TP (2500 x 0.85 = ~2125) closed every basket before the 2300 trail could ever arm. A
+// basket now RUNS - no close at the TP, a trail and a far target instead - only when the market
+// supports it: a trend or expansion its way, or the brain with it and its thesis alive; one or two
+// orders; never a local / dead / once-deep basket; no news; and room to the next opposing zone of
+// at least 1.5 x TP. Everything else keeps the fixed TP.
+bool     G_RUN_ACTIVE = false;
+datetime G_RUN_BASKET = 0;
+datetime G_RUN_PEAK_T = 0;
+double   G_RUN_TARGET = 0.0;   // points over the average
+
+bool MBRunnerActive()
+{
+   return (G_RUN_ACTIVE && G_RUN_BASKET != 0 && G_RUN_BASKET == G_MB_PB_BASKET);
+}
+
+void MBRunnerReset()
+{
+   G_RUN_ACTIVE = false;
+   G_RUN_BASKET = 0;
+   G_RUN_PEAK_T = 0;
+   G_RUN_TARGET = 0.0;
+}
+
+bool MBRunnerEligible(const int dir, const double tp_points, string &why)
+{
+   why = "";
+   if(!EnableSmartRunner || EnableRebateMode || dir == 0 || tp_points <= 0.0)
+      return false;
+   if(G_BASKET_ORDERS > MathMax(1, RunnerMaxOrders) || G_MB_PB_LOCAL || G_MB_PB_DEAD)
+      return false;
+   if(EnableRecoveryJudge && (G_MB_RC_PEAK_DD >= RecoveryStartDD || G_MB_RC_STATE >= MB_RC_DOUBTFUL))
+      return false;
+   if(G_CAL_ACTIVE)
+      return false;
+   bool trend = EnableRegimePlaybook && (G_MB_RG == MB_RG_TREND || G_MB_RG == MB_RG_EXPANSION) && G_MB_RG_DIR == dir;
+   bool brain = (dir * G_MB_BIAS >= 2 && G_MB_TH_DIR == dir && !G_MB_TH_THREAT &&
+                 (G_MB_TH_STATE == MB_TH_ACTIVATED || G_MB_TH_STATE == MB_TH_CONFIRMED));
+   if(!trend && !brain)
+      return false;
+   if(EnableRegimePlaybook && (G_MB_RG == MB_RG_RANGE || G_MB_RG == MB_RG_COMPRESSION) && !brain)
+      return false;
+   double px = (dir > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double z = (dir > 0) ? ZoneMapNearestResistance(px) : ZoneMapNearestSupport(px);
+   if(z > 0.0 && G_BASKET_AVG_PRICE > 0.0 && dir * (z - G_BASKET_AVG_PRICE) / _Point < 1.5 * tp_points)
+      return false;   // an opposing zone sits too close - take the TP
+   why = trend ? StringFormat("%s regime", MBRegimeName(G_MB_RG)) : StringFormat("%s, thesis alive", MBBiasName(G_MB_BIAS));
+   return true;
+}
+
+// Take the broker TP off the basket's positions (the runner manages the exit; a broker TP would close
+// it at the old target). The lock goes on the broker as a stop through BrokerTrailSync.
+void MBRunnerClearBrokerTP()
+{
+   G_TRADE.SetExpertMagicNumber(MagicNumber);
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+      if((long)PositionGetInteger(POSITION_MAGIC) != MagicNumber) continue;
+      double tp = PositionGetDouble(POSITION_TP);
+      if(tp > 0.0)
+         G_TRADE.PositionModify(ticket, PositionGetDouble(POSITION_SL), 0.0);
+   }
+}
+
+// Called from the basket exit check before the fixed TP. True = close now (why says how).
+bool MBRunnerManage(const double basket_points, const double tp_points, string &why)
+{
+   why = "";
+   if(!EnableSmartRunner || EnableRebateMode || G_MB_PB_DIR == 0 || G_MB_PB_BASKET == 0)
+      return false;
+   if(G_MB_PB_BASKET != MBBasketOpenTime())
+      return false;
+   int dir = G_MB_PB_DIR;
+   double atr5_pts = G_MB_ATR[1];
+   double step = MathMax((double)MathMax(1, RunnerMinStepPoints), 0.5 * atr5_pts);
+   double arm = MathMin((double)MathMax(1, RunnerArmPoints), 0.88 * tp_points);
+
+   if(!MBRunnerActive())
+   {
+      string ew = "";
+      if(basket_points < arm || !MBRunnerEligible(dir, tp_points, ew))
+         return false;
+      G_RUN_ACTIVE = true;
+      G_RUN_BASKET = G_MB_PB_BASKET;
+      G_RUN_PEAK_T = TimeCurrent();
+      double far = RunnerFarTPMult * tp_points;
+      if(G_MB_DOL > 0.0 && G_BASKET_AVG_PRICE > 0.0)
+      {
+         double dol_pts = dir * (G_MB_DOL - G_BASKET_AVG_PRICE) / _Point;
+         if(dol_pts >= 1.5 * tp_points)
+            far = MathMin(far, dol_pts);
+      }
+      G_RUN_TARGET = far;
+      G_BASKET_TRAIL_ACTIVE = true;
+      G_BASKET_TRAIL_PEAK = basket_points;
+      // The first lock keeps most of what the fixed TP would have paid: the configured lock, or 90% of
+      // the arm point when the TP (x TPScale) sits below the configured arm.
+      G_BASKET_TRAIL_LOCK = MathMax(0.0, MathMin((double)RunnerLockPoints, MathMax(arm - step, 0.9 * arm)));
+      if(G_BASKET_TRAIL_LOCK >= basket_points)
+         G_BASKET_TRAIL_LOCK = MathMax(0.0, basket_points - 0.5 * step);
+      MBRunnerClearBrokerTP();
+      if((MBPositionPrintOnUse && VerboseLogs))
+         PrintFormat("[SIRUS RUNNER] %s basket runs (%s): armed at +%.0f, lock +%.0f, trail %.0f, far target +%.0f",
+                     (dir > 0 ? "BUY" : "SELL"), ew, basket_points, G_BASKET_TRAIL_LOCK, step, G_RUN_TARGET);
+   }
+
+   // Trail: the lock only moves up.
+   if(basket_points > G_BASKET_TRAIL_PEAK)
+   {
+      G_BASKET_TRAIL_PEAK = basket_points;
+      G_RUN_PEAK_T = TimeCurrent();
+   }
+   double want = G_BASKET_TRAIL_PEAK - step;
+   if(want > G_BASKET_TRAIL_LOCK && want < basket_points)
+      G_BASKET_TRAIL_LOCK = want;
+   G_BASKET_TRAIL_ACTIVE = true;
+
+   if(basket_points <= G_BASKET_TRAIL_LOCK)
+      why = StringFormat("RUNNER lock +%.0f (peak +%.0f)", G_BASKET_TRAIL_LOCK, G_BASKET_TRAIL_PEAK);
+   else if(G_RUN_TARGET > 0.0 && basket_points >= G_RUN_TARGET)
+      why = StringFormat("RUNNER far target +%.0f reached", G_RUN_TARGET);
+   else if(basket_points >= tp_points && MBReactionCandle(-dir))
+      why = StringFormat("RUNNER: reaction candle against at +%.0f - out before it bites", basket_points);
+   else if((TimeCurrent() - G_RUN_PEAK_T) >= (long)MathMax(1, RunnerStallMinutes) * 60)
+      why = StringFormat("RUNNER: no new high for %d min - closed at +%.0f", RunnerStallMinutes, basket_points);
+   return (StringLen(why) > 0);
+}
+
 // E8: one line per deep basket, for tuning the thresholds on evidence.
 void MBRecoveryLog(const datetime opened, const int dir, const double result)
 {
@@ -488,6 +628,7 @@ void MBPositionBrainUpdate()
       if(G_MB_PB_BASKET != 0)
          MBPBCloseBookkeeping();
       MBRecoveryReset();
+      MBRunnerReset();
       G_MB_PB_BASKET = 0;
       G_MB_PB_DIR = 0;
       G_MB_PB_DEAD = false;
@@ -509,6 +650,7 @@ void MBPositionBrainUpdate()
       if(G_MB_PB_BASKET != 0 && opened != G_MB_PB_BASKET)
          MBPBCloseBookkeeping();
       G_MB_PB_LOCAL = (dir * G_MB_BIAS < 0);
+      MBRunnerReset();
       G_MB_PB_BASKET = opened;
       G_MB_PB_DIR = dir;
       G_MB_PB_DEAD = false;

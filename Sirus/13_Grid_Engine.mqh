@@ -2594,7 +2594,7 @@ void UpdateGridRecoveryEngine(const string source)
          G_TRADE.SetDeviationInPoints(OrderSendDeviationPoints);
          G_TRADE.SetTypeFillingBySymbol(_Symbol);
 
-         string si_comment = "Navius by Zakiy SCALE-IN";
+         string si_comment = SirusOrderComment("SCALE-IN");
          bool si_sent = false;
          if(G_SCALEIN_DIR > 0)
             si_sent = G_TRADE.Buy(NormalizeVolumeSafe(si_lot), _Symbol, 0.0, 0.0, 0.0, si_comment);
@@ -2726,8 +2726,7 @@ void UpdateGridRecoveryEngine(const string source)
       // V31.6z fix: was showing G_ACTIVE_MODE (live, current mode) which can differ from the
       // FROZEN mode actually used to compute this grid's distance/lot - misleading label that
       // made a correctly-behaving grid look like it switched modes mid-basket.
-      ENUM_NAVIUS_MODE comment_mode = (G_BASKET_MODE_FROZEN ? G_BASKET_FROZEN_MODE : G_ACTIVE_MODE);
-      string comment = StringFormat("Navius by Zakiy %s GRID", ModeToShortString(comment_mode));
+      string comment = SirusOrderComment(StringFormat("GRID %d", G_BASKET_ORDERS + 1));
 
       G_GRID_ATTEMPTS++;
 

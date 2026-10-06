@@ -790,6 +790,8 @@ void MBDrawPanel()
       string state = "G'oya tirik - grid aqlli rejimda";
       if(G_MB_TH_THREAT && G_MB_TH_DIR == (buy ? 1 : -1)) state = "G'oya xavf ostida - grid to'xtadi (" + G_MB_TH_THREAT_WHY + ")";
       if(G_MB_PB_DEAD) state = "G'oya yiqildi - grid to'xtadi, BE'da chiqamiz";
+      if(MBRunnerActive())
+         state = StringFormat("YUGURUVCHI: qulf +%.0f · cho'qqi +%.0f · maqsad +%.0f pt", G_BASKET_TRAIL_LOCK, G_BASKET_TRAIL_PEAK, G_RUN_TARGET);
       else if(G_MB_PB_RESCUED) state = "Qutqaruv rejimi - yangi g'oya savat tomonida";
       MBPanelLine("K3", state, (G_MB_PB_DEAD ? MBVisAmber() : muted), false, x0, w, lh);
       if(StringLen(G_MB_ENTRY_KIND) > 0)

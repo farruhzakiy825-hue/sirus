@@ -2909,7 +2909,7 @@ bool Pack2CheckBasketBreakEvenOrTrail()
    }
 
    if(UseAdvancedBasketTrailing && !(EnableRebateMode && RebateDisableTrailing) && !RebateTrailingOn() &&
-      G_BASKET_POINTS >= effective_trail_start)
+      !MBRunnerActive() && G_BASKET_POINTS >= effective_trail_start)   // the smart runner owns its own trail
    {
       int smart_step = SmartTrailEffectiveStep();
 
