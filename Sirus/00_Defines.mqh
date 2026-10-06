@@ -511,6 +511,10 @@ void MBBrainUpdate();           // 20_Market_Brain
 bool MBVetoAllowsEntry(const int dir, string &why);   // 21_Direction_Veto
 bool MBEntryJudgeAllows(const int dir, string &why);   // 22_Entry_Engine
 double MBEntryLotAdjust(const double lot);
+void MBPositionBrainUpdate();   // 23_Position_Brain
+bool MBGridAllows(const int dir, const int orders, string &reason);
+bool MBBasketBreakEvenExit(const double basket_points, string &why);
+string MBPositionText();
 void ReasonCodeEntry(const string kind, const ENUM_ORDER_TYPE type, const double lot, const double fill_price, const ulong ticket);   // 90_Reason_Code
 void ReasonCodeGrid(const ENUM_ORDER_TYPE type, const double lot, const double fill_price, const ulong ticket, const int orders_before);
 int NewsOwnerState(string &why);

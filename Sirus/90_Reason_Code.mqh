@@ -287,6 +287,7 @@ void ReasonCodeGrid(const ENUM_ORDER_TYPE type, const double lot, const double f
                                G_NEXT_GRID_DISTANCE, G_GRID_LOT_SOFT_FACTOR,
                                (G_GRID_LOT_CAUTION_FLOORED ? " (floored)" : ""));
    PrintFormat("   BASKET   : %s | profit %.2f | %s", extra, G_BASKET_PROFIT, RCShort(G_GRID_DETAIL, 200));
+   PrintFormat("   POSITION : %s", MBPositionText());
 
    double sup = 0.0, res = 0.0;
    string conflicts = "";

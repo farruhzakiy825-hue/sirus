@@ -794,6 +794,7 @@ void CoreUpdate(const string source)
    MBCandleEngineUpdate();
    MBEventEngineUpdate();
    MBBrainUpdate();
+   MBPositionBrainUpdate();
    UpdateEconomicCalendarGuard();
    UpdateKalmanTrendFilter();
    UpdateDailyBias();   // FEATURE(daily-bias): compute PDH/PDL + prior-day bias before zones/scanner use them

@@ -2232,6 +2232,18 @@ bool GridCanOpen(string &reason)
                      gch_held, gch_adverse, G_NEXT_GRID_LOT);
    }
 
+   // SMART GRID (engine plan, phase 7): no averaging into a dead thesis, and an addition needs the
+   // market to respond at this price - never into a fresh displacement or genuine break against it.
+   {
+      int mb_gdir = (direction == POSITION_TYPE_BUY) ? 1 : -1;
+      string mb_greason = "";
+      if(!MBGridAllows(mb_gdir, orders, mb_greason))
+      {
+         reason = mb_greason;
+         return false;
+      }
+   }
+
    // V31.6 Smart Zone Recovery: the smart add fires with a reduced lot, and the one-shot
    // is consumed only HERE - when every other condition (cooldowns, distance) also passed,
    // so a not-yet-ready distance check can't waste the episode's single permission.

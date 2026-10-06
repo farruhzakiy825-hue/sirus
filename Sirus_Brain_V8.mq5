@@ -40,6 +40,7 @@
 #include "Sirus/20_Market_Brain.mqh"     // Market Brain C: bias states, dealing range, draw on liquidity, thesis
 #include "Sirus/21_Direction_Veto.mqh"   // Market Brain D: hard vetoes built on events and zone roles
 #include "Sirus/22_Entry_Engine.mqh"     // Market Brain E+F: entry location, timing, quality and the judge
+#include "Sirus/23_Position_Brain.mqh"   // Market Brain G: smart grid, thesis monitor, break-even exit
 #include "Sirus/90_Reason_Code.mqh"      // Reason Code (always last): why every order was opened (journal + CSV)
 
 //==================================================================//

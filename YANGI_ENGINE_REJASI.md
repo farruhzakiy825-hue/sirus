@@ -239,7 +239,7 @@ grid bitta sham tahliliga tayanadi. Mavjud `CandleSource*` o'rganish tizimi saql
 - Bir vaqtda bir nechta nomzod bo'lsa, real vaqtda pasayadigan ball bilan reyting tuziladi.
 - Counterfactual: BUY NOW / WAIT / SELL savollari bo'yicha Reason Code'ga yoziladi.
 
-### 7-bosqich: Position Brain (G)
+### 7-bosqich: Position Brain (G) — ✅ kod yozildi (`Sirus/23_Position_Brain.mqh`)
 - Grid: masofa yetishi yetarli emas. Thesis hali tirik + zonada candle response (rejection /
   micro displacement) bo'lsa ADD, aks holda WAIT yoki STOP.
 - Ochiq savat monitori: thesis invalid bo'lsa → HOLD / REDUCE / EXIT (REVERSE keyinroq,
