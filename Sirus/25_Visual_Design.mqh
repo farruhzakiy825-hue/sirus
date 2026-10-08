@@ -727,6 +727,22 @@ void MBDrawPanel()
       }
       else
          ObjectDelete(0, MB_VIS_PREFIX + "B_RG");
+      // Plan stage 8: market state, scenarios and the narrative.
+      {
+         string ms = MBStatePanelText();
+         if(StringLen(ms) > 0)
+         {
+            MBPanelLine("B_MS", ms, (G_MST_STATE == MST_NEWS ? MBVisAmber() : ink), false, x0, w, lh);
+            MBPanelLine("B_SCN", MBScenarioPanelText(), muted, false, x0, w, lh);
+            MBPanelLine("B_NAR", "Hikoya: " + G_MST_STORY, muted, false, x0, w, lh);
+         }
+         else
+         {
+            ObjectDelete(0, MB_VIS_PREFIX + "B_MS");
+            ObjectDelete(0, MB_VIS_PREFIX + "B_SCN");
+            ObjectDelete(0, MB_VIS_PREFIX + "B_NAR");
+         }
+      }
       // Plan stage 1: structure memory, direction lock and reversal maturity.
       MBPanelLine("B_ST", MBStructPanelText(), muted, false, x0, w, lh);
       MBPanelLine("B_LK", MBLockPanelText(), (G_ST_LOCK_DIR != 0 ? MBBiasTone(2 * G_ST_LOCK_DIR) : muted), false, x0, w, lh);

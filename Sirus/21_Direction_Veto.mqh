@@ -421,7 +421,9 @@ bool MBVetoAllowsEntry(const int dir, string &why)
    bool blocked = false;
    string late_uz = "";
 
-   if(MBPermissionCheck(dir, why))
+   if(MBAnomalyBlocks(why))
+      blocked = true;                  // V11: abnormal market (plan stage 8)
+   else if(MBPermissionCheck(dir, why))
       blocked = true;
    else if(MBVetoReversal && MBVetoReversalCheck(dir, why))
       blocked = true;

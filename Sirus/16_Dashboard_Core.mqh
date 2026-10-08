@@ -867,6 +867,8 @@ void CoreUpdate(const string source)
    MBLocationUpdate(); // plan stage 2: leg location, exhaustion pressure, taken liquidity
    MBMicroUpdate();    // plan stage 4: who controls now, micro turn type
    MBCostUpdate();     // plan stage 6: spread memory (one sample per M1 bar)
+   MBMarketStateTick();    // plan stage 8: tick-gap anomaly (one comparison)
+   MBMarketStateUpdate();  // plan stage 8: market state, scenarios, narrative (once per M1 bar)
    MBPositionBrainUpdate();
    MBProfEnd(MB_PROF_BRAIN);
    MBProfBegin(MB_PROF_SCAN);

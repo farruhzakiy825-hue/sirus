@@ -1,5 +1,45 @@
 # CHANGELOG — Sirus Brain V8
 
+## Katta reja — 8-bosqich: bozor holati, sezgirlik, g'ayritabiiy bozor, ssenariylar, hikoya
+
+Yangi modul: `Sirus/20f_Market_State.mqh`. Bu modul bozorni qaytadan o'qimaydi. U boshqa qatlamlar allaqachon o'qigan narsalarni (rejim, bias, lock, burilish, likvidlik xaritasi, charchash, nazorat) bitta xulosaga yig'adi.
+
+- **Sezgirlik.** So'nggi 5 ta M1 diapazoni ATR(M1) bilan solishtiriladi va 5 bar tezligi ham hisobga olinadi. Natija:
+  - sokin;
+  - oddiy;
+  - faollashmoqda;
+  - kengaymoqda;
+  - tez;
+  - charchadi (kengayishdan keyin so'nish).
+- **G'ayritabiiy bozor (`EnableAnomalyGuard`).** 5 daqiqa davomida yangi kirish bo'lmaydi, agar:
+  - spread shu soat uchun odatiydan 2.5 barobar katta bo'lsa;
+  - M1 bari 4 ATR bo'lsa;
+  - ikki tick orasida narx 1 ATR(M5) sakrasa.
+- **Bozor holati.** 15 ta holat va holatlar orasidagi o'tish jurnalga yoziladi (`[SIRUS STATE]`):
+  - YANGILIK/G'AYRITABIIY;
+  - BURILISH TASDIQLANDI / RIVOJLANMOQDA;
+  - LIKVIDLIK OVI;
+  - CHARCHASH;
+  - BREAKOUT;
+  - KENGAYISH;
+  - SOXTA BREAKOUT;
+  - KUCHLI TREND / TREND;
+  - PULLBACK;
+  - TO'PLASH / TARQATISH;
+  - CHOP;
+  - NOMA'LUM.
+- **Holatga qarab vaznlar.** Hakam sifati holatga qarab o'zgaradi:
+  - trend holatlarida asosiy tomon +4, qarshi tomon −6;
+  - burilish holatlarida burilish tomoni +6, eski tomon −6;
+  - charchashda eski tomon −6;
+  - kengayishda qarshi tomon −8;
+  - CHOP −4, NOMA'LUM −3.
+- **Ssenariylar.** Bull, bear va chop foizlari. Har biri uchun maqsad (eng muhim likvidlik) va bekor bo'lish darajasi (himoyalangan daraja) ko'rsatiladi.
+- **Hikoya.** Bitta qator: nima bo'ldi → qayerdamiz → nima kutilmoqda. Masalan: `yuqori likvidlik olindi (MAJOR) → M15 ▼×2 buzilish → LOCK ▼ → PULLBACK ▼ → pullback tugashi (M1 burilishi) kutilmoqda`.
+- **Panel:** Holat, Ssenariy va Hikoya qatorlari. "Miya" qatorida `g'ayritabiiy bozor` sababi.
+- **Tuzatish:** takroriy nomlar tekshiruvi eski kodda ham bor bo'lgan `G_MS_*` va `MS_PULLBACK` nomlarini topdi. Yangi nomlar `G_MST_*` va `MST_*` ga o'zgartirildi.
+- **Tezlik:** hammasi har M1 barda bir marta hisoblanadi. Har tickda faqat bitta narx solishtirish (sakrashni aniqlash uchun).
+
 ## Katta reja — 7-bosqich: diagnostika — savdo xotirasi, autopsiya, balans
 
 Yangi modul: `Sirus/26b_Autopsy.mqh`.

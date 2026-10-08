@@ -447,6 +447,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    // Plan stage 2: pressure against continuing this way costs quality from ExhaustCautionScore up
    // (from ExhaustBlockScore the veto refuses it outright).
    q += MBMicroQualityAdj(dir);   // plan stage 4: who controls now + the micro turn type
+   q += MBStateQualityAdj(dir);   // plan stage 8: adaptive weighting by market state
    int xp = MBExhaustPressure(dir);
    if(ExhaustCautionScore > 0 && xp >= ExhaustCautionScore)
       q -= 0.5 * (xp - ExhaustCautionScore + 10);
@@ -672,6 +673,8 @@ bool MBDirOk(const int d)
       return false;   // re-entry after a dead idea / failed attempts (plan stage 4)
    if(MBCostBlocks(d, lw, lu))
       return false;   // abnormal spread / no room for the cost (plan stage 6)
+   if(MBAnomalyBlocks(lw))
+      return false;   // abnormal market (plan stage 8)
    if(!MBCouncilOk(d))
       return false;   // the council (local + candles + zone) refuses this side - leave room for the other
    int a = d * G_MB_BIAS;
@@ -734,7 +737,9 @@ void MBFastWhyNotUpdate()
    {
       int d = (k == 1) ? 1 : -1;
       string w = "", wu = "";
-      if(MBLockBlocks(d, w))
+      if(MBAnomalyBlocks(w))
+         G_MB_FAST_WHYNOT[k] = "g'ayritabiiy bozor";
+      else if(MBLockBlocks(d, w))
          G_MB_FAST_WHYNOT[k] = StringFormat("LOCK %s, burilish %d/%d", (G_ST_LOCK_DIR > 0 ? "▲" : "▼"), MBStructStageFor(d), LockUnlockStage);
       else if(MBLateBlocks(d, w, wu))
          G_MB_FAST_WHYNOT[k] = wu;

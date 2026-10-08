@@ -558,6 +558,8 @@ void MBStructUpdate();   // 20b - called by CoreUpdate (16)
 void MBLocationUpdate();   // 20c - called by CoreUpdate (16)
 void MBMicroUpdate();   // 20d - called by CoreUpdate (16)
 void MBCostUpdate();   // 20e - called by CoreUpdate (16)
+void MBMarketStateUpdate();   // 20f - called by CoreUpdate (16)
+void MBMarketStateTick();     // 20f - called by CoreUpdate (16), every tick
 void MBAutopsyOnEntry(const int dir);   // 26b - called by the first-entry engine (14)
 void MBAutopsyOnClose(const int dir, const double res, const double mfe, const double mae, const datetime opened, const datetime t_show);   // 26b - called by 24
 string MBAutopsyPanelText();   // 26b - read by the panel (25)
