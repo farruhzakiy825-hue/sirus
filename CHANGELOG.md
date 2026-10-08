@@ -1,5 +1,63 @@
 # CHANGELOG — Sirus Brain V8
 
+## Tanqidiy audit: first entry (3 bosqich)
+
+Kod to'rt qismga bo'lib tekshirildi:
+- oxirgi o'zgarishlar;
+- first entry zanjiri;
+- miya veto'si, kengash va hakam;
+- 20a–20f modullari.
+
+Har bir topilma kodda qayta tasdiqlandi. Asosiy natija: buyruq har doim veto va hakam tekshirgan yo'nalishda yuboriladi. Muammolar undan oldinroq edi: noto'g'ri dalil, eskirgan holat va bir-birini qulflaydigan qoidalar.
+
+### 1-bosqich: noto'g'ri yo'nalish xavfi
+- **A1 — M5/M1 burilish shami jonli tekshiriladi.** Narx shamning dumini buzsa yoki yopilishidan 0.5 ATR qaytsa, sham endi tasdiq emas. Ilgari 5 daqiqa tasdiq bo'lib turar edi va BUY sinish ichiga kirishi mumkin edi.
+- **A2 — Konsensus yo'nalishni almashtirganda setup to'liq yangi tomondan olinadi.** Turi, darajasi, micro bayrog'i va sababi yangi tomonniki bo'ladi. Ilgari SELL BUY'ning "sweep rejection" turi bilan qolib, V0 dan "burilish" deb o'tardi.
+- **A3 — Lokal qatlam: impulsning kuchi ekstremumining yoshiga qarab.**
+  - Ekstremum oxirgi 6 ta M5 bar ichida yangilangan bo'lsa, impuls yo'nalishni belgilaydi. Yangi displacement'ni eski 30 daqiqalik harakat bosa olmaydi.
+  - Eski bo'lsa, impuls faqat quyidagilarning hech biri teskari bo'lmagandagina gapiradi: sof harakat, M5 bosimi, M5 tuzilmasi, lokal oyoq.
+- **A4 — Lokal oyoq eskirmaydi.**
+  - M1 va M5 bosimi ikkalasi qarshi bo'lsa yoki 90 daqiqa o'tsa, lokal oyoq tugaydi.
+  - M5 bosimi qarshi bo'lsa, u lokal qatlamni belgilamaydi.
+  - Maqsadi narxning orqasida qolgan oyoq yaratilmaydi.
+- **A5 — Burilish bosqichi jonli o'qiladi.** Narx MSS darajasidan qaytib o'tsa, bosqich 3 ga tushadi. Shunda lock va REVERSAL kirishi minut tugashini kutmaydi.
+- **A6 — Savat yopilgan tickning o'zida yangi savat ochilmaydi.** Zarardan keyingi pauza va qayta kirish xotirasi keyingi tickda yoziladi, shuning uchun bu tick o'tkazib yuboriladi.
+- **A7 — Kuchli biasga qarshi "istisno burilish" kuchaytirildi.** Endi oxirgi bir soat ichida M5 yoki undan yuqori (yoki KEY) likvidlik burilishi kerak. Bitta M1 sweep yetmaydi.
+- **A8 — Xavfsizlik klapani har qanday haqiqiy kirishni hisoblaydi.** Ilgari faqat detektor kirishlarini sanardi va savdo bo'layotgan paytda ball to'siqlarini ochib yuborardi.
+- **A9 — Tasdiqlangan setup bonusi faqat qurollangan tomonga beriladi.** Arm ham faqat o'z tomonidagi yengilliklarni ushlab turadi.
+- **C1 — Grid spike'da qo'shilmaydi.** Grid tezlik pauzasining asl qoidasida qoldi: qat'iy chegara, byudjet yo'q. Moslashuvchan chegara va byudjet faqat first entry uchun. Pauza bilan qoplanmagan spike'da "jonli tezlik" bonusi berilmaydi.
+
+### 2-bosqich: jimlik va savdo soni
+- **B1 — Kengash 1d qoidasi.**
+  - Strukturaga mos tomon endi o'z dalili bilan ochiladi: yopilgan M5 burilish shami yoki bir soat ichidagi M5+/KEY likvidlik burilishi.
+  - Qarshi tomonning "olingan likvidlik" sababi endi "kech" deb hisoblanmaydi.
+- **B2 — Tez kirish nomzodlari to'liq veto bilan tekshiriladi.**
+  - Tekshiruv: MBDirOk (lock, kech, qayta kirish, xarajat, anomaliya, kengash) va V0 ruxsati, o'zi oladigan tur bilan.
+  - Qamrab olinganlar: FAST RE-ENTRY, REVERSAL, SECOND-CHANCE, TREND, HANDOFF, PULLBACK, SWEEP, RANGE, MOMENTUM, LOCAL, ALIGNED.
+  - Natija: veto'ga uriladigan nomzod boshqa setuplarni 20–40 daqiqa yashirmaydi.
+- **B3 — Broker TP bilan yopilgan yutuq ham "yutuq".** Shu bilan TP dan keyingi tez qayta kirish yengilligi ishlaydi.
+- **B4 — "Kutish" faqat setup haqiqatan qurollanganda.** `SetupArm` endi natija qaytaradi. Qurollanmagan setup kutishda qotib qolmaydi.
+- **B5 — BUY va SELL joyi bir xil o'lchanadi (bid'dan).** Xarajat, olingan likvidlik va oyoq foizida BUY'dan spread ikki marta olinmaydi.
+- **B6 — Voqealar yoshi barning yopilishidan hisoblanadi.** H1/H4 voqealari, diapazondagi M15, qayta kirishdagi "yangi break" va lock yangilanishi kelishi bilan eskirmaydi.
+- **B7 — O'tish holatida davom kirishi "micro control" o'chiq bo'lsa ham ishlaydi.**
+- **B8 — Spread xotirasi har hisob uchun alohida.** Spread 30 namuna ketma-ket 3 barobar katta bo'lsa, u yangi odatiy deb qabul qilinadi.
+
+### 3-bosqich
+- **C2 — Miya kirishi skaner kontekstini meros qilib olmaydi.**
+  - Trendga qarshi kirishning zinapoya cheklovi to'g'ri qo'llanadi.
+  - Boshqa tomonning ogohlantirish og'irligi va micro bayrog'i olib tashlanadi.
+  - Minimal ball 0 bo'lib qolmaydi.
+  - Vaziyat bo'yicha lot va TP faqat o'z yo'nalishiga.
+- **C3 — Mayda tuzatishlar.**
+  - Yangilik "tinchlandi" ro'yxati to'liq kesh hajmida.
+  - Natija kutilganidan keskin farq qilgan yangilikda kamida odatiy post-oyna saqlanadi.
+  - Hakamning sinov chaqiruvi kechikish langarini siljitmaydi.
+  - Miya ma'lumoti tayyor bo'lmasa, hakam KUTADI.
+  - Muvaffaqiyatsiz redirect holatni to'liq tiklaydi.
+  - Muddati o'tgan blokning yengilligi faqat o'sha blok kutgan tomonga beriladi.
+  - Olingan likvidlik himoyasi haqiqiy TP bilan o'lchaydi.
+- **C4 — MSS'dan keyingi retest.** M15/H1 MSS endi o'z barining yopilishidan hisoblanadi. Ilgari "retest" oynasi break'dan oldingi barlarni ham olardi va burilish 3/6 da qotib qolardi. Sweep ekstremumi voqeaning o'zidan olinadi.
+
 ## Lokal qatlam eski impulsga yopishmasin + o'tish holatida tasdiqlangan burilish bo'yicha davom kirishi
 
 - **Holat 1 (18:56 SELL 4127.075).**

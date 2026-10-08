@@ -287,7 +287,9 @@ void MBLocationUpdate()
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    if(bid <= 0.0)
       return;
-   double tp_pts = EnableRebateMode ? RebateTargetPoints() : MicroTPPoints();
+   // AUDIT FIX: the TP the entry will really carry (cashback: the rebate target; otherwise the basket TP,
+   // not the micro TP - with the micro figure the guard released where the real TP reached the taken level).
+   double tp_pts = BaseBasketTPPoints();
    G_LX_TP_NEED = MathMax(MathMax(0.0, TakenLiqRoomMult) * ((double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) + MathMax(0.0, tp_pts)),
                           MathMax(0.0, TakenLiqBlockATR5) * G_MB_ATR[1]);
    bool new_m5 = false;

@@ -1055,7 +1055,10 @@ double LotForCurrentEntry(const bool apply_side_effects)
    // V220: size follows the situation's reliability. A reversal is the least repeatable of the four
    // - when it fails the prior trend resumes immediately - so it gets the smallest commitment, while
    // a level holding inside a range is the most repeatable and gets the full size.
-   if(EnableSituationPlan && G_SITUATION != SIT_NONE && G_BASKET_ORDERS <= 0)
+   // AUDIT FIX (C2): only the situation that points this entry's way sizes it.
+   int sl_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
+   if(EnableSituationPlan && G_SITUATION != SIT_NONE && G_BASKET_ORDERS <= 0 &&
+      (G_SITUATION_DIR == 0 || G_SITUATION_DIR == sl_dir))
    {
       double sl_f = SituationLotFactor(G_SITUATION);
       if(sl_f > 0.0 && MathAbs(sl_f - 1.0) > 0.01)
@@ -4082,6 +4085,21 @@ bool TryLocationRedirect(const int from_dir, string &why)
    if(!FindOppositeRedirectCandidate(tdir, bt, bs, br, bm))
       return false;
 
+   // AUDIT FIX: a redirect that does not pass must leave nothing behind - the flipped direction, type
+   // and score were seen by the gate tally, the missed-setup memory and the shadow ledger for the rest
+   // of the tick, and the rescore's side effects (an arm for the flipped side, the counter-trend flag,
+   // the warning weight, the situation) outlived it.
+   ENUM_OPPORTUNITY_DIR   rs_dir = G_OPP_DIR;
+   ENUM_OPPORTUNITY_TYPE  rs_type = G_OPP_TYPE;
+   ENUM_OPPORTUNITY_GRADE rs_grade = G_OPP_GRADE;
+   string rs_reason = G_OPP_REASON, rs_detail = G_OPP_DETAIL, rs_sdetail = G_SCORE_DETAIL;
+   int    rs_oscore = G_OPP_SCORE, rs_final = G_SCORE_FINAL, rs_min = G_SCORE_MIN_REQUIRED;
+   int    rs_base = G_SCORE_BASE, rs_bonus = G_SCORE_BONUS, rs_pen = G_SCORE_PENALTY, rs_praw = G_PENALTY_RAW;
+   ENUM_SCORE_DECISION rs_dec = G_SCORE_DECISION;
+   bool   rs_micro = G_SCORE_IS_MICRO, rs_omicro = G_OPP_IS_MICRO, rs_against = G_ENTRY_AGAINST_GLOBAL;
+   string rs_hard = G_SCORE_HARD_BLOCK;
+   int    rs_sit = G_SITUATION, rs_sitdir = G_SITUATION_DIR, rs_arm = G_ARM_DIR;
+
    ApplyRedirectOpportunity(tdir, bt, bs, br, bm);
    UpdateSignalScoreEngine("LOCATION_REDIRECT");
 
@@ -4095,8 +4113,19 @@ bool TryLocationRedirect(const int from_dir, string &why)
       passed = true;
    }
    if(!passed)
+   {
+      G_OPP_DIR = rs_dir; G_OPP_TYPE = rs_type; G_OPP_GRADE = rs_grade; G_OPP_REASON = rs_reason;
+      G_OPP_DETAIL = rs_detail; G_OPP_SCORE = rs_oscore; G_OPP_IS_MICRO = rs_omicro;
+      G_SCORE_FINAL = rs_final; G_SCORE_MIN_REQUIRED = rs_min; G_SCORE_BASE = rs_base; G_SCORE_BONUS = rs_bonus;
+      G_SCORE_PENALTY = rs_pen; G_SCORE_DETAIL = rs_sdetail; G_SCORE_DECISION = rs_dec; G_SCORE_IS_MICRO = rs_micro;
+      G_SCORE_HARD_BLOCK = rs_hard; G_PENALTY_RAW = rs_praw; G_ENTRY_AGAINST_GLOBAL = rs_against;
+      G_SITUATION = rs_sit; G_SITUATION_DIR = rs_sitdir;
+      if(G_ARM_DIR != rs_arm && G_ARM_DIR == to_dir)
+         SetupArmClear();   // the arm the failed rescore placed for the flipped side
       return false;
+   }
 
+   G_MB_FAST_ACTIVE = false;   // AUDIT FIX: a redirected DETECTOR entry is not a brain entry (MBOwnsGate)
    why = StringFormat("%s blocked at a level -> %s %s %d/%d",
                       (from_dir > 0 ? "BUY" : "SELL"), (to_dir > 0 ? "BUY" : "SELL"),
                       OpportunityTypeToString(bt), G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
@@ -4112,7 +4141,7 @@ int G_LOCATION_BLOCKS_TODAY = 0;  // BOSQICH 4: bugun joy himoyasi necha M1 bar 
 // judge already ask the location, impulse, failed-break and HTF questions with fresher evidence, so
 // the older score-cost and location gates that ask the same questions stand aside for it - the
 // detector score they tax was never part of this entry. Risk, news, spread and cooldowns still apply.
-bool G_MB_FAST_ACTIVE = false;
+// G_MB_FAST_ACTIVE is declared in 02_Globals (TryLocationRedirect, above, clears it).
 
 // An older gate stands aside when the Market Brain answers its question (see MBStandsInFor).
 bool MBOwnsGate(const bool location_gate)
@@ -4359,7 +4388,10 @@ bool FirstEntryCanRun(string &reason)
    {
       int jb_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : -1;
       string jb_why = "";
-      if(MBEntryJudgeAllows(jb_dir, jb_why) && MBEntryQualityNow() >= MBJudgeBypassMin())
+      G_MB_JUDGE_PROBE = true;
+      bool jb_ok = MBEntryJudgeAllows(jb_dir, jb_why);
+      G_MB_JUDGE_PROBE = false;
+      if(jb_ok && MBEntryQualityNow() >= MBJudgeBypassMin())
       {
          G_SCORE_DECISION = G_SCORE_IS_MICRO ? SCORE_DECISION_MICRO_PASS : SCORE_DECISION_PASS;
          DecisionLog("JUDGE", StringFormat("score %d/%d short, judge quality %d - judge decides", G_SCORE_FINAL,
@@ -4380,6 +4412,19 @@ bool FirstEntryCanRun(string &reason)
       if(MBFastEntryCandidate(fe_dir, fe_why))
       {
          ENUM_OPPORTUNITY_DIR fe_opp = (fe_dir > 0) ? OPP_DIR_BUY : OPP_DIR_SELL;
+         // AUDIT FIX (C2): the context below was worked out for the scanner's setup - its direction, or
+         // no setup at all. A brain entry the other way must not inherit it: the counter-trend ladder
+         // cap (BRAIN LOCAL is always against the global bias and got the full ladder), the warning
+         // weight that scales lot and TP, the micro flag, and a minimum score of 0.
+         bool fe_same_side = (G_OPP_DIR == fe_opp);
+         G_ENTRY_AGAINST_GLOBAL = (fe_same_side && G_ENTRY_AGAINST_GLOBAL) || (MBBiasAlign(fe_dir) < 0);
+         if(!fe_same_side)
+         {
+            G_PENALTY_RAW = 0;
+            G_SCORE_IS_MICRO = false;
+         }
+         if(G_SCORE_MIN_REQUIRED <= 0)
+            G_SCORE_MIN_REQUIRED = MinScoreForContext(false);
          G_OPP_TYPE = (ENUM_OPPORTUNITY_TYPE)MBFastEntryType();   // the brain entry's own kind (V0 reads it)
          G_OPP_DIR = fe_opp;
          G_OPP_REASON = fe_why;

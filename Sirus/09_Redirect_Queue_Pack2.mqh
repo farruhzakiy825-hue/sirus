@@ -733,6 +733,7 @@ void StartOrRefreshTempBlock(ENUM_TEMP_BLOCK_TYPE block_type, const string reaso
       G_BLOCK_START_BAR = G_BARS_SEEN;
       G_BLOCK_START_TIME = TimeCurrent();
       G_BLOCK_MAX_BARS = max_bars;
+      G_BLOCK_DIR = G_OPP_DIR;
       G_BLOCK_REASON = reason;
       G_BLOCK_SOURCE = source;
    }
@@ -842,6 +843,11 @@ void ApplyExpiredBlockSoftPass()
       return;
 
    if(G_OPP_DIR != OPP_DIR_BUY && G_OPP_DIR != OPP_DIR_SELL)
+      return;
+
+   // AUDIT FIX: the wait that expired was this side's - a scan that just flipped to the other side has
+   // not waited at all and gets no boost.
+   if(G_BLOCK_DIR != OPP_DIR_NONE && G_OPP_DIR != G_BLOCK_DIR)
       return;
 
    // Never bypass hard risk. Only convert near-pass soft waits.
@@ -2544,8 +2550,11 @@ double Pack2BasketTPForOrders(const int orders, const double base_tp)
    // is unaffected.
    int sp_bdir = (G_BASKET_DIRECTION == POSITION_TYPE_BUY) ? 1
                : ((G_BASKET_DIRECTION == POSITION_TYPE_SELL) ? -1 : 0);
+   // AUDIT FIX (C2): a first entry takes the plan only when the situation points its way - a brain
+   // entry against the scanner's reading got a target measured in the other direction.
+   int sp_edir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
    if(EnableSituationPlan && G_SITUATION != SIT_NONE && G_SITUATION_DIR != 0 &&
-      (G_BASKET_ORDERS <= 0 || (SituationPlanAppliesToGrid && G_SITUATION_DIR == sp_bdir)))
+      ((G_BASKET_ORDERS <= 0 && G_SITUATION_DIR == sp_edir) || (G_BASKET_ORDERS > 0 && SituationPlanAppliesToGrid && G_SITUATION_DIR == sp_bdir)))
    {
       string sp_detail = "";
       double sp_pts = SituationTargetPoints(G_SITUATION, G_SITUATION_DIR, sp_detail);

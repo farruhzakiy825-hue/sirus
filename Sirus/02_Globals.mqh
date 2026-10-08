@@ -34,6 +34,8 @@ bool     G_IS_NEW_BAR          = false;   // PERF: true only on the tick a new C
 
 ulong    G_TICK_COUNT          = 0;
 ulong    G_BASKET_CLOSED_TICK  = ULONG_MAX;   // AUDIT FIX (A6): the tick in which the EA closed a basket
+bool     G_MB_JUDGE_PROBE      = false;
+bool     G_MB_FAST_ACTIVE      = false;       // the entry being judged came from the Market Brain fast path       // AUDIT FIX: the judge-bypass probe must not move the signal-decay anchor
 ulong    G_TIMER_COUNT         = 0;
 ulong    G_UPDATE_COUNT        = 0;
 int      G_BARS_SEEN           = 0;
@@ -385,6 +387,7 @@ bool                    G_BLOCK_ACTIVE          = false;
 bool                    G_BLOCK_EXPIRED         = false;
 bool                    G_BLOCK_JUST_EXPIRED    = false;
 int                     G_BLOCK_START_BAR       = -100000;
+ENUM_OPPORTUNITY_DIR    G_BLOCK_DIR             = OPP_DIR_NONE;   // AUDIT FIX: the side the temp block was waiting on
 datetime                G_BLOCK_START_TIME      = 0;
 int                     G_BLOCK_MAX_BARS        = 0;
 int                     G_BLOCK_EXPIRED_COUNT   = 0;
@@ -500,7 +503,7 @@ ulong                   G_CAL_EV_ID[CAL_CACHE_MAX];
 bool                    G_CAL_EV_SURPRISE[CAL_CACHE_MAX];
 double                  G_CAL_EV_SURPRISE_PCT[CAL_CACHE_MAX];
 int                     G_CAL_EV_COUNT           = 0;
-ulong                   G_CAL_SETTLED_ID[8];             // releases whose post window ended early (market settled)
+ulong                   G_CAL_SETTLED_ID[CAL_CACHE_MAX]; // releases whose post window ended early (market settled)
 int                     G_CAL_SETTLED_POS        = 0;
 datetime                G_CAL_SETTLE_BAR         = 0;     // M1 bar of the last settle check
 

@@ -234,8 +234,13 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    double price = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
    double atr1 = G_MB_ATR[0] * _Point;
    double atr5 = G_MB_ATR[1] * _Point;
-   if(price <= 0.0 || atr1 <= 0.0 || atr5 <= 0.0)
-      return true;
+   // AUDIT FIX: no market data yet (start-up, a CopyRates sync miss) is not "execute" - the brain is blind.
+   if(price <= 0.0 || atr1 <= 0.0 || atr5 <= 0.0 || !G_MB_BRAIN_PRIMED)
+   {
+      G_MB_ENTRY_DECISION = MB_ED_WAIT;
+      why = "entry judge: market data not ready (brain warming up)";
+      return false;
+   }
 
    int a = dir * G_MB_BIAS;
    string etype = MBEntryTypeName(dir, a);
@@ -382,14 +387,17 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    // and then re-anchored at the extended price. Now: 3 minutes, and a live trigger (live
    // displacement / live sweep / pullback resume) is a new signal from here.
    bool fresh_sig = trig_live || (trig_event && StringFind(ev_what, "LIVE") == 0) || (a >= 2 && MBPullbackResume(dir));
-   if(G_MB_SIG_DIR != dir || G_MB_SIG_TYPE != sig_type || (TimeCurrent() - G_MB_SIG_TIME) > 180 || fresh_sig)
+   // AUDIT FIX: the judge-bypass probe (the scanner's side) and the final call (a fast entry's side /
+   // type) re-anchored each other every tick, so the decay never built up - only the final call anchors.
+   if(!G_MB_JUDGE_PROBE &&
+      (G_MB_SIG_DIR != dir || G_MB_SIG_TYPE != sig_type || (TimeCurrent() - G_MB_SIG_TIME) > 180 || fresh_sig))
    {
       G_MB_SIG_DIR = dir;
       G_MB_SIG_TYPE = sig_type;
       G_MB_SIG_PRICE = price;
       G_MB_SIG_TIME = TimeCurrent();
    }
-   double moved = dir * (price - G_MB_SIG_PRICE) / atr1;
+   double moved = (G_MB_SIG_DIR == dir && G_MB_SIG_PRICE > 0.0) ? dir * (price - G_MB_SIG_PRICE) / atr1 : 0.0;
    double decay = (moved > 0.3) ? MBEntryDecayPerATR * (moved - 0.3) : 0.0;
    if(a >= 2 && loc_ok && trig_ok)
       decay = 0.0;   // trend + place + trigger now: the impulse speed judges lateness, not the anchor

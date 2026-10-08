@@ -4867,7 +4867,7 @@ void CalendarFetch(const datetime now)
 // is quiet. The decision is latched per release; the brain (council, late, lock) then picks the side.
 bool CalendarEventSettled(const ulong id)
 {
-   for(int i = 0; i < 8; i++)
+   for(int i = 0; i < CAL_CACHE_MAX; i++)
       if(G_CAL_SETTLED_ID[i] == id && id != 0)
          return true;
    return false;
@@ -4881,7 +4881,12 @@ bool CalendarSettleCheck(const int idx, const datetime now)
    if(CalendarEventSettled(id))
       return true;
    datetime ev_t = G_CAL_EV_TIME[idx];
-   if(now - ev_t < (long)MathMax(1, NewsSettleMinMinutes) * 60)
+   // AUDIT FIX: a big surprise sets the tone for longer - it keeps at least the normal post window and
+   // only its surprise extension can be cut short by a settled market.
+   int min_min = MathMax(1, NewsSettleMinMinutes);
+   if(G_CAL_EV_SURPRISE[idx])
+      min_min = MathMax(min_min, EconomicCalendarPostMinutes);
+   if(now - ev_t < (long)min_min * 60)
       return false;
    int nb = MathMax(1, NewsSettleBars);
    int s = iBarShift(_Symbol, PERIOD_M1, ev_t, false);   // the bar the release fell into
@@ -4904,7 +4909,7 @@ bool CalendarSettleCheck(const int idx, const datetime now)
    if(MBAnomalyBlocks(an))
       return false;
    G_CAL_SETTLED_ID[G_CAL_SETTLED_POS] = id;
-   G_CAL_SETTLED_POS = (G_CAL_SETTLED_POS + 1) % 8;
+   G_CAL_SETTLED_POS = (G_CAL_SETTLED_POS + 1) % CAL_CACHE_MAX;
    if(EconomicCalendarPrintOnUse)
       PrintFormat("[SIRUS CALENDAR] %s: market settled %d min after the release (last %d M1 candles <= %.1f x pre-news ATR %.0f, spread %.0f) - post-news pause ended",
                   G_CAL_EV_NAME[idx], (int)((now - ev_t) / 60), nb, NewsSettleRangeATR, pre_atr, spr);

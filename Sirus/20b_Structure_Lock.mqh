@@ -186,11 +186,15 @@ void MBStructFollowThrough()
 // 3 = displacement - with dir, a timeframe rank range (KEY ranks 4) and a start time.
 // by_close (AUDIT FIX B6): compare `since` with the bar's CLOSE - an M15 / H1 break that completed after
 // `since` has an open time before it and was missed.
-datetime MBStFind(const int kind, const int dir, const int min_rank, const int max_rank, const datetime since,
-                  const bool earliest, double &level, const bool by_close = false)
+// Ex: also the event's timeframe slot and extreme (AUDIT FIX C4 - an M15 / H1 event is timed by its
+// own bar, not an M5 one).
+datetime MBStFindEx(const int kind, const int dir, const int min_rank, const int max_rank, const datetime since,
+                    const bool earliest, double &level, int &tfi_out, double &extreme_out, const bool by_close = false)
 {
    datetime best = 0;
    level = 0.0;
+   tfi_out = -1;
+   extreme_out = 0.0;
    for(int idx = 0; idx < MB_EV_MAX; idx++)
    {
       if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != dir)
@@ -210,9 +214,19 @@ datetime MBStFind(const int kind, const int dir, const int min_rank, const int m
       {
          best = G_MB_EV[idx].time;
          level = G_MB_EV[idx].level;
+         tfi_out = G_MB_EV[idx].tfi;
+         extreme_out = G_MB_EV[idx].extreme;
       }
    }
    return best;
+}
+
+datetime MBStFind(const int kind, const int dir, const int min_rank, const int max_rank, const datetime since,
+                  const bool earliest, double &level, const bool by_close = false)
+{
+   int tf_dummy = -1;
+   double ex_dummy = 0.0;
+   return MBStFindEx(kind, dir, min_rank, max_rank, since, earliest, level, tf_dummy, ex_dummy, by_close);
 }
 
 int MBStCount(const int kind, const int dir, const int min_rank, const int max_rank, const datetime since)
@@ -337,7 +351,9 @@ void MBReversalCompute()
    // The structure's latest push (M5 / M15 break its way) - the reversal must come after it.
    datetime base = MBStFind(1, P, 1, 2, 0, false, lv);
    // 1. Liquidity taken the reversal's way (M5+, key levels, or a live M5+ sweep).
-   datetime swt = MBStFind(2, rd, 1, 4, base, true, lv);
+   int sw_tfi = -1;
+   double sw_ext = 0.0;   // AUDIT FIX (C4): the sweep's own extreme seeds the search below
+   datetime swt = MBStFindEx(2, rd, 1, 4, base, true, lv, sw_tfi, sw_ext);
    if(G_MB_LSW_DIR == rd && G_MB_LSW_TFI >= 1 && G_MB_LSW_TIME >= base && (swt <= 0 || G_MB_LSW_TIME < swt))
       swt = G_MB_LSW_TIME;
    // Plan stage 3: a sweep on the liquidity map counts too (any class, not a trap).
@@ -345,7 +361,10 @@ void MBReversalCompute()
    int lc = 0, lq = 0;
    double le = 0.0;
    if(MBLqSweepFor(rd, 1, 43200, lt, lc, le, lq) && lt >= base && (swt <= 0 || lt < swt))
+   {
       swt = lt;
+      sw_ext = le;
+   }
    if(swt <= 0)
       return;
    G_ST_REV_STAGE = 1;
@@ -361,6 +380,8 @@ void MBReversalCompute()
    if(s_from < 0) return;
    if(s_to < 0) s_to = 0;
    double ext = (rd > 0) ? DBL_MAX : -DBL_MAX;
+   if(sw_ext > 0.0)
+      ext = sw_ext;   // AUDIT FIX (C4): an HTF sweep / fake break can sit bars before the event bar's M5 window
    for(int s = MathMin(s_from + 1, 300); s >= s_to; s--)
    {
       double h = iHigh(_Symbol, PERIOD_M5, s), l = iLow(_Symbol, PERIOD_M5, s);
@@ -391,9 +412,14 @@ void MBReversalCompute()
 
    // 3. MSS / BOS the reversal's way on M5+ after the sweep.
    double mss = 0.0;
-   datetime tm = MBStFind(1, rd, 1, 4, swt, true, mss);
+   int tm_tfi = -1;
+   double tm_ext = 0.0;
+   datetime tm = MBStFindEx(1, rd, 1, 4, swt, true, mss, tm_tfi, tm_ext);
    if(tm <= 0)
       return;
+   // AUDIT FIX (C4): the break's own bar closes at tm + its timeframe - an M15 / H1 MSS was treated as an
+   // M5 bar, so the "retest" window and the "held" closes included bars from BEFORE the break.
+   datetime tm_close = tm + PeriodSeconds((tm_tfi >= 0) ? MBEventTF(tm_tfi) : PERIOD_M5);
    G_ST_REV_STAGE = 3;
    G_ST_REV_MSS = mss;
 
@@ -402,11 +428,11 @@ void MBReversalCompute()
    MqlRates m1[];
    ArraySetAsSeries(m1, true);
    // From the close of the MSS bar: the M1 bars inside it are the break itself, not a retest.
-   datetime t_after = tm + PeriodSeconds(PERIOD_M5);
+   datetime t_after = tm_close;
    int n1 = CopyRates(_Symbol, PERIOD_M1, t_after, TimeCurrent(), m1);
    if(n1 < 2)
       return;
-   int s_m = iBarShift(_Symbol, PERIOD_M5, tm, false);
+   int s_m = iBarShift(_Symbol, PERIOD_M5, tm_close - 1, false);   // the last M5 bar of the break bar
    // The deepest pullback after the MSS bar (closed M1 bars), and the high of the leg before it -
    // sticky: a later run to new highs does not erase a retest that already held.
    double low = (rd > 0) ? DBL_MAX : -DBL_MAX;
