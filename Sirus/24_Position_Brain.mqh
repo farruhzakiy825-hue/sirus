@@ -638,6 +638,15 @@ void MBPBCloseBookkeeping()
    G_MB_LAST_CLOSE_DIR = G_MB_PB_DIR;
    G_MB_LAST_CLOSE_WIN = (res > 0.0);
    G_MB_LAST_CLOSE_TIME = TimeCurrent();
+   // AUDIT FIX (B3): the winning direction was only remembered inside CloseSirusBasket - a basket closed
+   // by its own broker TP (the normal scalp exit) never counted, so the post-win fast re-entry relief and
+   // the post-win arm skip almost never applied. Every way a basket ends passes here.
+   if(res > 0.0 && G_MB_PB_DIR != 0)
+   {
+      G_LAST_WIN_DIR = G_MB_PB_DIR;
+      G_LAST_WIN_BAR = G_BARS_SEEN;
+      G_AFFORD_RUNG_CAP = 0;
+   }
    MBReExitRecord(G_MB_PB_DIR, res);         // plan stage 4: exit kind + failed attempts per thesis
    MBAutopsyOnClose(G_MB_PB_DIR, res, G_PB_MFE, G_PB_MAE, G_MB_PB_BASKET, G_PB_T_SHOW);   // plan stage 7
    MBMemoryOnBasketClosed(G_MB_PB_BASKET);   // Memory (phase 8): write the result next to the Entry DNA

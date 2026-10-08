@@ -108,7 +108,9 @@ double MBLegPct(const int dir, double &leg_atr15)
 {
    leg_atr15 = 0.0;
    int k = MBLxK(dir);
-   double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
+   // AUDIT FIX (B5): origin and target are bid-built levels - measure from the bid on both sides
+   // (the ask made every BUY look a spread later in its leg than the same SELL).
+   double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double atr15 = G_MB_ATR[2] * _Point;
    if(px <= 0.0 || atr15 <= 0.0 || G_LX_ORIGIN[k] <= 0.0)
       return 0.0;
@@ -158,7 +160,9 @@ int MBLxPressure(const int dir, string &why)
       if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != -dir) continue;
       int ty = G_MB_EV[idx].type;
       if(ty != MB_EV_LIQ_SWEEP && ty != MB_EV_FAKE_BREAK) continue;
-      if(TimeCurrent() - G_MB_EV[idx].time > 3600) continue;
+      // AUDIT FIX (B6): age from the bar's CLOSE (event time is its open) - an H1 event was over an
+      // hour "old" the moment it was detected and never counted.
+      if(TimeCurrent() - (G_MB_EV[idx].time + PeriodSeconds(MBEventTF(G_MB_EV[idx].tfi))) > 3600) continue;
       if(MathAbs(G_MB_EV[idx].level - px) > 1.5 * atr5) continue;
       liq = MathMax(liq, (MBEventRank(G_MB_EV[idx].tfi) >= 1) ? 20 : 12);
    }
@@ -249,7 +253,10 @@ bool MBLxTakenAhead(const int dir, string &why, double &ext_out)
       if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != -dir) continue;
       int ty = G_MB_EV[idx].type;
       if(ty != MB_EV_LIQ_SWEEP && ty != MB_EV_FAKE_BREAK) continue;
-      if(MBEventRank(G_MB_EV[idx].tfi) < 1 || TimeCurrent() - G_MB_EV[idx].time > max_age) continue;
+      // AUDIT FIX (B6): aged from the bar's close - otherwise H1 events (and M15 ones in a range, with the
+      // 15-min memory) were dead on arrival.
+      if(MBEventRank(G_MB_EV[idx].tfi) < 1 ||
+         TimeCurrent() - (G_MB_EV[idx].time + PeriodSeconds(MBEventTF(G_MB_EV[idx].tfi))) > max_age) continue;
       double ext = G_MB_EV[idx].extreme;
       // Price still near it (within one M5 ATR of the swept extreme, on the reclaimed side).
       if(ext <= 0.0 || dir * (px - ext) > 0.0 || MathAbs(px - ext) > 1.0 * atr5) continue;
@@ -327,7 +334,9 @@ bool MBLateBlocks(const int dir, string &why, string &uz)
    bool taken_close = G_LX_TAKEN[k];
    if(taken_close && G_LX_TAKEN_EXT[k] > 0.0 && G_LX_TP_NEED > 0.0)
    {
-      double epx = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
+      // AUDIT FIX (B5): from the bid on both sides - the need already holds the spread; measuring a BUY
+      // from the ask counted it twice and refused BUYs where the mirrored SELL passed.
+      double epx = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double room = dir * (G_LX_TAKEN_EXT[k] - epx) / _Point;
       if(epx > 0.0 && room >= G_LX_TP_NEED)
          taken_close = false;

@@ -357,7 +357,17 @@ bool MBCouncilEval(const int dir, string &why, string &uz)
    //     proof, a reversal at least at stage 2 (liquidity taken + displacement).
    {
       string lw = "", lu = "";
-      if((loc == -dir || p5 == -dir) && MBStructStageFor(dir) < 2 && MBLateBlocks(-dir, lw, lu))
+      // AUDIT FIX (B1): the only way out was the reversal stage, which only exists for the side AGAINST
+      // the structure - the with-structure side (a pullback end, a range-bottom sweep-reclaim) could
+      // never lift it. Its own proof may be a closed M5 turn candle (live-checked) or an M5+ / KEY
+      // liquidity reversal within the hour. And a taken-liquidity refusal of the other side is not
+      // "late": the pool taken at this price is itself this side's sweep evidence.
+      string r1w = "";
+      datetime r1t = 0;
+      bool own_proof = (MBStructStageFor(dir) >= 2) || m5_turn ||
+                       MBReversalAfter(dir, 1, 4, true, TimeCurrent() - 3600, r1w, r1t);
+      if((loc == -dir || p5 == -dir) && !own_proof && MBLateBlocks(-dir, lw, lu) &&
+         StringFind(lw, "taken liquidity") != 0)
       {
          why = "council: the other side is late/exhausted (" + lu + ") but still moving - that is not a reason to reverse";
          uz = "qarshi tomon charchagan, lekin burilish dalili yo'q";
@@ -445,6 +455,10 @@ bool MBTransitionConfirmed(const int dir)
       return false;
    if(MBPressureSide(1) != dir && MBSign(G_ST_SEQ[1]) != dir)
       return false;
+   // AUDIT FIX (B7): with the micro-control engine off the shares sit at 50/50 and the rule silently
+   // never fired - then the control term is simply not part of the proof.
+   if(!EnableMicroControl)
+      return true;
    int ctrl = (dir > 0) ? G_MC_BUY : G_MC_SELL;
    return (ctrl >= TransitionControlPct);
 }

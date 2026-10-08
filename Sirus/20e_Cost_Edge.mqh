@@ -39,8 +39,11 @@ int      G_CX_SLIP_N[24];
 bool     G_CX_LOADED = false;
 datetime G_CX_BAR    = 0;
 int      G_CX_SAVE_CNT = 0;
+int      G_CX_REJ[24];          // consecutive spike samples refused per hour (AUDIT FIX B8)
 
-string MBCeKey(const string f, const int h) { return StringFormat("SIRUS_CE_%s_%I64d_%s%02d", _Symbol, MagicNumber, f, h); }
+// AUDIT FIX (B8): the account is part of the key - two accounts on one terminal (a raw one at 60 points,
+// a standard one at 240) shared one memory, and every entry on the wider one read as "abnormal spread".
+string MBCeKey(const string f, const int h) { return StringFormat("SIRUS_CE_%s_%I64d_%I64d_%s%02d", _Symbol, AccountInfoInteger(ACCOUNT_LOGIN), MagicNumber, f, h); }
 
 int MBCeHour()
 {
@@ -56,7 +59,7 @@ void MBCeLoad()
    G_CX_LOADED = true;
    for(int h = 0; h < 24; h++)
    {
-      G_CX_SPR[h] = 0.0; G_CX_SPR_N[h] = 0; G_CX_SLIP[h] = 0.0; G_CX_SLIP_N[h] = 0;
+      G_CX_SPR[h] = 0.0; G_CX_SPR_N[h] = 0; G_CX_SLIP[h] = 0.0; G_CX_SLIP_N[h] = 0; G_CX_REJ[h] = 0;
       if(MQLInfoInteger(MQL_TESTER))
          continue;
       if(GlobalVariableCheck(MBCeKey("S", h)))  G_CX_SPR[h]    = GlobalVariableGet(MBCeKey("S", h));
@@ -92,9 +95,21 @@ void MBCostUpdate()
       return;
    int h = MBCeHour();
    int n = G_CX_SPR_N[h];
-   // A spike already twice the learnt normal is not learnt (it would teach the memory that spikes are normal).
+   // A spike already three times the learnt normal is not learnt (it would teach the memory that spikes
+   // are normal). AUDIT FIX (B8): but a level that stays there for 30 samples in a row IS the new normal
+   // (the broker changed the account's spread) - the hour is re-seeded instead of blocking for good.
    if(n >= 30 && spr > 3.0 * G_CX_SPR[h])
+   {
+      if(++G_CX_REJ[h] < 30)
+         return;
+      G_CX_SPR[h] = spr;
+      G_CX_SPR_N[h] = 20;   // usable at once (MBNormalSpread needs 20)
+      G_CX_REJ[h] = 0;
+      MBCeSave(h);
+      PrintFormat("[SIRUS COST] spread %.0f held for 30 samples at hour %02d - learnt as the new normal", spr, h);
       return;
+   }
+   G_CX_REJ[h] = 0;
    double a = (n < 30) ? 1.0 / (n + 1) : 0.03;
    G_CX_SPR[h] = (n == 0) ? spr : G_CX_SPR[h] + a * (spr - G_CX_SPR[h]);
    G_CX_SPR_N[h] = MathMin(100000, n + 1);
@@ -175,7 +190,9 @@ bool MBCostEval(const int dir, string &why, string &uz)
    }
    if(EnableNetEdge && EnableRebateMode)
    {
-      double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
+      // AUDIT FIX (B5): obstacles are bid-built and the need holds the spread - measure from the bid on
+      // both sides (from the ask a BUY paid the spread twice).
+      double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double tp = RebateTargetPoints();
       double need = spr + MBExpectedSlip() + tp;
       double room = MBRoomAhead(dir, px);

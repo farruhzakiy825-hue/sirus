@@ -708,6 +708,25 @@ bool MBDirOk(const int d)
    return MBLocalOkFor(d);
 }
 
+// AUDIT FIX (B2): a candidate is taken only if the veto would let it through - MBDirOk (lock, late,
+// re-entry, cost, anomaly, council, local) AND the V0 permission for the type it will carry. Before,
+// FAST RE-ENTRY / TREND / HANDOFF / PULLBACK / LOCAL skipped part of that, were found, then vetoed on
+// every tick - and since only the first candidate counts, they hid every other setup for up to 40 min.
+bool MBCandOk(const int d, const int type)
+{
+   if(d == 0 || !MBDirOk(d))
+      return false;
+   ENUM_OPPORTUNITY_TYPE keep_type = G_OPP_TYPE;
+   int keep_score = G_SCORE_FINAL;
+   G_OPP_TYPE = (ENUM_OPPORTUNITY_TYPE)type;
+   G_SCORE_FINAL = MathMax(G_SCORE_FINAL, G_SCORE_MIN_REQUIRED + 2);   // what the fast path will stamp
+   string w = "";
+   bool blocked = MBPermissionCheck(d, w);
+   G_OPP_TYPE = keep_type;
+   G_SCORE_FINAL = keep_score;
+   return !blocked;
+}
+
 // The fast-entry count survives a recompile / restart (it read "tezkor 0" after every reload while the
 // day's entry total, read from history, did not). Stored with its day in a terminal variable.
 string G_MB_FAST_WHYNOT[2];   // why no brain entry fired this side (0 = SELL, 1 = BUY) - panel
@@ -806,7 +825,8 @@ bool MBFastEntryCandidate(int &dir, string &why)
       bool ra_ok = (ra >= 2) || (ra == 0 && bias_min == 0) ||
                    (ra == 1 && IsReversalOpportunityType(G_OPP_TYPE) && G_OPP_DIR == (rd > 0 ? OPP_DIR_BUY : OPP_DIR_SELL)) ||
                    (ra == 1 && MBTransitionConfirmed(rd));   // a confirmed turn admits continuation (V0)
-      if(ra >= bias_min && ra_ok && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBCouncilOk(rd) && MBReentryFastOk(rd) && !MBTrendUnderAttack(rd, aw_re) && MBHasTriggerNow(rd))
+      int re_type = (IsReversalOpportunityType(G_OPP_TYPE) && G_OPP_DIR == (rd > 0 ? OPP_DIR_BUY : OPP_DIR_SELL)) ? (int)G_OPP_TYPE : (int)OPP_TYPE_TREND_RIDE;
+      if(ra >= bias_min && ra_ok && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBCandOk(rd, re_type) && MBReentryFastOk(rd) && !MBTrendUnderAttack(rd, aw_re) && MBHasTriggerNow(rd))
       {
          dir = rd;
          why = StringFormat("FAST RE-ENTRY %s: last basket won %d min ago, thesis still %s (%s)",
@@ -831,7 +851,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       int vd = G_ST_REV_DIR;
       bool late = (G_MB_IMP_DIR[0] == vd && G_MB_SPEED[0] >= MB_SPEED_LATE) ||
                   (G_MB_IMP_DIR[1] == vd && G_MB_SPEED[1] >= MB_SPEED_EXPIRED);
-      if(!late && MBDirOk(vd) && MBHasTriggerNow(vd))
+      if(!late && MBCandOk(vd, (int)OPP_TYPE_EXHAUSTION_REVERSAL) && MBHasTriggerNow(vd))
       {
          dir = vd;
          G_MB_FAST_TYPE = (int)OPP_TYPE_EXHAUSTION_REVERSAL;
@@ -846,7 +866,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
    {
       int cd = 0;
       string cw = "";
-      if(MBSecondChanceNow(cd, cw) && MBDirOk(cd) && MBHasTriggerNow(cd))
+      if(MBSecondChanceNow(cd, cw) && MBCandOk(cd, (int)OPP_TYPE_PULLBACK_CONTINUATION) && MBHasTriggerNow(cd))
       {
          dir = cd;
          G_MB_FAST_TYPE = (int)OPP_TYPE_PULLBACK_CONTINUATION;
@@ -864,14 +884,13 @@ bool MBFastEntryCandidate(int &dir, string &why)
       string aw_tr = "";
       bool fresh_trend = !(G_MB_IMP_DIR[0] == d && G_MB_SPEED[0] >= MB_SPEED_LATE) && MBHasTriggerNow(d);
       bool pullback_trend = MBPullbackResume(d);   // a late trend, entered off its pullback
+      int tr_type = (pullback_trend && !fresh_trend) ? (int)OPP_TYPE_PULLBACK_CONTINUATION :
+                    ((MBPressureSide(2) == d && MBPressureSide(0) == -d) ? (int)OPP_TYPE_PULLBACK_CONTINUATION : (int)OPP_TYPE_TREND_RIDE);
       if(BrainEntryTrend && d != 0 && d * G_MB_BIAS >= 2 && G_MB_TH_DIR == d && thesis_open && G_MB_TH_CONTRA <= 1 &&
-         (fresh_trend || pullback_trend) && MBCouncilOk(d) && !MBTrendUnderAttack(d, aw_tr))
+         (fresh_trend || pullback_trend) && MBCandOk(d, tr_type) && !MBTrendUnderAttack(d, aw_tr))
       {
          dir = d;
-         if(pullback_trend && !fresh_trend)
-            G_MB_FAST_TYPE = (int)OPP_TYPE_PULLBACK_CONTINUATION;
-         else
-            G_MB_FAST_TYPE = (MBPressureSide(2) == d && MBPressureSide(0) == -d) ? (int)OPP_TYPE_PULLBACK_CONTINUATION : (int)OPP_TYPE_TREND_RIDE;
+         G_MB_FAST_TYPE = tr_type;
          why = StringFormat("BRAIN TREND %s: %s, thesis %s, %s", (d > 0 ? "BUY" : "SELL"),
                             MBBiasName(G_MB_BIAS), MBThesisStateName(G_MB_TH_STATE),
                             (fresh_trend ? "trigger now" : "pullback resuming"));
@@ -883,7 +902,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       {
          int gd = MBSign(G_MB_BIAS);
          string hw = "";
-         if(MBHandoffNow(gd, hw) && MBCouncilOk(gd) && MBHasTriggerNow(gd))
+         if(MBHandoffNow(gd, hw) && MBCandOk(gd, (int)OPP_TYPE_EXHAUSTION_REVERSAL) && MBHasTriggerNow(gd))
          {
             dir = gd;
             G_MB_FAST_TYPE = (int)OPP_TYPE_EXHAUSTION_REVERSAL;
@@ -896,7 +915,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       {
          int gd = MBSign(G_MB_BIAS);
          string aw_pb = "";
-         if(MBLayerLocal() == gd && MBPullbackResume(gd) && MBCouncilOk(gd) && !MBTrendUnderAttack(gd, aw_pb))
+         if(MBLayerLocal() == gd && MBPullbackResume(gd) && MBCandOk(gd, (int)OPP_TYPE_PULLBACK_CONTINUATION) && !MBTrendUnderAttack(gd, aw_pb))
          {
             dir = gd;
             G_MB_FAST_TYPE = (int)OPP_TYPE_PULLBACK_CONTINUATION;
@@ -911,7 +930,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       {
          for(int sd = -1; sd <= 1 && dir == 0; sd += 2)
          {
-            if(!MBDirOk(sd))
+            if(!MBCandOk(sd, (int)OPP_TYPE_SWEEP_REJECTION))
                continue;   // V0 would refuse it - leave room for the other candidates
             string w = "";
             bool live = MBLiveSweepFresh(sd, w) && (TimeCurrent() - G_MB_LSW_TIME) <= 60;
@@ -945,7 +964,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       {
          double pos = (bid - G_MB_RG_LO) / (G_MB_RG_HI - G_MB_RG_LO);
          int rd2 = (pos <= 0.20) ? 1 : ((pos >= 0.80) ? -1 : 0);
-         if(rd2 != 0 && MBDirOk(rd2) && MBHasTriggerNow(rd2))
+         if(rd2 != 0 && MBCandOk(rd2, (int)OPP_TYPE_RANGE_EDGE) && MBHasTriggerNow(rd2))
          {
             dir = rd2;
             G_MB_FAST_TYPE = (int)OPP_TYPE_RANGE_EDGE;
@@ -966,7 +985,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
             bool early = !(G_MB_IMP_DIR[0] == md && G_MB_SPEED[0] >= MB_SPEED_LATE) &&
                          !(G_MB_IMP_DIR[1] == md && G_MB_SPEED[1] >= MB_SPEED_EXPIRED);
             bool in_box = (EnableRegimePlaybook && G_MB_RG == MB_RG_COMPRESSION && G_MB_LIVE_DIR != md);
-            if(disp && early && !in_box && MBDirOk(md) && MBPressureSide(1) == md)
+            if(disp && early && !in_box && MBPressureSide(1) == md && MBCandOk(md, (int)OPP_TYPE_MOMENTUM_SCALP))
             {
                dir = md;
                G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;
@@ -984,7 +1003,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       int ld = -MBSign(G_MB_BIAS);
       int lv = MBLocalLevel(ld);
       bool late = (G_MB_IMP_DIR[0] == ld && G_MB_SPEED[0] >= MB_SPEED_LATE);
-      if(MBLocalOkFor(ld) && !late && MBCouncilOk(ld) && MBHasTriggerNow(ld))
+      if(MBLocalOkFor(ld) && !late && MBCandOk(ld, (int)OPP_TYPE_MOMENTUM_SCALP) && MBHasTriggerNow(ld))
       {
          dir = ld;
          G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;
@@ -1004,7 +1023,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
             continue;
          bool late = (G_MB_IMP_DIR[0] == cd && G_MB_SPEED[0] >= MB_SPEED_LATE) ||
                      (G_MB_IMP_DIR[1] == cd && G_MB_SPEED[1] >= MB_SPEED_EXPIRED);
-         if(!late && MBDirOk(cd) && MBHasTriggerNow(cd))
+         if(!late && MBCandOk(cd, (int)OPP_TYPE_MOMENTUM_SCALP) && MBHasTriggerNow(cd))
          {
             dir = cd;
             G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;

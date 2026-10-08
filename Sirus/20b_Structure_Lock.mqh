@@ -184,14 +184,19 @@ void MBStructFollowThrough()
 
 // Latest (or earliest) event of a kind: 1 = break (BOS / MSS), 2 = sweep (sweep / fake break),
 // 3 = displacement - with dir, a timeframe rank range (KEY ranks 4) and a start time.
+// by_close (AUDIT FIX B6): compare `since` with the bar's CLOSE - an M15 / H1 break that completed after
+// `since` has an open time before it and was missed.
 datetime MBStFind(const int kind, const int dir, const int min_rank, const int max_rank, const datetime since,
-                  const bool earliest, double &level)
+                  const bool earliest, double &level, const bool by_close = false)
 {
    datetime best = 0;
    level = 0.0;
    for(int idx = 0; idx < MB_EV_MAX; idx++)
    {
-      if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != dir || G_MB_EV[idx].time < since)
+      if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != dir)
+         continue;
+      datetime ev_t = by_close ? G_MB_EV[idx].time + PeriodSeconds(MBEventTF(G_MB_EV[idx].tfi)) : G_MB_EV[idx].time;
+      if(ev_t < since)
          continue;
       int ty = G_MB_EV[idx].type;
       bool ok = (kind == 1) ? (ty == MB_EV_BOS || ty == MB_EV_MSS) :
@@ -246,9 +251,11 @@ void MBLockEvaluate()
    {
       int d = G_ST_LOCK_DIR;
       // A new break the lock's way on M15 renews it and moves the protected level.
-      if(G_ST_LB_DIR[2] == d && G_ST_LB_TIME[2] > G_ST_LOCK_REFRESH && G_ST_LB_Q[2] >= ST_Q_VALID)
+      // AUDIT FIX (B6): by the break bar's close (its open can predate the lock's own arm time).
+      datetime lb_close = G_ST_LB_TIME[2] + PeriodSeconds(PERIOD_M15);
+      if(G_ST_LB_DIR[2] == d && G_ST_LB_TIME[2] > 0 && lb_close > G_ST_LOCK_REFRESH && G_ST_LB_Q[2] >= ST_Q_VALID)
       {
-         G_ST_LOCK_REFRESH = G_ST_LB_TIME[2];
+         G_ST_LOCK_REFRESH = lb_close;
          double p = (d < 0) ? G_ST_PROT_HI[2] : G_ST_PROT_LO[2];
          if(p > 0.0) G_ST_LOCK_PROT = p;
       }

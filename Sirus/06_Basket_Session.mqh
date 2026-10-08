@@ -1483,10 +1483,12 @@ void SetupArmClear()
 }
 
 // Hold a setup that is right in direction but early in timing.
-void SetupArm(const int dir, const int reason_code, const double trigger_price, const string detail, const bool trigger_is_wall)
+bool SetupArm(const int dir, const int reason_code, const double trigger_price, const string detail, const bool trigger_is_wall)
 {
+   // AUDIT FIX (B4): returns whether this direction is now held by an arm. The callers set WAIT only
+   // then - a skipped arm (post-win, another side's objection) used to WAIT on nothing, for good.
    if(!EnableSetupArming || dir == 0)
-      return;
+      return false;
 
    // V199: do not hold a direction the market has just paid out on. A basket closing in profit is
    // the strongest confirmation available - stronger than a wick or a pullback, because it is the
@@ -1499,13 +1501,13 @@ void SetupArm(const int dir, const int reason_code, const double trigger_price, 
       if((SetupArmPrintOnUse && VerboseLogs))
          PrintFormat("[SIRUS v199 ARM] skipped - %s was confirmed by a winning basket %d bars ago",
                      (dir > 0 ? "BUY" : "SELL"), G_BARS_SEEN - G_LAST_WIN_BAR);
-      return;   // no wait - the setup goes straight to the score engine
+      return false;   // no wait - the setup goes straight to the score engine
    }
 
    // Do not re-arm the same thing every bar - the wait should be measured from when
    // the objection first appeared.
    if(G_ARM_DIR == dir && G_ARM_REASON == reason_code)
-      return;
+      return true;
 
    // V195: an existing wait is not replaced by a different objection. Without this the EA would
    // hold for a zone, then swap to waiting for a pullback, then to something else - each swap
@@ -1516,7 +1518,7 @@ void SetupArm(const int dir, const int reason_code, const double trigger_price, 
    {
       int held = G_BARS_SEEN - G_ARM_BAR;
       if(held <= SetupArmMaxWaitBars)
-         return;      // still working through the current objection
+         return (G_ARM_DIR == dir);      // still working through the current objection (this side's or not)
    }
 
    G_ARM_DIR = dir;
@@ -1536,6 +1538,7 @@ void SetupArm(const int dir, const int reason_code, const double trigger_price, 
    if((SetupArmPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS v194 ARMED] %s held - %s (waiting for confirmation)",
                   (dir > 0 ? "BUY" : "SELL"), detail);
+   return true;
 }
 
 // Has the market answered the objection? Returns true when the armed setup should

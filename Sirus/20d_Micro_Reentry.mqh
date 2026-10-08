@@ -246,7 +246,7 @@ bool MBReentryBlocks(const int dir, string &why, string &uz)
       TimeCurrent() - G_RE_TIME < (long)MathMax(1, ReentryCooldownMaxMin) * 60)
    {
       double lv = 0.0;
-      bool new_break = (MBStFind(1, dir, 1, 4, G_RE_TIME + 1, false, lv) > 0);
+      bool new_break = (MBStFind(1, dir, 1, 4, G_RE_TIME + 1, false, lv, true) > 0);   // by bar close (AUDIT FIX B6)
       bool new_thesis = (G_MB_TH_DIR == dir && G_MB_TH_SINCE > G_RE_TIME);
       bool reversal = (MBStructStageFor(dir) >= MathMax(1, LockUnlockStage));
       if(!(new_break || new_thesis || reversal))

@@ -1692,13 +1692,11 @@ why = StringFormat("-%d %s against HTF trend (htf=%s, conf %.2f, reversal rc=%.2
             {
                double arm_px = (dir > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
                                          : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-               if(arm_px > 0.0)
-               {
+               if(arm_px > 0.0 &&
                   SetupArm(dir, ARM_REASON_EXTENDED, arm_px,
                            StringFormat("%s impulse still running - waiting for it to spend itself",
-                                        (imp_dir > 0 ? "up" : "down")), false);
+                                        (imp_dir > 0 ? "up" : "down")), false))
                   return true;
-               }
             }
             if(CounterImpulseHardBlock)
                return true;
@@ -2867,10 +2865,10 @@ void UpdateSignalScoreEngine(const string source)
             {
                double lae_px = (entry_dir_i > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
                                                  : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-               if(lae_px > 0.0)
-               {
+               if(lae_px > 0.0 &&
                   SetupArm(entry_dir_i, ARM_REASON_EXTENDED, lae_px,
-                           StringFormat("move already %.1f ATR extended - waiting for the pullback", ext_e), false);
+                           StringFormat("move already %.1f ATR extended - waiting for the pullback", ext_e), false))
+               {
                   G_SCORE_DECISION = SCORE_DECISION_WAIT;
                   detail += StringFormat(" [armed: %.1f ATR extended, waiting for pullback];", ext_e);
                   return;
@@ -3165,11 +3163,11 @@ void UpdateSignalScoreEngine(const string source)
                      // wait for rather than pay a penalty over. Entering here means filling early
                      // and then watching the market travel to where the turn actually happens -
                      // avoidable drawdown that a few bars of patience removes entirely.
-                     if(EnableSetupArming && EnableZoneEdgeArming)
-                     {
+                     if(EnableSetupArming && EnableZoneEdgeArming &&
                         SetupArm(entry_dir_i, ARM_REASON_ZONE, ze_inner,
                                  StringFormat("reaction edge is %.2f, price is %.2f - waiting for it",
-                                              ze_inner, ze_mid), false);
+                                              ze_inner, ze_mid), false))
+                     {
                         G_SCORE_DECISION = SCORE_DECISION_WAIT;
                         detail += StringFormat(" [armed: waiting for reaction edge %.2f];", ze_inner);
                         return;
@@ -4730,10 +4728,10 @@ void UpdateSignalScoreEngine(const string source)
             {
                double sc_px = (entry_dir_i > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
                                                 : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-               if(sc_px > 0.0)
-               {
+               if(sc_px > 0.0 &&
                   SetupArm(entry_dir_i, ARM_REASON_EXTENDED, sc_px,
-                           StringFormat("%s - waiting for it to stop", sc_detail), false);
+                           StringFormat("%s - waiting for it to stop", sc_detail), false))
+               {
                   G_SCORE_DECISION = SCORE_DECISION_WAIT;
                   detail += StringFormat(" [armed: %s];", sc_detail);
                   return;
@@ -4817,10 +4815,10 @@ void UpdateSignalScoreEngine(const string source)
             {
                double cp_px = (entry_dir_i > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
                                                 : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-               if(cp_px > 0.0)
-               {
+               if(cp_px > 0.0 &&
                   SetupArm(entry_dir_i, ARM_REASON_EXTENDED, cp_px,
-                           StringFormat("%s - waiting for the run to break", cp_detail), false);
+                           StringFormat("%s - waiting for the run to break", cp_detail), false))
+               {
                   G_SCORE_DECISION = SCORE_DECISION_WAIT;
                   detail += StringFormat(" [armed: %s];", cp_detail);
                   return;
@@ -4904,11 +4902,11 @@ void UpdateSignalScoreEngine(const string source)
             {
                double sp_px = (entry_dir_i > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
                                                 : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-               if(sp_px > 0.0)
-               {
+               if(sp_px > 0.0 &&
                   SetupArm(entry_dir_i, ARM_REASON_STRUCTURE, sp_px,
                            StringFormat("spread costs %.0f%% of target - waiting for it to narrow",
-                                        sp_ratio * 100.0), false);
+                                        sp_ratio * 100.0), false))
+               {
                   G_SCORE_DECISION = SCORE_DECISION_WAIT;
                   detail += " [armed: waiting for spread to narrow];";
                   return;
@@ -5248,10 +5246,10 @@ void UpdateSignalScoreEngine(const string source)
             // V195: a stop pool ahead is not a reason to trade smaller - it is a reason to let it be
             // taken first. Price runs to those stops, and the move that follows the sweep is
             // cleaner than the one that walks into it. Waiting turns the obstacle into the entry.
-            if(EnableSetupArming && EnableLiquidityArming && lq_price > 0.0)
-            {
+            if(EnableSetupArming && EnableLiquidityArming && lq_price > 0.0 &&
                SetupArm(entry_dir_i, ARM_REASON_ZONE, lq_price,
-                        StringFormat("stop pool at %.2f - waiting for it to be taken", lq_price), false);
+                        StringFormat("stop pool at %.2f - waiting for it to be taken", lq_price), false))
+            {
                G_SCORE_DECISION = SCORE_DECISION_WAIT;
                detail += StringFormat(" [armed: waiting for the pool at %.2f];", lq_price);
                return;
@@ -6295,9 +6293,8 @@ void UpdateSignalScoreEngine(const string source)
       if(le_pos >= LateEntryHoldFrom && !le_is_reversal)
       {
          double le_target = LateEntryBetterPrice(entry_dir_i);
-         if(le_target > 0.0)
+         if(le_target > 0.0 && SetupArm(entry_dir_i, ARM_REASON_LATE, le_target, le_detail, false))
          {
-            SetupArm(entry_dir_i, ARM_REASON_LATE, le_target, le_detail, false);
             G_SCORE_DECISION = SCORE_DECISION_WAIT;
             detail += StringFormat(" [holding for a pullback: %s];", le_detail);
             if((LateEntryPrintOnUse && VerboseLogs))
@@ -6338,9 +6335,8 @@ void UpdateSignalScoreEngine(const string source)
       {
          double fq_px = (entry_dir_i > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
                                           : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-         if(fq_px > 0.0)
+         if(fq_px > 0.0 && SetupArm(entry_dir_i, ARM_REASON_FILL, fq_px, fq_detail, false))
          {
-            SetupArm(entry_dir_i, ARM_REASON_FILL, fq_px, fq_detail, false);
             G_SCORE_DECISION = SCORE_DECISION_WAIT;
             detail += StringFormat(" [holding for a better fill: %s];", fq_detail);
 
