@@ -1,5 +1,37 @@
 # CHANGELOG — Sirus Brain V8
 
+## Grid: qutqaruv kafolati — grid muzlab qolmaydi
+
+- **Muammo.**
+  - Grid qo'shishni 60 dan ortiq joy to'xtatishi mumkin edi:
+    - `GridCanOpen` ichida 52 ta;
+    - miya grid darvozasida 12 ga yaqin.
+  - Ularning ko'pi "hozircha kut" shartlari edi va chiqish yo'li yo'q edi. Masalan: eski pack filtrlari, cooldown'lar, "shamlar qarshi", "BE katta daraja ortida", "tiklanish shubhali", javobsiz zaxira pog'ona.
+  - Narx savatdan uzoqlashib ketaverar, grid qo'shilmas, savat katta DD da qolib ketardi.
+- **Tuzatish (`EnableGridRescueGuarantee`).** Har bir yumshoq to'siq endi "yaxshiroq narxni kut" degani. "Hech qachon" degani emas:
+  - narx oxirgi orderdan **1.5** rejalashtirilgan qadam uzoqlashsa va qarshi harakat sekinlashsa, yumshoq to'siqlar chetlab o'tiladi. Sekinlashish belgilari:
+    - qarshi harakatning charchashi 30+;
+    - savat tomoniga sham chiqdi;
+    - M1/M5 bosimi endi qarshi emas;
+    - qarshi impuls kech.
+  - **2.5** qadam uzoqlashsa, yumshoq to'siqlar har holda chetlab o'tiladi.
+  - Kiradigan pog'ona oddiy pog'ona bo'ladi: masofa, lot va barcha qattiq tekshiruvlar o'z joyida.
+  - Pog'ona qo'yilgach, hisob yangi orderdan qayta boshlanadi. Bir harakatda faqat bitta qutqaruv pog'onasi qo'yiladi, ketma-ket qo'shilib ketmaydi.
+- **Qattiq to'siqlar o'zgarmadi:**
+  - savdo yoki muhit o'chiq;
+  - savat foyda trailing'ida;
+  - hisob, marja va ekspozitsiya chegaralari;
+  - grid chuqurligi byudjeti;
+  - maksimal order soni;
+  - hafta oxiri;
+  - tezlik sakrashi;
+  - rejalashtirilgan yangilik;
+  - miya g'oyasi o'lgan (BE da chiqish);
+  - IMKONSIZ chiqishi qurollangan.
+- **Panel (SAVAT bo'limi):** `Grid kutmoqda 14 daq · narx 1.2 qadam · <sabab> · qutqaruv 1.5 qadamda`. Kafolat ishga tushsa: `QUTQARUV: grid to'siqlari chetlab o'tiladi - 1.6 qadam + qarshi harakat charchash 42`.
+- **Jurnal:** `[SIRUS GRID RESCUE] ... - stepped over: <qaysi to'siqlar>`.
+- **Autopsiya:** yangi belgi **GRID MUZLADI** — grid savatni 30 daqiqa va undan ko'p ushlab turgan bo'lsa.
+
 ## Audit: 1–8 bosqich modullari
 
 Kompilyatsiya xatosi topilmadi: prototiplar, chaqiruv imzolari, havolalar, format qatorlari va massivlar tekshirildi. Yo'nalish belgilari ham to'g'ri. Tuzatilgan 7 ta kamchilik:

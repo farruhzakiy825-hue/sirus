@@ -24,10 +24,10 @@ input group "49b — AUTOPSIYA (reja 7-bosqich)"
 input bool   EnableAutopsy            = true;   // Har savat yakunida: MFE / MAE / ko'rsatish vaqti va (yomon tugagan bo'lsa) xato turi - jurnal, CSV va panel
 input bool   AutopsyToFile            = true;   // Sirus_Autopsy_<symbol>_<magic>.csv
 
-#define AU_TAGS 12
+#define AU_TAGS 13
 string   G_AU_TAG_UZ[AU_TAGS] = {"QARSHI LOCK", "KECH KIRISH", "OLINGAN LIKVIDLIK", "CHARCHASH E'TIBORSIZ", "QARSHI ZONA",
                                  "TRENDGA QARSHI", "NAZORAT QARSHI", "SPREAD/YANGILIK", "SOXTA SWEEP", "VAQT (to'g'ri edi)",
-                                 "NOTO'G'RI YO'NALISH", "ANIQLANMADI"};
+                                 "NOTO'G'RI YO'NALISH", "GRID MUZLADI", "ANIQLANMADI"};
 int      G_AU_TODAY[AU_TAGS];
 int      G_AU_BASKETS = 0;       // baskets ended today
 int      G_AU_BAD     = 0;       // of them not in profit (false positives)
@@ -118,6 +118,7 @@ string MBAutopsyTags(const int dir, const double mfe, const double tp, const int
    }
    hit[9] = (tp > 0.0 && mfe >= 0.5 * tp);
    hit[10] = !hit[9] && (exit_kind == RE_INVALID || exit_kind == RE_LOSS) && (tp > 0.0 && mfe < 0.2 * tp);
+   hit[11] = (G_PB_MAX_HOLD_MIN >= 30);   // the grid held this basket half an hour or more
    for(int i = 0; i < AU_TAGS - 1; i++)
    {
       if(!hit[i]) continue;

@@ -1669,6 +1669,79 @@ bool AccountModeAllowsTrading(string &reason)
    return false;
 }
 
+//=====================================================================
+// GRID RESCUE GUARANTEE (owner rule: the grid is the rescuer - it must not freeze)
+//---------------------------------------------------------------------
+// More than fifty places can refuse a rung, and many of them are "wait" checks with no way out: an
+// old pack filter, a cooldown, "candles against", "break-even behind a level", a reserve rung with no
+// response... While they wait, price keeps running away from the basket and the drawdown grows with
+// nothing averaging it. Now every SOFT refusal is a wait for a better price, not a refusal for ever:
+//   - price GridRescueSoftSteps planned steps past the last order and the move against the basket
+//     is slowing (its exhaustion pressure, a candle the basket's way, M1 pressure no longer against)
+//     -> the soft refusals are stepped over and the rung goes in at that better price;
+//   - GridRescueForceSteps steps past -> stepped over regardless.
+// HARD refusals are never stepped over: trading off / environment / operator, a basket in profit
+// trailing, the account / margin / exposure / affordability limits, max orders, weekend, a velocity
+// spike, scheduled news, the Market Brain's dead thesis (exit at break-even) and an armed IMPOSSIBLE
+// exit. The rung that goes in is the normal one (distance, lot and every hard check still apply).
+input bool   EnableGridRescueGuarantee = true;  // QUTQARUV KAFOLATI: yumshoq grid to'siqlari narx uzoqlashsa chetlab o'tiladi - grid muzlamaydi (qattiq xavfsizlik to'siqlari qoladi)
+input double GridRescueSoftSteps      = 1.5;    // Narx oxirgi orderdan shuncha rejalashtirilgan qadam uzoqlashsa VA qarshi harakat sekinlashsa - yumshoq to'siqlar chetlab o'tiladi
+input double GridRescueForceSteps     = 2.5;    // Shuncha qadam uzoqlashsa - yumshoq to'siqlar har holda chetlab o'tiladi
+
+bool     G_GRID_RESCUE_ON     = false;
+string   G_GRID_RESCUE_WHY    = "";
+string   G_GRID_OVERRIDDEN    = "";
+double   G_GRID_ADVERSE_STEPS = 0.0;
+datetime G_GRID_HOLD_SINCE    = 0;
+
+void GridRescueState()
+{
+   G_GRID_RESCUE_ON = false;
+   G_GRID_RESCUE_WHY = "";
+   G_GRID_OVERRIDDEN = "";
+   G_GRID_ADVERSE_STEPS = 0.0;
+   int orders = 0;
+   double vol = 0.0, avg = 0.0, profit = 0.0, last_price = 0.0, last_lot = 0.0;
+   long direction = -1;
+   datetime last_time = 0;
+   if(!GetSirusBasketStats(orders, vol, avg, profit, direction, last_price, last_lot, last_time))
+      return;
+   if(direction != POSITION_TYPE_BUY && direction != POSITION_TYPE_SELL)
+      return;
+   int dir = (direction == POSITION_TYPE_BUY) ? 1 : -1;
+   double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
+   double step = (G_NEXT_GRID_DISTANCE > 0.0) ? G_NEXT_GRID_DISTANCE : GridDistanceForNextOrder(EffectiveGridOrders(orders));
+   if(step <= 0.0 || last_price <= 0.0 || px <= 0.0 || _Point <= 0.0)
+      return;
+   G_GRID_ADVERSE_STEPS = dir * (last_price - px) / _Point / step;
+   if(!EnableGridRescueGuarantee)
+      return;
+   if(G_GRID_ADVERSE_STEPS >= GridRescueForceSteps)
+   {
+      G_GRID_RESCUE_ON = true;
+      G_GRID_RESCUE_WHY = StringFormat("%.1f qadam uzoqlashdi (majburiy)", G_GRID_ADVERSE_STEPS);
+   }
+   else if(G_GRID_ADVERSE_STEPS >= GridRescueSoftSteps)
+   {
+      string sw = "";
+      if(MBAdverseSlowing(dir, sw))
+      {
+         G_GRID_RESCUE_ON = true;
+         G_GRID_RESCUE_WHY = StringFormat("%.1f qadam + %s", G_GRID_ADVERSE_STEPS, sw);
+      }
+   }
+}
+
+// A soft refusal: true = hold (as before); false = stepped over by the rescue guarantee.
+bool GridSoftHold(string &reason, const string why)
+{
+   reason = why;
+   if(!G_GRID_RESCUE_ON)
+      return true;
+   G_GRID_OVERRIDDEN += (StringLen(G_GRID_OVERRIDDEN) > 0 ? " | " : "") + why;
+   return false;
+}
+
 bool GridCanOpen(string &reason)
 {
    // FIX(close-remnant-becomes-new-basket): a basket close that could not finish leaves live
@@ -1718,6 +1791,8 @@ bool GridCanOpen(string &reason)
       return false;
    }
 
+   GridRescueState();   // rescue guarantee: how far price has run from the last order
+
    string dpg_grid_reason = "";
    if(!DailyProfitGovernorAllowsRecovery(dpg_grid_reason))
    {
@@ -1754,74 +1829,44 @@ bool GridCanOpen(string &reason)
    }
 
    string legacy_reason = "";
-   if(!LegacyAllowsGrid(legacy_reason))
-   {
-      reason = legacy_reason;
+   if(!LegacyAllowsGrid(legacy_reason) && GridSoftHold(reason, legacy_reason))
       return false;
-   }
 
    string pack2_reason = "";
-   if(!Pack2RecoveryAllowsGrid(pack2_reason))
-   {
-      reason = pack2_reason;
+   if(!Pack2RecoveryAllowsGrid(pack2_reason) && GridSoftHold(reason, pack2_reason))
       return false;
-   }
 
    string pack3_reason = "";
-   if(!Pack3AllowsGrid(pack3_reason))
-   {
-      reason = pack3_reason;
+   if(!Pack3AllowsGrid(pack3_reason) && GridSoftHold(reason, pack3_reason))
       return false;
-   }
 
    string p4m_grid_reason = "";
-   if(!Pack4MiniAllowsGrid(p4m_grid_reason))
-   {
-      reason = p4m_grid_reason;
+   if(!Pack4MiniAllowsGrid(p4m_grid_reason) && GridSoftHold(reason, p4m_grid_reason))
       return false;
-   }
 
    string p4l_grid_reason = "";
-   if(!Pack4MiniLotAllowsGrid(p4l_grid_reason))
-   {
-      reason = p4l_grid_reason;
+   if(!Pack4MiniLotAllowsGrid(p4l_grid_reason) && GridSoftHold(reason, p4l_grid_reason))
       return false;
-   }
 
    string rcb_grid_reason = "";
-   if(!RCSettingsAllowsGrid(rcb_grid_reason))
-   {
-      reason = rcb_grid_reason;
+   if(!RCSettingsAllowsGrid(rcb_grid_reason) && GridSoftHold(reason, rcb_grid_reason))
       return false;
-   }
 
    string dcs_grid_reason = "";
-   if(!SmartClientSafetyAllowsGrid(dcs_grid_reason))
-   {
-      reason = dcs_grid_reason;
+   if(!SmartClientSafetyAllowsGrid(dcs_grid_reason) && GridSoftHold(reason, dcs_grid_reason))
       return false;
-   }
 
    string dlp_grid_reason = "";
-   if(!LegacyDeepParityAllowsGrid(dlp_grid_reason))
-   {
-      reason = dlp_grid_reason;
+   if(!LegacyDeepParityAllowsGrid(dlp_grid_reason) && GridSoftHold(reason, dlp_grid_reason))
       return false;
-   }
 
    string dbos_grid_reason = "";
-   if(!DeepBOSAllowsGrid(dbos_grid_reason))
-   {
-      reason = dbos_grid_reason;
+   if(!DeepBOSAllowsGrid(dbos_grid_reason) && GridSoftHold(reason, dbos_grid_reason))
       return false;
-   }
 
    string dtz_grid_reason = "";
-   if(!DeepTopZoneAllowsGrid(dtz_grid_reason))
-   {
-      reason = dtz_grid_reason;
+   if(!DeepTopZoneAllowsGrid(dtz_grid_reason) && GridSoftHold(reason, dtz_grid_reason))
       return false;
-   }
 
    string dnv_grid_reason = "";
    if(!DeepNewsVolatilityAllowsGrid(dnv_grid_reason))
@@ -1831,18 +1876,12 @@ bool GridCanOpen(string &reason)
    }
 
    string det_grid_reason = "";
-   if(!AdaptiveEntryTimingAllowsGrid(det_grid_reason))
-   {
-      reason = det_grid_reason;
+   if(!AdaptiveEntryTimingAllowsGrid(det_grid_reason) && GridSoftHold(reason, det_grid_reason))
       return false;
-   }
 
    string dri_grid_reason = "";
-   if(!AdaptiveRecoveryAllowsGrid(dri_grid_reason))
-   {
-      reason = dri_grid_reason;
+   if(!AdaptiveRecoveryAllowsGrid(dri_grid_reason) && GridSoftHold(reason, dri_grid_reason))
       return false;
-   }
 
    string weekend_grid_reason = "";
    if(!WeekendGuardAllowsGrid(weekend_grid_reason))  // V30.4
@@ -1866,11 +1905,8 @@ bool GridCanOpen(string &reason)
    }
 
    string drt_grid_reason = "";
-   if(!MarketRegimeAutoTuneAllowsGrid(drt_grid_reason))
-   {
-      reason = drt_grid_reason;
+   if(!MarketRegimeAutoTuneAllowsGrid(drt_grid_reason) && GridSoftHold(reason, drt_grid_reason))
       return false;
-   }
 
    int orders = 0;
    double vol = 0.0;
@@ -1917,11 +1953,9 @@ bool GridCanOpen(string &reason)
    }
 
    int bars_since = G_BARS_SEEN - G_LAST_GRID_BAR;
-   if(G_LAST_GRID_BAR > -9999 && GridCooldownBars > 0 && bars_since < GridCooldownBars)
-   {
-      reason = StringFormat("grid cooldown bars %d/%d", bars_since, GridCooldownBars);
+   if(G_LAST_GRID_BAR > -9999 && GridCooldownBars > 0 && bars_since < GridCooldownBars &&
+      GridSoftHold(reason, StringFormat("grid cooldown bars %d/%d", bars_since, GridCooldownBars)))
       return false;
-   }
 
    int sec_since = (G_LAST_GRID_TIME <= 0 ? 999999 : (int)(TimeCurrent() - G_LAST_GRID_TIME));
    if(GridMinSecondsBetweenOrders > 0 && sec_since < GridMinSecondsBetweenOrders)
@@ -1930,11 +1964,8 @@ bool GridCanOpen(string &reason)
       return false;
    }
 
-   if(GridBlockFreshImpulse && G_MARKET_STATE == MARKET_IMPULSE)
-   {
-      reason = "fresh impulse risk";
+   if(GridBlockFreshImpulse && G_MARKET_STATE == MARKET_IMPULSE && GridSoftHold(reason, "fresh impulse risk"))
       return false;
-   }
 
    // V29 new: stay cautious for a few bars AFTER the impulse bar too, not just during it.
    // Trend-aligned impulses (possible acceleration) get a longer cooldown than corrections
@@ -1944,13 +1975,10 @@ bool GridCanOpen(string &reason)
       int bars_since_impulse = G_BARS_SEEN - G_LAST_IMPULSE_BAR;
       int cooldown_needed = G_LAST_IMPULSE_TREND_ALIGNED ? ImpulseCooldownBarsTrend : ImpulseCooldownBarsCorrection;
 
-      if(bars_since_impulse < cooldown_needed)
-      {
-         reason = StringFormat("impulse cooldown %d/%d bars (%s)",
-                               bars_since_impulse, cooldown_needed,
-                               G_LAST_IMPULSE_TREND_ALIGNED ? "trend-aligned" : "correction");
+      if(bars_since_impulse < cooldown_needed &&
+         GridSoftHold(reason, StringFormat("impulse cooldown %d/%d bars (%s)", bars_since_impulse, cooldown_needed,
+                                           G_LAST_IMPULSE_TREND_ALIGNED ? "trend-aligned" : "correction")))
          return false;
-      }
    }
 
    bool szr_active = false;
@@ -1978,11 +2006,8 @@ bool GridCanOpen(string &reason)
          if((SZRPrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31.6 SMART ZONE RECOVERY] trend-block overridden once: %s", szr_why);
       }
-      else
-      {
-         reason = auto_grid_safety_reason + (StringLen(szr_why) > 0 ? " | " + szr_why : "");
+      else if(GridSoftHold(reason, auto_grid_safety_reason + (StringLen(szr_why) > 0 ? " | " + szr_why : "")))
          return false;
-      }
    }
    else
       G_SZR_BLOCK_PREV = false;
@@ -2107,12 +2132,9 @@ bool GridCanOpen(string &reason)
       int sc_n = 0;
       double sc_proj = (sc_dir != 0) ? ScenarioProjection(sc_dir, sc_n) : 0.0;
 
-      if(sc_n >= ScenarioMinSamples && sc_proj > 0.0 && sc_proj < ScenGridMinATR)
-      {
-         reason = StringFormat("holding - reactions here average %.1f ATR, needs %.1f",
-                               sc_proj, ScenGridMinATR);
+      if(sc_n >= ScenarioMinSamples && sc_proj > 0.0 && sc_proj < ScenGridMinATR &&
+         GridSoftHold(reason, StringFormat("holding - reactions here average %.1f ATR, needs %.1f", sc_proj, ScenGridMinATR)))
          return false;
-      }
    }
 
    // S-FIX: through the owner, so the calendar and the live read cannot disagree here. A scheduled
@@ -2155,12 +2177,9 @@ bool GridCanOpen(string &reason)
    if(EnableBasketThesis && G_BASKET_ORDERS > 0)
    {
       string th_detail = "";
-      if(BasketPremiseDead(th_detail))
-      {
-         reason = StringFormat("holding - %s; no more size on a thesis that has already failed",
-                               th_detail);
+      if(BasketPremiseDead(th_detail) &&
+         GridSoftHold(reason, StringFormat("holding - %s; no more size on a thesis that has already failed", th_detail)))
          return false;
-      }
    }
 
    // V228: is this still the market the basket was opened in? A basket built in London and still
@@ -2173,9 +2192,8 @@ bool GridCanOpen(string &reason)
       double stale = BasketStaleness(st_detail);
       G_BASKET_STALENESS = stale;
 
-      if(stale >= BasketStaleBlockLevel)
+      if(stale >= BasketStaleBlockLevel && GridSoftHold(reason, StringFormat("holding - %s", st_detail)))
       {
-         reason = StringFormat("holding - %s", st_detail);
          if((BasketStalePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v228 STALE] %s", st_detail);
          return false;
@@ -2221,7 +2239,7 @@ bool GridCanOpen(string &reason)
                                                             : (gch_ask - last_price) / _Point;
       double gch_release = distance * (1.0 + MathMax(0.0, GridCautionExtraDistFraction));
       int    gch_held = G_BARS_SEEN - G_GCH_START_BAR;
-      if(gch_held < MathMax(0, GridCautionMaxHoldBars) && gch_adverse < gch_release)
+      if(gch_held < MathMax(0, GridCautionMaxHoldBars) && gch_adverse < gch_release && !G_GRID_RESCUE_ON)
       {
          reason = StringFormat("holding rung - cautions cut lot to x%.2f of target (below floor) | %d/%d bars | %.0f/%.0f pts",
                                G_GRID_LOT_SOFT_FACTOR, gch_held, GridCautionMaxHoldBars, gch_adverse, gch_release);
@@ -2324,7 +2342,7 @@ bool GridCanOpen(string &reason)
                gz_waited = 0;
             }
 
-            if(gz_waited < MathMax(1, GridZoneWaitMaxBars))
+            if(gz_waited < MathMax(1, GridZoneWaitMaxBars) && !G_GRID_RESCUE_ON)
             {
                reason = StringFormat("waiting - %s; adding here commits size at a price with no defined level",
                                      gz_detail);
@@ -2382,9 +2400,8 @@ bool GridCanOpen(string &reason)
    if(!szr_active)
    {
       string gi_reason = "";
-      if(!GridIntelligenceAllowsGrid(direction, orders, gi_reason))
+      if(!GridIntelligenceAllowsGrid(direction, orders, gi_reason) && GridSoftHold(reason, gi_reason))
       {
-         reason = gi_reason;
          if((GridIntelligencePrintOnUse && VerboseLogs))
             PrintFormat("[SIRUS v31.6m GRID INTELLIGENCE BLOCK] %s", gi_reason);
          return false;
@@ -2400,6 +2417,8 @@ bool GridCanOpen(string &reason)
       return false;
    }
 
+   if(StringLen(G_GRID_OVERRIDDEN) > 0 && VerboseLogs)
+      PrintFormat("[SIRUS GRID RESCUE] %s - stepped over: %s", G_GRID_RESCUE_WHY, G_GRID_OVERRIDDEN);
    reason = StringFormat("grid ready%s | profile=%s | orders=%d/%d | distance=%.0f | lot=%.2f | DD=%.2f/%.2f%%",
                          (szr_active ? " (SMART ZONE RECOVERY)" : ""),
                          AutoGridProfileText(),
@@ -2654,6 +2673,14 @@ void UpdateGridRecoveryEngine(const string source)
 
    string reason = "";
    bool can_grid = GridCanOpen(reason);
+
+   // Rescue guarantee telemetry: how long the grid has been HOLDING (not merely waiting for distance).
+   if(!can_grid && StringFind(reason, "waiting distance") != 0)
+   {
+      if(G_GRID_HOLD_SINCE == 0) G_GRID_HOLD_SINCE = TimeCurrent();
+   }
+   else
+      G_GRID_HOLD_SINCE = 0;
 
    if(!can_grid)
    {

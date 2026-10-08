@@ -76,6 +76,7 @@ bool     G_MB_PB_LOCAL       = false; // opened against the global bias (a local
 double   G_PB_MFE            = 0.0;   // plan stage 5: best basket points so far
 double   G_PB_MAE            = 0.0;   // plan stage 7: worst basket points so far
 datetime G_PB_T_SHOW         = 0;     // plan stage 7: when the basket first showed ExpectTPShare of its TP
+int      G_PB_MAX_HOLD_MIN   = 0;     // grid rescue: the longest the grid held this basket (minutes)
 bool     G_PB_EXP_FAIL       = false; // the basket did not do what it was opened for, and the tape turned
 string   G_PB_EXP_WHY        = "";
 datetime G_MB_PB_WAIT_SINCE  = 0;
@@ -647,6 +648,7 @@ void MBPositionBrainUpdate()
       G_PB_MFE = 0.0;
       G_PB_MAE = 0.0;
       G_PB_T_SHOW = 0;
+      G_PB_MAX_HOLD_MIN = 0;
       G_PB_EXP_FAIL = false;
       G_PB_EXP_WHY = "";
       G_MB_PB_BASKET = 0;
@@ -674,6 +676,7 @@ void MBPositionBrainUpdate()
       G_PB_MFE = 0.0;
       G_PB_MAE = 0.0;
       G_PB_T_SHOW = 0;
+      G_PB_MAX_HOLD_MIN = 0;
       G_PB_EXP_FAIL = false;
       G_PB_EXP_WHY = "";
       G_MB_PB_BASKET = opened;
@@ -690,6 +693,8 @@ void MBPositionBrainUpdate()
 
    G_PB_MFE = MathMax(G_PB_MFE, G_BASKET_POINTS);   // plan stage 5: the basket's best moment
    G_PB_MAE = MathMin(G_PB_MAE, G_BASKET_POINTS);   // plan stage 7: and its worst
+   if(G_GRID_HOLD_SINCE > 0)
+      G_PB_MAX_HOLD_MIN = MathMax(G_PB_MAX_HOLD_MIN, (int)((TimeCurrent() - G_GRID_HOLD_SINCE) / 60));
 
    // SPEED: death and rescue read events and the thesis, which change once per M1 bar.
    datetime pb_bar = iTime(_Symbol, PERIOD_M1, 0);
@@ -779,6 +784,41 @@ void MBExpectationEvaluate(const int dir, const datetime opened)
    G_PB_EXP_WHY = fail ? StringFormat("%d min, best +%.0f/%.0f, %s", mins, G_PB_MFE, tp, against) : "";
 }
 
+// Rescue guarantee: is the move against a basket in dir slowing? (any one sign is enough)
+bool MBAdverseSlowing(const int dir, string &why)
+{
+   why = "";
+   if(!EnableMarketBrainEngines)
+   {
+      why = "miya o'chiq";
+      return true;
+   }
+   int xp = MBExhaustPressure(-dir);
+   if(xp >= 30)
+   {
+      why = StringFormat("qarshi harakat charchash %d", xp);
+      return true;
+   }
+   int it = G_MB_LAST[0].intent;
+   if(G_MB_LIVE_DIR == dir ||
+      (G_MB_LAST[0].dir == dir && (it == MB_CI_REJECTION || it == MB_CI_DISPLACEMENT || it == MB_CI_LIQ_GRAB || it == MB_CI_ABSORPTION)))
+   {
+      why = "savat tomoniga sham";
+      return true;
+   }
+   if(MBPressureSide(0) != -dir && MBPressureSide(1) != -dir)
+   {
+      why = "M1/M5 bosimi endi qarshi emas";
+      return true;
+   }
+   if(MBAdverseSpent(dir))
+   {
+      why = "qarshi impuls kech";
+      return true;
+   }
+   return false;
+}
+
 // Grid gate. true = the addition may go now.
 bool MBGridAllows(const int dir, const int orders, string &reason)
 {
@@ -789,6 +829,20 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
    {
       reason = "holding - basket thesis dead (" + G_MB_PB_DEAD_WHY + "); waiting for break-even or a new thesis";
       return false;
+   }
+   if(EnableRecoveryJudge && G_MB_RC_ARMED)
+   {
+      reason = "holding - smart exit armed, waiting for the exit bounce";
+      return false;
+   }
+   // RESCUE GUARANTEE (13_Grid_Engine): price has run far enough from the last order (and, below the
+   // forced distance, the move against the basket is slowing) - every soft hold below is stepped over.
+   // The two above are the owner's hard rules and stay.
+   if(G_GRID_RESCUE_ON)
+   {
+      G_GRID_OVERRIDDEN += (StringLen(G_GRID_OVERRIDDEN) > 0 ? " | " : "") + "market brain holds";
+      G_MB_PB_WAIT_ORDERS = -1;
+      return true;
    }
    // Stage 16 (A7): the thesis is threatened - no averaging until the candles side with it again.
    if(G_MB_TH_THREAT && G_MB_TH_DIR == dir)

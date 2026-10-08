@@ -843,6 +843,20 @@ void MBDrawPanel()
          ObjectDelete(0, MB_VIS_PREFIX + "K6");
       MBPanelLine("K4", StringFormat("Keyingi grid: %.0f pt narida, lot %.2f", G_NEXT_GRID_DISTANCE, G_NEXT_GRID_LOT),
                   muted, false, x0, w, lh);
+      // Rescue guarantee: why the grid is holding, for how long, and how far price has run.
+      if(G_GRID_HOLD_SINCE > 0)
+      {
+         string gr = G_GRID_REASON;
+         if(StringFind(gr, "holding - ") == 0) gr = StringSubstr(gr, 10);
+         MBPanelLine("K8", StringFormat("Grid kutmoqda %d daq · narx %.1f qadam · %s%s", (int)((TimeCurrent() - G_GRID_HOLD_SINCE) / 60),
+                                        G_GRID_ADVERSE_STEPS, gr,
+                                        (G_GRID_RESCUE_ON ? "" : StringFormat(" · qutqaruv %.1f qadamda", GridRescueSoftSteps))),
+                     (G_GRID_ADVERSE_STEPS >= GridRescueSoftSteps ? MBVisAmber() : muted), false, x0, w, lh);
+      }
+      else if(G_GRID_RESCUE_ON)
+         MBPanelLine("K8", "QUTQARUV: grid to'siqlari chetlab o'tiladi - " + G_GRID_RESCUE_WHY, MBVisAmber(), false, x0, w, lh);
+      else
+         ObjectDelete(0, MB_VIS_PREFIX + "K8");
       string rc = MBRecoveryText();
       if(StringLen(rc) > 0)
          MBPanelLine("K5", rc, (G_MB_RC_STATE == MB_RC_IMPOSSIBLE ? MBVisRed() : (G_MB_RC_STATE == MB_RC_DOUBTFUL ? MBVisAmber() : muted)),
@@ -865,6 +879,7 @@ void MBDrawPanel()
    else
    {
       ObjectDelete(0, MB_VIS_PREFIX + "K7");
+      ObjectDelete(0, MB_VIS_PREFIX + "K8");
       MBPanelLine("K1", "Savat bo'sh - keyingi o'lja poylanmoqda", muted, false, x0, w, lh);
       ObjectDelete(0, MB_VIS_PREFIX + "K2");
       ObjectDelete(0, MB_VIS_PREFIX + "K3");
