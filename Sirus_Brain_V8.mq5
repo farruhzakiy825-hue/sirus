@@ -49,6 +49,7 @@
 #include "Sirus/24_Position_Brain.mqh"   // Market Brain G: smart grid, thesis monitor, break-even exit
 #include "Sirus/25_Visual_Design.mqh"    // Watermark and the Sirus panel (card dashboard)
 #include "Sirus/26_Measure.mqh"          // Stage 12: profiler + shadow ledger
+#include "Sirus/26b_Autopsy.mqh"         // Plan stage 7: trade memory, bad-entry autopsy, bad-taken vs good-missed balance
 #include "Sirus/90_Reason_Code.mqh"      // Reason Code (always last): why every order was opened (journal + CSV)
 
 //==================================================================//

@@ -1,5 +1,44 @@
 # CHANGELOG — Sirus Brain V8
 
+## Katta reja — 7-bosqich: diagnostika — savdo xotirasi, autopsiya, balans
+
+Yangi modul: `Sirus/26b_Autopsy.mqh`.
+
+- **Kirishdagi suratga olish.** Har birinchi kirishda barcha qatlamlarning o'sha paytdagi holati eslab qolinadi:
+  - kirish turi;
+  - oyoqning o'tilgan foizi;
+  - charchash;
+  - olingan likvidlik;
+  - LOCK;
+  - burilish bosqichi;
+  - bias;
+  - nazorat;
+  - oldindagi joy va kerakli harakat;
+  - spread va odatiy spread;
+  - yangilik.
+- **Savdo xotirasi.** Har savat uchun yoziladi:
+  - eng yaxshi nuqta (MFE);
+  - eng yomon nuqta (MAE);
+  - TP ning 35% iga yetish vaqti.
+- **Autopsiya.** Foydada tugamagan yoki yo'lda TP hajmida minusga kirgan savat ochib ko'riladi. Xato turi eng muhimidan boshlab belgilanadi:
+  1. QARSHI LOCK
+  2. KECH KIRISH
+  3. OLINGAN LIKVIDLIK
+  4. CHARCHASH E'TIBORSIZ
+  5. QARSHI ZONA
+  6. TRENDGA QARSHI
+  7. NAZORAT QARSHI
+  8. SPREAD/YANGILIK
+  9. SOXTA SWEEP
+  10. VAQT (to'g'ri edi)
+  11. NOTO'G'RI YO'NALISH
+  12. ANIQLANMADI
+- **Natijalar qayerga yoziladi:**
+  - jurnal: `[SIRUS AUTOPSY]`;
+  - har savat uchun bitta CSV qator: `Sirus_Autopsy_<symbol>_<magic>.csv`;
+  - kun yakunida bitta qator: `[SIRUS AUTOPSY DAY]`.
+- **Balans (panel).** `Balans: noto'g'ri ochilgan 3/12 (25%) · o'tkazilgan yaxshi 18/29 · eng ko'p xato: KECH KIRISH ×2`. Noto'g'ri ochilganlarni kamaytirib, yaxshilarini o'tkazib yubormaslik uchun ikkalasi yonma-yon ko'rinadi.
+
 ## Katta reja — 6-bosqich: cashback iqtisodi
 
 Yangi modul: `Sirus/20e_Cost_Edge.mqh`.

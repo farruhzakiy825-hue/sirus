@@ -704,7 +704,7 @@ Manba: egasining 3 kunlik kuzatuvi (4157.88 BUY, 4081.173 SELL, 4142 SELL, 4070 
 | 4 | Mikro yo'nalish (burilish turlari, kim boshqaryapti) va qayta kirish (chiqish sababi, urinishlar soni, nima o'zgardi) | 31, 32, 60 | **bajarildi** (`20d_Micro_Reentry.mqh`) |
 | 5 | Savdo ichida: kutilgan va haqiqiy harakat, grid javobgarligi | 56–58 | **bajarildi** (`24_Position_Brain.mqh`) |
 | 6 | Cashback iqtisodi: sof foyda, spread xotirasi | 61–63 | **bajarildi** (`20e_Cost_Edge.mqh`) |
-| 7 | Diagnostika: MFE/MAE, xato tasnifi, noto'g'ri ochilgan va o'tkazib yuborilgan savdolar balansi | 65–68 | |
+| 7 | Diagnostika: MFE/MAE, xato tasnifi, noto'g'ri ochilgan va o'tkazib yuborilgan savdolar balansi | 65–68 | **bajarildi** (`26b_Autopsy.mqh`) |
 | 8 | Ixtiyoriy: to'liq bozor holati, hikoya, ssenariylar, moslashuvchan vaznlar, g'ayritabiiy bozor | 34–36, 50, 69, 70 | |
 
 **Qat'iy qoidalar:**

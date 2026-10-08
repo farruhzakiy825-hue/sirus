@@ -74,6 +74,8 @@ datetime G_MB_PB_CHECK_BAR   = 0;   // M1 bar of the last death / rescue check
 datetime G_MB_PB_WAIT_LAST   = 0;   // last time the grid asked for this rung
 bool     G_MB_PB_LOCAL       = false; // opened against the global bias (a local leg)
 double   G_PB_MFE            = 0.0;   // plan stage 5: best basket points so far
+double   G_PB_MAE            = 0.0;   // plan stage 7: worst basket points so far
+datetime G_PB_T_SHOW         = 0;     // plan stage 7: when the basket first showed ExpectTPShare of its TP
 bool     G_PB_EXP_FAIL       = false; // the basket did not do what it was opened for, and the tape turned
 string   G_PB_EXP_WHY        = "";
 datetime G_MB_PB_WAIT_SINCE  = 0;
@@ -612,6 +614,7 @@ void MBPBCloseBookkeeping()
    G_MB_LAST_CLOSE_WIN = (res > 0.0);
    G_MB_LAST_CLOSE_TIME = TimeCurrent();
    MBReExitRecord(G_MB_PB_DIR, res);         // plan stage 4: exit kind + failed attempts per thesis
+   MBAutopsyOnClose(G_MB_PB_DIR, res, G_PB_MFE, G_PB_MAE, G_MB_PB_BASKET, G_PB_T_SHOW);   // plan stage 7
    MBMemoryOnBasketClosed(G_MB_PB_BASKET);   // Memory (phase 8): write the result next to the Entry DNA
    if(G_MB_PB_LOCAL)
       MBLocalRecord(res > 0.0);              // local record: auto-tune + loss pause
@@ -642,6 +645,8 @@ void MBPositionBrainUpdate()
       MBRecoveryReset();
       MBRunnerReset();
       G_PB_MFE = 0.0;
+      G_PB_MAE = 0.0;
+      G_PB_T_SHOW = 0;
       G_PB_EXP_FAIL = false;
       G_PB_EXP_WHY = "";
       G_MB_PB_BASKET = 0;
@@ -667,6 +672,8 @@ void MBPositionBrainUpdate()
       G_MB_PB_LOCAL = (dir * G_MB_BIAS < 0);
       MBRunnerReset();
       G_PB_MFE = 0.0;
+      G_PB_MAE = 0.0;
+      G_PB_T_SHOW = 0;
       G_PB_EXP_FAIL = false;
       G_PB_EXP_WHY = "";
       G_MB_PB_BASKET = opened;
@@ -682,6 +689,7 @@ void MBPositionBrainUpdate()
    }
 
    G_PB_MFE = MathMax(G_PB_MFE, G_BASKET_POINTS);   // plan stage 5: the basket's best moment
+   G_PB_MAE = MathMin(G_PB_MAE, G_BASKET_POINTS);   // plan stage 7: and its worst
 
    // SPEED: death and rescue read events and the thesis, which change once per M1 bar.
    datetime pb_bar = iTime(_Symbol, PERIOD_M1, 0);
@@ -753,6 +761,8 @@ void MBExpectationEvaluate(const int dir, const datetime opened)
    }
    int mins = (int)((TimeCurrent() - opened) / 60);
    double tp = BasketTPForOrderCount(MathMax(1, G_BASKET_ORDERS));
+   if(G_PB_T_SHOW == 0 && tp > 0.0 && G_PB_MFE >= ExpectTPShare * tp)
+      G_PB_T_SHOW = TimeCurrent();   // plan stage 7: time to show
    bool slow = (mins >= MathMax(1, ExpectMinutes) && tp > 0.0 && G_PB_MFE < ExpectTPShare * tp);
    string against = "";
    if(EnableMicroControl && MBControlOf(dir) <= 35)

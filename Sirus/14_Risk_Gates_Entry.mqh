@@ -5115,6 +5115,7 @@ void UpdateFirstEntryEngine(const string source)
       ReasonCodeEntry("FIRST", order_type, lot, G_TRADE.ResultPrice(), G_LAST_ENTRY_TICKET);
       MBMemoryOnEntry((order_type == ORDER_TYPE_BUY ? 1 : -1), G_TRADE.ResultPrice());
       MBFastEntryFilled();
+      MBAutopsyOnEntry(order_type == ORDER_TYPE_BUY ? 1 : -1);   // plan stage 7: snapshot of every layer at entry
       MBShadowOnEntry((order_type == ORDER_TYPE_BUY ? 1 : -1), G_TRADE.ResultPrice());
       if(EnableSlippageTracking)
       {
