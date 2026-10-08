@@ -1,5 +1,21 @@
 # CHANGELOG — Sirus Brain V8
 
+## Yangi M15/H1 buzilishiga qarshi kirish yo'q (08-Oct 22:20 BRAIN HANDOFF SELL 4135.106)
+
+- **Holat.**
+  - 22:05–22:13 da narx M15 dagi past cho'qqini (4134.85) yuqoriga buzdi. M15 bari 22:15 da yopilgach MSS yuqoriga yozildi.
+  - Bias, global tezis va LOCK bir necha daqiqa kechikdi: bias 2 bar tasdiq kutadi, lock M5 bar yopilishida yoqiladi.
+  - Shu oraliqda BRAIN HANDOFF "trendga qarshi qaytishning tepasi" deb 4135.1 da SELL ochdi. Bu breakout retestini sotish edi.
+- **Kengash qoidasi 1f.**
+  - M15 yoki H1 da oxirgi 60 daqiqada yopilgan, muvaffaqiyatsiz bo'lmagan va hali ushlab turgan BOS/MSS bo'lsa, teskari kirish to'siladi. "Ushlab turgan" degani: oxirgi yopilgan M5 hali buzilish tomonida.
+  - Qoida uch holatda yechiladi:
+    - M5 daraja orqasiga qaytib yopilsa;
+    - buzilish muvaffaqiyatsiz chiqsa;
+    - burilish MSS bosqichiga (3/6) yetsa.
+  - **Jonli qism:** M15 bari hali yopilmagan bo'lsa ham, M15 tuzilmasi bir tomonga qarab turgan, lekin M5 uning himoyalangan swingi orqasida yopilgan bo'lsa, tuzilma buzilgan hisoblanadi.
+  - Barcha kirishlarga tegishli, chunki ular kengashdan o'tadi: HANDOFF, TREND, PULLBACK, FAST RE-ENTRY, SECOND-CHANCE va detektorlar. Ularning hammasi kechikadigan bias yoki tezisga tayanadi.
+  - Sozlamalar: `EnableCouncilFreshBreak`, `CouncilFreshBreakMinutes` = 60.
+
 ## Tuzilma birinchi: M5 tuzilmasi buzilmaguncha unga qarshi sham "pullback" (08-Oct 18:56 va 19:53 dagi SELL'lar)
 
 - **Holat.**

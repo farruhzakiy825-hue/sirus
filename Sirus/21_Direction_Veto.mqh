@@ -62,6 +62,8 @@ input int    CouncilWeakGlobalConf    = 50;   // Council weak global confidence
 input bool   EnableCouncilM5Structure = true;   // Against an intact M5 structure: closed M5 turn + far part of the leg
 input double CouncilM5StructLegPos    = 0.5;   // Far part of the leg: from this share of the M5 leg (0..1)
 // EnableCouncilM5Turn: Lokal oyoq va M5 bosimi qarshi bo'lsa - faqat yopilgan M5 burilish shami (bitta M1 shami burilish emas)
+input bool   EnableCouncilFreshBreak  = true;   // No entry against a fresh M15 / H1 break still holding
+input int    CouncilFreshBreakMinutes = 60;   // Fresh break window (minutes after the break bar closed)
 input bool   EnableCouncilM5Turn      = true;   // Local leg + M5 pressure against: needs a closed M5 turn
 input double CouncilZoneATR5          = 0.35;   // Council zone ATR 5
 // MBPermExceptionMargin: V0: zaif qarama-qarshi bias'da faqat reversal setup va ball >= minimum + shu
@@ -307,6 +309,63 @@ bool MBTrendUnderAttack(const int dir, string &why)
    return false;
 }
 
+// FRESH HTF BREAK: an M15 / H1 BOS or MSS against dir that closed within CouncilFreshBreakMinutes, did
+// not fail (MBBreakFailed) and is still holding - the last closed M5 is still beyond the broken level.
+// 08-Oct 22:20: M15 broke up through its lower high 4134.85 at 22:15, the bias and the lock were still
+// catching up, and a BRAIN HANDOFF sold the retest of that breakout at 4135.1.
+bool MBFreshBreakAgainst(const int dir, string &why)
+{
+   why = "";
+   if(dir == 0)
+      return false;
+   double c5 = iClose(_Symbol, PERIOD_M5, 1);
+   double atr5 = G_MB_ATR[1] * _Point;
+   if(c5 <= 0.0)
+      return false;
+   int found = -1;
+   for(int idx = 0; idx < MB_EV_MAX; idx++)
+   {
+      int tfi = G_MB_EV[idx].tfi;
+      if(G_MB_EV[idx].time <= 0 || (tfi != 2 && tfi != 3) || G_MB_EV[idx].dir != -dir)
+         continue;
+      if(G_MB_EV[idx].type != MB_EV_BOS && G_MB_EV[idx].type != MB_EV_MSS)
+         continue;
+      datetime closed = G_MB_EV[idx].time + PeriodSeconds(MBEventTF(tfi));
+      if(TimeCurrent() - closed > (long)MathMax(1, CouncilFreshBreakMinutes) * 60)
+         continue;
+      double lvl = G_MB_EV[idx].level;
+      // Holding: the last closed M5 is still on the break side (a close back through by 0.1 ATR(M5) = reclaimed).
+      if(-dir * (c5 - lvl) < -0.1 * atr5)
+         continue;
+      if(MBBreakFailed(idx))
+         continue;
+      if(found < 0 || G_MB_EV[idx].time > G_MB_EV[found].time)
+         found = idx;
+   }
+   if(found < 0)
+   {
+      // Live, before the M15 bar has closed: the M15 structure still reads dir, but the last closed M5
+      // is already beyond the swing its last break came from (the lower high of a down structure) - the
+      // structure the entry leans on is broken; the event only arrives at the M15 close.
+      if(MBSign(G_MB_TF_STATE[2]) == dir && atr5 > 0.0)
+      {
+         double prot = (dir < 0) ? G_ST_PROT_HI[2] : G_ST_PROT_LO[2];
+         if(prot > 0.0 && -dir * (c5 - prot) > 0.1 * atr5)
+         {
+            why = StringFormat("M15 %s structure broken live - M5 closed beyond its protected %s %s",
+                               (dir > 0 ? "bullish" : "bearish"), (dir > 0 ? "low" : "high"), DoubleToString(prot, _Digits));
+            return true;
+         }
+      }
+      return false;
+   }
+   why = StringFormat("%s %s %s @ %s %d min ago, still holding", MBTFName(G_MB_EV[found].tfi),
+                      (G_MB_EV[found].type == MB_EV_MSS ? "MSS" : "BOS"), (dir > 0 ? "bearish" : "bullish"),
+                      DoubleToString(G_MB_EV[found].level, _Digits),
+                      (int)((TimeCurrent() - G_MB_EV[found].time - PeriodSeconds(MBEventTF(G_MB_EV[found].tfi))) / 60));
+   return true;
+}
+
 bool MBCouncilEval(const int dir, string &why, string &uz)
 {
    why = "";
@@ -323,6 +382,20 @@ bool MBCouncilEval(const int dir, string &why, string &uz)
       {
          why = "council: local leg, M5 and M15 candles all the other way";
          uz = "lokal + M5 + M15 qarshi";
+         return true;
+      }
+   }
+   // 1f. FRESH HTF BREAK: no entry against an M15 / H1 break that just closed and still holds - the bias,
+   //     the thesis and the lock lag it by minutes, and every candidate built on them (HANDOFF, TREND,
+   //     PULLBACK, FAST RE-ENTRY, SECOND-CHANCE, the detectors) would sell the retest of a breakout. It
+   //     lifts when an M5 close takes the level back, the break fails, or a reversal reaches its MSS.
+   if(EnableCouncilFreshBreak && MBStructStageFor(dir) < 3)
+   {
+      string fw = "";
+      if(MBFreshBreakAgainst(dir, fw))
+      {
+         why = "council: fresh higher-timeframe break against it - " + fw;
+         uz = "yangi M15/H1 buzilishi qarshi";
          return true;
       }
    }
