@@ -1,5 +1,25 @@
 # CHANGELOG — Sirus Brain V8
 
+## Grid: tasdiqsiz pog'ona yo'q (egasi qoidasi)
+
+- **Tuzatildi.** Tasdiqsiz grid qo'shadigan ikki joy bor edi:
+  1. qutqaruv kafolatida 2.5 qadamdan keyin pog'ona majburan qo'shilardi;
+  2. eski koddagi qoida: oddiy dolivkada sham javobi 15 daqiqa kelmasa, pog'ona baribir qo'shilardi.
+- **Endi:** grid hech qachon tasdiqsiz qo'shmaydi. Kutish faqat tasdiq talabini pasaytiradi, bekor qilmaydi:
+
+| Holat | Tasdiq |
+|---|---|
+| Oddiy dolivka | Zonada sham javobi |
+| 15 daqiqa javob kelmasa | Qarshi harakat **to'xtagan** bo'lishi kerak |
+| Qutqaruv, 1.5 qadam | Qarshi harakat **sekinlashgan** |
+| Qutqaruv, 2.5 qadam | Sekinlashgan **yoki** to'xtagan |
+
+- "To'xtagan" deganda uch shart birga tushuniladi:
+  - hozir qarshi tomonga displacement yo'q;
+  - oxirgi M1 shami qarshi displacement, davom etish yoki breakout emas;
+  - oxirgi M1 yangi ekstremum qilmadi.
+- Odatda bu bir necha daqiqada keladi, shuning uchun grid muzlamaydi va impuls ichiga ham kirmaydi.
+
 ## Grid: qutqaruv kafolati — grid muzlab qolmaydi
 
 - **Muammo.**

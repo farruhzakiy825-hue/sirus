@@ -784,6 +784,27 @@ void MBExpectationEvaluate(const int dir, const datetime opened)
    G_PB_EXP_WHY = fail ? StringFormat("%d min, best +%.0f/%.0f, %s", mins, G_PB_MFE, tp, against) : "";
 }
 
+// The minimum confirmation for a rung: the move against the basket has at least PAUSED - no live
+// displacement against, the last closed M1 bar is not a displacement / continuation / breakout against,
+// and it made no new extreme beyond the bar before it. Normally comes within minutes.
+bool MBGridPauseConfirm(const int dir, string &why)
+{
+   why = "";
+   if(dir == 0)
+      return false;
+   if(G_MB_LIVE_DIR == -dir)
+      return false;
+   int it = G_MB_LAST[0].intent;
+   if(G_MB_LAST[0].dir == -dir && (it == MB_CI_DISPLACEMENT || it == MB_CI_CONTINUATION || it == MB_CI_BREAKOUT))
+      return false;
+   double e1 = (dir > 0) ? iLow(_Symbol, PERIOD_M1, 1) : iHigh(_Symbol, PERIOD_M1, 1);
+   double e2 = (dir > 0) ? iLow(_Symbol, PERIOD_M1, 2) : iHigh(_Symbol, PERIOD_M1, 2);
+   if(e1 <= 0.0 || e2 <= 0.0 || dir * (e1 - e2) < 0.0)
+      return false;   // the last bar still made a new extreme against the basket
+   why = "qarshi harakat to'xtadi (oxirgi M1 yangi ekstremum qilmadi)";
+   return true;
+}
+
 // Rescue guarantee: is the move against a basket in dir slowing? (any one sign is enough)
 bool MBAdverseSlowing(const int dir, string &why)
 {
@@ -986,8 +1007,16 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
       reason = StringFormat("holding - waiting for a candle response at this price (%d/%d M1 bars)", waited, MBGridResponseMaxBars);
       return false;
    }
+   // OWNER RULE (fix): no response after the wait used to add the rung anyway - unconfirmed. Now the
+   // wait only lowers what counts as confirmation: the move against has at least paused.
+   string pw = "";
+   if(!MBGridPauseConfirm(dir, pw))
+   {
+      reason = StringFormat("holding - no response after %d M1 bars; waiting for the move against to pause", waited);
+      return false;
+   }
    if((MBPositionPrintOnUse && VerboseLogs))
-      PrintFormat("[SIRUS POSITION] no response after %d M1 bars - grid addition goes in", waited);
+      PrintFormat("[SIRUS POSITION] no response after %d M1 bars - grid addition on a pause (%s)", waited, pw);
    G_MB_PB_WAIT_ORDERS = -1;
    return true;
 }

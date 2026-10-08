@@ -1679,14 +1679,15 @@ bool AccountModeAllowsTrading(string &reason)
 //   - price GridRescueSoftSteps planned steps past the last order and the move against the basket
 //     is slowing (its exhaustion pressure, a candle the basket's way, M1 pressure no longer against)
 //     -> the soft refusals are stepped over and the rung goes in at that better price;
-//   - GridRescueForceSteps steps past -> stepped over regardless.
+//   - GridRescueForceSteps steps past -> stepped over once the move against has at least PAUSED
+//     (no displacement against, the last M1 bar made no new extreme). Never without confirmation.
 // HARD refusals are never stepped over: trading off / environment / operator, a basket in profit
 // trailing, the account / margin / exposure / affordability limits, max orders, weekend, a velocity
 // spike, scheduled news, the Market Brain's dead thesis (exit at break-even) and an armed IMPOSSIBLE
 // exit. The rung that goes in is the normal one (distance, lot and every hard check still apply).
 input bool   EnableGridRescueGuarantee = true;  // QUTQARUV KAFOLATI: yumshoq grid to'siqlari narx uzoqlashsa chetlab o'tiladi - grid muzlamaydi (qattiq xavfsizlik to'siqlari qoladi)
 input double GridRescueSoftSteps      = 1.5;    // Narx oxirgi orderdan shuncha rejalashtirilgan qadam uzoqlashsa VA qarshi harakat sekinlashsa - yumshoq to'siqlar chetlab o'tiladi
-input double GridRescueForceSteps     = 2.5;    // Shuncha qadam uzoqlashsa - yumshoq to'siqlar har holda chetlab o'tiladi
+input double GridRescueForceSteps     = 2.5;    // Shuncha qadam uzoqlashsa - harakat to'xtaganini ko'rsatuvchi tasdiq yetadi (qarshi displacement yo'q, oxirgi M1 yangi ekstremum qilmadi). TASDIQSIZ HECH QACHON
 
 bool     G_GRID_RESCUE_ON     = false;
 string   G_GRID_RESCUE_WHY    = "";
@@ -1716,10 +1717,17 @@ void GridRescueState()
    G_GRID_ADVERSE_STEPS = dir * (last_price - px) / _Point / step;
    if(!EnableGridRescueGuarantee)
       return;
+   // OWNER RULE: a rung is NEVER added without confirmation. Deep (GridRescueForceSteps) only widens
+   // what counts as one - the move against the basket has at least paused (no displacement against,
+   // the last M1 bar made no new extreme) - it never drops it.
    if(G_GRID_ADVERSE_STEPS >= GridRescueForceSteps)
    {
-      G_GRID_RESCUE_ON = true;
-      G_GRID_RESCUE_WHY = StringFormat("%.1f qadam uzoqlashdi (majburiy)", G_GRID_ADVERSE_STEPS);
+      string sw = "";
+      if(MBAdverseSlowing(dir, sw) || MBGridPauseConfirm(dir, sw))
+      {
+         G_GRID_RESCUE_ON = true;
+         G_GRID_RESCUE_WHY = StringFormat("%.1f qadam + %s", G_GRID_ADVERSE_STEPS, sw);
+      }
    }
    else if(G_GRID_ADVERSE_STEPS >= GridRescueSoftSteps)
    {
