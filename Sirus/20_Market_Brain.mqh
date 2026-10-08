@@ -610,15 +610,28 @@ datetime G_LOC_TH_END    = 0;       // when the last local thesis ended
 // net move of the last six M5 closes (>= 1 ATR), then the structure, then the pressure.
 int MBLayerLocal()
 {
-   if(G_MB_IMP_DIR[1] != 0 && G_MB_SPEED[1] <= MB_SPEED_NORMAL && G_MB_SPEED[1] != MB_SPEED_NONE)
-      return G_MB_IMP_DIR[1];
    double atr5 = G_MB_ATR[1] * _Point;
    double c1 = iClose(_Symbol, PERIOD_M5, 1), c7 = iClose(_Symbol, PERIOD_M5, 7);
+   int net = 0;
    if(atr5 > 0.0 && c1 > 0.0 && c7 > 0.0)
    {
-      if(c1 - c7 >= atr5) return 1;
-      if(c7 - c1 >= atr5) return -1;
+      if(c1 - c7 >= atr5) net = 1;
+      else if(c7 - c1 >= atr5) net = -1;
    }
+   // FIX(old-impulse): the M5 impulse walks back over the whole run of same-way displacements - after
+   // a news fall that is a $20 leg two hours long, and a 40% rally against it (local leg up with its
+   // own target, M5 pressure up, net move up) is not 62% of it, so the local layer kept saying "down"
+   // through the rally and a SELL was opened in the middle of it (18:56 SELL 4127.075). The impulse
+   // speaks for the local layer only while the recent tape does not contradict it.
+   int imp = G_MB_IMP_DIR[1];
+   if(imp != 0 && G_MB_SPEED[1] <= MB_SPEED_NORMAL && G_MB_SPEED[1] != MB_SPEED_NONE)
+   {
+      bool contradicted = (net == -imp) || (G_LOC_TH_DIR == -imp && MBPressureSide(1) == -imp);
+      if(!contradicted)
+         return imp;
+   }
+   if(net != 0)
+      return net;
    // FIX(local-lag-2): the M5 structure only turns when a swing breaks, so after a $10 fall that went
    // sideways it still read "up" while the local thesis said "down" - the panel showed both. An active
    // local thesis (its own target and invalidation) and then the M5 pressure come before the structure.

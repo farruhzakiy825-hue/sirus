@@ -63,6 +63,10 @@ input bool   EnableCouncilM5Turn      = true;   // Lokal oyoq va M5 bosimi qarsh
 input double CouncilZoneATR5          = 0.35;   // Council zone ATR 5
 // MBPermExceptionMargin: V0: zaif qarama-qarshi bias'da faqat reversal setup va ball >= minimum + shu
 input int    MBPermExceptionMargin    = 2;   // Brain perm exception margin
+// EnableTransitionContinuation: V0: in a TRANSITION toward a side, once the turn is confirmed (local layer that way, M5 pressure or M5 structure that way, and control >= TransitionControlPct) continuation entries that way are allowed too - not only reversal setups
+input bool   EnableTransitionContinuation = true;   // Transition: allow continuation once the turn is confirmed
+// TransitionControlPct: control share the side needs (Nazorat BUY / SELL %)
+input int    TransitionControlPct     = 65;   // Transition: control share needed (%)
 // MBOwnsDuplicateGates: Miya savdo tomonida bo'lsa, xuddi shu savolni beradigan ESKI filtrlar (joy, impuls quvish, HTF, eski daraja, singan daraja, aniqlik) chetga turadi - javobni miya veto'si va hakami beradi. Miya qarshi bo'lsa ikkala qatlam ham ishlaydi
 input bool   MBOwnsDuplicateGates     = true;   // Brain owns duplicate gates (on/off)
 
@@ -429,6 +433,22 @@ bool MBStandsInFor(const int dir, const bool location_gate)
    return false;
 }
 
+// TRANSITION CONTINUATION: the bias turned toward dir but has not become a trend yet. The first leg
+// is not chased (reversal setups only) - but once the local layer, the M5 pressure or structure and the
+// control all say dir, the turn is confirmed and every continuation that way stood blocked for an hour
+// (17:56-18:30, a clean $11 fall with SELL 88% control and no SELL). The other vetoes still apply.
+bool MBTransitionConfirmed(const int dir)
+{
+   if(!EnableTransitionContinuation || dir == 0)
+      return false;
+   if(MBLayerLocal() != dir)
+      return false;
+   if(MBPressureSide(1) != dir && MBSign(G_ST_SEQ[1]) != dir)
+      return false;
+   int ctrl = (dir > 0) ? G_MC_BUY : G_MC_SELL;
+   return (ctrl >= TransitionControlPct);
+}
+
 // V0. Direction permission from the Market Brain bias.
 bool MBPermissionCheck(const int dir, string &why)
 {
@@ -477,7 +497,7 @@ bool MBPermissionCheck(const int dir, string &why)
    // allowed alongside reversal / reclaim types.
    bool momentum_confirms = (G_OPP_TYPE == OPP_TYPE_MOMENTUM_SCALP) &&
                             (G_MB_LIVE_DIR == dir || MBCandleConfirms(0, dir) || MBCandleConfirms(1, dir));
-   if(a == 1 && !reversal_type && !momentum_confirms)
+   if(a == 1 && !reversal_type && !momentum_confirms && !MBTransitionConfirmed(dir))
    {
       why = StringFormat("V0 permission: %s - only reversal / reclaim %s entries (this is %s)",
                          MBBiasName(G_MB_BIAS), side, OpportunityTypeToString(G_OPP_TYPE));

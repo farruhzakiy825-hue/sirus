@@ -1,5 +1,27 @@
 # CHANGELOG — Sirus Brain V8
 
+## Lokal qatlam eski impulsga yopishmasin + o'tish holatida tasdiqlangan burilish bo'yicha davom kirishi
+
+- **Holat 1 (18:56 SELL 4127.075).**
+  - Yangilikdan keyingi tushish (4145 → 4121.4) M5 da bitta uzun "impuls" deb o'qilgan. Impuls oxirgi bir xil yo'nalishdagi displacement'lar zanjirining boshigacha cho'ziladi, shuning uchun oyoq taxminan $20 va 2 soatlik bo'lib chiqqan.
+  - 4121.4 → 4129.5 ko'tarilishi uning 40% i edi, impuls tugashi uchun 62% kerak. Shu sababli lokal qatlam ko'tarilish davomida "▼" deb turdi.
+  - Holbuki o'sha paytda lokal oyoq ▲ (maqsad 4133.45), M5 bosimi ▲ va M1 ▲ edi.
+  - Kengashning 1b qoidasi ("lokal + M5 qarshi → yopilgan M5 burilishi kerak") ishga tushmadi va SELL ko'tarilishning o'rtasida ochildi.
+- **Tuzatish 1.** M5 impulsi lokal qatlamni faqat yaqin harakat unga zid bo'lmasa belgilaydi. Zid holatlar:
+  - oxirgi 6 ta M5 yopilishidagi sof harakat ≥ 1 ATR teskari tomonga;
+  - yoki faol lokal oyoq va M5 bosimi ikkalasi teskari tomonga.
+  - Zid bo'lsa, lokal = sof harakat yoki lokal oyoq. Endi bunday SELL kengashda to'xtaydi.
+- **Holat 2 (17:56–18:30).**
+  - Toza pasayish bo'ldi ($11): lokal ▼, mikro ▼, M5 ▼, nazorat SELL 88%.
+  - Lekin bias "TRANSITION_DOWN" bo'lgani uchun V0 qoidasi faqat burilish setupini o'tkazdi. Bir soat SELL bo'lmadi.
+- **Tuzatish 2.** O'tish holatida burilish tasdiqlangan bo'lsa, davom kirishlariga ham ruxsat. Uchala shart birga bajarilishi kerak:
+  - lokal qatlam shu tomonga;
+  - M5 bosimi yoki M5 tuzilmasi shu tomonga;
+  - nazorat ≥ 65%.
+  - Kengash, kech, charchash, zona, olingan likvidlik veto'lari o'z joyida.
+  - Hakam, tezkor qayta kirish va ball yordami ham shu qoidaga moslandi.
+  - Sozlamalar: `EnableTransitionContinuation` = true, `TransitionControlPct` = 65.
+
 ## Diapazonda tubdagi BUY "olingan likvidlik" bilan to'silmasin (17:25–18:10, 4127–4134 diapazoni)
 
 - **Holat.**

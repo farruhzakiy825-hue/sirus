@@ -537,7 +537,8 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    {
       // LOCK FIX: a breakdown without a sweep never has a "confirmed liquidity reversal"; a strong
       // candle the new way (displacement / rejection / grab) on M1 or M5, or a live one, is the proof.
-      bool mom_conf = (G_MB_LIVE_DIR == dir || MBCandleConfirms(0, dir) || MBCandleConfirms(1, dir));
+      // A confirmed turn (local, M5 and control all this way) is the proof too - V0 takes it as well.
+      bool mom_conf = (G_MB_LIVE_DIR == dir || MBCandleConfirms(0, dir) || MBCandleConfirms(1, dir) || MBTransitionConfirmed(dir));
       if(!(trig_ok && (rev_ok || mom_conf)))
          missing = StringFormat("transition entry needs a trigger AND a confirmed liquidity reversal (trigger %s, reversal %s)",
                                 (trig_ok ? "ok" : "none"), (rev_ok ? "ok" : "none"));
@@ -803,7 +804,8 @@ bool MBFastEntryCandidate(int &dir, string &why)
       // stamped TREND_RIDE there would always be vetoed.
       int ra = rd * G_MB_BIAS;
       bool ra_ok = (ra >= 2) || (ra == 0 && bias_min == 0) ||
-                   (ra == 1 && IsReversalOpportunityType(G_OPP_TYPE) && G_OPP_DIR == (rd > 0 ? OPP_DIR_BUY : OPP_DIR_SELL));
+                   (ra == 1 && IsReversalOpportunityType(G_OPP_TYPE) && G_OPP_DIR == (rd > 0 ? OPP_DIR_BUY : OPP_DIR_SELL)) ||
+                   (ra == 1 && MBTransitionConfirmed(rd));   // a confirmed turn admits continuation (V0)
       if(ra >= bias_min && ra_ok && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBCouncilOk(rd) && MBReentryFastOk(rd) && !MBTrendUnderAttack(rd, aw_re) && MBHasTriggerNow(rd))
       {
          dir = rd;
@@ -1091,8 +1093,8 @@ int MBBrainScoreRelief(const int dir, string &why)
                    G_MB_TH_CONTRA < 2);
    int r = 0;
    if(a >= 2 && th_with)      r = MathMax(0, MBReliefStrong);
-   else if(a >= 2 || (a == 1 && IsReversalOpportunityType(G_OPP_TYPE)))
-      r = MathMax(0, MBReliefWeak);   // a == 1: V0 admits only reversal types there
+   else if(a >= 2 || (a == 1 && (IsReversalOpportunityType(G_OPP_TYPE) || MBTransitionConfirmed(dir))))
+      r = MathMax(0, MBReliefWeak);   // a == 1: V0 admits reversal types, or anything once the turn is confirmed
    else if(a == 0 && th_with && MBCashbackTempo()) r = 1;
    else if(a < 0 && (MBLocalOkFor(dir) || (a >= -2 && MBRangeRules()))) r = MathMax(0, MBReliefWeak);   // local leg / range
    if(r > 0)
