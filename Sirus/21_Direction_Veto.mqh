@@ -417,6 +417,7 @@ bool MBVetoAllowsEntry(const int dir, string &why)
 
    double price = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
    bool blocked = false;
+   string late_uz = "";
 
    if(MBPermissionCheck(dir, why))
       blocked = true;
@@ -433,6 +434,8 @@ bool MBVetoAllowsEntry(const int dir, string &why)
    }
    else if(MBLockBlocks(dir, why))
       blocked = true;                  // V7: direction lock (plan stage 1)
+   else if(MBLateBlocks(dir, why, late_uz))
+      blocked = true;                  // V8: late in the leg / exhausted / target already taken (plan stage 2)
    else if(MBCouncilBlocks(dir, why))
       blocked = true;                  // V6: the entry council (local + candles + zone)
 

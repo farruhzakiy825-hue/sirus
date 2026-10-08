@@ -730,6 +730,7 @@ void MBDrawPanel()
       // Plan stage 1: structure memory, direction lock and reversal maturity.
       MBPanelLine("B_ST", MBStructPanelText(), muted, false, x0, w, lh);
       MBPanelLine("B_LK", MBLockPanelText(), (G_ST_LOCK_DIR != 0 ? MBBiasTone(2 * G_ST_LOCK_DIR) : muted), false, x0, w, lh);
+      MBPanelLine("B_LX", MBLocationPanelText(), ((G_LX_PRESS[0] >= ExhaustCautionScore || G_LX_PRESS[1] >= ExhaustCautionScore) ? MBVisAmber() : muted), false, x0, w, lh);
       // Stage 17: session, volatility percentile and tick flow.
       string flow_txt = (EnableTickFlow && G_MB_FLOW_N >= 20)
                         ? StringFormat("Oqim %s %.0f%%", (G_MB_FLOW_IMB >= 0.0 ? "▲" : "▼"), MathAbs(G_MB_FLOW_IMB) * 100.0) : "Oqim -";

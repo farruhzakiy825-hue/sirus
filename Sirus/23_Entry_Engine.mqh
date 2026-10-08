@@ -444,6 +444,11 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       double press = (dir > 0) ? (G_MB_BULL[0] - G_MB_BEAR[0]) : (G_MB_BEAR[0] - G_MB_BULL[0]);
       q += MathMax(-5.0, MathMin(5.0, press / 10.0));
    }
+   // Plan stage 2: pressure against continuing this way costs quality from ExhaustCautionScore up
+   // (from ExhaustBlockScore the veto refuses it outright).
+   int xp = MBExhaustPressure(dir);
+   if(ExhaustCautionScore > 0 && xp >= ExhaustCautionScore)
+      q -= 0.5 * (xp - ExhaustCautionScore + 10);
    q = MathMax(0.0, MathMin(100.0, q));
    G_MB_ENTRY_QUALITY = (int)MathRound(q);
 
@@ -538,6 +543,12 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    int exec_q = MBEntryExecuteQuality - (MBCashbackTempo() ? MathMax(0, CashbackTempoQualityCut) : 0);
    int caution_q = MBEntryCautionQuality - (MBCashbackTempo() ? MathMax(0, CashbackTempoQualityCut) : 0);
    if(MBShadowValveOn(GATE_MBJUDGE)) { exec_q -= 10; caution_q -= 10; }   // shadow valve on the judge
+   // Plan stage 2: COUNTER-TREND TAX - against a strong bias without a mature reversal, more quality.
+   if(a <= -2 && st_stage < MathMax(1, LockUnlockStage) && CounterTrendTax > 0)
+   {
+      exec_q += CounterTrendTax;
+      caution_q += CounterTrendTax;
+   }
    int decision;
    if(StringLen(missing) > 0)
       decision = MB_ED_WAIT;
@@ -651,9 +662,11 @@ bool MBHasTriggerNow(const int dir)
 // (a strong one against the strongest bias).
 bool MBDirOk(const int d)
 {
-   string lw = "";
+   string lw = "", lu = "";
    if(MBLockBlocks(d, lw))
       return false;   // direction lock (plan stage 1)
+   if(MBLateBlocks(d, lw, lu))
+      return false;   // late / exhausted / target taken (plan stage 2)
    if(!MBCouncilOk(d))
       return false;   // the council (local + candles + zone) refuses this side - leave room for the other
    int a = d * G_MB_BIAS;
@@ -715,9 +728,11 @@ void MBFastWhyNotUpdate()
    for(int k = 0; k <= 1; k++)
    {
       int d = (k == 1) ? 1 : -1;
-      string w = "";
+      string w = "", wu = "";
       if(MBLockBlocks(d, w))
          G_MB_FAST_WHYNOT[k] = StringFormat("LOCK %s, burilish %d/%d", (G_ST_LOCK_DIR > 0 ? "▲" : "▼"), MBStructStageFor(d), LockUnlockStage);
+      else if(MBLateBlocks(d, w, wu))
+         G_MB_FAST_WHYNOT[k] = wu;
       else if(MBCouncilBlocks(d, w))
          G_MB_FAST_WHYNOT[k] = "kengash: " + G_MB_COUNCIL_UZ[k];
       else if(!MBDirOk(d))

@@ -863,6 +863,7 @@ void CoreUpdate(const string source)
    MBEventEngineUpdate();
    MBBrainUpdate();
    MBStructUpdate();   // plan stage 1: structure memory, direction lock, reversal maturity
+   MBLocationUpdate(); // plan stage 2: leg location, exhaustion pressure, taken liquidity
    MBPositionBrainUpdate();
    MBProfEnd(MB_PROF_BRAIN);
    MBProfBegin(MB_PROF_SCAN);

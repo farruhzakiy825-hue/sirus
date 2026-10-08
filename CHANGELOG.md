@@ -1,5 +1,29 @@
 # CHANGELOG — Sirus Brain V8
 
+## Katta reja — 2-bosqich: kirish joyi, charchash va kech kirish himoyasi
+
+Yangi modul: `Sirus/20c_Location_Exhaustion.mqh`. Shu bosqich ikki holatni yopadi: katta tushishning tubida ochilgan 4081.173 SELL va pastdagi likvidlik olingandan keyin ochilgan 4142 SELL.
+
+- **Oyoq va joy.**
+  - Har yo'nalish oyog'ining boshlanish nuqtasi: 6 soatlik ekstremum.
+  - Maqsad: oldindagi eng yaqin **katta** daraja (dealing range, H4 qutisi, rejim qutisi, M15+ swing, PDH/PDL/Osiyo likvidligi). Mayda zonalar bunga kirmaydi, ular uchun kengash bor.
+  - **Kech kirish himoyasi (`EnableLateEntryGuard`):** oyoq maqsadgacha 85% yurgan va kamida 2.5 ATR(M15) bo'lsa, shu tomonga yangi kirish yo'q. Pullback bo'lsa, o'tilgan foiz o'zi kamayadi.
+- **Charchash bosimi (0–100):** davom etayotgan yo'nalishga qarshi bosim. Tarkibi:
+  - momentum so'nishi (20);
+  - qarshi likvidlik olindi (20);
+  - davom eta olmaslik: ekstremum eskirgan yoki yangi low'lar soya bilan yopilmoqda (20);
+  - rad etish shami (15);
+  - tuzilma qarshi tomonga burilmoqda (15);
+  - oyoqning chuqur qismi (10).
+  - **70+** bo'lsa, shu tomonga yangi kirish yo'q. Bu teskari savdo signali emas: teskari tomonga kirish uchun alohida dalil kerak.
+  - **50+** bo'lsa, hakam sifatiga jarima.
+  - So'nggi 3 ta M5 barda bosim 20+ ga oshsa, panelda ↑ belgisi chiqadi (erta ogohlantirish).
+- **Olingan likvidlik himoyasi (`EnableTakenLiquidityGuard`):** oldindagi M5+ likvidlik so'nggi bir soat ichida olingan va qaytarilgan bo'lsa (sweep muvaffaqiyatsiz bo'lmagan), shu tomonga kirish yo'q. Maqsad allaqachon bajarilgan.
+- **Trendga qarshi soliq (`CounterTrendTax = 10`):** kuchli biasga qarshi kirishda, burilish yetilmagan bo'lsa, hakam 10 ball ko'proq sifat talab qiladi.
+- **Qayerda ishlaydi:** V8 veto, barcha miya nomzodlari (MBDirOk), "Miya" qatorida sabab.
+- **Panel:** `Joy: SELL juda kech · charchash 74↑ | BUY yaxshi · charchash 12`.
+- **Tezlik:** boshlanish nuqtasi, maqsad va bosim har M1 barda bir marta hisoblanadi. Har tickda faqat o'tilgan foiz qayta hisoblanadi.
+
 ## Katta reja — 1-bosqich: tuzilma xotirasi, yo'nalish LOCK va burilish yetilishi
 
 Yangi modul: `Sirus/20b_Structure_Lock.mqh`. Shu bosqich ikki holatni yopadi: erta reversal deb ochilgan 4157.88 BUY va o'tkazib yuborilgan haqiqiy 4070 reversal.
