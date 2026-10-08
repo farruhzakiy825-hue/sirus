@@ -1,5 +1,17 @@
 # CHANGELOG — Sirus Brain V8
 
+## Audit: 1–8 bosqich modullari
+
+Kompilyatsiya xatosi topilmadi: prototiplar, chaqiruv imzolari, havolalar, format qatorlari va massivlar tekshirildi. Yo'nalish belgilari ham to'g'ri. Tuzatilgan 7 ta kamchilik:
+
+1. **LOCK qayta yoqilib qolardi.** Lock tugagach, u o'sha dalil bilan keyingi M5 barda yana yoqilardi va yo'nalish yopiq qolaverardi. Endi lock'ni yoqqan sweep ishlatilgan deb belgilanadi va qayta yoqish uchun yangi sweep kerak bo'ladi.
+2. **Zaif soxta buzilish ketma-ketlikni qisqartirardi.** ZAIF buzilish ketma-ketlikka qo'shilmagani holda, soxta chiqqanda undan ayirilardi. Endi faqat ketma-ketlikka qo'shilgan buzilish ayiriladi.
+3. **Yangi sweep eski "tuzoq" belgisini meros olardi.** Tuzoq bo'lgan sweep yonidagi yangi sweep u bilan birlashib, "tuzoq" belgisini olib qolardi. Endi yangi sweep tuzoq bilan birlashmaydi.
+4. **Yopilish sababi eskirib qolardi.** Sabab o'qilgandan keyin tozalanmasdi. Broker TP/SL bilan yopilgan keyingi savat eski sababni ("g'oya o'ldi") meros olardi. Endi sabab bir marta o'qiladi va tozalanadi.
+5. **Modul o'chirilsa eski holat qolardi.** Endi o'chirilganda LOCK va burilish nolga tushadi, likvidlik xaritasi tozalanadi.
+6. **Ikkinchi imkoniyat xotirasi eskirib qolardi.** Endi har qanday birinchi kirishdan keyin u tozalanadi.
+7. **Panelda ogohlantirish.** O'zgaruvchi nomi takrorlanib, kompilyator ogohlantirish berardi. Nom o'zgartirildi.
+
 ## Katta reja — 8-bosqich: bozor holati, sezgirlik, g'ayritabiiy bozor, ssenariylar, hikoya
 
 Yangi modul: `Sirus/20f_Market_State.mqh`. Bu modul bozorni qaytadan o'qimaydi. U boshqa qatlamlar allaqachon o'qigan narsalarni (rejim, bias, lock, burilish, likvidlik xaritasi, charchash, nazorat) bitta xulosaga yig'adi.

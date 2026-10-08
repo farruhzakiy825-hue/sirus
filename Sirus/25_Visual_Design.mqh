@@ -853,10 +853,10 @@ void MBDrawPanel()
       if(EnableExpectationCheck && G_MB_PB_BASKET > 0)
       {
          int pb_min = (int)((TimeCurrent() - G_MB_PB_BASKET) / 60);
-         double tp_pts = BasketTPForOrderCount(MathMax(1, G_BASKET_ORDERS));
+         double tp_x = BasketTPForOrderCount(MathMax(1, G_BASKET_ORDERS));
          string ex = G_PB_EXP_FAIL ? "BAJARILMADI - BE'da chiqamiz (" + G_PB_EXP_WHY + ")"
-                                   : StringFormat("%d daq · eng yaxshi +%.0f / TP %.0f%s", pb_min, G_PB_MFE, tp_pts,
-                                                  (G_PB_MFE >= ExpectTPShare * tp_pts ? " · ko'rsatdi" : ""));
+                                   : StringFormat("%d daq · eng yaxshi +%.0f / TP %.0f%s", pb_min, G_PB_MFE, tp_x,
+                                                  (G_PB_MFE >= ExpectTPShare * tp_x ? " · ko'rsatdi" : ""));
          MBPanelLine("K7", "Kutilgan: " + ex, (G_PB_EXP_FAIL ? MBVisAmber() : muted), false, x0, w, lh);
       }
       else

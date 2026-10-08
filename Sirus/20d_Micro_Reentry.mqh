@@ -204,6 +204,7 @@ void MBReExitRecord(const int dir, const double res)
    if(dir == 0)
       return;
    string r = (TimeCurrent() - G_LAST_CLOSE_WHEN <= 120) ? G_LAST_CLOSE_WHY : (res > 0.0 ? "broker TP" : "broker SL");
+   G_LAST_CLOSE_WHEN = 0;   // AUDIT FIX: used once - a later broker close must not inherit this reason
    int kind = RE_PROFIT;
    if(StringFind(r, "thesis dead") >= 0)                         kind = RE_INVALID;
    else if(StringFind(r, "SMART EXIT") >= 0 || res < 0.0)        kind = RE_LOSS;

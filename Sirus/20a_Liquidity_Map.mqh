@@ -206,7 +206,9 @@ void MBLqRecordSweep(const int i, const double ext, const int q, const datetime 
    int k = MBLqSideIdx(G_LQ[i].side);
    double atr15 = ((G_MB_ATR[2] > 0.0) ? G_MB_ATR[2] : G_MB_ATR[1] * 2.0) * _Point;
    int cls = MBLqClass(G_LQ[i].mask, G_LQ[i].eq);
-   bool combine = (G_LQ_SW_TIME[k] > 0 && t - G_LQ_SW_TIME[k] <= 1800 && MathAbs(G_LQ_SW_LEVEL[k] - G_LQ[i].level) <= 0.5 * atr15);
+   // AUDIT FIX: a new sweep never merges into a record already marked a trap - it is its own event.
+   bool combine = (G_LQ_SW_TIME[k] > 0 && t - G_LQ_SW_TIME[k] <= 1800 && MathAbs(G_LQ_SW_LEVEL[k] - G_LQ[i].level) <= 0.5 * atr15 &&
+                   !G_LQ_SW_TRAP[k]);
    if(combine)
    {
       G_LQ_SW_MASK[k] |= G_LQ[i].mask;
@@ -320,7 +322,11 @@ void MBLqStatusUpdate(const datetime bar_time)
 void MBLiquidityMapUpdate()
 {
    if(!EnableMBLiquidityMap || !EnableMarketBrainEngines)
+   {
+      G_LQ_N = 0;   // AUDIT FIX: switched off - nothing stale survives into the other layers
+      ArrayInitialize(G_LQ_SW_TIME, 0);
       return;
+   }
    datetime m5 = iTime(_Symbol, PERIOD_M5, 0);
    if(m5 <= 0 || m5 == G_LQ_BAR_M5)
       return;
@@ -415,6 +421,8 @@ double MBLqChampion(const int side, const double px, string &what)
 // The nearest untaken map level ahead in dir of at least min_class (a leg's target).
 double MBLqNearestAhead(const int dir, const double px, const int min_class)
 {
+   if(!EnableMBLiquidityMap)
+      return 0.0;   // AUDIT FIX: a map frozen by switching it off must not feed other layers
    double best = 0.0;
    for(int i = 0; i < G_LQ_N; i++)
    {

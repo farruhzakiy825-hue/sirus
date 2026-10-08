@@ -62,6 +62,7 @@ datetime G_ST_LOCK_REFRESH = 0;
 double   G_ST_LOCK_PROT    = 0.0;        // M15 close beyond it ends the lock
 string   G_ST_LOCK_WHY     = "";
 string   G_ST_LOCK_END     = "";         // why the last lock ended (panel)
+datetime G_ST_LOCK_USED[2];              // the sweep that armed the last lock each way (0 SELL-lock, 1 BUY-lock)
 
 int      G_ST_REV_DIR   = 0;             // direction of the developing reversal
 int      G_ST_REV_STAGE = 0;             // 0..6
@@ -132,7 +133,8 @@ void MBStructBreakRecord(const int tfi, const int dir, const int type, const dou
       else if(dir * (c_next - lvl) < -0.1 * atr)
       {
          G_ST_LB_Q[tfi] = ST_Q_FAILED;
-         if(MBSign(G_ST_SEQ[tfi]) == dir) G_ST_SEQ[tfi] -= dir;
+         // AUDIT FIX: only a break the run counted can be taken back from it (a WEAK one never was).
+         if(q >= ST_Q_VALID && MBSign(G_ST_SEQ[tfi]) == dir) G_ST_SEQ[tfi] -= dir;
       }
    }
    if(!G_MB_EV_REPLAYING && tfi >= 2 && StructurePrintOnUse && VerboseLogs)
@@ -164,8 +166,9 @@ void MBStructFollowThrough()
       }
       else if(d * (c_next - G_ST_LB_LVL[tfi]) < -0.1 * atr)
       {
+         bool counted = (G_ST_LB_Q[tfi] >= ST_Q_VALID);   // AUDIT FIX: a WEAK break was never in the run
          G_ST_LB_Q[tfi] = ST_Q_FAILED;
-         if(MBSign(G_ST_SEQ[tfi]) == d) G_ST_SEQ[tfi] -= d;
+         if(counted && MBSign(G_ST_SEQ[tfi]) == d) G_ST_SEQ[tfi] -= d;
          if(StructurePrintOnUse && VerboseLogs)
             PrintFormat("[SIRUS STRUCTURE] %s %s break @ %s FAILED - the next bar closed back through it (trap)",
                         MBTFName(tfi), (d > 0 ? "bullish" : "bearish"), DoubleToString(G_ST_LB_LVL[tfi], _Digits));
@@ -270,6 +273,10 @@ void MBLockEvaluate()
       }
       if(swt <= 0)
          continue;
+      // AUDIT FIX: the sweep that armed a lock already released cannot arm it again - a new sweep is
+      // needed (otherwise a released lock re-armed on the very next M5 bar from the same evidence).
+      if(swt <= G_ST_LOCK_USED[d > 0 ? 1 : 0])
+         continue;
       // 2. A displacement the lock's way after it (M5+).
       double dl = 0.0;
       if(MBStFind(3, d, 1, 4, swt, false, dl) <= 0)
@@ -285,6 +292,7 @@ void MBLockEvaluate()
       if(G_ST_LOCK_DIR == -d)
          MBLockRelease("the other way locked");
       G_ST_LOCK_DIR = d;
+      G_ST_LOCK_USED[d > 0 ? 1 : 0] = swt;
       G_ST_LOCK_SINCE = TimeCurrent();
       G_ST_LOCK_REFRESH = TimeCurrent();
       G_ST_LOCK_PROT = prot;
@@ -442,7 +450,11 @@ void MBReversalEvaluate()
 void MBStructUpdate()
 {
    if(!EnableMarketBrain || !EnableMarketBrainEngines)
+   {
+      G_ST_LOCK_DIR = 0;      // AUDIT FIX: a lock must not keep blocking while its engine is off
+      G_ST_REV_STAGE = 0;
       return;
+   }
    datetime m1 = iTime(_Symbol, PERIOD_M1, 0);
    if(m1 <= 0 || m1 == G_ST_BAR_M1)
       return;

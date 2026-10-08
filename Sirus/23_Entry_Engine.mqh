@@ -1021,7 +1021,9 @@ int MBFastEntryScore(const int min_required)
 // Called by the first-entry engine after a fill: counts fast entries for the panel.
 void MBFastEntryFilled()
 {
-   if(StringFind(G_OPP_REASON, "BRAIN SECOND-CHANCE") == 0)
+   // AUDIT FIX: any first-entry fill ends the second-chance memory - its reference price belongs to
+   // the market before this basket.
+   if(G_BASKET_ORDERS <= 1)
       MBSecondChanceTaken();
    if(StringFind(G_OPP_REASON, "FAST ") == 0 || StringFind(G_OPP_REASON, "BRAIN ") == 0)
    {
