@@ -21,12 +21,17 @@
 // stay exactly as written.
 //=====================================================================
 
-input group "47 — MARKET BRAIN: MEMORY (ENTRY DNA)"
-input bool   EnableMBMemory           = true;   // Har kirish "barmoq izi" (Entry DNA) va savat natijasi saqlanadi (CSV + statistika)
-input bool   EnableMBLearning         = true;   // Yetarli misol yig'ilgach Entry Judge og'irliklarini natijaga qarab moslash (±MBLearnMaxShift)
-input int    MBLearnMinSamples        = 30;     // O'rganish shuncha natijadan keyin boshlanadi
-input double MBLearnMaxShift          = 0.30;   // Og'irlik o'zgarishi chegarasi (0.30 = ±30%)
-input bool   MBMemoryPrintOnUse       = true;   // Savat natijasi va DNA'ni jurnalga yozish ([SIRUS MEMORY])
+input group "BRAIN ▸ Memory (entry DNA)"
+// EnableMBMemory: Har kirish "barmoq izi" (Entry DNA) va savat natijasi saqlanadi (CSV + statistika)
+input bool   EnableMBMemory           = true;   // Enable mb memory
+// EnableMBLearning: Yetarli misol yig'ilgach Entry Judge og'irliklarini natijaga qarab moslash (±MBLearnMaxShift)
+input bool   EnableMBLearning         = true;   // Enable mb learning
+// MBLearnMinSamples: O'rganish shuncha natijadan keyin boshlanadi
+input int    MBLearnMinSamples        = 30;   // Brain learn min samples
+// MBLearnMaxShift: Og'irlik o'zgarishi chegarasi (0.30 = ±30%)
+input double MBLearnMaxShift          = 0.30;   // Brain learn max shift
+// MBMemoryPrintOnUse: Savat natijasi va DNA'ni jurnalga yozish ([SIRUS MEMORY])
+input bool   MBMemoryPrintOnUse       = true;   // Brain memory print on use (on/off)
 
 #define MB_DNA_ALIGN_STRONG   0
 #define MB_DNA_ALIGN_WEAK     1

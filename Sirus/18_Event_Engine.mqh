@@ -30,31 +30,56 @@
 // already known. This engine only records; the veto that uses it is a later phase.
 //=====================================================================
 
-input int    MBSwingLenM1             = 3;      // Swing (fractal): M1 da har tomonda shuncha bar
-input int    MBSwingLenHTF            = 2;      // M5 / M15 / H1 / H4 da har tomonda shuncha bar
-input double MBSweepMinATR            = 0.10;   // Sweep: havzadan kamida ATR x shu o'tishi kerak (va kamida 1 spread)
-input double MBSweepMaxATR            = 1.0;    // Sweep: ATR x shudan ko'p o'tsa - sweep emas, break
-input double MBAcceptATR              = 0.25;   // Haqiqiy break: yopilishlar darajadan kamida ATR x shu narida
-input int    MBAcceptCloses           = 3;      // Haqiqiy break: shuncha ketma-ket yopilish
-input double MBAcceptBreakBodyATR     = 0.8;    // Haqiqiy break: break shamining tanasi >= ATR x shu
-input int    MBReclaimBars            = 5;      // Soxta break: shuncha bar ichida qaytib yopilsa
-input double MBEqualLevelATR          = 0.15;   // Teng high / low: farq <= ATR x shu
-input int    MBFreshBarsM1            = 10;     // M1 hodisasi shuncha bargacha "yangi"
-input int    MBRelevantBarsM1         = 45;     // M1 hodisasi shuncha bargacha "dolzarb"
-input int    MBFreshBarsHTF           = 3;      // M5..H4 hodisasi (o'z TF barlarida) shuncha bargacha "yangi"
-input int    MBRelevantBarsHTF        = 12;     // ... shuncha bargacha "dolzarb"
-input int    MBAsiaStartHour          = 0;      // Osiyo sessiyasi (server vaqti) boshlanishi
-input int    MBAsiaEndHour            = 7;      // Osiyo sessiyasi tugashi
-input bool   MBEventPrintOnUse        = true;   // Har yangi hodisani jurnalga yozish ([SIRUS EVENT])
-input bool   EnableLiveSweep          = true;   // 14-BOSQICH (C1): likvidlik yechilishini TIKDA ko'rish - bar yopilishini kutmasdan (M5 / M15 / H1 swing, PDH / PDL, Osiyo)
-input double LiveSweepPierceATR       = 0.15;   // Darajadan kamida ATR(M1) x shu (va 1 spread) o'tishi kerak
-input int    LiveSweepReclaimSec      = 45;     // Shuncha soniya ichida darajaning ichiga qaytsa - LIVE SWEEP
-input int    LiveSweepValidSec        = 120;    // LIVE SWEEP shuncha soniya trigger bo'lib turadi (narx qaytgan tomonda qolsa)
-input bool   EnableRoundLevels        = true;   // 17-BOSQICH (B3): yumaloq narxlar (XX00 / XX50) likvidlik hovuzi sifatida
-input double RoundLevelStep           = 50.0;   // Yumaloq daraja qadami (narx birligida, oltin uchun $50)
-input int    NYOpenHour               = 13;     // 17-BOSQICH (B2): Nyu-York ochilishi (server vaqti). London = MBAsiaEndHour
-input int    SessionOpenWindowH       = 2;      // Ochilishdan keyin shuncha soat - "sessiya ochilishi" oynasi
-input bool   EnableSweepStats         = true;   // 17-BOSQICH (D3): har LIVE SWEEP natijasi (hovuz turi x sessiya) eslab qolinadi; >= 30 namunada yo'nalish ehtimoli sifatida ishlatiladi
+// MBSwingLenM1: Swing (fractal): M1 da har tomonda shuncha bar
+input int    MBSwingLenM1             = 3;   // Brain swing len M1
+// MBSwingLenHTF: M5 / M15 / H1 / H4 da har tomonda shuncha bar
+input int    MBSwingLenHTF            = 2;   // Brain swing len HTF
+// MBSweepMinATR: Sweep: havzadan kamida ATR x shu o'tishi kerak (va kamida 1 spread)
+input double MBSweepMinATR            = 0.10;   // Brain sweep min ATR
+// MBSweepMaxATR: Sweep: ATR x shudan ko'p o'tsa - sweep emas, break
+input double MBSweepMaxATR            = 1.0;   // Brain sweep max ATR
+// MBAcceptATR: Haqiqiy break: yopilishlar darajadan kamida ATR x shu narida
+input double MBAcceptATR              = 0.25;   // Brain accept ATR
+// MBAcceptCloses: Haqiqiy break: shuncha ketma-ket yopilish
+input int    MBAcceptCloses           = 3;   // Brain accept closes
+// MBAcceptBreakBodyATR: Haqiqiy break: break shamining tanasi >= ATR x shu
+input double MBAcceptBreakBodyATR     = 0.8;   // Brain accept break body ATR
+// MBReclaimBars: Soxta break: shuncha bar ichida qaytib yopilsa
+input int    MBReclaimBars            = 5;   // Brain reclaim bars
+// MBEqualLevelATR: Teng high / low: farq <= ATR x shu
+input double MBEqualLevelATR          = 0.15;   // Brain equal level ATR
+// MBFreshBarsM1: M1 hodisasi shuncha bargacha "yangi"
+input int    MBFreshBarsM1            = 10;   // Brain fresh bars M1
+// MBRelevantBarsM1: M1 hodisasi shuncha bargacha "dolzarb"
+input int    MBRelevantBarsM1         = 45;   // Brain relevant bars M1
+// MBFreshBarsHTF: M5..H4 hodisasi (o'z TF barlarida) shuncha bargacha "yangi"
+input int    MBFreshBarsHTF           = 3;   // Brain fresh bars HTF
+// MBRelevantBarsHTF: ... shuncha bargacha "dolzarb"
+input int    MBRelevantBarsHTF        = 12;   // Brain relevant bars HTF
+// MBAsiaStartHour: Osiyo sessiyasi (server vaqti) boshlanishi
+input int    MBAsiaStartHour          = 0;   // Brain asia start hour
+// MBAsiaEndHour: Osiyo sessiyasi tugashi
+input int    MBAsiaEndHour            = 7;   // Brain asia end hour
+// MBEventPrintOnUse: Har yangi hodisani jurnalga yozish ([SIRUS EVENT])
+input bool   MBEventPrintOnUse        = true;   // Brain event print on use (on/off)
+// EnableLiveSweep: 14-BOSQICH (C1): likvidlik yechilishini TIKDA ko'rish - bar yopilishini kutmasdan (M5 / M15 / H1 swing, PDH / PDL, Osiyo)
+input bool   EnableLiveSweep          = true;   // Enable live sweep
+// LiveSweepPierceATR: Darajadan kamida ATR(M1) x shu (va 1 spread) o'tishi kerak
+input double LiveSweepPierceATR       = 0.15;   // Live sweep pierce ATR
+// LiveSweepReclaimSec: Shuncha soniya ichida darajaning ichiga qaytsa - LIVE SWEEP
+input int    LiveSweepReclaimSec      = 45;   // Live sweep reclaim sec
+// LiveSweepValidSec: LIVE SWEEP shuncha soniya trigger bo'lib turadi (narx qaytgan tomonda qolsa)
+input int    LiveSweepValidSec        = 120;   // Live sweep valid sec
+// EnableRoundLevels: 17-BOSQICH (B3): yumaloq narxlar (XX00 / XX50) likvidlik hovuzi sifatida
+input bool   EnableRoundLevels        = true;   // Enable round levels
+// RoundLevelStep: Yumaloq daraja qadami (narx birligida, oltin uchun $50)
+input double RoundLevelStep           = 50.0;   // Round level step
+// NYOpenHour: 17-BOSQICH (B2): Nyu-York ochilishi (server vaqti). London = MBAsiaEndHour
+input int    NYOpenHour               = 13;   // NY open hour
+// SessionOpenWindowH: Ochilishdan keyin shuncha soat - "sessiya ochilishi" oynasi
+input int    SessionOpenWindowH       = 2;   // Session open window h
+// EnableSweepStats: 17-BOSQICH (D3): har LIVE SWEEP natijasi (hovuz turi x sessiya) eslab qolinadi; >= 30 namunada yo'nalish ehtimoli sifatida ishlatiladi
+input bool   EnableSweepStats         = true;   // Enable sweep stats
 
 #define MB_EV_NONE           0
 #define MB_EV_LIQ_SWEEP      1

@@ -31,37 +31,61 @@
 //   waits up to MBGridResponseMaxBars, then goes in (the recovery is delayed, never abandoned).
 //=====================================================================
 
-input group "46 — MARKET BRAIN: POSITION BRAIN (SMART GRID)"
-input bool   EnableMBPositionBrain    = true;   // Ochiq savat thesis'ini kuzatish: o'lsa grid to'xtaydi va savat break-even'da yopiladi
-input bool   MBGridNeedsResponse      = true;   // Grid faqat zonada sham reaksiyasi bo'lsa qo'shiladi (qarshi displacement / break'da qo'shilmaydi)
-input int    MBGridResponseMaxBars    = 15;     // Reaksiya bo'lmasa ko'pi bilan shuncha M1 bar kutadi, keyin qo'shadi
-input int    MBBreakEvenCoverPoints   = 30;     // Thesis o'lganda savat shu punkt foyda bilan yopiladi (break-even + qoplama)
-input bool   MBPositionPrintOnUse     = true;   // Thesis o'limi / qutqaruv / grid kutishini jurnalga yozish ([SIRUS POSITION])
-input bool   EnableRecoveryJudge      = true;   // 16-BOSQICH: AQLLI CHIQISH. DD shu % dan oshganda "savat qutqarilishi mumkinmi?" baholanadi: IMKON BOR - 50% gacha ushlanadi, SHUBHALI - grid yo'q + BE da chiqish, IMKONSIZ - savat yopiladi
-input double RecoveryStartDD          = 25.0;   // Baholash shu DD % (balansdan) dan boshlanadi
-input int    RecoveryPersistBars      = 3;      // IMKONSIZ holati shuncha M1 bar saqlansa - chiqish qurollanadi
-input double RecoveryBounceATR        = 0.3;    // Qurollangandan keyin narx savat foydasiga ATR(M1) x shu qaytsa - o'sha qaytishda yopiladi
-input double RecoveryWorsenDD         = 3.0;    // Qurollangandan keyin DD yana shuncha % oshsa - darhol yopiladi
-input double RecoveryZoneATR15        = 1.5;    // Qutqaruv joyi (zona / FVG) savat foydasiga shuncha ATR(M15) ichida bo'lsa - "imkon bor" belgisi
-input bool   EnableGridAtStructure    = true;   // Grid pog'onasi narx tuzilmaga (zona / FVG / likvidlik) yetganda qo'yiladi; havoda - javob kutish vaqti ichida kutadi
-input double GridStructureATR5        = 0.5;    // Tuzilma narxdan ATR(M5) x shu ichida bo'lsa - "tuzilmada"
-input int    GridReserveRungs         = 2;      // Oxirgi shuncha pog'ona ZAXIRA: faqat tuzilma + qarshi harakat charchagan + sham javobi bo'lsa (vaqt bilan ochilmaydi)
-input bool   RecoveryLogToFile        = true;   // Chuqur savatlar natijasini CSV ga yozish (Sirus_Recovery_<symbol>_<magic>.csv)
-input bool   EnableSmartRunner        = true;   // AQLLI TP (oddiy rejim): trend + tirik g'oya + joy bo'lsa, savat TP da yopilmaydi - trailing va uzoq maqsad bilan yuguradi. Diapazon / lokal / chuqur / ko'p orderli savatda oddiy TP
-input int    RunnerArmPoints          = 2200;   // Trailing shu foydada yoqiladi (TP dan kichik bo'lsa TP x 0.88)
-input int    RunnerLockPoints         = 2000;   // Yoqilgandan keyin kamida shuncha foyda qulflanadi
-input int    RunnerMinStepPoints      = 300;    // Kuzatish masofasi kamida shuncha (amalda max(shu, ATR(M5) x 0.5))
-input double RunnerFarTPMult          = 2.5;    // Uzoq maqsad: TP x shu yoki likvidlik maqsadi (DOL), qaysi yaqin bo'lsa
-input int    RunnerMaxOrders          = 2;      // Shundan ko'p orderli savat yugurmaydi
-input int    RunnerStallMinutes       = 10;     // Yangi cho'qqi shuncha daqiqa bo'lmasa - yopiladi
-input bool   EnableExpectationCheck   = true;   // 5-BOSQICH: KUTILGAN vs HAQIQIY - savat ExpectMinutes ichida TP ning ExpectTPShare qismiga yetmasa VA bozor unga qarshi o'girilsa (nazorat / charchash) - BE + qoplamada yopiladi (zararga emas)
-input int    ExpectMinutes            = 20;     // Shu daqiqada savat o'zini ko'rsatishi kerak
-input double ExpectTPShare            = 0.35;   // ... TP ning shuncha qismi (eng yaxshi nuqtasi)
-input bool   EnableGridLiability      = true;   // 5-BOSQICH: GRID JAVOBGARLIGI - yangi pog'onadan keyingi BE kuchli likvidlik (H4 / PD) ortida qolsa pog'ona qo'yilmaydi (qarshi harakat charchamaguncha); H1 darajasi ortida - zaxira pog'onadek (tuzilma + javob + charchash)
-input bool   GridHoldOnCandlesAgainst = true;   // M5 va M15 shamlari savatga qarshi bosayotgan bo'lsa (harakat charchamagan) - grid qo'shilmaydi
-input bool   EnableStaleBasketBE      = true;   // Uzoq DD dan qaytgan savat: shamlar uning tomonida bo'lmasa break-even + qoplamada yopiladi (zararga yopmaydi)
-input int    StaleBasketMinutes       = 90;     // Savat shuncha daqiqadan beri ochiq bo'lsa ...
-input double StaleBasketMinDD         = 8.0;    // ... va DD kamida shuncha % bo'lgan bo'lsa
+input group "BRAIN ▸ Position brain (smart grid & exits)"
+// EnableMBPositionBrain: Ochiq savat thesis'ini kuzatish: o'lsa grid to'xtaydi va savat break-even'da yopiladi
+input bool   EnableMBPositionBrain    = true;   // Enable mb position brain
+// MBGridNeedsResponse: Grid faqat zonada sham reaksiyasi bo'lsa qo'shiladi (qarshi displacement / break'da qo'shilmaydi)
+input bool   MBGridNeedsResponse      = true;   // Brain grid needs response (on/off)
+// MBGridResponseMaxBars: Reaksiya bo'lmasa ko'pi bilan shuncha M1 bar kutadi, keyin qo'shadi
+input int    MBGridResponseMaxBars    = 15;   // Brain grid response max bars
+// MBBreakEvenCoverPoints: Thesis o'lganda savat shu punkt foyda bilan yopiladi (break-even + qoplama)
+input int    MBBreakEvenCoverPoints   = 30;   // Brain break even cover points
+// MBPositionPrintOnUse: Thesis o'limi / qutqaruv / grid kutishini jurnalga yozish ([SIRUS POSITION])
+input bool   MBPositionPrintOnUse     = true;   // Brain position print on use (on/off)
+// EnableRecoveryJudge: 16-BOSQICH: AQLLI CHIQISH. DD shu % dan oshganda "savat qutqarilishi mumkinmi?" baholanadi: IMKON BOR - 50% gacha ushlanadi, SHUBHALI - grid yo'q + BE da chiqish, IMKONSIZ - savat yopiladi
+input bool   EnableRecoveryJudge      = true;   // Enable recovery judge
+// RecoveryStartDD: Baholash shu DD % (balansdan) dan boshlanadi
+input double RecoveryStartDD          = 25.0;   // Recovery start DD
+// RecoveryPersistBars: IMKONSIZ holati shuncha M1 bar saqlansa - chiqish qurollanadi
+input int    RecoveryPersistBars      = 3;   // Recovery persist bars
+// RecoveryBounceATR: Qurollangandan keyin narx savat foydasiga ATR(M1) x shu qaytsa - o'sha qaytishda yopiladi
+input double RecoveryBounceATR        = 0.3;   // Recovery bounce ATR
+// RecoveryWorsenDD: Qurollangandan keyin DD yana shuncha % oshsa - darhol yopiladi
+input double RecoveryWorsenDD         = 3.0;   // Recovery worsen DD
+// RecoveryZoneATR15: Qutqaruv joyi (zona / FVG) savat foydasiga shuncha ATR(M15) ichida bo'lsa - "imkon bor" belgisi
+input double RecoveryZoneATR15        = 1.5;   // Recovery zone ATR 15
+// EnableGridAtStructure: Grid pog'onasi narx tuzilmaga (zona / FVG / likvidlik) yetganda qo'yiladi; havoda - javob kutish vaqti ichida kutadi
+input bool   EnableGridAtStructure    = true;   // Enable grid at structure
+// GridStructureATR5: Tuzilma narxdan ATR(M5) x shu ichida bo'lsa - "tuzilmada"
+input double GridStructureATR5        = 0.5;   // Grid structure ATR 5
+// GridReserveRungs: Oxirgi shuncha pog'ona ZAXIRA: faqat tuzilma + qarshi harakat charchagan + sham javobi bo'lsa (vaqt bilan ochilmaydi)
+input int    GridReserveRungs         = 2;   // Grid reserve rungs
+// RecoveryLogToFile: Chuqur savatlar natijasini CSV ga yozish (Sirus_Recovery_<symbol>_<magic>.csv)
+input bool   RecoveryLogToFile        = true;   // Recovery log to file (on/off)
+// RunnerMinStepPoints: Kuzatish masofasi kamida shuncha (amalda max(shu, ATR(M5) x 0.5))
+input int    RunnerMinStepPoints      = 300;   // Runner min step points
+// RunnerFarTPMult: Uzoq maqsad: TP x shu yoki likvidlik maqsadi (DOL), qaysi yaqin bo'lsa
+input double RunnerFarTPMult          = 2.5;   // Runner far TP multiplier
+// RunnerMaxOrders: Shundan ko'p orderli savat yugurmaydi
+input int    RunnerMaxOrders          = 2;   // Runner max orders
+// RunnerStallMinutes: Yangi cho'qqi shuncha daqiqa bo'lmasa - yopiladi
+input int    RunnerStallMinutes       = 10;   // Runner stall minutes
+// EnableExpectationCheck: 5-BOSQICH: KUTILGAN vs HAQIQIY - savat ExpectMinutes ichida TP ning ExpectTPShare qismiga yetmasa VA bozor unga qarshi o'girilsa (nazorat / charchash) - BE + qoplamada yopiladi (zararga emas)
+input bool   EnableExpectationCheck   = true;   // Enable expectation check
+// ExpectMinutes: Shu daqiqada savat o'zini ko'rsatishi kerak
+input int    ExpectMinutes            = 20;   // Expect minutes
+// ExpectTPShare: ... TP ning shuncha qismi (eng yaxshi nuqtasi)
+input double ExpectTPShare            = 0.35;   // Expect TP share
+// EnableGridLiability: 5-BOSQICH: GRID JAVOBGARLIGI - yangi pog'onadan keyingi BE kuchli likvidlik (H4 / PD) ortida qolsa pog'ona qo'yilmaydi (qarshi harakat charchamaguncha); H1 darajasi ortida - zaxira pog'onadek (tuzilma + javob + charchash)
+input bool   EnableGridLiability      = true;   // Enable grid liability
+// GridHoldOnCandlesAgainst: M5 va M15 shamlari savatga qarshi bosayotgan bo'lsa (harakat charchamagan) - grid qo'shilmaydi
+input bool   GridHoldOnCandlesAgainst = true;   // Grid hold on candles against (on/off)
+// EnableStaleBasketBE: Uzoq DD dan qaytgan savat: shamlar uning tomonida bo'lmasa break-even + qoplamada yopiladi (zararga yopmaydi)
+input bool   EnableStaleBasketBE      = true;   // Enable stale basket BE
+// StaleBasketMinutes: Savat shuncha daqiqadan beri ochiq bo'lsa ...
+input int    StaleBasketMinutes       = 90;   // Stale basket minutes
+// StaleBasketMinDD: ... va DD kamida shuncha % bo'lgan bo'lsa
+input double StaleBasketMinDD         = 8.0;   // Stale basket min DD
 
 datetime G_MB_PB_BASKET    = 0;     // open time of the first position of the watched basket
 int      G_MB_PB_DIR       = 0;

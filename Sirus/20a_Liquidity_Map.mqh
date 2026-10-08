@@ -24,9 +24,11 @@
 //
 // Speed: harvested once per M5 bar (four CopyRates), status from the closed M5 bar. Nothing per tick.
 
-input group "47a — LIKVIDLIK XARITASI (reja 3-bosqich)"
-input bool   EnableMBLiquidityMap       = true;   // Bitta likvidlik xaritasi: M5/M15/H1/H4 swing'lari + PDH/PDL, holati (toza/tegilgan/sweep/qayta sweep/olingan), kuchi (LOCAL..EXTREME), eng muhim daraja
-input bool   MBLiquidityPrintOnUse      = true;   // MAJOR+ sweep va tuzoqlarni jurnalga yozish ([SIRUS LIQUIDITY])
+input group "BRAIN ▸ Liquidity map"
+// EnableMBLiquidityMap: Bitta likvidlik xaritasi: M5/M15/H1/H4 swing'lari + PDH/PDL, holati (toza/tegilgan/sweep/qayta sweep/olingan), kuchi (LOCAL..EXTREME), eng muhim daraja
+input bool   EnableMBLiquidityMap       = true;   // Enable mb liquidity map
+// MBLiquidityPrintOnUse: MAJOR+ sweep va tuzoqlarni jurnalga yozish ([SIRUS LIQUIDITY])
+input bool   MBLiquidityPrintOnUse      = true;   // Brain liquidity print on use (on/off)
 
 #define LQ_MAX        64
 #define LQ_FRESH      0

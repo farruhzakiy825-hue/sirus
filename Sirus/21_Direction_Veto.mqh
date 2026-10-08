@@ -33,22 +33,37 @@
 // Case 2 (4126 SELL): 4125 support swept and reclaimed, H4 sell-side sweep -> V1, V2, V3.
 //=====================================================================
 
-input group "43 — MARKET BRAIN: DIRECTION VETO"
-input bool   EnableMBVeto             = true;   // Kuchli qarama-qarshi dalil bo'lsa birinchi kirishni bloklash (4142 / 4126 xatolari)
-input bool   MBVetoReversal           = true;   // V1: qarama-qarshi likvidlik olindi + tasdiq (displacement / MSS / reclaim)
-input int    MBVetoReversalConfirms   = 2;      // V1: M5 / M15 sweep uchun kerakli tasdiqlar soni (H1 / H4 / kunlik uchun 1)
-input bool   MBVetoZoneRole           = true;   // V2: zona tarixi bu yo'nalishga ruxsat bermasa
-input double MBVetoZoneNearATR        = 1.5;    // V2: zona narxdan ATR(M5) x shu ichida bo'lsa tekshiriladi
-input bool   MBVetoNoRoom             = true;   // V3: maqsadgacha ushlab turgan qarama-qarshi zona bo'lsa
-input double MBVetoRoomTPMult         = 1.0;    // V3: zonagacha masofa < savat TP x shu bo'lsa - joy yo'q
-input bool   MBVetoAcceleration       = true;   // V4: harakat hozir qarama-qarshi tomonga tezlashmoqda
-input bool   MBVetoPrintOnUse         = true;   // Veto'ni jurnalga yozish ([SIRUS VETO])
-input bool   EnableMBPermission       = true;   // V0: Market Brain yo'nalish ruxsati (BEARISH da BUY yo'q, TRANSITION da faqat reversal turi ...)
-input bool   EnableEntryCouncil       = true;   // KENGASH: lokal + M5/M15 shamlari + zona birga hal qiladi. Uchalasi qarshi bo'lsa sweep ham kirgizmaydi; zaif global lokalni bosmaydi; qarshi zonaga kirmaydi. Bir tomon yopilsa - boshqa tomon (LOCAL / MOMENTUM) kirishi mumkin
-input int    CouncilWeakGlobalConf    = 50;     // Global ishonchi shundan past yoki o'tish holatida bo'lsa - yo'nalishni lokal hal qiladi
-input double CouncilZoneATR5          = 0.35;   // SELL ostida ushlab turgan support / BUY ustida resistance shu ATR(M5) ichida bo'lsa - kirmaydi (M5 yopilib buzilmaguncha)
-input int    MBPermExceptionMargin    = 2;      // V0: zaif qarama-qarshi bias'da faqat reversal setup va ball >= minimum + shu
-input bool   MBOwnsDuplicateGates     = true;   // Miya savdo tomonida bo'lsa, xuddi shu savolni beradigan ESKI filtrlar (joy, impuls quvish, HTF, eski daraja, singan daraja, aniqlik) chetga turadi - javobni miya veto'si va hakami beradi. Miya qarshi bo'lsa ikkala qatlam ham ishlaydi
+input group "BRAIN ▸ Direction veto & entry council"
+// EnableMBVeto: Kuchli qarama-qarshi dalil bo'lsa birinchi kirishni bloklash (4142 / 4126 xatolari)
+input bool   EnableMBVeto             = true;   // Enable mb veto
+// MBVetoReversal: V1: qarama-qarshi likvidlik olindi + tasdiq (displacement / MSS / reclaim)
+input bool   MBVetoReversal           = true;   // Brain veto reversal (on/off)
+// MBVetoReversalConfirms: V1: M5 / M15 sweep uchun kerakli tasdiqlar soni (H1 / H4 / kunlik uchun 1)
+input int    MBVetoReversalConfirms   = 2;   // Brain veto reversal confirms
+// MBVetoZoneRole: V2: zona tarixi bu yo'nalishga ruxsat bermasa
+input bool   MBVetoZoneRole           = true;   // Brain veto zone role (on/off)
+// MBVetoZoneNearATR: V2: zona narxdan ATR(M5) x shu ichida bo'lsa tekshiriladi
+input double MBVetoZoneNearATR        = 1.5;   // Brain veto zone near ATR
+// MBVetoNoRoom: V3: maqsadgacha ushlab turgan qarama-qarshi zona bo'lsa
+input bool   MBVetoNoRoom             = true;   // Brain veto no room (on/off)
+// MBVetoRoomTPMult: V3: zonagacha masofa < savat TP x shu bo'lsa - joy yo'q
+input double MBVetoRoomTPMult         = 1.0;   // Brain veto room TP multiplier
+// MBVetoAcceleration: V4: harakat hozir qarama-qarshi tomonga tezlashmoqda
+input bool   MBVetoAcceleration       = true;   // Brain veto acceleration (on/off)
+// MBVetoPrintOnUse: Veto'ni jurnalga yozish ([SIRUS VETO])
+input bool   MBVetoPrintOnUse         = true;   // Brain veto print on use (on/off)
+// EnableMBPermission: V0: Market Brain yo'nalish ruxsati (BEARISH da BUY yo'q, TRANSITION da faqat reversal turi ...)
+input bool   EnableMBPermission       = true;   // Enable mb permission
+// EnableEntryCouncil: KENGASH: lokal + M5/M15 shamlari + zona birga hal qiladi. Uchalasi qarshi bo'lsa sweep ham kirgizmaydi; zaif global lokalni bosmaydi; qarshi zonaga kirmaydi. Bir tomon yopilsa - boshqa tomon (LOCAL / MOMENTUM) kirishi mumkin
+input bool   EnableEntryCouncil       = true;   // Enable entry council
+// CouncilWeakGlobalConf: Global ishonchi shundan past yoki o'tish holatida bo'lsa - yo'nalishni lokal hal qiladi
+input int    CouncilWeakGlobalConf    = 50;   // Council weak global confidence
+// CouncilZoneATR5: SELL ostida ushlab turgan support / BUY ustida resistance shu ATR(M5) ichida bo'lsa - kirmaydi (M5 yopilib buzilmaguncha)
+input double CouncilZoneATR5          = 0.35;   // Council zone ATR 5
+// MBPermExceptionMargin: V0: zaif qarama-qarshi bias'da faqat reversal setup va ball >= minimum + shu
+input int    MBPermExceptionMargin    = 2;   // Brain perm exception margin
+// MBOwnsDuplicateGates: Miya savdo tomonida bo'lsa, xuddi shu savolni beradigan ESKI filtrlar (joy, impuls quvish, HTF, eski daraja, singan daraja, aniqlik) chetga turadi - javobni miya veto'si va hakami beradi. Miya qarshi bo'lsa ikkala qatlam ham ishlaydi
+input bool   MBOwnsDuplicateGates     = true;   // Brain owns duplicate gates (on/off)
 
 int      G_MB_VETO_COUNT = 0;
 string   G_MB_VETO_LAST = "";

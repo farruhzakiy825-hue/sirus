@@ -20,9 +20,11 @@
 // (false positives) against refused setups that would have reached TP (false negatives, from the
 // shadow ledger). Cutting one without watching the other is how the EA once fell to 3 trades a day.
 
-input group "49b — AUTOPSIYA (reja 7-bosqich)"
-input bool   EnableAutopsy            = true;   // Har savat yakunida: MFE / MAE / ko'rsatish vaqti va (yomon tugagan bo'lsa) xato turi - jurnal, CSV va panel
-input bool   AutopsyToFile            = true;   // Sirus_Autopsy_<symbol>_<magic>.csv
+input group "DIAGNOSTICS ▸ Trade autopsy"
+// EnableAutopsy: Har savat yakunida: MFE / MAE / ko'rsatish vaqti va (yomon tugagan bo'lsa) xato turi - jurnal, CSV va panel
+input bool   EnableAutopsy            = true;   // Enable autopsy
+// AutopsyToFile: Sirus_Autopsy_<symbol>_<magic>.csv
+input bool   AutopsyToFile            = true;   // Autopsy to file (on/off)
 
 #define AU_TAGS 13
 string   G_AU_TAG_UZ[AU_TAGS] = {"QARSHI LOCK", "KECH KIRISH", "OLINGAN LIKVIDLIK", "CHARCHASH E'TIBORSIZ", "QARSHI ZONA",

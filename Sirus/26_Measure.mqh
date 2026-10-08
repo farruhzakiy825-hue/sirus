@@ -28,16 +28,25 @@
 //            Nothing here touches trading.
 //=====================================================================
 
-input group "49 — MEASURE: PROFILER + SHADOW LEDGER"
-input bool   EnableProfiler           = true;   // Har tik necha ms ketishini o'lchash (panelda va jurnalda)
-input bool   EnableShadowLedger       = true;   // Rad etilgan setuplarni yashirin kuzatish: TP ga yetardimi yoki grid kerak bo'lardimi
-input int    ShadowMaxMinutes         = 30;     // Soya shuncha daqiqada natija bermasa - TIMEOUT
-input bool   ShadowToFile             = true;   // Har natijani CSV ga yozish (Sirus_Shadow_<symbol>_<magic>.csv)
-input int    ShadowMinSamplesToJudge  = 10;     // Filtr bo'yicha xulosa uchun kamida shuncha natija
-input bool   EnableShadowValve        = true;   // SOYA KLAPANI: biror sifat filtri to'sgan setuplar olinganlardan ancha ko'p TP ga yetsa (>= ShadowValveMinSamples namuna), o'sha filtr vaqtincha yumshaydi. Risk / yangilik / spread / marja / yo'nalish veto'si HECH QACHON yumshamaydi
-input int    ShadowValveMinutes       = 30;     // Yumshatish shuncha daqiqa, keyin yangi dalil bilan qayta baholanadi
-input int    ShadowValveMinSamples    = 10;     // Qaror uchun shu filtr bo'yicha kamida shuncha natija
-input bool   EnableDailyReport        = true;   // 18-BOSQICH (B6): kun yakunida bitta qator - savdolar, lot, natija, soya, LIVE SWEEP, veto, tezlik (Sirus_DailyReport_<symbol>_<magic>.csv)
+input group "DIAGNOSTICS ▸ Profiler & shadow ledger"
+// EnableProfiler: Har tik necha ms ketishini o'lchash (panelda va jurnalda)
+input bool   EnableProfiler           = true;   // Enable profiler
+// EnableShadowLedger: Rad etilgan setuplarni yashirin kuzatish: TP ga yetardimi yoki grid kerak bo'lardimi
+input bool   EnableShadowLedger       = true;   // Enable shadow ledger
+// ShadowMaxMinutes: Soya shuncha daqiqada natija bermasa - TIMEOUT
+input int    ShadowMaxMinutes         = 30;   // Shadow max minutes
+// ShadowToFile: Har natijani CSV ga yozish (Sirus_Shadow_<symbol>_<magic>.csv)
+input bool   ShadowToFile             = true;   // Shadow to file (on/off)
+// ShadowMinSamplesToJudge: Filtr bo'yicha xulosa uchun kamida shuncha natija
+input int    ShadowMinSamplesToJudge  = 10;   // Shadow min samples to judge
+// EnableShadowValve: SOYA KLAPANI: biror sifat filtri to'sgan setuplar olinganlardan ancha ko'p TP ga yetsa (>= ShadowValveMinSamples namuna), o'sha filtr vaqtincha yumshaydi. Risk / yangilik / spread / marja / yo'nalish veto'si HECH QACHON yumshamaydi
+input bool   EnableShadowValve        = true;   // Enable shadow valve
+// ShadowValveMinutes: Yumshatish shuncha daqiqa, keyin yangi dalil bilan qayta baholanadi
+input int    ShadowValveMinutes       = 30;   // Shadow valve minutes
+// ShadowValveMinSamples: Qaror uchun shu filtr bo'yicha kamida shuncha natija
+input int    ShadowValveMinSamples    = 10;   // Shadow valve min samples
+// EnableDailyReport: 18-BOSQICH (B6): kun yakunida bitta qator - savdolar, lot, natija, soya, LIVE SWEEP, veto, tezlik (Sirus_DailyReport_<symbol>_<magic>.csv)
+input bool   EnableDailyReport        = true;   // Enable daily report
 
 //---------------------------------------------------------------------
 // PROFILER

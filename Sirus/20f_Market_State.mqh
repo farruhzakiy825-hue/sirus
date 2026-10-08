@@ -27,11 +27,15 @@
 //
 // Speed: once per M1 bar; the tick part is one price comparison.
 
-input group "47f — BOZOR HOLATI + HIKOYA (reja 8-bosqich)"
-input bool   EnableMarketState        = true;   // Bozor holati (15 holat), sezgirlik, ssenariylar va hikoya - panel + hakam vaznlari
-input bool   EnableAnomalyGuard       = true;   // G'AYRITABIIY BOZOR: spread 2.5x, M1 bar 4 ATR, tiklar orasida 1 ATR(M5) sakrash - AnomalyCooldownMin davomida yangi kirish yo'q
-input int    AnomalyCooldownMin       = 5;      // G'ayritabiiy hodisadan keyin shuncha daqiqa kutiladi
-input bool   StatePrintOnUse          = true;   // Holat almashuvini jurnalga yozish ([SIRUS STATE])
+input group "BRAIN ▸ Market state & scenarios"
+// EnableMarketState: Bozor holati (15 holat), sezgirlik, ssenariylar va hikoya - panel + hakam vaznlari
+input bool   EnableMarketState        = true;   // Enable market state
+// EnableAnomalyGuard: G'AYRITABIIY BOZOR: spread 2.5x, M1 bar 4 ATR, tiklar orasida 1 ATR(M5) sakrash - AnomalyCooldownMin davomida yangi kirish yo'q
+input bool   EnableAnomalyGuard       = true;   // Enable anomaly guard
+// AnomalyCooldownMin: G'ayritabiiy hodisadan keyin shuncha daqiqa kutiladi
+input int    AnomalyCooldownMin       = 5;   // Anomaly cooldown min
+// StatePrintOnUse: Holat almashuvini jurnalga yozish ([SIRUS STATE])
+input bool   StatePrintOnUse          = true;   // State print on use (on/off)
 
 #define MST_UNKNOWN        0
 #define MST_NEWS           1

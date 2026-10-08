@@ -1685,9 +1685,6 @@ bool AccountModeAllowsTrading(string &reason)
 // trailing, the account / margin / exposure / affordability limits, max orders, weekend, a velocity
 // spike, scheduled news, the Market Brain's dead thesis (exit at break-even) and an armed IMPOSSIBLE
 // exit. The rung that goes in is the normal one (distance, lot and every hard check still apply).
-input bool   EnableGridRescueGuarantee = true;  // QUTQARUV KAFOLATI: yumshoq grid to'siqlari narx uzoqlashsa chetlab o'tiladi - grid muzlamaydi (qattiq xavfsizlik to'siqlari qoladi)
-input double GridRescueSoftSteps      = 1.5;    // Narx oxirgi orderdan shuncha rejalashtirilgan qadam uzoqlashsa VA qarshi harakat sekinlashsa - yumshoq to'siqlar chetlab o'tiladi
-input double GridRescueForceSteps     = 2.5;    // Shuncha qadam uzoqlashsa - harakat to'xtaganini ko'rsatuvchi tasdiq yetadi (qarshi displacement yo'q, oxirgi M1 yangi ekstremum qilmadi). TASDIQSIZ HECH QACHON
 
 bool     G_GRID_RESCUE_ON     = false;
 string   G_GRID_RESCUE_WHY    = "";

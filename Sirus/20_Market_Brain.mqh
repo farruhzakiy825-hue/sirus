@@ -31,23 +31,38 @@
 //   CONTRADICTION: how much relevant evidence has appeared against the thesis since it started.
 //=====================================================================
 
-input group "44 — MARKET BRAIN: BIAS + THESIS"
-input bool   EnableMarketBrain        = true;   // Bozor haqida yagona fikr: 7 holatli bias, dealing range, likvidlik maqsadi, thesis
-input double MBPressureWeakGap        = 20.0;   // Bias WEAK bo'ladi: qarama-qarshi sham bosimi shuncha ko'p bo'lsa (0-100 shkala)
-input int    MBInvalidationMemoryM5   = 12;     // O'lgan thesis yo'nalishi ko'pi bilan shuncha M5 bar (1 soat) bloklanadi. HIDDEN-BUG FIX: 24 -> 12, va bozor shu yo'nalishni yangi struktura bilan qayta tasdiqlasa blok darhol ochiladi
-input bool   MBThesisPrintOnUse       = true;   // Thesis o'zgarishlarini jurnalga yozish ([SIRUS THESIS])
-input bool   EnableLocalTrading       = true;
-input int    LocalGridMaxRungs        = 3;      // Lokal (globalga qarshi) savat ko'pi bilan shuncha order
-input int    LocalBasketMaxMinutes    = 20;     // Lokal savat shuncha daqiqadan keyin BE yoki foydada bo'lsa yopiladi
-input int    LocalLossPauseCount      = 2;      // Ketma-ket shuncha lokal zarar ...
-input int    LocalLossPauseMinutes    = 30;     // ... bo'lsa lokal savdo shuncha daqiqa to'xtaydi (global savdo davom etadi)
-input bool   ShowLocalOnChart         = true;   // Lokal oyoq maqsadi va chegarasini chartda chiziq bilan ko'rsatish   // LOKAL SAVDO: global yo'nalishga qarshi LOKAL harakat (M1 / M5 struktura + bosim) aniq bo'lsa - o'sha tomonga ham kirish (veto, hakam, risk baribir tekshiradi; grid faqat tuzilma + javob bilan)
-input bool   EnableRegimePlaybook     = true;   // 15-BOSQICH (D1): M15 bozor rejimi (TREND / DIAPAZON / PORTLASH / SIQILISH) va har biriga o'z kirish qoidasi
-input int    RegimeLookbackM15        = 20;     // Rejim shuncha M15 bar bo'yicha o'qiladi
-input double RegimeTrendER            = 0.35;   // Samaradorlik (to'g'ri yo'l / yurilgan yo'l) >= shu: TREND
-input double RegimeExpansionRatio     = 1.40;   // ATR(14) / ATR(50) >= shu va oxirgi 4 bar kuchli yurgan: PORTLASH
-input double RegimeCompressionATR     = 2.0;    // Oxirgi 12 bar diapazoni <= ATR x shu va ATR pasaygan: SIQILISH
-input double RegimeRangeEdge          = 0.35;   // DIAPAZON: BUY pastki shu ulushda, SELL yuqori shu ulushda - chekka (yaxshi joy)
+input group "BRAIN ▸ Bias, thesis & local legs"
+// EnableMarketBrain: Bozor haqida yagona fikr: 7 holatli bias, dealing range, likvidlik maqsadi, thesis
+input bool   EnableMarketBrain        = true;   // Enable market brain
+// MBPressureWeakGap: Bias WEAK bo'ladi: qarama-qarshi sham bosimi shuncha ko'p bo'lsa (0-100 shkala)
+input double MBPressureWeakGap        = 20.0;   // Brain pressure weak gap
+// MBInvalidationMemoryM5: O'lgan thesis yo'nalishi ko'pi bilan shuncha M5 bar (1 soat) bloklanadi. HIDDEN-BUG FIX: 24 -> 12, va bozor shu yo'nalishni yangi struktura bilan qayta tasdiqlasa blok darhol ochiladi
+input int    MBInvalidationMemoryM5   = 12;   // Brain invalidation memory M5
+// MBThesisPrintOnUse: Thesis o'zgarishlarini jurnalga yozish ([SIRUS THESIS])
+input bool   MBThesisPrintOnUse       = true;   // Brain thesis print on use (on/off)
+input bool   EnableLocalTrading       = true;   // Enable local trading
+// LocalGridMaxRungs: Lokal (globalga qarshi) savat ko'pi bilan shuncha order
+input int    LocalGridMaxRungs        = 3;   // Local grid max rungs
+// LocalBasketMaxMinutes: Lokal savat shuncha daqiqadan keyin BE yoki foydada bo'lsa yopiladi
+input int    LocalBasketMaxMinutes    = 20;   // Local basket max minutes
+// LocalLossPauseCount: Ketma-ket shuncha lokal zarar ...
+input int    LocalLossPauseCount      = 2;   // Local loss pause count
+// LocalLossPauseMinutes: ... bo'lsa lokal savdo shuncha daqiqa to'xtaydi (global savdo davom etadi)
+input int    LocalLossPauseMinutes    = 30;   // Local loss pause minutes
+// ShowLocalOnChart: Lokal oyoq maqsadi va chegarasini chartda chiziq bilan ko'rsatish   // LOKAL SAVDO: global yo'nalishga qarshi LOKAL harakat (M1 / M5 struktura + bosim) aniq bo'lsa - o'sha tomonga ham kirish (veto, hakam, risk baribir tekshiradi; grid faqat tuzilma + javob bilan)
+input bool   ShowLocalOnChart         = true;   // Show local on chart
+// EnableRegimePlaybook: 15-BOSQICH (D1): M15 bozor rejimi (TREND / DIAPAZON / PORTLASH / SIQILISH) va har biriga o'z kirish qoidasi
+input bool   EnableRegimePlaybook     = true;   // Enable regime playbook
+// RegimeLookbackM15: Rejim shuncha M15 bar bo'yicha o'qiladi
+input int    RegimeLookbackM15        = 20;   // Regime lookback M15
+// RegimeTrendER: Samaradorlik (to'g'ri yo'l / yurilgan yo'l) >= shu: TREND
+input double RegimeTrendER            = 0.35;   // Regime trend er
+// RegimeExpansionRatio: ATR(14) / ATR(50) >= shu va oxirgi 4 bar kuchli yurgan: PORTLASH
+input double RegimeExpansionRatio     = 1.40;   // Regime expansion ratio
+// RegimeCompressionATR: Oxirgi 12 bar diapazoni <= ATR x shu va ATR pasaygan: SIQILISH
+input double RegimeCompressionATR     = 2.0;   // Regime compression ATR
+// RegimeRangeEdge: DIAPAZON: BUY pastki shu ulushda, SELL yuqori shu ulushda - chekka (yaxshi joy)
+input double RegimeRangeEdge          = 0.35;   // Regime range edge
 
 #define MB_BIAS_BEARISH          -3
 #define MB_BIAS_BEARISH_WEAK     -2

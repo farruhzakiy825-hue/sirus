@@ -33,15 +33,23 @@
 // The replay is computed on demand for any level a detector uses, and cached per M5 bar.
 //=====================================================================
 
-input group "42 — MARKET BRAIN: ZONE ROLE ENGINE"
-input bool   EnableZoneRoleEngine     = true;   // Zona rolini tarix bo'yicha aniqlash (hozircha faqat o'qiydi va Reason Code'ga yozadi)
-input int    MBZoneLookbackM5         = 576;    // Zona tarixi: shuncha M5 bar (576 = 2 kun)
-input double MBZoneBandATR            = 0.30;   // Zona kengligi: daraja ± ATR(M5) x shu
-input int    MBZoneAcceptClosesM5     = 2;      // Haqiqiy break: shuncha M5 yopilish narigi tomonda ...
-input double MBZoneAcceptATR          = 0.25;   // ... zona chetidan kamida ATR(M5) x shu narida
-input double MBZoneBreakBodyATR       = 0.8;    // ... va break shamining tanasi >= ATR(M5) x shu
-input int    MBZoneGrindCloses        = 4;      // Yoki displacement'siz shuncha yopilish ketma-ket narigi tomonda
-input int    MBZoneExpireBarsM5       = 288;    // Shuncha M5 bar hech narsa bo'lmasa: EXPIRED
+input group "BRAIN ▸ Zone roles"
+// EnableZoneRoleEngine: Zona rolini tarix bo'yicha aniqlash (hozircha faqat o'qiydi va Reason Code'ga yozadi)
+input bool   EnableZoneRoleEngine     = true;   // Enable zone role engine
+// MBZoneLookbackM5: Zona tarixi: shuncha M5 bar (576 = 2 kun)
+input int    MBZoneLookbackM5         = 576;   // Brain zone lookback M5
+// MBZoneBandATR: Zona kengligi: daraja ± ATR(M5) x shu
+input double MBZoneBandATR            = 0.30;   // Brain zone band ATR
+// MBZoneAcceptClosesM5: Haqiqiy break: shuncha M5 yopilish narigi tomonda ...
+input int    MBZoneAcceptClosesM5     = 2;   // Brain zone accept closes M5
+// MBZoneAcceptATR: ... zona chetidan kamida ATR(M5) x shu narida
+input double MBZoneAcceptATR          = 0.25;   // Brain zone accept ATR
+// MBZoneBreakBodyATR: ... va break shamining tanasi >= ATR(M5) x shu
+input double MBZoneBreakBodyATR       = 0.8;   // Brain zone break body ATR
+// MBZoneGrindCloses: Yoki displacement'siz shuncha yopilish ketma-ket narigi tomonda
+input int    MBZoneGrindCloses        = 4;   // Brain zone grind closes
+// MBZoneExpireBarsM5: Shuncha M5 bar hech narsa bo'lmasa: EXPIRED
+input int    MBZoneExpireBarsM5       = 288;   // Brain zone expire bars M5
 
 #define MB_ZS_UNTOUCHED     0
 #define MB_ZS_APPROACHING   1

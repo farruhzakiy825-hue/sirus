@@ -32,13 +32,19 @@
 // Speed: breaks are recorded where the event engine finds them (per bar of their timeframe); the
 // lock is judged once per M5 bar and the maturity once per M1 bar. Nothing here runs per tick.
 
-input group "47b — TUZILMA XOTIRASI + YO'NALISH LOCK (reja 1-bosqich)"
-input bool   EnableStructureLock      = true;   // YO'NALISH LOCK: M15+ sweep + displacement + ketma-ket 2 buzilish bo'lsa - qarshi tomonga kirish yo'q, burilish 4-bosqichga yetguncha (support'ga kelgani BUY sababi emas)
-input int    LockSweepHours           = 12;     // Lock uchun M15+ sweep shuncha soat ichida bo'lgan bo'lishi kerak
-input int    LockMaxHours             = 8;      // Lock tomoniga yangi buzilish shuncha soat bo'lmasa - lock tugaydi
-input int    LockUnlockStage          = 4;      // Lock'ka qarshi kirish uchun burilish shu bosqichga yetishi kerak (4 = sweep + displacement + MSS + retest ushlandi)
-input bool   EnableReversalEntry      = true;   // Burilish LockUnlockStage+ bosqichda: miya yangi tomonga kiradi (BRAIN REVERSAL)
-input bool   StructurePrintOnUse      = true;   // Lock / burilish bosqichlari / soxta buzilishlarni jurnalga yozish ([SIRUS STRUCTURE])
+input group "BRAIN ▸ Structure memory & direction lock"
+// EnableStructureLock: YO'NALISH LOCK: M15+ sweep + displacement + ketma-ket 2 buzilish bo'lsa - qarshi tomonga kirish yo'q, burilish 4-bosqichga yetguncha (support'ga kelgani BUY sababi emas)
+input bool   EnableStructureLock      = true;   // Enable structure lock
+// LockSweepHours: Lock uchun M15+ sweep shuncha soat ichida bo'lgan bo'lishi kerak
+input int    LockSweepHours           = 12;   // Lock sweep hours
+// LockMaxHours: Lock tomoniga yangi buzilish shuncha soat bo'lmasa - lock tugaydi
+input int    LockMaxHours             = 8;   // Lock max hours
+// LockUnlockStage: Lock'ka qarshi kirish uchun burilish shu bosqichga yetishi kerak (4 = sweep + displacement + MSS + retest ushlandi)
+input int    LockUnlockStage          = 4;   // Lock unlock stage
+// EnableReversalEntry: Burilish LockUnlockStage+ bosqichda: miya yangi tomonga kiradi (BRAIN REVERSAL)
+input bool   EnableReversalEntry      = true;   // Enable reversal entry
+// StructurePrintOnUse: Lock / burilish bosqichlari / soxta buzilishlarni jurnalga yozish ([SIRUS STRUCTURE])
+input bool   StructurePrintOnUse      = true;   // Structure print on use (on/off)
 
 #define ST_Q_FAILED     0
 #define ST_Q_WEAK       1

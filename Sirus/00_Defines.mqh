@@ -295,9 +295,9 @@ int      G_LIVE_PEAK_BODY_DIR = 0;
 
 enum ENUM_SIRUS_MODE
 {
-   SIRUS_MODE_AUTO        = 0,   // SIRUS AUTO (aqlli: bozorga qarab o'zi tanlaydi)
-   SIRUS_MODE_BALANCED    = 1,   // SIRUS BALANCED (muvozanatli)
-   SIRUS_MODE_HIGH_HUNTER = 2    // SIRUS HIGH HUNTER (agressiv)
+   SIRUS_MODE_AUTO        = 0,   // AUTO (adaptive - picks the mode from the market)
+   SIRUS_MODE_BALANCED    = 1,   // BALANCED
+   SIRUS_MODE_HIGH_HUNTER = 2    // HIGH HUNTER (aggressive)
 };
 
 // V112: how the trading-timeframe structure sits inside the higher-timeframe structure. This is the
@@ -665,10 +665,10 @@ enum ENUM_SCORE_DECISION
 
 enum ENUM_MICRO_TP_MODE
 {
-   MICRO_TP_AUTO           = 0,
-   MICRO_TP_FIXED          = 1,
-   MICRO_TP_MAIN_PERCENT   = 2,
-   MICRO_TP_DYNAMIC_MARKET = 3
+   MICRO_TP_AUTO           = 0,   // AUTO
+   MICRO_TP_FIXED          = 1,   // FIXED (points)
+   MICRO_TP_MAIN_PERCENT   = 2,   // % OF MAIN TP
+   MICRO_TP_DYNAMIC_MARKET = 3    // DYNAMIC (market)
 };
 
 enum ENUM_TEMP_BLOCK_TYPE

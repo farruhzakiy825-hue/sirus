@@ -28,14 +28,21 @@
 // Speed: origin, target and pressure are read once per M1 bar; per tick only the travelled share is
 // recomputed from the cached numbers.
 
-input group "47c — KIRISH JOYI + CHARCHASH (reja 2-bosqich)"
-input bool   EnableLateEntryGuard      = true;   // KECH KIRISH HIMOYASI: oyoq maqsadigacha LateLegPct% yurgan bo'lsa - shu tomonga yangi kirish yo'q (4081 tubida SELL xatosi)
-input double LateLegPct                = 85.0;   // Oyoqning shuncha foizi o'tilgan bo'lsa - kech
-input double LateLegMinATR15           = 2.5;    // ... va oyoq kamida shuncha ATR(M15) bo'lsa (kichik harakatda bu qoida ishlamaydi)
-input int    ExhaustBlockScore         = 70;     // CHARCHASH bosimi shundan yuqori - shu tomonga yangi kirish yo'q (teskari savdo emas)
-input int    ExhaustCautionScore       = 50;     // Shundan yuqori - hakam sifatiga jarima
-input bool   EnableTakenLiquidityGuard = true;   // Oldindagi likvidlik allaqachon olingan va qaytarilgan bo'lsa - shu tomonga kirish yo'q (4142 xatosi)
-input int    CounterTrendTax           = 10;     // Kuchli biasga qarshi (yetilgan burilishsiz) kirishga sifat talabi shuncha ball yuqori
+input group "BRAIN ▸ Entry location & exhaustion"
+// EnableLateEntryGuard: KECH KIRISH HIMOYASI: oyoq maqsadigacha LateLegPct% yurgan bo'lsa - shu tomonga yangi kirish yo'q (4081 tubida SELL xatosi)
+input bool   EnableLateEntryGuard      = true;   // Enable late entry guard
+// LateLegPct: Oyoqning shuncha foizi o'tilgan bo'lsa - kech
+input double LateLegPct                = 85.0;   // Late leg %
+// LateLegMinATR15: ... va oyoq kamida shuncha ATR(M15) bo'lsa (kichik harakatda bu qoida ishlamaydi)
+input double LateLegMinATR15           = 2.5;   // Late leg min ATR 15
+// ExhaustBlockScore: CHARCHASH bosimi shundan yuqori - shu tomonga yangi kirish yo'q (teskari savdo emas)
+input int    ExhaustBlockScore         = 70;   // Exhaust block score
+// ExhaustCautionScore: Shundan yuqori - hakam sifatiga jarima
+input int    ExhaustCautionScore       = 50;   // Exhaust caution score
+// EnableTakenLiquidityGuard: Oldindagi likvidlik allaqachon olingan va qaytarilgan bo'lsa - shu tomonga kirish yo'q (4142 xatosi)
+input bool   EnableTakenLiquidityGuard = true;   // Enable taken liquidity guard
+// CounterTrendTax: Kuchli biasga qarshi (yetilgan burilishsiz) kirishga sifat talabi shuncha ball yuqori
+input int    CounterTrendTax           = 10;   // Counter trend tax
 
 double   G_LX_ORIGIN[2];        // leg origin per direction (0 = SELL leg, 1 = BUY leg)
 double   G_LX_TARGET[2];        // what the leg is heading for, 0 = nothing found

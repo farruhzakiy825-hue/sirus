@@ -37,31 +37,53 @@
 //   WAIT     not now - the setup stays alive and is re-judged on the next tick
 //=====================================================================
 
-input group "45 — MARKET BRAIN: ENTRY ENGINE + JUDGE"
-input bool   EnableMBEntryJudge       = true;   // Kirish joyi, vaqti va sifati bo'yicha yakuniy qaror: EXECUTE / CAUTION / WAIT
-input int    MBEntryExecuteQuality    = 65;     // Sifat >= shu: EXECUTE
-input int    MBEntryCautionQuality    = 45;     // Sifat >= shu: CAUTION (kichik lot), undan past: WAIT
-input double MBCautionLotFactor       = 0.75;   // CAUTION bo'lganda lot x shu
-input double MBEntryDecayPerATR       = 20.0;   // Signal paydo bo'lgandan beri narx har 1 ATR(M1) qochganda sifat shuncha pasayadi
-input double MBMaxInvalidationATR5    = 3.0;    // Invalidation darajasi ATR(M5) x shudan uzoq bo'lsa: sifat pasayadi
-input bool   MBEntryPrintOnUse        = true;   // Qarorlarni jurnalga yozish ([SIRUS JUDGE])
-input bool   EnableMBFastEntry        = true;   // TEZKOR KIRISH: detektor signali kutilmaydi - Market Brain thesis + hozirgi trigger yetarli (veto va judge baribir tekshiradi)
-input int    MBReentryWindowBars      = 20;     // Yutgan savat yopilgandan keyin shuncha M1 bar ichida o'sha yo'nalishda tezkor re-entry
-input int    MBFastEntryScoreMargin   = 2;      // Tezkor kirishga beriladigan ball: minimum + shu (keyingi ball filtrlaridan o'tishi uchun)
-input bool   EnableCashbackTempo      = true;   // CASHBACK TEMPI: faqat cashback rejimida - kirish talablari biroz yumshoq (veto'lar o'zgarmaydi), chunki daromad aylanmadan
-input int    CashbackTempoQualityCut  = 10;     // Cashback tempida EHTIYOT / OCHISH sifat chegaralari shuncha pastroq
-input int    CashbackReentryBars      = 40;     // Cashback tempida tezkor re-entry oynasi (M1 bar)
-input bool   EnableMBScoreRelief      = true;   // MIYA YENGILLIGI: eski detektor balli yetmasa, lekin Market Brain shu yo'nalishni tasdiqlasa - yetishmagan ball to'ldiriladi. Keyin veto va hakam (joy + trigger) baribir tekshiradi. Miya qarshi yoki neytral bo'lsa yengillik yo'q
-input int    MBReliefStrong           = 4;      // Miya kuchli tomonda (ustun/hukmron) va g'oya ochiq: shuncha ball
-input int    MBReliefWeak             = 2;      // Miya uyg'onmoqda (transition) yoki g'oya yo'q: shuncha ball
-input bool   EnableBrainEntries       = true;   // MIYA KIRISHLARI: eski detektor balliga bog'liq bo'lmagan oddiy mantiq - trend g'oyasi, likvidlik ovi (sweep), diapazon chekkasi, momentum. Veto, hakam va risk filtrlari baribir tekshiradi
-input bool   BrainEntryTrend          = true;   // Trend: miya tomonda (ustun/hukmron), g'oya ochiq, trigger bor, impuls kech emas
-input bool   BrainEntrySweep          = true;   // Likvidlik ovi: LIVE SWEEP yoki yangi M5+ sweep / fake break qaytishi - qaytish tomonga
-input bool   BrainEntryRange          = true;   // Diapazon (M15 rejimi): chekkada qaytish shami
-input bool   BrainEntryMomentum       = true;   // Momentum: jonli yoki hozirgina yopilgan displacement + M5 bosimi shu tomonda, impuls erta
-input bool   EnableJudgeScoreBypass   = true;   // HAKAM BALL O'RNIDA: eski detektor balli yetmasa, lekin Market Brain hakami shu setupga yuqori sifat bersa - kirish ochiladi
-input int    MBJudgeBypassQuality     = 65;     // Hakam sifati kamida shuncha bo'lsa
-input bool   SmartFillMomentumSkip    = true;   // 14-BOSQICH (C4): momentum lahzasida (jonli displacement, LIVE SWEEP, hozirgina yopilgan M1 displacement) SmartFill pullback kutmaydi - darhol kiradi
+input group "BRAIN ▸ Entry engine & judge"
+// EnableMBEntryJudge: Kirish joyi, vaqti va sifati bo'yicha yakuniy qaror: EXECUTE / CAUTION / WAIT
+input bool   EnableMBEntryJudge       = true;   // Enable mb entry judge
+// MBEntryExecuteQuality: Sifat >= shu: EXECUTE
+input int    MBEntryExecuteQuality    = 65;   // Brain entry execute quality
+// MBEntryCautionQuality: Sifat >= shu: CAUTION (kichik lot), undan past: WAIT
+input int    MBEntryCautionQuality    = 45;   // Brain entry caution quality
+// MBCautionLotFactor: CAUTION bo'lganda lot x shu
+input double MBCautionLotFactor       = 0.75;   // Brain caution lot factor
+// MBEntryDecayPerATR: Signal paydo bo'lgandan beri narx har 1 ATR(M1) qochganda sifat shuncha pasayadi
+input double MBEntryDecayPerATR       = 20.0;   // Brain entry decay per ATR
+// MBMaxInvalidationATR5: Invalidation darajasi ATR(M5) x shudan uzoq bo'lsa: sifat pasayadi
+input double MBMaxInvalidationATR5    = 3.0;   // Brain max invalidation ATR 5
+// MBEntryPrintOnUse: Qarorlarni jurnalga yozish ([SIRUS JUDGE])
+input bool   MBEntryPrintOnUse        = true;   // Brain entry print on use (on/off)
+// EnableMBFastEntry: TEZKOR KIRISH: detektor signali kutilmaydi - Market Brain thesis + hozirgi trigger yetarli (veto va judge baribir tekshiradi)
+input bool   EnableMBFastEntry        = true;   // Enable mb fast entry
+// MBReentryWindowBars: Yutgan savat yopilgandan keyin shuncha M1 bar ichida o'sha yo'nalishda tezkor re-entry
+input int    MBReentryWindowBars      = 20;   // Brain reentry window bars
+// MBFastEntryScoreMargin: Tezkor kirishga beriladigan ball: minimum + shu (keyingi ball filtrlaridan o'tishi uchun)
+input int    MBFastEntryScoreMargin   = 2;   // Brain fast entry score margin
+// CashbackTempoQualityCut: Cashback tempida EHTIYOT / OCHISH sifat chegaralari shuncha pastroq
+input int    CashbackTempoQualityCut  = 10;   // Cashback tempo quality cut
+// CashbackReentryBars: Cashback tempida tezkor re-entry oynasi (M1 bar)
+input int    CashbackReentryBars      = 40;   // Cashback reentry bars
+// EnableMBScoreRelief: MIYA YENGILLIGI: eski detektor balli yetmasa, lekin Market Brain shu yo'nalishni tasdiqlasa - yetishmagan ball to'ldiriladi. Keyin veto va hakam (joy + trigger) baribir tekshiradi. Miya qarshi yoki neytral bo'lsa yengillik yo'q
+input bool   EnableMBScoreRelief      = true;   // Enable mb score relief
+// MBReliefStrong: Miya kuchli tomonda (ustun/hukmron) va g'oya ochiq: shuncha ball
+input int    MBReliefStrong           = 4;   // Brain relief strong
+// MBReliefWeak: Miya uyg'onmoqda (transition) yoki g'oya yo'q: shuncha ball
+input int    MBReliefWeak             = 2;   // Brain relief weak
+// EnableBrainEntries: MIYA KIRISHLARI: eski detektor balliga bog'liq bo'lmagan oddiy mantiq - trend g'oyasi, likvidlik ovi (sweep), diapazon chekkasi, momentum. Veto, hakam va risk filtrlari baribir tekshiradi
+input bool   EnableBrainEntries       = true;   // Enable brain entries
+// BrainEntryTrend: Trend: miya tomonda (ustun/hukmron), g'oya ochiq, trigger bor, impuls kech emas
+input bool   BrainEntryTrend          = true;   // Brain entry trend (on/off)
+// BrainEntrySweep: Likvidlik ovi: LIVE SWEEP yoki yangi M5+ sweep / fake break qaytishi - qaytish tomonga
+input bool   BrainEntrySweep          = true;   // Brain entry sweep (on/off)
+// BrainEntryRange: Diapazon (M15 rejimi): chekkada qaytish shami
+input bool   BrainEntryRange          = true;   // Brain entry range (on/off)
+// BrainEntryMomentum: Momentum: jonli yoki hozirgina yopilgan displacement + M5 bosimi shu tomonda, impuls erta
+input bool   BrainEntryMomentum       = true;   // Brain entry momentum (on/off)
+// EnableJudgeScoreBypass: HAKAM BALL O'RNIDA: eski detektor balli yetmasa, lekin Market Brain hakami shu setupga yuqori sifat bersa - kirish ochiladi
+input bool   EnableJudgeScoreBypass   = true;   // Enable judge score bypass
+// MBJudgeBypassQuality: Hakam sifati kamida shuncha bo'lsa
+input int    MBJudgeBypassQuality     = 65;   // Brain judge bypass quality
+// SmartFillMomentumSkip: 14-BOSQICH (C4): momentum lahzasida (jonli displacement, LIVE SWEEP, hozirgina yopilgan M1 displacement) SmartFill pullback kutmaydi - darhol kiradi
+input bool   SmartFillMomentumSkip    = true;   // Smart fill momentum skip (on/off)
 
 #define MB_ED_EXECUTE   0
 #define MB_ED_CAUTION   1

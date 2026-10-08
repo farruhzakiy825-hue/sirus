@@ -1,5 +1,29 @@
 # CHANGELOG — Sirus Brain V8
 
+## Sozlamalar oynasi: brend darajasida, tushunarli
+
+- **Muammo.** MT5 sozlamalar oynasida har sozlama nomi o'rniga uning izohi ko'rsatiladi. Izohlar esa dasturchi eslatmalari edi ("V249fix: 7 -> 5 ...", "Close at break-even and collect the rebate..."). Jami 3206 ta sozlama va 169 ta bo'lim bor edi, raqamlar aralash, bir qismi ulanmagan.
+- **Tepada SIRUS ▸ Quick Setup.** 7 bo'lim, 43 asosiy sozlama:
+  - General;
+  - Lot size;
+  - Grid recovery;
+  - Take profit & exit;
+  - Cashback mode;
+  - Protection;
+  - Display & alerts.
+- **Har sozlamaga qisqa, aniq inglizcha nom berildi.** Masalan, `Start lot (first order)`, `Cashback mode`, `Basket stop loss (% of balance)`. Eski texnik izoh kodda, sozlamaning ustidagi qatorda saqlandi.
+- **Bo'limlar bir xil uslubda:**
+  - `ADVANCED ▸ ...`;
+  - `BRAIN ▸ ...`;
+  - `DISPLAY ▸ ...`;
+  - `DIAGNOSTICS ▸ ...`.
+  - Hech qayerga ulanmagan bo'limlar `(inactive)` deb belgilandi.
+- **Ro'yxat qiymatlari:**
+  - Trading mode: AUTO (adaptive) / BALANCED / HIGH HUNTER (aggressive);
+  - Micro TP mode: AUTO / FIXED / % OF MAIN TP / DYNAMIC.
+- **Presetlar buzilmaydi.** O'zgaruvchi nomlari va qiymatlari o'zgarmadi, faqat ko'rinadigan nomlar va tartib o'zgardi.
+- **Qo'llanma:** `SETTINGS_GUIDE.md`.
+
 ## Grid: tasdiqsiz pog'ona yo'q (egasi qoidasi)
 
 - **Tuzatildi.** Tasdiqsiz grid qo'shadigan ikki joy bor edi:

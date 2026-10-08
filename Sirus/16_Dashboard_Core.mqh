@@ -771,9 +771,13 @@ void UpdatePremiumLogEngine(const string source)
 // ScanMaxSeconds at most. On the ticks in between, the scanner's outputs are restored from the
 // snapshot taken after its last run - the entry gates mutate them during a tick (relief, fast entry,
 // scenario score), and those mutations must not pile up across ticks.
-input bool   EnableScannerThrottle    = true;   // TEZLIK: eski skaner faqat yangi bar / narx siljishi / savat o'zgarishi / har N soniyada ishlaydi
-input double ScanMovePointsATR        = 0.10;   // Narx oxirgi skanerdan beri ATR(M1) x shu siljisa - qayta skaner
-input int    ScanMaxSeconds           = 3;      // Har holda shuncha soniyada bir marta
+input group "ADVANCED ▸ Scanner throttle (speed)"
+// EnableScannerThrottle: TEZLIK: eski skaner faqat yangi bar / narx siljishi / savat o'zgarishi / har N soniyada ishlaydi
+input bool   EnableScannerThrottle    = true;   // Enable scanner throttle
+// ScanMovePointsATR: Narx oxirgi skanerdan beri ATR(M1) x shu siljisa - qayta skaner
+input double ScanMovePointsATR        = 0.10;   // Scan move points ATR
+// ScanMaxSeconds: Har holda shuncha soniyada bir marta
+input int    ScanMaxSeconds           = 3;   // Scan max seconds
 
 datetime G_SCAN_BAR = 0, G_SCAN_TIME = 0;
 double   G_SCAN_BID = 0.0;

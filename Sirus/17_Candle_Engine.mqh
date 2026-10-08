@@ -28,34 +28,59 @@
 // opens, blocks or sizes a trade.
 //=====================================================================
 
-input group "41 — MARKET BRAIN: CANDLE + EVENT ENGINE"
-input bool   EnableMarketBrainEngines = true;   // Sham va hodisa dvigatellari (faqat o'qiydi, savdo qaroriga hali ta'sir qilmaydi)
-input double MBDispBodyATR            = 1.2;    // Displacement: sham tanasi >= ATR x shu
-input double MBDispBodyRatio          = 0.60;   // Displacement: tana / diapazon >= shu
-input double MBStrongDispBodyATR      = 1.8;    // Kuchli displacement: tana >= ATR x shu
-input double MBRejectWickRatio        = 0.50;   // Rejection / liquidity grab: daraja tomonidagi wick >= diapazon x shu
-input double MBIndecisionBodyRatio    = 0.25;   // Indecision: tana / diapazon <= shu
-input double MBAbsorptionRangeATR     = 1.3;    // Absorption: diapazon >= ATR x shu ...
-input double MBAbsorptionBodyRatio    = 0.35;   // ... lekin tana / diapazon <= shu
-input double MBLiveDispBodyATR        = 0.8;    // Jonli (yopilmagan) M1 sham: tana >= ATR x shu = early displacement
-input int    MBCompressionBars        = 10;     // Compression: oxirgi N bar ...
-input double MBCompressionATR         = 1.5;    // ... diapazoni <= ATR x shu
-input double MBSpeedEarlyATR          = 1.5;    // Impulse: oxirgi sog'lom pullback'dan yurilgan masofa < shu ATR = EARLY
-input double MBSpeedNormalATR         = 2.5;    // < shu = NORMAL
-input double MBSpeedLateATR           = 4.0;    // < shu = LATE, undan ko'p = EXPIRED
-input bool   MBCandlePrintOnUse       = false;  // Har yangi M5 / M15 / H1 / H4 sham o'qilishini jurnalga yozish
-input bool   EnableCandleDirectionLink = true;  // 13-BOSQICH: yo'nalish va sham bog'lanadi - almashuvni sham tasdiqlaydi (A1), M1/M5/M15 bosimi hakamga (A2)
-input bool   EnableCandleReadingGate  = true;   // Shamni o'qish: M5+M15 qarshi bo'lsa yoki qarshi harakat M1+M5 da davom etsa - burilish shamini kutadi (bullishda SELL / bearishda BUY yo'q)
-input double MBImpulseGiveBack       = 0.62;   // Impuls o'z harakatining shuncha qismini qaytarib bersa (yoki boshlanish nuqtasidan o'tib yopilsa) - impuls tugagan hisoblanadi (eski impuls 'yosh' deb qolib ketmasin)
-input double MBPressureSideMin        = 15.0;   // Bosim tomoni: |buqa - ayiq| >= shu bo'lsa o'sha tomon (0..100 shkala)
-input bool   EnableExhaustionVeto     = true;   // A4: charchagan impuls (3-to'lqin yoki EXPIRED + charchoq / absorbsiya / rejection shami) tomoniga yangi kirish yo'q
-input bool   EnableTickVolume         = true;   // 17-BOSQICH (B1): sham tick hajmi - o'rtachadan x0.7 past displacement / breakout / continuation trigger emas, x1.5 baland - kuchli
-input double VolumeWeakRatio          = 0.70;
-input double VolumeStrongRatio        = 1.50;
-input bool   EnableTickFlow           = true;   // 17-BOSQICH (D2): oxirgi soniyalardagi yuqoriga / pastga tiklar nomutanosibligi - kirishga qarshi kuchli oqim bo'lsa kutish
-input int    TickFlowSeconds          = 30;     // Oqim shuncha soniya bo'yicha o'lchanadi
-input double TickFlowBlock            = 0.40;   // Nomutanosiblik (-1..+1) kirishga qarshi shundan kuchli bo'lsa (va >= 20 tik) - kutish
-input bool   EnableRejectionConfirm   = true;   // A5: rejection / liq-grab / exhaustion shami trigger bo'lishi uchun narx uning tanasi o'rtasidan o'tgan va soyasini buzmagan bo'lishi kerak
+input group "BRAIN ▸ Candle & event engine"
+// EnableMarketBrainEngines: Sham va hodisa dvigatellari (faqat o'qiydi, savdo qaroriga hali ta'sir qilmaydi)
+input bool   EnableMarketBrainEngines = true;   // Enable market brain engines
+// MBDispBodyATR: Displacement: sham tanasi >= ATR x shu
+input double MBDispBodyATR            = 1.2;   // Brain disp body ATR
+// MBDispBodyRatio: Displacement: tana / diapazon >= shu
+input double MBDispBodyRatio          = 0.60;   // Brain disp body ratio
+// MBStrongDispBodyATR: Kuchli displacement: tana >= ATR x shu
+input double MBStrongDispBodyATR      = 1.8;   // Brain strong disp body ATR
+// MBRejectWickRatio: Rejection / liquidity grab: daraja tomonidagi wick >= diapazon x shu
+input double MBRejectWickRatio        = 0.50;   // Brain reject wick ratio
+// MBIndecisionBodyRatio: Indecision: tana / diapazon <= shu
+input double MBIndecisionBodyRatio    = 0.25;   // Brain indecision body ratio
+// MBAbsorptionRangeATR: Absorption: diapazon >= ATR x shu ...
+input double MBAbsorptionRangeATR     = 1.3;   // Brain absorption range ATR
+// MBAbsorptionBodyRatio: ... lekin tana / diapazon <= shu
+input double MBAbsorptionBodyRatio    = 0.35;   // Brain absorption body ratio
+// MBLiveDispBodyATR: Jonli (yopilmagan) M1 sham: tana >= ATR x shu = early displacement
+input double MBLiveDispBodyATR        = 0.8;   // Brain live disp body ATR
+// MBCompressionBars: Compression: oxirgi N bar ...
+input int    MBCompressionBars        = 10;   // Brain compression bars
+// MBCompressionATR: ... diapazoni <= ATR x shu
+input double MBCompressionATR         = 1.5;   // Brain compression ATR
+// MBSpeedEarlyATR: Impulse: oxirgi sog'lom pullback'dan yurilgan masofa < shu ATR = EARLY
+input double MBSpeedEarlyATR          = 1.5;   // Brain speed early ATR
+// MBSpeedNormalATR: < shu = NORMAL
+input double MBSpeedNormalATR         = 2.5;   // Brain speed normal ATR
+// MBSpeedLateATR: < shu = LATE, undan ko'p = EXPIRED
+input double MBSpeedLateATR           = 4.0;   // Brain speed late ATR
+// MBCandlePrintOnUse: Har yangi M5 / M15 / H1 / H4 sham o'qilishini jurnalga yozish
+input bool   MBCandlePrintOnUse       = false;   // Brain candle print on use (on/off)
+// EnableCandleDirectionLink: 13-BOSQICH: yo'nalish va sham bog'lanadi - almashuvni sham tasdiqlaydi (A1), M1/M5/M15 bosimi hakamga (A2)
+input bool   EnableCandleDirectionLink = true;   // Enable candle direction link
+// EnableCandleReadingGate: Shamni o'qish: M5+M15 qarshi bo'lsa yoki qarshi harakat M1+M5 da davom etsa - burilish shamini kutadi (bullishda SELL / bearishda BUY yo'q)
+input bool   EnableCandleReadingGate  = true;   // Enable candle reading gate
+// MBImpulseGiveBack: Impuls o'z harakatining shuncha qismini qaytarib bersa (yoki boshlanish nuqtasidan o'tib yopilsa) - impuls tugagan hisoblanadi (eski impuls 'yosh' deb qolib ketmasin)
+input double MBImpulseGiveBack       = 0.62;   // Brain impulse give back
+// MBPressureSideMin: Bosim tomoni: |buqa - ayiq| >= shu bo'lsa o'sha tomon (0..100 shkala)
+input double MBPressureSideMin        = 15.0;   // Brain pressure side min
+// EnableExhaustionVeto: A4: charchagan impuls (3-to'lqin yoki EXPIRED + charchoq / absorbsiya / rejection shami) tomoniga yangi kirish yo'q
+input bool   EnableExhaustionVeto     = true;   // Enable exhaustion veto
+// EnableTickVolume: 17-BOSQICH (B1): sham tick hajmi - o'rtachadan x0.7 past displacement / breakout / continuation trigger emas, x1.5 baland - kuchli
+input bool   EnableTickVolume         = true;   // Enable tick volume
+input double VolumeWeakRatio          = 0.70;   // Volume weak ratio
+input double VolumeStrongRatio        = 1.50;   // Volume strong ratio
+// EnableTickFlow: 17-BOSQICH (D2): oxirgi soniyalardagi yuqoriga / pastga tiklar nomutanosibligi - kirishga qarshi kuchli oqim bo'lsa kutish
+input bool   EnableTickFlow           = true;   // Enable tick flow
+// TickFlowSeconds: Oqim shuncha soniya bo'yicha o'lchanadi
+input int    TickFlowSeconds          = 30;   // Tick flow seconds
+// TickFlowBlock: Nomutanosiblik (-1..+1) kirishga qarshi shundan kuchli bo'lsa (va >= 20 tik) - kutish
+input double TickFlowBlock            = 0.40;   // Tick flow block
+// EnableRejectionConfirm: A5: rejection / liq-grab / exhaustion shami trigger bo'lishi uchun narx uning tanasi o'rtasidan o'tgan va soyasini buzmagan bo'lishi kerak
+input bool   EnableRejectionConfirm   = true;   // Enable rejection confirm
 
 #define MB_TF_COUNT          5      // M1, M5, M15, H1, H4
 

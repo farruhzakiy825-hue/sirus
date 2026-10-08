@@ -27,12 +27,17 @@
 //
 // Speed: control and turn once per M1 bar; the rest is a few comparisons when an entry is asked for.
 
-input group "47d — MIKRO NAZORAT + QAYTA KIRISH (reja 4-bosqich)"
-input bool   EnableMicroControl       = true;   // "Kim boshqaryapti": BUY% / SELL% va burilish turi (shovqin / pullback / charchash / reversal) - hakam sifatiga ta'sir qiladi
-input bool   EnableSmartReentry       = true;   // Qayta kirish aqli: chiqish sababi, urinishlar soni, "nima o'zgardi", quvmaslik
-input int    ReentryMaxAttempts       = 3;      // Bitta g'oya bo'yicha shuncha muvaffaqiyatsiz savatdan keyin shu tomon yangi g'oyagacha (yoki 2 soat) yopiq
-input int    ReentryCooldownMaxMin    = 60;     // G'oya o'lib / zararda yopilgandan keyin shu tomonga yangi dalil kutish (ko'pi bilan shuncha daqiqa)
-input bool   EnableSecondChance       = true;   // Faqat joyi yomonligi uchun o'tkazilgan setup: narx 0.5 ATR(M5) yaxshiroq joyga qaytsa - BRAIN SECOND CHANCE
+input group "BRAIN ▸ Market control & re-entry"
+// EnableMicroControl: "Kim boshqaryapti": BUY% / SELL% va burilish turi (shovqin / pullback / charchash / reversal) - hakam sifatiga ta'sir qiladi
+input bool   EnableMicroControl       = true;   // Enable micro control
+// EnableSmartReentry: Qayta kirish aqli: chiqish sababi, urinishlar soni, "nima o'zgardi", quvmaslik
+input bool   EnableSmartReentry       = true;   // Enable smart reentry
+// ReentryMaxAttempts: Bitta g'oya bo'yicha shuncha muvaffaqiyatsiz savatdan keyin shu tomon yangi g'oyagacha (yoki 2 soat) yopiq
+input int    ReentryMaxAttempts       = 3;   // Reentry max attempts
+// ReentryCooldownMaxMin: G'oya o'lib / zararda yopilgandan keyin shu tomonga yangi dalil kutish (ko'pi bilan shuncha daqiqa)
+input int    ReentryCooldownMaxMin    = 60;   // Reentry cooldown max min
+// EnableSecondChance: Faqat joyi yomonligi uchun o'tkazilgan setup: narx 0.5 ATR(M5) yaxshiroq joyga qaytsa - BRAIN SECOND CHANCE
+input bool   EnableSecondChance       = true;   // Enable second chance
 
 #define MC_TURN_NONE      0
 #define MC_TURN_NOISE     1

@@ -798,10 +798,13 @@ double LowerWickPoints(const ENUM_TIMEFRAMES tf, const int shift)
 //                    (max(open,close) <= level), AND the upper wick is meaningful.
 //                    => bearish stop-hunt above resistance.
 // ============================================================================
-input group "92w — WICK-BASED LIQUIDITY SWEEP (body must NOT break the level)"
-input bool   EnableWickSweepFilter        = true;   // Require sweeps to be taken by wick, not by candle body
-input double WickSweepMinWickRatio        = 0.35;   // Rejection wick must be at least this fraction of the candle's range
-input double WickSweepBodyTolerancePoints = 20;     // Small grace (points): body may close a hair past the level and still count as a wick sweep (spread/noise). 0 = strict.
+input group "ADVANCED ▸ Wick-based liquidity sweep (body must not break the level)"
+// EnableWickSweepFilter: Require sweeps to be taken by wick, not by candle body
+input bool   EnableWickSweepFilter        = true;   // Enable wick sweep filter
+// WickSweepMinWickRatio: Rejection wick must be at least this fraction of the candle's range
+input double WickSweepMinWickRatio        = 0.35;   // Wick sweep min wick ratio
+// WickSweepBodyTolerancePoints: Small grace (points): body may close a hair past the level and still count as a wick sweep (spread/noise). 0 = strict.
+input double WickSweepBodyTolerancePoints = 20;   // Wick sweep body tolerance points
 
 bool IsWickSweepLow(const ENUM_TIMEFRAMES tf, const int shift, const double level)
 {

@@ -20,12 +20,17 @@
 //
 // Speed: one spread sample per M1 bar; the checks are a few comparisons when an entry is asked for.
 
-input group "47e — CASHBACK IQTISODI (reja 6-bosqich)"
-input bool   EnableSpreadMemory       = true;   // Har server soati uchun odatiy spread o'rganiladi (qayta ishga tushganda saqlanadi); hozirgi spread odatiydan SpreadAbnormalMult marta katta bo'lsa - kirish yo'q
-input double SpreadAbnormalMult       = 2.0;    // Odatiy spreaddan shuncha marta katta - g'ayritabiiy
-input bool   EnableNetEdge            = true;   // Cashback rejimi: oldindagi to'siqqacha joy (spread + slippage + TP) x NetEdgeRoomMult dan kam bo'lsa - kirish yo'q (savdo o'zini oqlay olmaydi)
-input double NetEdgeRoomMult          = 1.2;    // Joy kamida kerakli harakatning shuncha barobari bo'lsin
-input double RebateUSDPerLot          = 0.0;    // Ixtiyoriy: brokerning 1 lot uchun cashback summasi ($) - faqat panelda sof foyda ko'rsatish uchun
+input group "BRAIN ▸ Cost & spread memory"
+// EnableSpreadMemory: Har server soati uchun odatiy spread o'rganiladi (qayta ishga tushganda saqlanadi); hozirgi spread odatiydan SpreadAbnormalMult marta katta bo'lsa - kirish yo'q
+input bool   EnableSpreadMemory       = true;   // Enable spread memory
+// SpreadAbnormalMult: Odatiy spreaddan shuncha marta katta - g'ayritabiiy
+input double SpreadAbnormalMult       = 2.0;   // Spread abnormal multiplier
+// EnableNetEdge: Cashback rejimi: oldindagi to'siqqacha joy (spread + slippage + TP) x NetEdgeRoomMult dan kam bo'lsa - kirish yo'q (savdo o'zini oqlay olmaydi)
+input bool   EnableNetEdge            = true;   // Enable net edge
+// NetEdgeRoomMult: Joy kamida kerakli harakatning shuncha barobari bo'lsin
+input double NetEdgeRoomMult          = 1.2;   // Net edge room multiplier
+// RebateUSDPerLot: Ixtiyoriy: brokerning 1 lot uchun cashback summasi ($) - faqat panelda sof foyda ko'rsatish uchun
+input double RebateUSDPerLot          = 0.0;   // Cashback usd per lot
 
 double   G_CX_SPR[24];          // average spread per server hour (points)
 int      G_CX_SPR_N[24];

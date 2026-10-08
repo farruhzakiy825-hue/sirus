@@ -20,21 +20,28 @@
 // (EnableNewDashboard = false).
 //=====================================================================
 
-input group "48 — VISUAL DESIGN: WATERMARK + DASHBOARD"
-input bool   EnableNewWatermark       = true;               // Yangi chiroyli watermark (eski oddiy yozuv o'rniga)
-input string WatermarkTitle           = "SIRUS";
-input string WatermarkSubtitle        = "BY ZAKIY";
-input string WatermarkFont            = "Segoe UI Black";   // Sarlavha shrifti (Windows standarti; masalan "Bahnschrift SemiBold" ham chiroyli)
-input string WatermarkSubFont         = "Segoe UI Semibold";
-input int    WatermarkTitleSize       = 66;                 // Sarlavha o'lchami (pt)
-input int    WatermarkOpacity         = 14;                 // Ko'rinish kuchi: fon rangiga qancha aralashadi (%, 5-40)
-input bool   EnableNewDashboard       = true;               // Yangi "karta" dashboard (false = eski batafsil matnli dashboard)
-input int    PanelWidth               = 430;                // Panel kengligi (px)
-input string PanelFont                = "Segoe UI";
-input string PanelFontBold            = "Segoe UI Semibold";
-input string PanelFontMono            = "Consolas";
-input int    PanelFontSize            = 9;
-input double CashbackPerLot           = 0.0;                // CASHBACK bo'limi: 1 lot uchun qaytadigan $ (0 = taxminiy cashback ko'rsatilmaydi). Bo'lim faqat cashback rejimida chiqadi
+input group "DISPLAY ▸ Panel & watermark"
+// EnableNewWatermark: Yangi chiroyli watermark (eski oddiy yozuv o'rniga)
+input bool   EnableNewWatermark       = true;   // Enable new watermark
+input string WatermarkTitle           = "SIRUS";   // Watermark title
+input string WatermarkSubtitle        = "BY ZAKIY";   // Watermark subtitle
+// WatermarkFont: Sarlavha shrifti (Windows standarti; masalan "Bahnschrift SemiBold" ham chiroyli)
+input string WatermarkFont            = "Segoe UI Black";   // Watermark font
+input string WatermarkSubFont         = "Segoe UI Semibold";   // Watermark sub font
+// WatermarkTitleSize: Sarlavha o'lchami (pt)
+input int    WatermarkTitleSize       = 66;   // Watermark title size
+// WatermarkOpacity: Ko'rinish kuchi: fon rangiga qancha aralashadi (%, 5-40)
+input int    WatermarkOpacity         = 14;   // Watermark opacity
+// EnableNewDashboard: Yangi "karta" dashboard (false = eski batafsil matnli dashboard)
+input bool   EnableNewDashboard       = true;   // Enable new dashboard
+// PanelWidth: Panel kengligi (px)
+input int    PanelWidth               = 430;   // Panel width
+input string PanelFont                = "Segoe UI";   // Panel font
+input string PanelFontBold            = "Segoe UI Semibold";   // Panel font bold
+input string PanelFontMono            = "Consolas";   // Panel font mono
+input int    PanelFontSize            = 9;   // Panel font size
+// CashbackPerLot: CASHBACK bo'limi: 1 lot uchun qaytadigan $ (0 = taxminiy cashback ko'rsatilmaydi). Bo'lim faqat cashback rejimida chiqadi
+input double CashbackPerLot           = 0.0;   // Cashback per lot
 
 #define MB_VIS_PREFIX   "SIRUS_UI_"
 
