@@ -138,6 +138,7 @@ int       G_MB_IMP_AGE[2];               // bars since the displacement that sta
 int       G_MB_IMP_WAVES[2];             // same-direction displacements since then
 double    G_MB_IMP_ORIGIN[2];            // price where it started
 double    G_MB_IMP_TRAVEL[2];            // ATRs travelled since the last healthy (>=30%) pullback
+int       G_MB_IMP_PEAK_AGE[2];          // closed bars since the impulse made its extreme (1 = last bar)
 int       G_MB_SPEED[2];                 // MB_SPEED_*
 bool      G_MB_COMPRESSED[2];
 double    G_MB_COMP_HI[2];
@@ -399,6 +400,7 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
    G_MB_IMP_WAVES[k] = 0;
    G_MB_IMP_ORIGIN[k] = 0.0;
    G_MB_IMP_TRAVEL[k] = 0.0;
+   G_MB_IMP_PEAK_AGE[k] = 0;
    G_MB_SPEED[k] = MB_SPEED_NONE;
    if(atr <= 0.0 || n < 20)
       return;
@@ -417,7 +419,7 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
       }
    }
 
-   int dir = 0, start = 0, waves = 0;
+   int dir = 0, start = 0, waves = 0, peak_s = 0;
    double origin = 0.0, travel = 0.0;
    if(d > 0)
    {
@@ -486,8 +488,12 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
       // the EA sat silent. An impulse that closed back through its origin, or gave back
       // MBImpulseGiveBack of its whole leg, is over.
       double peak = origin;
+      peak_s = start;
       for(int s = start; s >= 1; s--)
-         peak = (dir > 0) ? MathMax(peak, r[s].high) : MathMin(peak, r[s].low);
+      {
+         double ex = (dir > 0) ? r[s].high : r[s].low;
+         if(dir * (ex - peak) > 0.0) { peak = ex; peak_s = s; }
+      }
       double leg = MathAbs(peak - origin);
       double back = (dir > 0) ? (peak - r[1].close) : (r[1].close - peak);
       bool given_back = (dir > 0 ? r[1].close <= origin : r[1].close >= origin) ||
@@ -500,6 +506,7 @@ void MBImpulseUpdate(const int k, const MqlRates &r[], const int n, const double
    {
       G_MB_IMP_DIR[k] = dir;
       G_MB_IMP_AGE[k] = start;
+      G_MB_IMP_PEAK_AGE[k] = peak_s;
       G_MB_IMP_WAVES[k] = waves;
       G_MB_IMP_ORIGIN[k] = origin;
       G_MB_IMP_TRAVEL[k] = travel;
@@ -607,7 +614,23 @@ bool MBCandleConfirms(const int tfi, const int dir)
    if(dir == 0 || G_MB_LAST[tfi].dir != dir)
       return false;
    int it = G_MB_LAST[tfi].intent;
-   return (it == MB_CI_DISPLACEMENT || it == MB_CI_REJECTION || it == MB_CI_LIQ_GRAB || it == MB_CI_FAKE_BREAKOUT);
+   if(!(it == MB_CI_DISPLACEMENT || it == MB_CI_REJECTION || it == MB_CI_LIQ_GRAB || it == MB_CI_FAKE_BREAKOUT))
+      return false;
+   // AUDIT FIX (A1): the candle was read once at its close and then "confirmed" for the whole next bar,
+   // even after price broke the wick it rejected from - a BUY could go into the breakdown on a bullish
+   // M5 rejection that had already failed. Live price now invalidates it: its extreme taken out, or
+   // half an ATR given back from its close.
+   double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(px > 0.0)
+   {
+      double ext = (dir > 0) ? G_MB_LAST[tfi].low : G_MB_LAST[tfi].high;
+      if(ext > 0.0 && dir * (px - ext) < 0.0)
+         return false;
+      double atr = G_MB_ATR[tfi] * _Point;
+      if(atr > 0.0 && G_MB_LAST[tfi].close > 0.0 && dir * (px - G_MB_LAST[tfi].close) < -0.5 * atr)
+         return false;
+   }
+   return true;
 }
 
 // The last closed candle on tfi is still pushing against dir.

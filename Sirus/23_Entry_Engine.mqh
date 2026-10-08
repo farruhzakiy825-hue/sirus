@@ -826,7 +826,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
    //    the break held - the new direction's first good entry (the 4070 kind), taken before the bias
    //    has caught up. Not once the move is late.
    if(dir == 0 && EnableBrainEntries && EnableReversalEntry && G_ST_REV_DIR != 0 &&
-      G_ST_REV_STAGE >= MathMax(1, LockUnlockStage))
+      MBStructStageFor(G_ST_REV_DIR) >= MathMax(1, LockUnlockStage))   // live (AUDIT FIX A5)
    {
       int vd = G_ST_REV_DIR;
       bool late = (G_MB_IMP_DIR[0] == vd && G_MB_SPEED[0] >= MB_SPEED_LATE) ||

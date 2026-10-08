@@ -481,7 +481,18 @@ void MBStructUpdate()
 // How far the reversal toward dir has got (0 when the reversal under way is the other way).
 int MBStructStageFor(const int dir)
 {
-   return (dir != 0 && G_ST_REV_DIR == dir) ? G_ST_REV_STAGE : 0;
+   if(dir == 0 || G_ST_REV_DIR != dir)
+      return 0;
+   // AUDIT FIX (A5): the stage is computed once per M1 bar - stages 4+ need price beyond the MSS, so a
+   // fall back through it mid-minute must not keep the lock open / the reversal entry armed for the
+   // rest of the minute. Read live: back through the MSS = stage 3.
+   if(G_ST_REV_STAGE >= 4 && G_ST_REV_MSS > 0.0)
+   {
+      double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      if(bid > 0.0 && dir * (bid - G_ST_REV_MSS) <= 0.0)
+         return 3;
+   }
+   return G_ST_REV_STAGE;
 }
 
 // Structure damage of the side being reversed, 0..100.

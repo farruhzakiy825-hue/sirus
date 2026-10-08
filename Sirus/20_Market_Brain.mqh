@@ -623,10 +623,16 @@ int MBLayerLocal()
    // own target, M5 pressure up, net move up) is not 62% of it, so the local layer kept saying "down"
    // through the rally and a SELL was opened in the middle of it (18:56 SELL 4127.075). The impulse
    // speaks for the local layer only while the recent tape does not contradict it.
+   // AUDIT FIX (A3): decided by the age of the impulse's own extreme. One that made its extreme within
+   // the last six M5 bars is the local truth (a fresh displacement is not overruled by a lagging 30-min
+   // net move). One whose extreme is older speaks only while nothing recent says the other way - the
+   // net move, the M5 pressure, the M5 structure or an active local leg.
    int imp = G_MB_IMP_DIR[1];
+   int p5 = MBPressureSide(1);
    if(imp != 0 && G_MB_SPEED[1] <= MB_SPEED_NORMAL && G_MB_SPEED[1] != MB_SPEED_NONE)
    {
-      bool contradicted = (net == -imp) || (G_LOC_TH_DIR == -imp && MBPressureSide(1) == -imp);
+      bool fresh = (G_MB_IMP_PEAK_AGE[1] > 0 && G_MB_IMP_PEAK_AGE[1] <= 6);
+      bool contradicted = !fresh && (net == -imp || p5 == -imp || MBSign(G_MB_TF_STATE[1]) == -imp || G_LOC_TH_DIR == -imp);
       if(!contradicted)
          return imp;
    }
@@ -635,9 +641,9 @@ int MBLayerLocal()
    // FIX(local-lag-2): the M5 structure only turns when a swing breaks, so after a $10 fall that went
    // sideways it still read "up" while the local thesis said "down" - the panel showed both. An active
    // local thesis (its own target and invalidation) and then the M5 pressure come before the structure.
-   if(G_LOC_TH_DIR != 0)
+   // AUDIT FIX (A4): a local leg the M5 pressure now runs against no longer speaks for the layer.
+   if(G_LOC_TH_DIR != 0 && p5 != -G_LOC_TH_DIR)
       return G_LOC_TH_DIR;
-   int p5 = MBPressureSide(1);
    if(p5 != 0)
       return p5;
    return MBSign(G_MB_TF_STATE[1]);
@@ -697,8 +703,8 @@ int MBLocalLevelRaw(const int dir)
    bool lvl1 = (m5 && (p1 || p5)) || (m1 && p1 && p5);
    // FIX(local-disagree): the local thesis already says a leg runs this way (target + invalidation) -
    // the entry side must not then say "no local leg".
-   if(!lvl1 && G_LOC_TH_DIR == dir)
-      lvl1 = true;
+   if(!lvl1 && G_LOC_TH_DIR == dir && MBPressureSide(1) != -dir)
+      lvl1 = true;   // AUDIT FIX (A4): not once the M5 pressure runs against the leg
    if(!lvl1)
       return 0;
    if(m5 && m1 && p1 && p5)
@@ -775,9 +781,14 @@ void MBLocalThesisUpdate(const double price)
    {
       bool dead = (G_LOC_TH_DIR > 0) ? (price < G_LOC_TH_INVALID) : (price > G_LOC_TH_INVALID);
       bool done = (G_LOC_TH_TARGET > 0.0) && ((G_LOC_TH_DIR > 0) ? (price >= G_LOC_TH_TARGET) : (price <= G_LOC_TH_TARGET));
-      if(dead || done || g == 0 || G_LOC_TH_DIR != ld)
+      // AUDIT FIX (A4): the leg latched until price broke its origin or reached the target - a bounce
+      // that stalled and drifted back for an hour still read "local up" and let BUYs in. It also ends
+      // when the M1 and M5 pressure both run against it, or after 90 minutes.
+      bool faded = (MBPressureSide(0) == -G_LOC_TH_DIR && MBPressureSide(1) == -G_LOC_TH_DIR);
+      bool stale = (G_LOC_TH_SINCE > 0 && TimeCurrent() - G_LOC_TH_SINCE >= 90 * 60);
+      if(dead || done || faded || stale || g == 0 || G_LOC_TH_DIR != ld)
       {
-         G_LOC_TH_STATE = dead ? "yiqildi" : (done ? "maqsadga yetdi" : "global o'zgardi");
+         G_LOC_TH_STATE = dead ? "yiqildi" : (done ? "maqsadga yetdi" : (faded ? "bosim qarshi" : (stale ? "eskirdi" : "global o'zgardi")));
          G_LOC_TH_DIR = 0;
          G_LOC_TH_END = TimeCurrent();
       }
@@ -800,8 +811,8 @@ void MBLocalThesisUpdate(const double price)
       double zone = (ld > 0) ? ZoneMapNearestResistance(price) : ZoneMapNearestSupport(price);
       if(zone > 0.0 && MathAbs(zone - price) >= 0.5 * atr5 && ((ld > 0) ? (zone < target) : (zone > target)))
          target = zone;
-      if(MathAbs(target - price) < 0.5 * atr5)
-         return;   // no room for a local leg
+      if(ld * (target - price) < 0.5 * atr5)
+         return;   // no room for a local leg (AUDIT FIX: a target behind price is no target)
       G_LOC_TH_DIR = ld;
       G_LOC_TH_ORIGIN = origin;
       G_LOC_TH_INVALID = origin - ld * 0.1 * atr5;

@@ -730,6 +730,10 @@ int LiveVelocityDirection()
 {
    if(TimeCurrent() > G_VEL_SPIKE_UNTIL)
       return 0; // no live spike right now
+   // AUDIT FIX: a spike the entry pause did not cover (budget spent / cut short) must not reward the
+   // entries that open during it with "live velocity agrees" - that is chasing the spike.
+   if(TimeCurrent() > G_VEL_BLOCK_UNTIL)
+      return 0;
 
    double bid = 0.0, ask = 0.0;
    SymbolInfoDouble(_Symbol, SYMBOL_BID, bid);

@@ -167,6 +167,15 @@ void UpdateOpportunityScanner(const string source)
       {
          G_OPP_DIR    = (win_dir > 0) ? OPP_DIR_SELL : OPP_DIR_BUY;
          G_OPP_SCORE  = lose_best;
+         // AUDIT FIX (A2): the new side's own setup - not the loser's type, grade and reason.
+         int nsi = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : 0;
+         if(G_OPP_SIDE_TYPE[nsi] != OPP_TYPE_NONE)
+         {
+            G_OPP_TYPE     = G_OPP_SIDE_TYPE[nsi];
+            G_OPP_GRADE    = G_OPP_SIDE_GRADE[nsi];
+            G_OPP_IS_MICRO = G_OPP_SIDE_MICRO[nsi];
+            G_OPP_REASON   = G_OPP_SIDE_REASON[nsi];
+         }
          G_OPP_REASON += StringFormat(" [consensus: %d voices against %d]", lose_n, win_n);
 
          if((ConsensusPrintOnUse && VerboseLogs))
@@ -1983,21 +1992,33 @@ void UpdateSignalScoreEngine(const string source)
    if(EnableSetupArming && G_ARM_DIR != 0)
    {
       string arm_detail = "";
+      // AUDIT FIX (A9): SetupArmConfirmed() itself clears the arm on its FILL / LATE confirmations, so
+      // everything is captured first - and the +bonus goes only to the side that was armed. A BUY arm
+      // confirming on a scan whose best setup is now SELL used to hand the SELL the BUY's bonus.
+      int    armed_dir    = G_ARM_DIR;
+      int    armed_bar    = G_ARM_BAR;
+      int    armed_reason = G_ARM_REASON;
+      string armed_text   = G_ARM_TEXT;
+      int    cur_dir      = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(SetupArmConfirmed(arm_detail))
       {
-         arm_confirmed_dir = G_ARM_DIR;   // captured BEFORE SetupArmClear() wipes it below
-         // V197: record what this wait produced, and arm the judgement of what follows.
+         double ja_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+         double ja_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+         double ja_mid = (ja_bid > 0.0 && ja_ask > 0.0) ? (ja_bid + ja_ask) / 2.0 : ja_bid;
+         if(armed_dir == cur_dir)
          {
-            double ja_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-            double ja_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-            double ja_mid = (ja_bid > 0.0 && ja_ask > 0.0) ? (ja_bid + ja_ask) / 2.0 : ja_bid;
-            ArmRecordOutcome(G_ARM_REASON, 1, G_BARS_SEEN - G_ARM_BAR);
-            ArmJudgeArm(G_ARM_REASON, G_ARM_DIR, ja_mid);
+            arm_confirmed_dir = armed_dir;
+            // V197: record what this wait produced, and arm the judgement of what follows.
+            ArmRecordOutcome(armed_reason, 1, G_BARS_SEEN - armed_bar);
+            ArmJudgeArm(armed_reason, armed_dir, ja_mid);
+            G_SCORE_BONUS += SetupArmScoreBonus;
+            detail += StringFormat(" +%d confirmed: %s;", SetupArmScoreBonus, arm_detail);
+            if((SetupArmPrintOnUse && VerboseLogs))
+               PrintFormat("[SIRUS v194 ARMED] CONFIRMED - %s | %s", armed_text, arm_detail);
          }
-         G_SCORE_BONUS += SetupArmScoreBonus;
-         detail += StringFormat(" +%d confirmed: %s;", SetupArmScoreBonus, arm_detail);
-         if((SetupArmPrintOnUse && VerboseLogs))
-            PrintFormat("[SIRUS v194 ARMED] CONFIRMED - %s | %s", G_ARM_TEXT, arm_detail);
+         else if((SetupArmPrintOnUse && VerboseLogs))
+            PrintFormat("[SIRUS ARMED] %s confirmed, but this scan's setup is the other side - no bonus | %s",
+                        armed_text, arm_detail);
          SetupArmClear();
       }
    }

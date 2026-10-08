@@ -2437,6 +2437,19 @@ void ConsiderOpportunity(const ENUM_OPPORTUNITY_DIR dir, const ENUM_OPPORTUNITY_
    if(dir == OPP_DIR_BUY)  { G_OPP_VOICES_BUY++;  G_OPP_SUM_BUY  += score; }
    if(dir == OPP_DIR_SELL) { G_OPP_VOICES_SELL++; G_OPP_SUM_SELL += score; }
 
+   // AUDIT FIX (A2): keep each side's best setup whole (type, grade, micro, reason) for the consensus flip.
+   {
+      int si = (dir == OPP_DIR_BUY) ? 1 : 0;
+      int side_best = (si == 1) ? G_OPP_BEST_BUY_SCORE : G_OPP_BEST_SELL_SCORE;
+      if(dir != OPP_DIR_NONE && (G_OPP_SIDE_TYPE[si] == OPP_TYPE_NONE || score > side_best ||
+                                 (score == side_best && grade > G_OPP_SIDE_GRADE[si])))
+      {
+         G_OPP_SIDE_TYPE[si] = type;
+         G_OPP_SIDE_GRADE[si] = grade;
+         G_OPP_SIDE_MICRO[si] = (grade == OPP_GRADE_C_MICRO || micro_preferred);
+         G_OPP_SIDE_REASON[si] = reason;
+      }
+   }
    if(dir == OPP_DIR_BUY && score > G_OPP_BEST_BUY_SCORE)
       G_OPP_BEST_BUY_SCORE = score;
    else if(dir == OPP_DIR_SELL && score > G_OPP_BEST_SELL_SCORE)

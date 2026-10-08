@@ -3387,6 +3387,13 @@ void ResetOpportunity(const string reason)
    G_OPP_SCORE = 0;
    G_OPP_BEST_BUY_SCORE = 0;
    G_OPP_BEST_SELL_SCORE = 0;
+   for(int si = 0; si < 2; si++)
+   {
+      G_OPP_SIDE_TYPE[si] = OPP_TYPE_NONE;
+      G_OPP_SIDE_GRADE[si] = OPP_GRADE_NONE;
+      G_OPP_SIDE_MICRO[si] = false;
+      G_OPP_SIDE_REASON[si] = "";
+   }
    G_OPP_REASON = reason;
    G_OPP_DETAIL = "OPPORTUNITY DETAIL: " + reason;
    G_OPP_STATUS = "OPPORTUNITY: NONE | reason=" + reason;

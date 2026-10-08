@@ -1933,6 +1933,12 @@ void TickVelocityUpdate()
    if(ratio < VelocitySpikeRatio || move_points < (double)VelocityMovePoints)
       return;
 
+   // AUDIT FIX (C1): the ATR-adaptive threshold and the 5-minute budget are for FIRST entries (so a busy
+   // market is not choked). A grid rung added into a spike is a different matter - the grid keeps the
+   // original rule: any fixed-threshold spike pauses additions for VelocityHoldSec.
+   if(now > G_VEL_GRID_UNTIL)
+      G_VEL_GRID_UNTIL = now + MathMax(5, VelocityHoldSec);
+
    // ADAPTIVE: after a big candle the market stays busy and a 400-point move in 5 s becomes ordinary.
    // The move must also be VelocityMoveATRMult x ATR(M1) (read only here, when the cheap checks passed).
    double need_pts = (double)VelocityMovePoints;
@@ -1988,6 +1994,20 @@ bool VelocityAllowsNewRisk(string &reason)
    if(TimeCurrent() <= G_VEL_BLOCK_UNTIL)
    {
       reason = StringFormat("velocity spike hold %ds left", (int)(G_VEL_BLOCK_UNTIL - TimeCurrent()));
+      return false;
+   }
+   return true;
+}
+
+// Grid additions: the original spike rule (fixed threshold, no budget).
+bool VelocityAllowsGrid(string &reason)
+{
+   reason = "velocity clear";
+   if(!EnableTickVelocityGuard)
+      return true;
+   if(TimeCurrent() <= G_VEL_GRID_UNTIL)
+   {
+      reason = StringFormat("velocity spike hold %ds left", (int)(G_VEL_GRID_UNTIL - TimeCurrent()));
       return false;
    }
    return true;

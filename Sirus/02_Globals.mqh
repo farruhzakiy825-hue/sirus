@@ -33,6 +33,7 @@ datetime G_LAST_BAR_TIME       = 0;
 bool     G_IS_NEW_BAR          = false;   // PERF: true only on the tick a new CoreBarTF bar opens
 
 ulong    G_TICK_COUNT          = 0;
+ulong    G_BASKET_CLOSED_TICK  = ULONG_MAX;   // AUDIT FIX (A6): the tick in which the EA closed a basket
 ulong    G_TIMER_COUNT         = 0;
 ulong    G_UPDATE_COUNT        = 0;
 int      G_BARS_SEEN           = 0;
@@ -146,6 +147,13 @@ int                     G_OPP_SCORE           = 0;
 // LOSING side also had a strong candidate - so "BUY 7, nothing else" and "BUY 7 but SELL 6 too"
 // were indistinguishable downstream, despite being completely different situations.
 int                     G_OPP_BEST_BUY_SCORE  = 0;
+// AUDIT FIX (A2): the best setup of each side in full - a consensus flip takes the other side's own
+// type, grade and reason instead of keeping the loser's (a SELL stamped SWEEP_REJECTION passed V0
+// as a "reversal" it never was). Index 0 = SELL, 1 = BUY.
+ENUM_OPPORTUNITY_TYPE   G_OPP_SIDE_TYPE[2];
+ENUM_OPPORTUNITY_GRADE  G_OPP_SIDE_GRADE[2];
+bool                    G_OPP_SIDE_MICRO[2];
+string                  G_OPP_SIDE_REASON[2];
 // CONSENSUS: how many detectors spoke for each side this scan. The engine keeps the best score per
 // direction and has never kept the count - so seven detectors agreeing at five lose to one outlier
 // at eight, and the outlier is the entry that gets taken.
@@ -293,6 +301,7 @@ datetime                G_VEL_RING_TIME[16];
 int                     G_VEL_RING_POS          = 0;
 datetime                G_VEL_RING_LAST_SEC     = 0;
 datetime                G_VEL_SPIKE_UNTIL       = 0;
+datetime                G_VEL_GRID_UNTIL        = 0;   // grid pause: the original fixed-threshold spike rule, no budget
 datetime                G_VEL_BLOCK_UNTIL       = 0;   // entry pause (capped by VelocityMaxHoldPer5Min)
 datetime                G_VEL_BUDGET_START      = 0;   // start of the current 5-minute pause budget
 int                     G_VEL_BUDGET_USED       = 0;   // pause seconds spent in it

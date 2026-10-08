@@ -4087,7 +4087,7 @@ bool TryLocationRedirect(const int from_dir, string &why)
 
    bool passed = (G_SCORE_DECISION == SCORE_DECISION_PASS || G_SCORE_DECISION == SCORE_DECISION_MICRO_PASS);
    // qaytish darajadan - bu yaxshi joy, 5B bonusi shu yerda ham amal qiladi
-   if(!passed && EnableGoodLocationBonus && G_SCORE_DECISION == SCORE_DECISION_WAIT && G_ARM_DIR == 0 &&
+   if(!passed && EnableGoodLocationBonus && G_SCORE_DECISION == SCORE_DECISION_WAIT && G_ARM_DIR != (G_OPP_DIR == OPP_DIR_BUY ? 1 : (G_OPP_DIR == OPP_DIR_SELL ? -1 : 0)) &&
       G_SCORE_MIN_REQUIRED > 0 && G_SCORE_FINAL >= G_SCORE_MIN_REQUIRED - MathMax(0, ReliefMaxShortfall) &&
       G_SCORE_FINAL + MathMax(0, GoodLocationBonus) >= G_SCORE_MIN_REQUIRED)
    {
@@ -4159,6 +4159,14 @@ bool FirstEntryCanRun(string &reason)
    if(!UseFirstEntryEngine)
    {
       reason = "UseFirstEntryEngine=false";
+      return false;
+   }
+
+   // AUDIT FIX (A6): a basket was closed in this very tick - its cooldown and re-entry memory are only
+   // recorded on the next one, so a new basket here would skip both (possibly the same losing side).
+   if(G_BASKET_CLOSED_TICK == G_TICK_COUNT)
+   {
+      reason = "position: basket closed this tick - next tick decides";
       return false;
    }
 
@@ -4263,7 +4271,9 @@ bool FirstEntryCanRun(string &reason)
    //   5B - BUY kuchli support ustida / SELL kuchli resistance ostida: +GoodLocationBonus
    // Faqat ball sababli WAIT bo'lsa - jonli kutish (arming) turgan bo'lsa emas: robot "kut" degan
    // joyda yengillik uni majburan ochmaydi. Pastdagi joy himoyasi baribir ishlaydi.
-   if(G_SCORE_DECISION == SCORE_DECISION_WAIT && G_ARM_DIR == 0 && G_OPP_DIR != OPP_DIR_NONE &&
+   // AUDIT FIX (A9): an armed setup holds back relief only for ITS side - a stale BUY arm used to switch
+   // off every relief / brain relief / judge bypass for the SELL side as well.
+   if(G_SCORE_DECISION == SCORE_DECISION_WAIT && G_ARM_DIR != (G_OPP_DIR == OPP_DIR_BUY ? 1 : (G_OPP_DIR == OPP_DIR_SELL ? -1 : 0)) && G_OPP_DIR != OPP_DIR_NONE &&
       G_SCORE_MIN_REQUIRED > 0 && G_SCORE_FINAL < G_SCORE_MIN_REQUIRED &&
       G_SCORE_FINAL >= G_SCORE_MIN_REQUIRED - MathMax(0, ReliefMaxShortfall))
    {
@@ -4328,7 +4338,7 @@ bool FirstEntryCanRun(string &reason)
 
    // MARKET BRAIN SCORE RELIEF: the detectors found a direction but fell short, and the brain reads
    // the same way. Only toward the brain's side; the veto and the judge still decide below.
-   if(G_SCORE_DECISION == SCORE_DECISION_WAIT && G_ARM_DIR == 0 && G_OPP_DIR != OPP_DIR_NONE &&
+   if(G_SCORE_DECISION == SCORE_DECISION_WAIT && G_ARM_DIR != (G_OPP_DIR == OPP_DIR_BUY ? 1 : (G_OPP_DIR == OPP_DIR_SELL ? -1 : 0)) && G_OPP_DIR != OPP_DIR_NONE &&
       G_SCORE_MIN_REQUIRED > 0 && G_SCORE_FINAL < G_SCORE_MIN_REQUIRED)
    {
       int br_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : -1;
@@ -4345,7 +4355,7 @@ bool FirstEntryCanRun(string &reason)
    // Brain's Entry Judge rates this exact setup highly (location, trigger, timing, regime, flow). The
    // judge is the better reader of the moment; the old score is one opinion among several. Same
    // direction and type as the final judgement, so its signal-decay memory stays consistent.
-   if(G_SCORE_DECISION == SCORE_DECISION_WAIT && G_ARM_DIR == 0 && G_OPP_DIR != OPP_DIR_NONE && MBJudgeBypassOn())
+   if(G_SCORE_DECISION == SCORE_DECISION_WAIT && G_ARM_DIR != (G_OPP_DIR == OPP_DIR_BUY ? 1 : (G_OPP_DIR == OPP_DIR_SELL ? -1 : 0)) && G_OPP_DIR != OPP_DIR_NONE && MBJudgeBypassOn())
    {
       int jb_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : -1;
       string jb_why = "";
@@ -5067,6 +5077,10 @@ void UpdateFirstEntryEngine(const string source)
       G_FUNNEL_ENTRIES++;
       G_LAST_ENTRY_TIME = TimeCurrent();
       G_LAST_ENTRY_BAR = G_BARS_SEEN;
+      // AUDIT FIX (A8): the block safety valve measured "silence" from the last DETECTOR pass only - with
+      // most entries now from the brain it released the score hard blocks (and the naked counter-trend
+      // refusal) while the EA was trading all along. Any real entry restarts its clock.
+      G_LAST_ENTRY_ALLOWED_BAR = G_BARS_SEEN;
 
       // FIX(first-entry-direction-stale): these two read G_BASKET_DIRECTION, but at this instant it
       // is still the value RefreshGridDashboardStats() wrote for an EMPTY account earlier in the

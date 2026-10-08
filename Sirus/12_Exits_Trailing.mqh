@@ -1131,6 +1131,10 @@ bool CloseSirusBasket(const string reason)
    // FIX(close-remnant-becomes-new-basket): latch the failure. Until the remnant is confirmed flat
    // the grid must not treat it as a fresh basket and start adding to it.
    G_BASKET_CLOSE_PENDING = !all_ok;
+   // AUDIT FIX (A6): the post-loss cooldown and the re-entry memory are written on the next tick
+   // (they see the basket gone then) - no new basket may open in the tick that closed this one.
+   if(closed > 0)
+      G_BASKET_CLOSED_TICK = G_TICK_COUNT;
    if(!all_ok)
       PrintFormat("[SIRUS BASKET CLOSE INCOMPLETE] %d closed, positions remain | %s - grid additions held until flat",
                   closed, reason);

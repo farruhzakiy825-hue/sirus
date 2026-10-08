@@ -482,10 +482,17 @@ bool MBPermissionCheck(const int dir, string &why)
       why = StringFormat("V0 permission: bias %s - %s blocked", MBBiasName(G_MB_BIAS), side);
       return true;
    }
-   if(a == -2 && !(reversal_type && G_SCORE_FINAL >= G_SCORE_MIN_REQUIRED + MathMax(0, MBPermExceptionMargin)))
+   // AUDIT FIX (A7): "exceptional" meant a reversal-type detector and two score points - the judge then
+   // accepted an M1 sweep plus one M1 displacement as the reversal. Against a weak-but-real bias the
+   // reversal must be M5 or higher (or KEY liquidity), within the last hour.
+   string a7w = "";
+   datetime a7t = 0;
+   bool a7_rev = (a == -2) && MBReversalAfter(dir, 1, 4, true, TimeCurrent() - 3600, a7w, a7t);
+   if(a == -2 && !(reversal_type && a7_rev && G_SCORE_FINAL >= G_SCORE_MIN_REQUIRED + MathMax(0, MBPermExceptionMargin)))
    {
-      why = StringFormat("V0 permission: bias %s - %s only on an exceptional reversal setup (score %d, needs %d)",
-                         MBBiasName(G_MB_BIAS), side, G_SCORE_FINAL, G_SCORE_MIN_REQUIRED + MathMax(0, MBPermExceptionMargin));
+      why = StringFormat("V0 permission: bias %s - %s only on an exceptional reversal setup (score %d, needs %d; M5+ reversal %s)",
+                         MBBiasName(G_MB_BIAS), side, G_SCORE_FINAL, G_SCORE_MIN_REQUIRED + MathMax(0, MBPermExceptionMargin),
+                         (a7_rev ? "yes" : "no"));
       return true;
    }
    if(a == -1)

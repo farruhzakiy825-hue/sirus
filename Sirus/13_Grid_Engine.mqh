@@ -1903,7 +1903,7 @@ bool GridCanOpen(string &reason)
    }
 
    string vel_grid_reason = "";
-   if(!VelocityAllowsNewRisk(vel_grid_reason))  // V31.1: spike paytida yangi grid ham ochilmaydi
+   if(!VelocityAllowsGrid(vel_grid_reason))   // AUDIT FIX (C1): no budget / ATR relief for the grid  // V31.1: spike paytida yangi grid ham ochilmaydi
    {
       reason = vel_grid_reason;
       return false;
