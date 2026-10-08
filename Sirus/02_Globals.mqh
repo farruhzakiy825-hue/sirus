@@ -491,6 +491,9 @@ ulong                   G_CAL_EV_ID[CAL_CACHE_MAX];
 bool                    G_CAL_EV_SURPRISE[CAL_CACHE_MAX];
 double                  G_CAL_EV_SURPRISE_PCT[CAL_CACHE_MAX];
 int                     G_CAL_EV_COUNT           = 0;
+ulong                   G_CAL_SETTLED_ID[8];             // releases whose post window ended early (market settled)
+int                     G_CAL_SETTLED_POS        = 0;
+datetime                G_CAL_SETTLE_BAR         = 0;     // M1 bar of the last settle check
 
 // --- V29 Stage 4: Smart Partial Close state ---
 int                     G_PARTIAL_CLOSE_STAGE    = 0;      // V29: 0=none, 1=stage1 done, 2=stage1+stage2 done

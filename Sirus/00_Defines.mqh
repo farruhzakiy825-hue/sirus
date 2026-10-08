@@ -421,6 +421,8 @@ void MBShadowUpdate();
 void MBDailyReportCheck();
 void MBShadowFlush();
 bool MBShadowValveOn(const int g);   // a quality gate relaxed by the shadow ledger
+double MBNormalSpread();   // spread memory (20e) - read by the news settle check (11)
+bool MBAnomalyBlocks(string &why);   // anomaly guard (20f) - read by the news settle check (11)
 string MBShadowPanelText();
 int MBBiasAlign(const int dir);
 int MBFastEntryType();

@@ -1,5 +1,27 @@
 # CHANGELOG — Sirus Brain V8
 
+## Yangilikdan keyingi pauza bozor tinchlanganda tugaydi (17:25: 31 daqiqa jimlik, "kalendar 46%")
+
+- **Holat.**
+  - Yuqori ta'sirli USD yangiligi (17:13 dagi 4134 → 4145 spike) atrofida kalendar himoyasi 15 daqiqa oldin va 15 daqiqa keyin kirishni to'xtatdi.
+  - Natija prognozdan 20% dan ko'p farq qilsa, pauza 45 daqiqagacha uzayadi.
+  - Bitta yangilik 30–60 daqiqa jimlik berardi, bozor tinchlangandan keyin ham.
+- **Yangi qoida.** Yangilikdan keyingi pauza quyidagi shartlar birga bajarilganda tugaydi:
+  - yangilikdan kamida 5 daqiqa o'tgan;
+  - oxirgi 2 ta yopilgan M1 sham ham tinch, ya'ni har birining kattaligi yangilikdan oldingi ATR(M1) × 1.5 dan kichik;
+  - spread shu soatning odatiy darajasi × 1.5 dan oshmaydi;
+  - g'ayritabiiy holat himoyasi jim.
+- **Qaror qulflanadi.** Har bir yangilik uchun bir marta qaror qilinadi. Pauza tugagach, yo'nalishni miya (kengash, kech, lock) tanlaydi.
+- **O'zgarmadi.** Yangilikdan oldingi pauza, yangilikdan oldin foydada yopish (auto-flat) va eng uzoq chegara (15/45 daqiqa) avvalgidek.
+- **Log.** `[SIRUS CALENDAR] <nom>: market settled N min after the release ... post-news pause ended`
+- **Sozlamalar** ("ADVANCED ▸ Real economic calendar"):
+  - `EnableNewsSettleRelease` = true;
+  - `NewsSettleMinMinutes` = 5;
+  - `NewsSettleBars` = 2;
+  - `NewsSettleRangeATR` = 1.5;
+  - `NewsSettleSpreadMult` = 1.5.
+- **Tezlik.** Tekshiruv faqat yangilikdan keyingi oynada va har M1 barda bir marta ishlaydi.
+
 ## Tezlik himoyasi faol bozorni bo'g'masin (16:41: 23 daqiqa jimlik, "tezlik 62%")
 
 - **Holat.**

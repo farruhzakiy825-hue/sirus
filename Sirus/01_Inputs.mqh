@@ -4041,6 +4041,16 @@ input bool   EconomicCalendarHardBlockFirst = true;   // Economic calendar hard 
 // EconomicCalendarLotFactor: Lot multiplier during caution window when not hard-blocking
 input double EconomicCalendarLotFactor      = 0.4;   // Economic calendar lot factor
 input bool   EconomicCalendarPrintOnUse     = true;   // Economic calendar print on use (on/off)
+// EnableNewsSettleRelease: after a release, the post-news pause ends as soon as the market has settled (calm M1 candles, normal spread, no anomaly) instead of always running the full post window. The pre-news pause never changes.
+input bool   EnableNewsSettleRelease        = true;   // End the post-news pause once the market settles
+// NewsSettleMinMinutes: the pause always holds at least this long after the release
+input int    NewsSettleMinMinutes           = 5;   // Minimum pause after the release (min)
+// NewsSettleBars: this many closed M1 candles after the release must all be calm
+input int    NewsSettleBars                 = 2;   // Calm M1 candles needed
+// NewsSettleRangeATR: a candle is calm when its range is at most the pre-news ATR(M1) x this
+input double NewsSettleRangeATR             = 1.5;   // Calm candle: range vs pre-news ATR(M1) (x)
+// NewsSettleSpreadMult: and the spread is at most this hour's normal spread x this
+input double NewsSettleSpreadMult           = 1.5;   // Calm spread vs this hour's normal (x)
 
 input group "ADVANCED ▸ Smart partial close"
 // EnableSmartPartialClose: V62b: OFF on user report. Partial close trims part of the basket, but basket_points is measured from the AVERAGE entry price, and closing individual positions SHIFTS that average - typically the wrong way, so the remaining lot needs price to travel FURTHER to reach TP. Observed live: 0.20 opened, 0.07 trimmed at +2200pts, 0.13 left, and the TP kept moving away. This fundamentally fights the martingale-grid logic (grid ADDS to improve the average; a partial trim WORSENS it), so the two should not run together. The basket now rides intact to its normal TP / trailing / SL.

@@ -4840,6 +4840,57 @@ void CalendarFetch(const datetime now)
    }
 }
 
+// SETTLE RELEASE: a release is followed by a burst; once the burst is over the post window only kept
+// entries shut on a normal market (30-60 min of silence per release). The post window now ends early
+// when, at least NewsSettleMinMinutes after the release, the last NewsSettleBars closed M1 candles were
+// all calm against the pre-news ATR(M1), the spread is back to this hour's normal and the anomaly guard
+// is quiet. The decision is latched per release; the brain (council, late, lock) then picks the side.
+bool CalendarEventSettled(const ulong id)
+{
+   for(int i = 0; i < 8; i++)
+      if(G_CAL_SETTLED_ID[i] == id && id != 0)
+         return true;
+   return false;
+}
+
+bool CalendarSettleCheck(const int idx, const datetime now)
+{
+   if(!EnableNewsSettleRelease || idx < 0 || idx >= G_CAL_EV_COUNT)
+      return false;
+   ulong id = G_CAL_EV_ID[idx];
+   if(CalendarEventSettled(id))
+      return true;
+   datetime ev_t = G_CAL_EV_TIME[idx];
+   if(now - ev_t < (long)MathMax(1, NewsSettleMinMinutes) * 60)
+      return false;
+   int nb = MathMax(1, NewsSettleBars);
+   int s = iBarShift(_Symbol, PERIOD_M1, ev_t, false);   // the bar the release fell into
+   if(s <= nb)
+      return false;                                      // not enough closed candles after it yet
+   double pre_atr = ATRPointsManual(PERIOD_M1, 14, s + 1);
+   if(pre_atr <= 0.0)
+      return false;
+   for(int k = 1; k <= nb; k++)
+   {
+      double rng = (iHigh(_Symbol, PERIOD_M1, k) - iLow(_Symbol, PERIOD_M1, k)) / _Point;
+      if(rng <= 0.0 || rng > NewsSettleRangeATR * pre_atr)
+         return false;
+   }
+   double norm = MBNormalSpread();
+   double spr = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+   if(norm > 0.0 && spr > NewsSettleSpreadMult * norm)
+      return false;
+   string an = "";
+   if(MBAnomalyBlocks(an))
+      return false;
+   G_CAL_SETTLED_ID[G_CAL_SETTLED_POS] = id;
+   G_CAL_SETTLED_POS = (G_CAL_SETTLED_POS + 1) % 8;
+   if(EconomicCalendarPrintOnUse)
+      PrintFormat("[SIRUS CALENDAR] %s: market settled %d min after the release (last %d M1 candles <= %.1f x pre-news ATR %.0f, spread %.0f) - post-news pause ended",
+                  G_CAL_EV_NAME[idx], (int)((now - ev_t) / 60), nb, NewsSettleRangeATR, pre_atr, spr);
+   return true;
+}
+
 void UpdateEconomicCalendarGuard()
 {
    if(!EnableEconomicCalendarGuard)
@@ -4874,6 +4925,11 @@ void UpdateEconomicCalendarGuard()
    // recent release whose post window has not ended.
    int pre_sec = MathMax(0, EconomicCalendarPreMinutes) * 60;
    int best_pre = -1, best_post = -1;
+   // The settle check reads closed M1 candles - once per M1 bar is enough (the timer also calls this).
+   datetime m1_bar = iTime(_Symbol, PERIOD_M1, 0);
+   bool settle_eval = (m1_bar > 0 && m1_bar != G_CAL_SETTLE_BAR);
+   if(settle_eval)
+      G_CAL_SETTLE_BAR = m1_bar;
    bool any_surprise = false;
    double surprise_pct = 0.0;
    for(int i = 0; i < G_CAL_EV_COUNT; i++)
@@ -4886,6 +4942,8 @@ void UpdateEconomicCalendarGuard()
       }
       else if(-diff <= CalendarPostWindowSeconds(i))
       {
+         if(CalendarEventSettled(G_CAL_EV_ID[i]) || (settle_eval && CalendarSettleCheck(i, now)))
+            continue;   // released and the market has settled - this release no longer holds entries
          if(best_post < 0 || G_CAL_EV_TIME[i] > G_CAL_EV_TIME[best_post])
             best_post = i;
          if(G_CAL_EV_SURPRISE[i])
