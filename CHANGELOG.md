@@ -1,5 +1,22 @@
 # CHANGELOG — Sirus Brain V8
 
+## Diapazonda tubdagi BUY "olingan likvidlik" bilan to'silmasin (17:25–18:10, 4127–4134 diapazoni)
+
+- **Holat.**
+  - Yangilikdan keyin narx 4127–4134 diapazonida yurdi. SELL tepada 2 marta ochildi, ikkalasi TP ga yetdi.
+  - Tubdagi BUY esa "oldindagi likvidlik olingan" deb 1 soat davomida to'sildi. Sabab: diapazon tepasi 4134 olinib qaytgan edi.
+  - Himoya BUY'ni olingan tepadan 1 ATR(M5) gacha pastda to'sardi. Volatillik yuqori bo'lganda bu deyarli butun diapazon edi.
+- **1. Joy bor bo'lsa — to'siq yo'q.** Himoya endi faqat ikki holatda to'sadi:
+  - olingan darajagacha joy (spread + TP) × 1.2 dan kam bo'lsa;
+  - narx o'sha daraja ostida/ustida 0.5 ATR(M5) ichida, ya'ni burilish zonasida bo'lsa.
+  - Diapazon tubidagi BUY'ning TP si uchun joy yetarli, shuning uchun to'silmaydi. 4142 holati (olingan tepaning ostida BUY) avvalgidek to'siladi.
+  - Joy kirish paytidagi jonli narxdan o'lchanadi.
+- **2. Diapazonda xotira qisqa.** RANGE yoki SIQILISH rejimida olingan likvidlik 15 daqiqa eslab qolinadi. Trendda avvalgidek 60 daqiqa.
+- **Sozlamalar** ("BRAIN ▸ Entry location & exhaustion"):
+  - `TakenLiqRoomMult` = 1.2;
+  - `TakenLiqBlockATR5` = 0.5;
+  - `TakenLiqRangeMinutes` = 15.
+
 ## Yangilikdan keyingi pauza bozor tinchlanganda tugaydi (17:25: 31 daqiqa jimlik, "kalendar 46%")
 
 - **Holat.**

@@ -41,6 +41,12 @@ input int    ExhaustBlockScore         = 70;   // Exhaust block score
 input int    ExhaustCautionScore       = 50;   // Exhaust caution score
 // EnableTakenLiquidityGuard: Oldindagi likvidlik allaqachon olingan va qaytarilgan bo'lsa - shu tomonga kirish yo'q (4142 xatosi)
 input bool   EnableTakenLiquidityGuard = true;   // Enable taken liquidity guard
+// TakenLiqRoomMult: the guard blocks only when the room to the taken level is less than (spread + TP) x this - with room for the TP the trade does not need the spent target
+input double TakenLiqRoomMult          = 1.2;   // Taken liquidity: block when room < (spread + TP) x this
+// TakenLiqBlockATR5: ... and always within this many ATR(M5) of the taken level (the reversal zone right under / over it)
+input double TakenLiqBlockATR5         = 0.5;   // Taken liquidity: always block within ATR(M5) x this
+// TakenLiqRangeMinutes: in a RANGE / COMPRESSION regime a taken edge is spent for this long (60 min in a trend) - range edges are retested every few minutes
+input int    TakenLiqRangeMinutes      = 15;   // Taken liquidity memory in a range (min)
 // CounterTrendTax: Kuchli biasga qarshi (yetilgan burilishsiz) kirishga sifat talabi shuncha ball yuqori
 input int    CounterTrendTax           = 10;   // Counter trend tax
 
@@ -52,6 +58,8 @@ string   G_LX_PRESS_WHY[2];
 int      G_LX_PRESS_HIST[2][4]; // the pressure at the last four M5 bars (early warning)
 bool     G_LX_TAKEN[2];         // the liquidity ahead was taken and reclaimed
 string   G_LX_TAKEN_WHY[2];
+double   G_LX_TAKEN_EXT[2];     // the swept extreme - the obstacle the room is measured to
+double   G_LX_TP_NEED = 0.0;    // (spread + TP) x TakenLiqRoomMult, points - refreshed once per M1 bar
 datetime G_LX_BAR    = 0;
 datetime G_LX_BAR_M5 = 0;
 
@@ -212,9 +220,14 @@ int MBLxPressure(const int dir, string &why)
 
 // The liquidity ahead was swept and reclaimed, and the sweep has not failed (no M5 close beyond its
 // extreme since): the move's target is spent.
-bool MBLxTakenAhead(const int dir, string &why)
+bool MBLxTakenAhead(const int dir, string &why, double &ext_out)
 {
    why = "";
+   ext_out = 0.0;
+   // RANGE FIX: a range edge is retested every few minutes - an hour-long memory kept the BUY shut at
+   // the bottom of a $7 range because its top had been swept. In a range the memory is short.
+   int max_age = (EnableRegimePlaybook && (G_MB_RG == MB_RG_RANGE || G_MB_RG == MB_RG_COMPRESSION))
+                 ? MathMax(1, TakenLiqRangeMinutes) * 60 : 3600;
    double atr5 = G_MB_ATR[1] * _Point;
    double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    if(atr5 <= 0.0 || px <= 0.0)
@@ -224,8 +237,9 @@ bool MBLxTakenAhead(const int dir, string &why)
       datetime lt = 0;
       int lc = 0, lq = 0;
       double le = 0.0;
-      if(MBLqSweepFor(-dir, 2, 3600, lt, lc, le, lq) && dir * (px - le) <= 0.0 && MathAbs(px - le) <= 1.0 * atr5)
+      if(MBLqSweepFor(-dir, 2, max_age, lt, lc, le, lq) && dir * (px - le) <= 0.0 && MathAbs(px - le) <= 1.0 * atr5)
       {
+         ext_out = le;
          why = StringFormat("%s likvidlik (%s) olindi va qaytarildi", (dir < 0 ? "sell-side" : "buy-side"), MBLqClassName(lc));
          return true;
       }
@@ -235,7 +249,7 @@ bool MBLxTakenAhead(const int dir, string &why)
       if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != -dir) continue;
       int ty = G_MB_EV[idx].type;
       if(ty != MB_EV_LIQ_SWEEP && ty != MB_EV_FAKE_BREAK) continue;
-      if(MBEventRank(G_MB_EV[idx].tfi) < 1 || TimeCurrent() - G_MB_EV[idx].time > 3600) continue;
+      if(MBEventRank(G_MB_EV[idx].tfi) < 1 || TimeCurrent() - G_MB_EV[idx].time > max_age) continue;
       double ext = G_MB_EV[idx].extreme;
       // Price still near it (within one M5 ATR of the swept extreme, on the reclaimed side).
       if(ext <= 0.0 || dir * (px - ext) > 0.0 || MathAbs(px - ext) > 1.0 * atr5) continue;
@@ -247,6 +261,7 @@ bool MBLxTakenAhead(const int dir, string &why)
          if(c > 0.0 && dir * (c - ext) > 0.1 * atr5) failed = true;   // closed beyond: the sweep failed, the move goes on
       }
       if(failed) continue;
+      ext_out = ext;
       why = StringFormat("%s %s %s @ %s olindi va qaytarildi", MBTFName(G_MB_EV[idx].tfi), (dir < 0 ? "sell-side" : "buy-side"),
                          MBEventName(ty), DoubleToString(G_MB_EV[idx].level, _Digits));
       return true;
@@ -265,6 +280,9 @@ void MBLocationUpdate()
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    if(bid <= 0.0)
       return;
+   double tp_pts = EnableRebateMode ? RebateTargetPoints() : MicroTPPoints();
+   G_LX_TP_NEED = MathMax(MathMax(0.0, TakenLiqRoomMult) * ((double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) + MathMax(0.0, tp_pts)),
+                          MathMax(0.0, TakenLiqBlockATR5) * G_MB_ATR[1]);
    bool new_m5 = false;
    datetime m5 = iTime(_Symbol, PERIOD_M5, 0);
    if(m5 > 0 && m5 != G_LX_BAR_M5) { G_LX_BAR_M5 = m5; new_m5 = true; }
@@ -276,7 +294,7 @@ void MBLocationUpdate()
       G_LX_ORIGIN[k] = (io >= 0) ? ((dir < 0) ? iHigh(_Symbol, PERIOD_M15, io) : iLow(_Symbol, PERIOD_M15, io)) : 0.0;
       G_LX_TARGET[k] = MBLxTargetAhead(dir, bid, G_LX_TARGET_WHAT[k]);
       G_LX_PRESS[k] = MBLxPressure(dir, G_LX_PRESS_WHY[k]);
-      G_LX_TAKEN[k] = EnableTakenLiquidityGuard && MBLxTakenAhead(dir, G_LX_TAKEN_WHY[k]);
+      G_LX_TAKEN[k] = EnableTakenLiquidityGuard && MBLxTakenAhead(dir, G_LX_TAKEN_WHY[k], G_LX_TAKEN_EXT[k]);
       if(new_m5)
       {
          for(int h = 3; h > 0; h--) G_LX_PRESS_HIST[k][h] = G_LX_PRESS_HIST[k][h - 1];
@@ -303,7 +321,18 @@ bool MBLateBlocks(const int dir, string &why, string &uz)
       return false;
    int k = MBLxK(dir);
    string side = (dir > 0) ? "BUY" : "SELL";
-   if(G_LX_TAKEN[k])
+   // ROOM FIX: the guard is about the move's target, but a scalp only needs its TP. With room for
+   // (spread + TP) x TakenLiqRoomMult before the taken level (live price), and outside the reversal
+   // zone of TakenLiqBlockATR5 x ATR(M5) under / over it, the entry is not blocked.
+   bool taken_close = G_LX_TAKEN[k];
+   if(taken_close && G_LX_TAKEN_EXT[k] > 0.0 && G_LX_TP_NEED > 0.0)
+   {
+      double epx = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
+      double room = dir * (G_LX_TAKEN_EXT[k] - epx) / _Point;
+      if(epx > 0.0 && room >= G_LX_TP_NEED)
+         taken_close = false;
+   }
+   if(taken_close)
    {
       why = StringFormat("taken liquidity: %s - the %s target is spent", G_LX_TAKEN_WHY[k], side);
       uz = "oldindagi likvidlik olingan";
