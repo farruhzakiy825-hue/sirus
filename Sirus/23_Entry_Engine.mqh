@@ -446,6 +446,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    }
    // Plan stage 2: pressure against continuing this way costs quality from ExhaustCautionScore up
    // (from ExhaustBlockScore the veto refuses it outright).
+   q += MBMicroQualityAdj(dir);   // plan stage 4: who controls now + the micro turn type
    int xp = MBExhaustPressure(dir);
    if(ExhaustCautionScore > 0 && xp >= ExhaustCautionScore)
       q -= 0.5 * (xp - ExhaustCautionScore + 10);
@@ -667,6 +668,8 @@ bool MBDirOk(const int d)
       return false;   // direction lock (plan stage 1)
    if(MBLateBlocks(d, lw, lu))
       return false;   // late / exhausted / target taken (plan stage 2)
+   if(MBReentryBlocks(d, lw, lu))
+      return false;   // re-entry after a dead idea / failed attempts (plan stage 4)
    if(!MBCouncilOk(d))
       return false;   // the council (local + candles + zone) refuses this side - leave room for the other
    int a = d * G_MB_BIAS;
@@ -733,6 +736,8 @@ void MBFastWhyNotUpdate()
          G_MB_FAST_WHYNOT[k] = StringFormat("LOCK %s, burilish %d/%d", (G_ST_LOCK_DIR > 0 ? "▲" : "▼"), MBStructStageFor(d), LockUnlockStage);
       else if(MBLateBlocks(d, w, wu))
          G_MB_FAST_WHYNOT[k] = wu;
+      else if(MBReentryBlocks(d, w, wu))
+         G_MB_FAST_WHYNOT[k] = wu;
       else if(MBCouncilBlocks(d, w))
          G_MB_FAST_WHYNOT[k] = "kengash: " + G_MB_COUNCIL_UZ[k];
       else if(!MBDirOk(d))
@@ -767,7 +772,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       int ra = rd * G_MB_BIAS;
       bool ra_ok = (ra >= 2) || (ra == 0 && bias_min == 0) ||
                    (ra == 1 && IsReversalOpportunityType(G_OPP_TYPE) && G_OPP_DIR == (rd > 0 ? OPP_DIR_BUY : OPP_DIR_SELL));
-      if(ra >= bias_min && ra_ok && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBCouncilOk(rd) && MBHasTriggerNow(rd))
+      if(ra >= bias_min && ra_ok && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBCouncilOk(rd) && MBReentryFastOk(rd) && MBHasTriggerNow(rd))
       {
          dir = rd;
          why = StringFormat("FAST RE-ENTRY %s: last basket won %d min ago, thesis still %s (%s)",
@@ -798,6 +803,20 @@ bool MBFastEntryCandidate(int &dir, string &why)
          G_MB_FAST_TYPE = (int)OPP_TYPE_EXHAUSTION_REVERSAL;
          why = StringFormat("BRAIN REVERSAL %s: stage %d/6 - sweep %s, MSS %s, retest held", (vd > 0 ? "BUY" : "SELL"),
                             G_ST_REV_STAGE, DoubleToString(G_ST_REV_EXT, _Digits), DoubleToString(G_ST_REV_MSS, _Digits));
+      }
+   }
+
+   // 0b. SECOND CHANCE (plan stage 4): a setup refused only for its place (late, chasing, a zone in
+   //     front) - price came back to a better place and something triggers now.
+   if(dir == 0 && EnableBrainEntries)
+   {
+      int cd = 0;
+      string cw = "";
+      if(MBSecondChanceNow(cd, cw) && MBDirOk(cd) && MBHasTriggerNow(cd))
+      {
+         dir = cd;
+         G_MB_FAST_TYPE = (int)OPP_TYPE_PULLBACK_CONTINUATION;
+         why = StringFormat("BRAIN SECOND-CHANCE %s: %s", (cd > 0 ? "BUY" : "SELL"), cw);
       }
    }
 
@@ -993,6 +1012,8 @@ int MBFastEntryScore(const int min_required)
 // Called by the first-entry engine after a fill: counts fast entries for the panel.
 void MBFastEntryFilled()
 {
+   if(StringFind(G_OPP_REASON, "BRAIN SECOND-CHANCE") == 0)
+      MBSecondChanceTaken();
    if(StringFind(G_OPP_REASON, "FAST ") == 0 || StringFind(G_OPP_REASON, "BRAIN ") == 0)
    {
       MBFastToday();

@@ -734,6 +734,11 @@ void MBDrawPanel()
          MBPanelLine("B_LQ", MBLiquidityPanelText(), muted, false, x0, w, lh);
       else
          ObjectDelete(0, MB_VIS_PREFIX + "B_LQ");
+      {
+         string mc = MBMicroPanelText();
+         if(StringLen(mc) > 0) MBPanelLine("B_MC", mc, muted, false, x0, w, lh);
+         else ObjectDelete(0, MB_VIS_PREFIX + "B_MC");
+      }
       MBPanelLine("B_LX", MBLocationPanelText(), ((G_LX_PRESS[0] >= ExhaustCautionScore || G_LX_PRESS[1] >= ExhaustCautionScore) ? MBVisAmber() : muted), false, x0, w, lh);
       // Stage 17: session, volatility percentile and tick flow.
       string flow_txt = (EnableTickFlow && G_MB_FLOW_N >= 20)

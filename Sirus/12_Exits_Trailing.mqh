@@ -1004,6 +1004,7 @@ bool CloseRetcodeIsRetryable(const uint rc)
 
 bool CloseSirusBasket(const string reason)
 {
+   MBNoteCloseReason(reason);   // plan stage 4: the re-entry logic reads how the basket ended
    bool all_ok = true;
    int closed = 0;
 

@@ -556,6 +556,9 @@ void MBStructBreakRecord(const int tfi, const int dir, const int type, const dou
 void MBLiquidityMapUpdate();   // 20a - called by CoreUpdate (16)
 void MBStructUpdate();   // 20b - called by CoreUpdate (16)
 void MBLocationUpdate();   // 20c - called by CoreUpdate (16)
+void MBMicroUpdate();   // 20d - called by CoreUpdate (16)
+void MBNoteCloseReason(const string why);   // 20d - called by CloseSirusBasket (12)
+void MBMissedNote(const int dir, const string reason);   // 20d - called by the first-entry engine (14)
 bool MBLocalBasketExit(const double profit, string &why);   // stage 16 smart exit - read by the basket exit check above its definition
 bool MBBasketBreakEvenExit(const double basket_points, const double profit, string &why);
 string MBPositionText();

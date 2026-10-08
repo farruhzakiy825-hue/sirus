@@ -1,5 +1,34 @@
 # CHANGELOG — Sirus Brain V8
 
+## Katta reja — 4-bosqich: mikro nazorat va qayta kirish aqli
+
+Yangi modul: `Sirus/20d_Micro_Reentry.mqh`.
+
+- **"Kim boshqaryapti" (BUY% / SELL%).** Indikator emas, narx xulqi asosida hisoblanadi:
+  - shu tomon uchun likvidlik olingani (xarita sweep'i);
+  - qarshi tomonning charchashi;
+  - displacement;
+  - M1/M5 tuzilmasi;
+  - M1/M5 bosimi va tick oqimi;
+  - higher low / lower high.
+  - So'nggi 3 ta M5 barda nazorat 15+ foiz o'zgarsa, panelda ↑/↓ chiqadi. Bu erta ogohlantirish.
+- **Burilish turi.** Mikro nazorat asosiy yo'nalishga qarshi bo'lganda aniqlanadi. Asosiy yo'nalish: lock, bo'lmasa bias, bo'lmasa M15.
+  - SHOVQIN: 6 soatlik diapazonning 20% idan kam qaytgan;
+  - PULLBACK: 20–45%;
+  - CHARCHASH: asosiy tomonning charchash bosimi yuqori, yoki 45%+ qaytish va qarshi displacement;
+  - REVERSAL: yetilgan burilish, yoki 60%+ qaytish va M5 tuzilmasi burilgan.
+  - **Hakamga ta'siri:** asosiy tomonga kirish PULLBACK'da +6, CHARCHASH'da −8, REVERSAL'da −15. Qarshi tomonga kirish SHOVQIN'da −10, PULLBACK'da −5, REVERSAL'da +8.
+  - O'z nazorati 30% dan past bo'lsa −10, 65% dan yuqori bo'lsa +5.
+- **Qayta kirish aqli (`EnableSmartReentry`).**
+  - **Chiqish turi eslab qolinadi:** FOYDA / BE / G'OYA O'LDI / ZARAR / LOKAL. Broker TP yoki SL bilan yopilsa, natijaga qarab aniqlanadi.
+  - **G'oya o'lgan yoki zarar bilan yopilgan bo'lsa,** shu tomon yangi dalilni kutadi: shu tomonga yangi M5+ buzilish, yangi g'oya yoki yetilgan burilish. Ko'pi bilan 60 daqiqa.
+  - **Urinishlar:** bitta g'oya bo'yicha 3 ta muvaffaqiyatsiz savatdan keyin shu tomon yangi g'oyagacha yopiq (ko'pi bilan 2 soat). BUY-loss-BUY-loss aylanishi to'xtaydi.
+  - **Yutgandan keyin tez qayta kirish (FAST RE-ENTRY)** uchun endi yana uch shart bor: chiqishdan keyin yangi bar yopilgan bo'lishi, chiqish narxidan 1 ATR(M5) dan uzoqlashmagan bo'lishi va nazorat qarshi tomonga o'tmagan bo'lishi.
+- **Ikkinchi imkoniyat (`EnableSecondChance`).** Faqat joyi yomonligi uchun o'tkazilgan setup (kech, quvish, oldida zona, sifat past) 30 daqiqa eslab qolinadi. Narx 0.5 ATR(M5) yaxshiroq joyga qaytsa va trigger bo'lsa, robot kiradi: **BRAIN SECOND-CHANCE**.
+- **Qayerda ishlaydi:** V9 veto, barcha miya nomzodlari, "Miya" qatorida sabab.
+- **Panel:** `Nazorat: BUY 62% / SELL 38% ↑ · burilish: PULLBACK (31%) · oxirgi savat SELL: foyda`.
+- **Tezlik:** nazorat va burilish har M1 barda bir marta hisoblanadi.
+
 ## Katta reja — 3-bosqich: likvidlik xaritasi
 
 Yangi modul: `Sirus/20a_Liquidity_Map.mqh`.

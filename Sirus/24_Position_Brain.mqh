@@ -604,6 +604,7 @@ void MBPBCloseBookkeeping()
    G_MB_LAST_CLOSE_DIR = G_MB_PB_DIR;
    G_MB_LAST_CLOSE_WIN = (res > 0.0);
    G_MB_LAST_CLOSE_TIME = TimeCurrent();
+   MBReExitRecord(G_MB_PB_DIR, res);         // plan stage 4: exit kind + failed attempts per thesis
    MBMemoryOnBasketClosed(G_MB_PB_BASKET);   // Memory (phase 8): write the result next to the Entry DNA
    if(G_MB_PB_LOCAL)
       MBLocalRecord(res > 0.0);              // local record: auto-tune + loss pause

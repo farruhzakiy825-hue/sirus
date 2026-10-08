@@ -4770,6 +4770,8 @@ void UpdateFirstEntryEngine(const string source)
    // name and a counter.
    if(!G_ENTRY_READY)
       GateRecord(G_OPP_DIR != OPP_DIR_NONE ? reason : "no setup: " + reason);
+   if(!G_ENTRY_READY && G_OPP_DIR != OPP_DIR_NONE)
+      MBMissedNote(G_OPP_DIR == OPP_DIR_BUY ? 1 : -1, reason);   // plan stage 4: second chance for a setup refused for its place
    MBShadowOnDecision(G_ENTRY_READY, reason);   // stage 12: follow the refused setup in the shadows
 
    // And how long it has been since anything got through. Eleven guards that do not know about

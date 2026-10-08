@@ -41,6 +41,7 @@
 #include "Sirus/20a_Liquidity_Map.mqh"   // Plan stage 3: one liquidity map M5..H4 + PDH/PDL, status, multi-TF sweep, champion
 #include "Sirus/20b_Structure_Lock.mqh"  // Plan stage 1: structure memory, MSS quality, direction lock, reversal maturity
 #include "Sirus/20c_Location_Exhaustion.mqh" // Plan stage 2: entry location, late-entry guard, exhaustion pressure, counter-trend tax
+#include "Sirus/20d_Micro_Reentry.mqh"   // Plan stage 4: who controls now, micro turn type, re-entry intelligence, second chance
 #include "Sirus/21_Direction_Veto.mqh"   // Market Brain D: hard vetoes built on events and zone roles
 #include "Sirus/22_Memory.mqh"           // Market Brain H: Entry DNA and bounded evidence learning
 #include "Sirus/23_Entry_Engine.mqh"     // Market Brain E+F: entry location, timing, quality and the judge
