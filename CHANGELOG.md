@@ -1,5 +1,45 @@
 # CHANGELOG — Sirus Brain V8
 
+## Katta reja — 1-bosqich: tuzilma xotirasi, yo'nalish LOCK va burilish yetilishi
+
+Yangi modul: `Sirus/20b_Structure_Lock.mqh`. Shu bosqich ikki holatni yopadi: erta reversal deb ochilgan 4157.88 BUY va o'tkazib yuborilgan haqiqiy 4070 reversal.
+
+- **Tuzilma xotirasi (M5 / M15 / H1).** Har buzilish (BOS/MSS) uchun saqlanadi:
+  - **ketma-ketlik:** bir tomonga nechta buzilish ketma-ket bo'lgani;
+  - **himoyalangan daraja:** bearish buzilish kelib chiqqan lower high, bullish buzilish kelib chiqqan higher low;
+  - **sifat:**
+    - ZAIF — mayda tana;
+    - YOPILISH — daraja ortida yopildi;
+    - KUCHLI — displacement tanasi;
+    - TASDIQ — keyingi bar ushlab qoldi;
+    - SOXTA — keyingi bar qaytib yopildi, ya'ni tuzoq.
+  - Faqat soya bilan bo'lgan buzilish umuman hisoblanmaydi. Zaif buzilish ketma-ketlikka qo'shilmaydi.
+- **Yo'nalish LOCK (`EnableStructureLock`).**
+  - **Yoqilish sharti:** M15+ sweep (12 soat ichida) + displacement + ketma-ket 2 buzilish (M15 da, yoki M5 da, agar M15 ham o'sha tomonda bo'lsa).
+  - **Qarshi tomonga kirishlar** burilish `LockUnlockStage` (4) bosqichga yetguncha yopiq: V7 veto, miya nomzodlari va panel.
+  - **Lock tugaydi:** M15 himoyalangan darajadan o'tib yopilsa, burilish 6-bosqichga yetsa yoki 8 soat davomida lock tomoniga yangi buzilish bo'lmasa.
+- **Burilish yetilishi (0–6 bosqich).** Lock'ka yoki M15 trendiga qarshi o'lchanadi:
+  1. likvidlik olindi;
+  2. displacement;
+  3. M5+ MSS;
+  4. MSS darajasi retesti ushlandi;
+  5. higher low;
+  6. yangi buzilish.
+  - Displacement'dan keyin M5 sweep ekstremumidan o'tib yopilsa — TUZOQ, bosqich 0 ga qaytadi.
+  - Bosqich har M1 barda voqealardan qayta hisoblanadi, shuning uchun restartdan keyin ham to'g'ri bo'ladi.
+- **Yangi kirish turi: BRAIN REVERSAL (`EnableReversalEntry`).** Burilish 4+ bosqichga yetgan, harakat kech emas, kengash ruxsat bergan va trigger bor bo'lsa, robot yangi tomonga kiradi. Bu 4070 tipidagi kirish.
+  - V0 ruxsati: 4+ bosqichdagi burilish global bias'ga qarshi kirish uchun dalil hisoblanadi.
+  - Hakam: 4+ bosqichdagi retest joy sifatida va tasdiqlangan reversal sifatida hisoblanadi, sifat balliga +8.
+- **Panel:**
+  - `Tuzilma: M5 ▼×2 · M15 ▼ · H1 • (oxirgi M15: tasdiq)`;
+  - `LOCK ▼ · himoya 4171.40 · burilish ▲ 3/6 (MSS 4092.10)`;
+  - "Miya" qatorida `LOCK ▼, burilish 2/4`.
+- **Tezlik:**
+  - buzilishlar faqat o'z TF barida yoziladi;
+  - lock har M5 barda bir marta tekshiriladi;
+  - burilish har M1 barda bir marta hisoblanadi;
+  - har tickda hech narsa qo'shilmadi.
+
 ## Katta reja — 0-bosqich: tezkor tuzatishlar va ko'rinish
 
 - **Lokal qatlam ziddiyati:**

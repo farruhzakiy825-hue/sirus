@@ -294,11 +294,15 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    // live impulse (EARLY speed).
    string lsw_loc = "";
    bool swept_loc = MBLiveSweepFresh(dir, lsw_loc);
+   // Plan stage 1: the held retest of a reversal's MSS level is a location by definition.
+   int st_stage = MBStructStageFor(dir);
+   bool retest_loc = (st_stage >= MathMax(1, LockUnlockStage));
+   if(retest_loc) loc += StringFormat("%sreversal retest (stage %d)", (StringLen(loc) > 0 ? ", " : ""), st_stage);
    bool early_loc = (G_MB_LIVE_DIR == dir && !(G_MB_IMP_DIR[0] == dir && G_MB_SPEED[0] >= MB_SPEED_NORMAL));
    if(swept_loc) loc += StringFormat("%sswept pool", (StringLen(loc) > 0 ? ", " : ""));
    if(early_loc) loc += StringFormat("%searly live impulse", (StringLen(loc) > 0 ? ", " : ""));
    int loc_n = (disc_ok ? 1 : 0) + (zone_ok ? 1 : 0) + (pullback_ok ? 1 : 0) + (fvg_ok ? 1 : 0) + (range_edge ? 1 : 0) +
-               (swept_loc ? 1 : 0) + (early_loc ? 1 : 0);
+               (swept_loc ? 1 : 0) + (early_loc ? 1 : 0) + (retest_loc ? 1 : 0);
    bool loc_ok = (loc_n > 0);
    if(!loc_ok) loc = "none";
 
@@ -327,7 +331,8 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    string rev_what = "";
    datetime rev_t = 0;
    bool rev_ok = MBReversalAfter(dir, 1, 4, true, 0, rev_what, rev_t) ||
-                 MBReversalAfter(dir, 0, 0, false, 0, rev_what, rev_t);
+                 MBReversalAfter(dir, 0, 0, false, 0, rev_what, rev_t) ||
+                 st_stage >= MathMax(1, LockUnlockStage);
 
    // --- TIMING ---
    int chase = 0;
@@ -392,6 +397,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    q -= decay;
    // STAGE 15: playbook, candles and FVG.
    if(fvg_ok) q += 5.0;
+   if(st_stage >= MathMax(1, LockUnlockStage)) q += 8.0;   // a mature reversal (retest held) this way
    if(loc_lv >= 2) q += 15.0; else if(loc_lv == 1) q += 10.0;   // local leg against the global bias
    if(seq_against) q -= 6.0;   // an M5 reversal is forming against this entry
    bool rg_live_break = (trig_live || (trig_event && StringFind(ev_what, "LIVE") == 0) ||
@@ -455,7 +461,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
                        !MBLocalLegSpent(-dir) && !rev_candle);
    bool candles_against = (MBCandleOpposes(0, dir) && (MBCandleOpposes(1, dir) || MBPressureSide(0) == -dir) &&
                            G_MB_LIVE_DIR != dir);
-   bool zone_only = (zone_ok || range_edge || fvg_ok) && !(pullback_ok || early_loc || swept_loc || disc_ok);
+   bool zone_only = (zone_ok || range_edge || fvg_ok) && !(pullback_ok || early_loc || swept_loc || disc_ok || retest_loc);
    bool reaction = MBReactionCandle(dir) ||
                    (trig_event && (StringFind(ev_what, "REJECTION") >= 0 || StringFind(ev_what, "SWEEP") >= 0 ||
                                    StringFind(ev_what, "FAKE") >= 0 || StringFind(ev_what, "RECLAIM") >= 0));
@@ -645,6 +651,9 @@ bool MBHasTriggerNow(const int dir)
 // (a strong one against the strongest bias).
 bool MBDirOk(const int d)
 {
+   string lw = "";
+   if(MBLockBlocks(d, lw))
+      return false;   // direction lock (plan stage 1)
    if(!MBCouncilOk(d))
       return false;   // the council (local + candles + zone) refuses this side - leave room for the other
    int a = d * G_MB_BIAS;
@@ -707,7 +716,9 @@ void MBFastWhyNotUpdate()
    {
       int d = (k == 1) ? 1 : -1;
       string w = "";
-      if(MBCouncilBlocks(d, w))
+      if(MBLockBlocks(d, w))
+         G_MB_FAST_WHYNOT[k] = StringFormat("LOCK %s, burilish %d/%d", (G_ST_LOCK_DIR > 0 ? "▲" : "▼"), MBStructStageFor(d), LockUnlockStage);
+      else if(MBCouncilBlocks(d, w))
          G_MB_FAST_WHYNOT[k] = "kengash: " + G_MB_COUNCIL_UZ[k];
       else if(!MBDirOk(d))
          G_MB_FAST_WHYNOT[k] = StringFormat("global qarshi (%s)", MBBiasName(G_MB_BIAS));
@@ -757,6 +768,24 @@ bool MBFastEntryCandidate(int &dir, string &why)
    // BRAIN ENTRIES - simple market logic that does not wait for the old detectors' score. Each one
    // carries an opportunity type the V0 permission understands; the veto, the Entry Judge and every
    // risk gate still decide after it.
+   // 0. REVERSAL (plan stage 1): the structure was swept, displaced, broken (MSS) and the retest of
+   //    the break held - the new direction's first good entry (the 4070 kind), taken before the bias
+   //    has caught up. Not once the move is late.
+   if(dir == 0 && EnableBrainEntries && EnableReversalEntry && G_ST_REV_DIR != 0 &&
+      G_ST_REV_STAGE >= MathMax(1, LockUnlockStage))
+   {
+      int vd = G_ST_REV_DIR;
+      bool late = (G_MB_IMP_DIR[0] == vd && G_MB_SPEED[0] >= MB_SPEED_LATE) ||
+                  (G_MB_IMP_DIR[1] == vd && G_MB_SPEED[1] >= MB_SPEED_EXPIRED);
+      if(!late && MBDirOk(vd) && MBHasTriggerNow(vd))
+      {
+         dir = vd;
+         G_MB_FAST_TYPE = (int)OPP_TYPE_EXHAUSTION_REVERSAL;
+         why = StringFormat("BRAIN REVERSAL %s: stage %d/6 - sweep %s, MSS %s, retest held", (vd > 0 ? "BUY" : "SELL"),
+                            G_ST_REV_STAGE, DoubleToString(G_ST_REV_EXT, _Digits), DoubleToString(G_ST_REV_MSS, _Digits));
+      }
+   }
+
    if(dir == 0 && EnableBrainEntries)
    {
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);

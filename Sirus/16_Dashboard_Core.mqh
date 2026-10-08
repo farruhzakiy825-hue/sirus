@@ -862,6 +862,7 @@ void CoreUpdate(const string source)
    MBCandleEngineUpdate();
    MBEventEngineUpdate();
    MBBrainUpdate();
+   MBStructUpdate();   // plan stage 1: structure memory, direction lock, reversal maturity
    MBPositionBrainUpdate();
    MBProfEnd(MB_PROF_BRAIN);
    MBProfBegin(MB_PROF_SCAN);

@@ -727,6 +727,9 @@ void MBDrawPanel()
       }
       else
          ObjectDelete(0, MB_VIS_PREFIX + "B_RG");
+      // Plan stage 1: structure memory, direction lock and reversal maturity.
+      MBPanelLine("B_ST", MBStructPanelText(), muted, false, x0, w, lh);
+      MBPanelLine("B_LK", MBLockPanelText(), (G_ST_LOCK_DIR != 0 ? MBBiasTone(2 * G_ST_LOCK_DIR) : muted), false, x0, w, lh);
       // Stage 17: session, volatility percentile and tick flow.
       string flow_txt = (EnableTickFlow && G_MB_FLOW_N >= 20)
                         ? StringFormat("Oqim %s %.0f%%", (G_MB_FLOW_IMB >= 0.0 ? "▲" : "▼"), MathAbs(G_MB_FLOW_IMB) * 100.0) : "Oqim -";

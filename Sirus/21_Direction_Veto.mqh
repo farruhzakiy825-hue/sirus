@@ -368,6 +368,10 @@ bool MBPermissionCheck(const int dir, string &why)
                          (int)((TimeCurrent() - G_MB_DEAD_TIME) / 60), side);
       return true;
    }
+   // PLAN STAGE 1: a reversal that reached the unlock stage (sweep, displacement, MSS, held retest)
+   // is the proof a counter-bias entry needs - the bias catches up later.
+   if(a < 0 && MBStructStageFor(dir) >= MathMax(1, LockUnlockStage))
+      return false;
    // REGIME DOMINANCE: in a range / compression a weak or turning bias does not veto.
    if(a < 0 && a >= -2 && MBRangeRules())
       return false;
@@ -427,6 +431,8 @@ bool MBVetoAllowsEntry(const int dir, string &why)
       why = "V5 exhausted: " + why;   // stage 13 (A4): no new entry into a spent impulse
       blocked = true;
    }
+   else if(MBLockBlocks(dir, why))
+      blocked = true;                  // V7: direction lock (plan stage 1)
    else if(MBCouncilBlocks(dir, why))
       blocked = true;                  // V6: the entry council (local + candles + zone)
 

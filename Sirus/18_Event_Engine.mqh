@@ -543,6 +543,7 @@ void MBDetectStructure(const int tfi, const MqlRates &r[], const int n, const in
                             MBEventExists(MB_EV_FAKE_BREAK, 1, tfi, 0.0, recent, DBL_MAX);
          MBEventAdd(type, 1, tfi, lvl, r[s].close, r[s].time, (type == MB_EV_MSS ? 1.5 : 1.0) * (after_sweep ? 1.5 : 1.0),
                     StringFormat("closed above swing high %s%s", DoubleToString(lvl, _Digits), (after_sweep ? " after a sell-side sweep" : "")));
+         MBStructBreakRecord(tfi, 1, type, lvl, r, n, s, sh, atr);   // plan stage 1: structure memory
          G_MB_TREND[tfi] = 1;
          G_MB_LAST_BROKEN_HI[tfi] = r[sh].time;
       }
@@ -561,6 +562,7 @@ void MBDetectStructure(const int tfi, const MqlRates &r[], const int n, const in
                             MBEventExists(MB_EV_FAKE_BREAK, -1, tfi, 0.0, recent, DBL_MAX);
          MBEventAdd(type, -1, tfi, lvl, r[s].close, r[s].time, (type == MB_EV_MSS ? 1.5 : 1.0) * (after_sweep ? 1.5 : 1.0),
                     StringFormat("closed below swing low %s%s", DoubleToString(lvl, _Digits), (after_sweep ? " after a buy-side sweep" : "")));
+         MBStructBreakRecord(tfi, -1, type, lvl, r, n, s, sl, atr);  // plan stage 1: structure memory
          G_MB_TREND[tfi] = -1;
          G_MB_LAST_BROKEN_LO[tfi] = r[sl].time;
       }
