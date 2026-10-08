@@ -293,6 +293,9 @@ datetime                G_VEL_RING_TIME[16];
 int                     G_VEL_RING_POS          = 0;
 datetime                G_VEL_RING_LAST_SEC     = 0;
 datetime                G_VEL_SPIKE_UNTIL       = 0;
+datetime                G_VEL_BLOCK_UNTIL       = 0;   // entry pause (capped by VelocityMaxHoldPer5Min)
+datetime                G_VEL_BUDGET_START      = 0;   // start of the current 5-minute pause budget
+int                     G_VEL_BUDGET_USED       = 0;   // pause seconds spent in it
 
 // --- V31.3 Smart Fill state ---
 bool                    G_SF_ACTIVE             = false;

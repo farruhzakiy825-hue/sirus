@@ -1930,21 +1930,54 @@ void TickVelocityUpdate()
    double move_points = MathAbs(bid - past_price) / _Point;
    double ratio = G_VEL_RATE_FAST / G_VEL_RATE_SLOW;
 
-   if(ratio >= VelocitySpikeRatio && move_points >= (double)VelocityMovePoints)
+   if(ratio < VelocitySpikeRatio || move_points < (double)VelocityMovePoints)
+      return;
+
+   // ADAPTIVE: after a big candle the market stays busy and a 400-point move in 5 s becomes ordinary.
+   // The move must also be VelocityMoveATRMult x ATR(M1) (read only here, when the cheap checks passed).
+   double need_pts = (double)VelocityMovePoints;
+   if(VelocityMoveATRMult > 0.0)
    {
-      bool fresh = (now > G_VEL_SPIKE_UNTIL);
-      // LOCK FIX: every spike tick used to push the hold forward with no cap - a long fast move kept
-      // entries shut for its whole length. The hold is set once and runs out.
-      if(fresh)
-         G_VEL_SPIKE_UNTIL = now + MathMax(5, VelocityHoldSec);
-      if(fresh)
+      double atr1 = ATRPointsManual(PERIOD_M1, 14, 1);
+      if(atr1 > 0.0)
+         need_pts = MathMax(need_pts, VelocityMoveATRMult * atr1);
+   }
+   if(move_points < need_pts)
+      return;
+
+   bool fresh = (now > G_VEL_SPIKE_UNTIL);
+   if(!fresh)
+      return;
+   // LOCK FIX: every spike tick used to push the hold forward with no cap - a long fast move kept
+   // entries shut for its whole length. The hold is set once and runs out.
+   G_VEL_SPIKE_UNTIL = now + MathMax(5, VelocityHoldSec);  // live spike state (LiveVelocityDirection)
+
+   // BUDGET: re-arming spike after spike in a volatile market used to keep entries shut for many
+   // minutes. Entry pauses share a budget of VelocityMaxHoldPer5Min seconds per 5 minutes.
+   int hold = MathMax(5, VelocityHoldSec);
+   if(VelocityMaxHoldPer5Min > 0)
+   {
+      if(G_VEL_BUDGET_START <= 0 || now - G_VEL_BUDGET_START >= 300)
+      {
+         G_VEL_BUDGET_START = now;
+         G_VEL_BUDGET_USED = 0;
+      }
+      int left = VelocityMaxHoldPer5Min - G_VEL_BUDGET_USED;
+      hold = MathMin(hold, left);
+      if(hold < 5)
       {
          if((VelocityPrintOnUse && VerboseLogs))
-            PrintFormat("[SIRUS v31.1 VELOCITY] SPIKE: tick rate x%.1f baseline, move=%.0f pts/%ds -> yangi savdo %ds bloklanadi",
-                        ratio, move_points, win, VelocityHoldSec);
-         SirusNotify(StringFormat("VELOCITY SPIKE: %.0f pts/%ds, new trades paused %ds", move_points, win, VelocityHoldSec));
+            PrintFormat("[SIRUS VELOCITY] spike %.0f pts/%ds (need %.0f) - pause budget %ds/5min used, entries stay open",
+                        move_points, win, need_pts, VelocityMaxHoldPer5Min);
+         return;
       }
+      G_VEL_BUDGET_USED += hold;
    }
+   G_VEL_BLOCK_UNTIL = now + hold;
+   if((VelocityPrintOnUse && VerboseLogs))
+      PrintFormat("[SIRUS v31.1 VELOCITY] SPIKE: tick rate x%.1f baseline, move=%.0f pts/%ds (need %.0f) -> yangi savdo %ds bloklanadi",
+                  ratio, move_points, win, need_pts, hold);
+   SirusNotify(StringFormat("VELOCITY SPIKE: %.0f pts/%ds, new trades paused %ds", move_points, win, hold));
 }
 
 bool VelocityAllowsNewRisk(string &reason)
@@ -1952,9 +1985,9 @@ bool VelocityAllowsNewRisk(string &reason)
    reason = "velocity clear";
    if(!EnableTickVelocityGuard)
       return true;
-   if(TimeCurrent() <= G_VEL_SPIKE_UNTIL)
+   if(TimeCurrent() <= G_VEL_BLOCK_UNTIL)
    {
-      reason = StringFormat("velocity spike hold %ds left", (int)(G_VEL_SPIKE_UNTIL - TimeCurrent()));
+      reason = StringFormat("velocity spike hold %ds left", (int)(G_VEL_BLOCK_UNTIL - TimeCurrent()));
       return false;
    }
    return true;

@@ -384,6 +384,10 @@ input int               VelocityMovePoints       = 400;   // Velocity move point
 input int               VelocityWindowSec        = 5;   // Velocity window sec
 // VelocityHoldSec: Seconds to pause new entries after a tick-velocity spike
 input int               VelocityHoldSec          = 30;   // Velocity hold sec
+// VelocityMoveATRMult: the spike move must also be at least ATR(M1) x this (0 = off) - in a fast, volatile market an ordinary move is not a spike
+input double            VelocityMoveATRMult      = 1.5;   // Spike move vs ATR(M1) (x, 0 = fixed points only)
+// VelocityMaxHoldPer5Min: the spike pause may hold entries for at most this many seconds in any 5 minutes (0 = no cap) - a real spike is caught, a busy market is not choked
+input int               VelocityMaxHoldPer5Min   = 60;   // Max spike pause per 5 min (sec, 0 = no cap)
 input bool              VelocityPrintOnUse       = true;   // Velocity print on use (on/off)
 
 input group "ADVANCED ▸ ATR regime grid distance"

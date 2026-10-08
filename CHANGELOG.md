@@ -1,5 +1,23 @@
 # CHANGELOG — Sirus Brain V8
 
+## Tezlik himoyasi faol bozorni bo'g'masin (16:41: 23 daqiqa jimlik, "tezlik 62%")
+
+- **Holat.**
+  - 16:16 dagi katta sakrashdan (4111 → 4132) keyin bozor faol qoldi, volatillik 83-foizda edi.
+  - Tick tezligi himoyasining qat'iy chegarasi bor edi: 5 soniyada 400 punkt va tick tezligi 4 barobar. Bunday bozorda bu oddiy harakat, shuning uchun himoya har 30 soniyada qayta yoqilib turdi.
+  - Natija: 23 daqiqa kirish bo'lmadi. Soya hisobiga ko'ra, to'silgan 24 setupdan 23 tasi TP ga yetgan bo'lardi.
+- **1. Moslashuvchan chegara.** Sakrash deb hisoblanishi uchun harakat 400 punkt VA ATR(M1) × 1.5 dan katta bo'lishi kerak. Faol bozorda oddiy harakat sakrash emas.
+  - Sozlama: `VelocityMoveATRMult` = 1.5 (0 = faqat qat'iy punkt).
+- **2. Taqiq byudjeti.** Tezlik pauzasi har 5 daqiqada jami ko'pi bilan 60 soniya.
+  - Haqiqiy portlash ushlanadi, keyingi faol bozorda kirish ochiq qoladi.
+  - Byudjet tugaganda logda yoziladi: `pause budget ... used, entries stay open`.
+  - Sozlama: `VelocityMaxHoldPer5Min` = 60 (0 = cheklovsiz).
+- **O'zgarmadi.**
+  - Rejalashtirilgan yangilik himoyasi (kalendar oynasi) avvalgidek ishlaydi.
+  - Ochiq savat boshqaruviga tegilmadi.
+  - Jonli tezlik yo'nalishi (`LiveVelocityDirection`) yangi chegarani ishlatadi, pauza byudjetiga bog'liq emas.
+- **Tezlik.** ATR(M1) faqat tick tezligi va punkt shartlari bajarilgandagina o'qiladi, oddiy tick'da qo'shimcha hisob yo'q.
+
 ## Pullback yoki reversal? (16:00 BRAIN TREND BUY 4111.87 holati) + TP'dan keyin darhol qayta kirish
 
 - **Holat.**
