@@ -141,19 +141,56 @@ int MBSign(const int v)
 }
 
 // Latest structure event (BOS/MSS) on slot tfi, any age still in the ring. -1 when none.
+// STRUCTURE FIX: a break whose next one or two closed bars closed back through the level (by 0.1 ATR)
+// was a liquidity grab, not structure. 19:40 08-Oct: an M5 bar pierced equal lows at 4128 and was
+// recorded as a bearish BOS - the M5 state read DOWN through a clean M5 rally of higher lows, the local
+// layer followed it, and SELLs were opened in the middle of the rally.
+bool MBBreakFailed(const int idx)
+{
+   if(idx < 0 || G_MB_EV[idx].time <= 0)
+      return false;
+   int tfi = G_MB_EV[idx].tfi;
+   if(tfi < 0 || tfi >= MB_TF_COUNT)
+      return false;
+   ENUM_TIMEFRAMES tf = MBEventTF(tfi);
+   int sh = iBarShift(_Symbol, tf, G_MB_EV[idx].time, false);
+   double atr = G_MB_ATR[tfi] * _Point;
+   if(sh < 2 || atr <= 0.0)
+      return false;
+   int d = G_MB_EV[idx].dir;
+   for(int k = sh - 1; k >= MathMax(1, sh - 2); k--)
+   {
+      double c = iClose(_Symbol, tf, k);
+      if(c > 0.0 && d * (c - G_MB_EV[idx].level) < -0.1 * atr)
+         return true;
+   }
+   return false;
+}
+
 int MBLastStructureEvent(const int tfi)
 {
-   int best = -1;
+   // Newest first; a failed break is skipped and the structure before it stands.
    int base = tfi * MB_EV_PER_TF;
-   for(int i = 0; i < MB_EV_PER_TF; i++)
+   datetime below = 0;
+   for(int pass = 0; pass < MB_EV_PER_TF; pass++)
    {
-      int idx = base + i;
-      if(G_MB_EV[idx].time <= 0) continue;
-      if(G_MB_EV[idx].type != MB_EV_MSS && G_MB_EV[idx].type != MB_EV_BOS) continue;
-      if(best < 0 || G_MB_EV[idx].time > G_MB_EV[best].time)
-         best = idx;
+      int best = -1;
+      for(int i = 0; i < MB_EV_PER_TF; i++)
+      {
+         int idx = base + i;
+         if(G_MB_EV[idx].time <= 0) continue;
+         if(G_MB_EV[idx].type != MB_EV_MSS && G_MB_EV[idx].type != MB_EV_BOS) continue;
+         if(below > 0 && G_MB_EV[idx].time >= below) continue;
+         if(best < 0 || G_MB_EV[idx].time > G_MB_EV[best].time)
+            best = idx;
+      }
+      if(best < 0)
+         return -1;
+      if(!MBBreakFailed(best))
+         return best;
+      below = G_MB_EV[best].time;
    }
-   return best;
+   return -1;
 }
 
 // A confirmed liquidity reversal toward `dir` on slots [tf_lo..tf_hi] (or KEY when key=true)
@@ -629,13 +666,20 @@ int MBLayerLocal()
    // net move, the M5 pressure, the M5 structure or an active local leg.
    int imp = G_MB_IMP_DIR[1];
    int p5 = MBPressureSide(1);
-   if(imp != 0 && G_MB_SPEED[1] <= MB_SPEED_NORMAL && G_MB_SPEED[1] != MB_SPEED_NONE)
+   // STRUCTURE FIRST: an M5 structure nothing has broken is the local direction. An impulse, a net move
+   // or candle pressure against it - without a close beyond its protected swing - is a pullback inside
+   // it (19:40 08-Oct: one red M5 candle in a rally of higher lows turned the local layer down and a
+   // SELL opened mid-rally). They speak only when the structure is neutral or broken.
+   int s5i = MBM5StructDir();
+   if(imp != 0 && imp != -s5i && G_MB_SPEED[1] <= MB_SPEED_NORMAL && G_MB_SPEED[1] != MB_SPEED_NONE)
    {
       bool fresh = (G_MB_IMP_PEAK_AGE[1] > 0 && G_MB_IMP_PEAK_AGE[1] <= 6);
       bool contradicted = !fresh && (net == -imp || p5 == -imp || MBSign(G_MB_TF_STATE[1]) == -imp || G_LOC_TH_DIR == -imp);
       if(!contradicted)
          return imp;
    }
+   if(s5i != 0)
+      return s5i;
    if(net != 0)
       return net;
    // FIX(local-lag-2): the M5 structure only turns when a swing breaks, so after a $10 fall that went

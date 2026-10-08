@@ -423,6 +423,8 @@ void MBShadowFlush();
 bool MBShadowValveOn(const int g);   // a quality gate relaxed by the shadow ledger
 double MBNormalSpread();   // spread memory (20e) - read by the news settle check (11)
 bool MBAnomalyBlocks(string &why);   // anomaly guard (20f) - read by the news settle check (11)
+int MBM5StructDir();   // the M5 structure that still holds (20b) - read by the local layer (20)
+double MBM5LegPos(const int sdir);   // where price sits in the current M5 leg (20b) - read by the council (21)
 string MBShadowPanelText();
 int MBBiasAlign(const int dir);
 int MBFastEntryType();

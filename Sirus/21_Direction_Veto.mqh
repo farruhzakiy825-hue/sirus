@@ -59,7 +59,10 @@ input bool   EnableEntryCouncil       = true;   // Enable entry council
 // CouncilWeakGlobalConf: Global ishonchi shundan past yoki o'tish holatida bo'lsa - yo'nalishni lokal hal qiladi
 input int    CouncilWeakGlobalConf    = 50;   // Council weak global confidence
 // CouncilZoneATR5: SELL ostida ushlab turgan support / BUY ustida resistance shu ATR(M5) ichida bo'lsa - kirmaydi (M5 yopilib buzilmaguncha)
-input bool   EnableCouncilM5Turn      = true;   // Lokal oyoq va M5 bosimi qarshi bo'lsa - faqat yopilgan M5 burilish shami (bitta M1 shami burilish emas)
+input bool   EnableCouncilM5Structure = true;   // Against an intact M5 structure: closed M5 turn + far part of the leg
+input double CouncilM5StructLegPos    = 0.5;   // Far part of the leg: from this share of the M5 leg (0..1)
+// EnableCouncilM5Turn: Lokal oyoq va M5 bosimi qarshi bo'lsa - faqat yopilgan M5 burilish shami (bitta M1 shami burilish emas)
+input bool   EnableCouncilM5Turn      = true;   // Local leg + M5 pressure against: needs a closed M5 turn
 input double CouncilZoneATR5          = 0.35;   // Council zone ATR 5
 // MBPermExceptionMargin: V0: zaif qarama-qarshi bias'da faqat reversal setup va ball >= minimum + shu
 input int    MBPermExceptionMargin    = 2;   // Brain perm exception margin
@@ -323,6 +326,27 @@ bool MBCouncilEval(const int dir, string &why, string &uz)
          return true;
       }
    }
+   // 1e. STRUCTURE FIRST: against an M5 structure nothing has broken, an entry needs a closed M5 turn
+   //     candle (live-valid) in the far half of the leg (selling the top of an up-leg, buying the bottom
+   //     of a down-leg) - or the reversal must have made its MSS. M1 candles mid-leg are not enough:
+   //     08-Oct 18:56 / 19:53 SELLs in the middle of an M5 rally of higher lows.
+   {
+      int s5i = MBM5StructDir();
+      if(EnableCouncilM5Structure && s5i == -dir && MBStructStageFor(dir) < 3)
+      {
+         double lp = MBM5LegPos(s5i);
+         bool at_top = (lp < 0.0 || lp >= CouncilM5StructLegPos);
+         if(!(m5_turn && at_top))
+         {
+            why = StringFormat("council: M5 structure %s intact (protected %s) - %s needs a closed M5 turn in the far part of the leg (leg %.0f%%, M5 turn %s) or an M5 break",
+                               (s5i > 0 ? "up" : "down"),
+                               DoubleToString(s5i > 0 ? G_ST_PROT_LO[1] : G_ST_PROT_HI[1], _Digits),
+                               (dir > 0 ? "BUY" : "SELL"), MathMax(0.0, lp) * 100.0, (m5_turn ? "yes" : "no"));
+            uz = StringFormat("M5 tuzilma %s - M5 burilish kerak", (s5i > 0 ? "▲" : "▼"));
+            return true;
+         }
+      }
+   }
    // 4. A weak global bias does not override the local leg.
    if(loc == -dir && dir * G_MB_BIAS >= 0 && MBGlobalWeak() &&
       !(m5_turn || (MBCandleConfirms(0, dir) && MBLocalLegSpent(-dir))))
@@ -454,6 +478,10 @@ bool MBTransitionConfirmed(const int dir)
    if(MBLayerLocal() != dir)
       return false;
    if(MBPressureSide(1) != dir && MBSign(G_ST_SEQ[1]) != dir)
+      return false;
+   // A transition is not yet a trend: once this side's liquidity was taken and reclaimed (equal lows
+   // swept and price back above, 19:47 08-Oct), the leg may be done - no continuation on the transition.
+   if(G_LX_TAKEN[MBLxK(dir)])
       return false;
    // AUDIT FIX (B7): with the micro-control engine off the shares sit at 50/50 and the rule silently
    // never fired - then the control term is simply not part of the proof.

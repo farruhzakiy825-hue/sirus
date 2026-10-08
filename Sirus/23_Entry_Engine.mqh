@@ -143,10 +143,27 @@ bool MBTriggerCandle(const SMBCandle &c, const int dir)
 // entry is taken off the pullback, not at the top of the run.
 bool MBPullbackResume(const int dir)
 {
-   if(dir == 0 || G_MB_LAST[0].candle_color != -dir || G_MB_LAST[0].high <= G_MB_LAST[0].low)
+   if(dir == 0 || G_MB_LAST[0].high <= G_MB_LAST[0].low)
       return false;
+   // STRUCTURE FIRST: the pullback ends when its M1 micro-structure breaks - price beyond the extreme of
+   // the last three closed M1 candles (at least one of them a pullback candle). One candle's low taken
+   // out was read as "the pullback is over" in the middle of a run of higher lows (19:53 08-Oct).
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   if(dir > 0 ? (bid <= G_MB_LAST[0].high) : (bid >= G_MB_LAST[0].low))
+   if(bid <= 0.0)
+      return false;
+   double ext = (dir > 0) ? -DBL_MAX : DBL_MAX;
+   bool had_pullback = false;
+   for(int k = 1; k <= 3; k++)
+   {
+      double h = iHigh(_Symbol, PERIOD_M1, k), l = iLow(_Symbol, PERIOD_M1, k);
+      double o = iOpen(_Symbol, PERIOD_M1, k), c = iClose(_Symbol, PERIOD_M1, k);
+      if(h <= 0.0 || l <= 0.0)
+         return false;
+      ext = (dir > 0) ? MathMax(ext, h) : MathMin(ext, l);
+      if(dir * (c - o) < 0.0)
+         had_pullback = true;
+   }
+   if(!had_pullback || dir * (bid - ext) <= 0.0)
       return false;
    // Not on a spent move: M5 impulse not expired, M5 pressure not against.
    if(G_MB_IMP_DIR[1] == dir && G_MB_SPEED[1] >= MB_SPEED_EXPIRED)

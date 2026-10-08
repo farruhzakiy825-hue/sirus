@@ -91,6 +91,39 @@ string MBStQName(const int q)
    return "-";
 }
 
+// STRUCTURE FIRST: the M5 structure that still holds - its direction (+1 / -1) while nothing has broken
+// it, 0 when it is neutral or broken. Broken = an M5 close beyond the swing its last break came from
+// (the protected higher low of an up structure / lower high of a down one), or a valid M5 break the
+// other way. A candle against an intact structure is a pullback, not a new direction.
+int MBM5StructDir()
+{
+   int s5 = MBSign(G_MB_TF_STATE[1]);
+   if(s5 == 0)
+      return 0;
+   if(G_ST_LB_DIR[1] == -s5 && G_ST_LB_Q[1] >= ST_Q_VALID)
+      return 0;
+   double prot = (s5 > 0) ? G_ST_PROT_LO[1] : G_ST_PROT_HI[1];
+   double c1 = iClose(_Symbol, PERIOD_M5, 1);
+   if(prot > 0.0 && c1 > 0.0 && s5 * (c1 - prot) < 0.0)
+      return 0;
+   return s5;
+}
+
+// 0..1: where price sits in the current M5 leg of an `sdir` structure - 0 at its protected swing,
+// 1 at the leg's extreme (the last 24 M5 bars). -1 when unknown.
+double MBM5LegPos(const int sdir)
+{
+   if(sdir == 0)
+      return -1.0;
+   double prot = (sdir > 0) ? G_ST_PROT_LO[1] : G_ST_PROT_HI[1];
+   int ie = (sdir > 0) ? iHighest(_Symbol, PERIOD_M5, MODE_HIGH, 24, 0) : iLowest(_Symbol, PERIOD_M5, MODE_LOW, 24, 0);
+   double ext = (ie >= 0) ? ((sdir > 0) ? iHigh(_Symbol, PERIOD_M5, ie) : iLow(_Symbol, PERIOD_M5, ie)) : 0.0;
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(prot <= 0.0 || ext <= 0.0 || bid <= 0.0 || sdir * (ext - prot) <= 0.0)
+      return -1.0;
+   return MathMax(0.0, MathMin(1.0, sdir * (bid - prot) / (sdir * (ext - prot))));
+}
+
 // Called by the event engine (18) on every BOS / MSS it finds - in the replay too, so the memory is
 // rebuilt after a restart. r[] is series-ordered; s = the breaking bar, sw = the swing it broke.
 void MBStructBreakRecord(const int tfi, const int dir, const int type, const double lvl,

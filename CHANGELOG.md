@@ -1,5 +1,35 @@
 # CHANGELOG — Sirus Brain V8
 
+## Tuzilma birinchi: M5 tuzilmasi buzilmaguncha unga qarshi sham "pullback" (08-Oct 18:56 va 19:53 dagi SELL'lar)
+
+- **Holat.**
+  - 18:30 dan keyin M5 da aniq ko'tarilish bo'ldi: tublar 4121 → 4124 → 4127 → 4128 → 4128.1.
+  - Robot ikki marta ko'tarilishning o'rtasida SELL ochdi: 18:56 da 4127.075 va 19:53 da 4130.126.
+- **Sabablar.**
+  - 19:40 dagi qizil M5 shami 4128 dagi tekis tublarni bir oz kesib o'tdi. Bu "M5 bearish BOS" deb yozildi, garchi keyingi barlar yana tepada yopilgan bo'lsa ham, ya'ni bu likvidlik ovi edi. Natijada M5 holati 20:12 gacha "▼" bo'lib turdi.
+  - Yangi M5 impulsi har doim lokal qatlamni belgilardi. Bitta qizil sham lokalni pastga burdi.
+  - Pullback tugashi deb bitta M1 shamining tubi kesilgani o'qildi.
+- **1. Muvaffaqiyatsiz buzilish tuzilma emas.**
+  - Keyingi 1–2 yopilgan bar daraja orqasiga 0.1 ATR qaytsa, BOS yoki MSS likvidlik ovi hisoblanadi va tashlab yuboriladi. Undan oldingi tuzilma amalda qoladi.
+  - Bu barcha TF holatiga va biasga ta'sir qiladi.
+- **2. Lokal qatlam: tuzilma birinchi.**
+  - Buzilmagan M5 tuzilmasi lokal yo'nalish hisoblanadi.
+  - Unga qarshi impuls, sof harakat yoki bosim, himoyalangan swing orqasida M5 yopilishi bo'lmaguncha, pullback hisoblanadi.
+- **3. Kengash qoidasi 1e.**
+  - Buzilmagan M5 tuzilmasiga qarshi kirish uchun ikkalasi birga kerak:
+    - yopilgan, hali buzilmagan M5 burilish shami;
+    - narx M5 oyog'ining uzoq yarmida bo'lishi (up-oyoqning tepasida SELL, down-oyoqning tubida BUY).
+  - Yoki burilish MSS bosqichiga (3/6) yetgan bo'lishi kerak.
+  - M1 shamlari yetmaydi.
+  - Barcha kirishlarga tegishli: detektor, miya nomzodlari, veto.
+  - Sozlamalar: `EnableCouncilM5Structure`, `CouncilM5StructLegPos` = 0.5.
+- **4. Pullback tugashi uchun M1 tuzilmasi buzilishi kerak.** Narx oxirgi 3 ta yopilgan M1 shamining ekstremumidan o'tishi kerak.
+- **5. O'tish holatida maqsadi bajarilgan tomonga davom kirishi yo'q.** Masalan, tekis tublar olinib, narx qaytgan bo'lsa.
+- **6. Panel.** Savat ochiq paytda "Sabab" qatori savat holatini ko'rsatadi.
+- **Qolgan sham o'qishlari tekshirildi.**
+  - Trigger (M1/M5), MOMENTUM, SWEEP, LOCAL, ALIGNED, V0 momentum tasdig'i va kengash 4-qoidasi endi tuzilmaga asoslangan lokal qatlam va 1e qoidasi orqali o'tadi. Ular tuzilma bilan birga kirish vaqtini aniqlaydi, tuzilmaga qarshi kirishni yolg'iz o'zi ochmaydi.
+  - Grid uchun "M5 displacement qarshi bo'lsa grid to'xtaydi" himoyasi o'zgarmadi.
+
 ## Audit qoldiqlari: SELL og'ishi, tezlik, ishga tushish
 
 - **SELL og'ishi.**

@@ -803,7 +803,9 @@ void MBDrawPanel()
    MBVisText("E_Q_TX", StringFormat("sifat %d", G_MB_ENTRY_QUALITY), x0 + w - 12, G_MB_PANEL_Y + 1, muted, PanelFontSize - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
    G_MB_PANEL_Y += lh + 2;
    string why_txt = MBReasonUz(G_ENTRY_REASON);
-   if(G_ENTRY_REASON == "score not passed" && G_OPP_DIR != OPP_DIR_NONE && G_SCORE_MIN_REQUIRED > 0)
+   if(G_BASKET_ORDERS > 0)
+      why_txt = StringFormat("savat ochiq (%d order) - yangi kirish yo'q, savat boshqarilmoqda", G_BASKET_ORDERS);
+   else if(G_ENTRY_REASON == "score not passed" && G_OPP_DIR != OPP_DIR_NONE && G_SCORE_MIN_REQUIRED > 0)
       why_txt = StringFormat("%s signal kuchsiz: ball %d / kerak %d", (G_OPP_DIR == OPP_DIR_BUY ? "BUY" : "SELL"),
                              G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
    MBPanelLine("E_WHY", "Sabab: " + why_txt, ink, false, x0, w, lh);
