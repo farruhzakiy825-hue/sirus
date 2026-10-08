@@ -655,6 +655,69 @@ bool MBDirOk(const int d)
    return MBLocalOkFor(d);
 }
 
+// The fast-entry count survives a recompile / restart (it read "tezkor 0" after every reload while the
+// day's entry total, read from history, did not). Stored with its day in a terminal variable.
+string G_MB_FAST_WHYNOT[2];   // why no brain entry fired this side (0 = SELL, 1 = BUY) - panel
+
+string MBFastCountKey() { return StringFormat("SIRUS_FAST_%s_%I64d", _Symbol, MagicNumber); }
+
+void MBFastCountSave()
+{
+   if(MQLInfoInteger(MQL_TESTER))
+      return;
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   GlobalVariableSet(MBFastCountKey(), (double)(dt.year * 1000 + dt.day_of_year) * 10000.0 + G_MB_FAST_TODAY);
+}
+
+int MBFastToday()
+{
+   static bool loaded = false;
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   if(!loaded)
+   {
+      loaded = true;
+      G_MB_FAST_DAY = dt.day_of_year;
+      if(!MQLInfoInteger(MQL_TESTER) && GlobalVariableCheck(MBFastCountKey()))
+      {
+         double v = GlobalVariableGet(MBFastCountKey());
+         int day = (int)MathFloor(v / 10000.0);
+         if(day == dt.year * 1000 + dt.day_of_year)
+            G_MB_FAST_TODAY = (int)MathRound(v - day * 10000.0);
+      }
+   }
+   if(dt.day_of_year != G_MB_FAST_DAY)
+   {
+      G_MB_FAST_DAY = dt.day_of_year;
+      G_MB_FAST_TODAY = 0;
+   }
+   return G_MB_FAST_TODAY;
+}
+
+// Why the brain is not entering, per side, in a few words - read once a second, only while flat and
+// no candidate fired. Order: the council, the global permission, the trigger, then "no setup".
+void MBFastWhyNotUpdate()
+{
+   static datetime last = 0;
+   if(TimeCurrent() == last)
+      return;
+   last = TimeCurrent();
+   for(int k = 0; k <= 1; k++)
+   {
+      int d = (k == 1) ? 1 : -1;
+      string w = "";
+      if(MBCouncilBlocks(d, w))
+         G_MB_FAST_WHYNOT[k] = "kengash: " + G_MB_COUNCIL_UZ[k];
+      else if(!MBDirOk(d))
+         G_MB_FAST_WHYNOT[k] = StringFormat("global qarshi (%s)", MBBiasName(G_MB_BIAS));
+      else if(!MBHasTriggerNow(d))
+         G_MB_FAST_WHYNOT[k] = "trigger yo'q (sham / hodisa)";
+      else
+         G_MB_FAST_WHYNOT[k] = "trigger bor, setup sharti yo'q";
+   }
+}
+
 bool MBFastEntryCandidate(int &dir, string &why)
 {
    dir = 0;
@@ -853,15 +916,13 @@ bool MBFastEntryCandidate(int &dir, string &why)
    }
 
    if(dir == 0)
-      return false;
-
-   MqlDateTime dt;
-   TimeToStruct(TimeCurrent(), dt);
-   if(dt.day_of_year != G_MB_FAST_DAY)
    {
-      G_MB_FAST_DAY = dt.day_of_year;
-      G_MB_FAST_TODAY = 0;
+      MBFastWhyNotUpdate();
+      return false;
    }
+   G_MB_FAST_WHYNOT[0] = "";
+   G_MB_FAST_WHYNOT[1] = "";
+   MBFastToday();   // rolls the counter over at a new day
    return true;
 }
 
@@ -889,7 +950,11 @@ int MBFastEntryScore(const int min_required)
 void MBFastEntryFilled()
 {
    if(StringFind(G_OPP_REASON, "FAST ") == 0 || StringFind(G_OPP_REASON, "BRAIN ") == 0)
+   {
+      MBFastToday();
       G_MB_FAST_TODAY++;
+      MBFastCountSave();
+   }
    if(G_BASKET_ORDERS <= 1)
    {
       int colon = StringFind(G_OPP_REASON, ":");

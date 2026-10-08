@@ -604,9 +604,15 @@ int MBLayerLocal()
       if(c1 - c7 >= atr5) return 1;
       if(c7 - c1 >= atr5) return -1;
    }
-   int s5 = MBSign(G_MB_TF_STATE[1]);
-   if(s5 != 0) return s5;
-   return MBPressureSide(1);
+   // FIX(local-lag-2): the M5 structure only turns when a swing breaks, so after a $10 fall that went
+   // sideways it still read "up" while the local thesis said "down" - the panel showed both. An active
+   // local thesis (its own target and invalidation) and then the M5 pressure come before the structure.
+   if(G_LOC_TH_DIR != 0)
+      return G_LOC_TH_DIR;
+   int p5 = MBPressureSide(1);
+   if(p5 != 0)
+      return p5;
+   return MBSign(G_MB_TF_STATE[1]);
 }
 
 int MBLayerMicro()

@@ -249,14 +249,17 @@ int MBBiasAlign(const int dir)
 //     BUY) - wait until an M5 candle closes through it;
 //  4. a weak global bias (transition, or confidence below CouncilWeakGlobalConf) does not override
 //     the local leg the other way - unless an M5 candle turned, or an M1 one did at a spent leg.
+string G_MB_COUNCIL_UZ[2];   // short panel text of the last council refusal per side (0 = SELL, 1 = BUY)
+
 bool MBGlobalWeak()
 {
    return (MathAbs(G_MB_BIAS) <= 1 || G_MB_BIAS_CONF < CouncilWeakGlobalConf);
 }
 
-bool MBCouncilEval(const int dir, string &why)
+bool MBCouncilEval(const int dir, string &why, string &uz)
 {
    why = "";
+   uz = "";
    int loc = MBLayerLocal();
    int p5 = MBPressureSide(1), p15 = MBPressureSide(2);
    bool m5_turn = MBCandleConfirms(1, dir);
@@ -268,6 +271,7 @@ bool MBCouncilEval(const int dir, string &why)
       if(!(m5_turn && MBReversalAfter(dir, 2, 4, true, TimeCurrent() - 3600, w, t)))
       {
          why = "council: local leg, M5 and M15 candles all the other way";
+         uz = "lokal + M5 + M15 qarshi";
          return true;
       }
    }
@@ -277,6 +281,7 @@ bool MBCouncilEval(const int dir, string &why)
    {
       why = StringFormat("council: weak global (%s, %d%%) does not override the local leg the other way",
                          MBBiasName(G_MB_BIAS), G_MB_BIAS_CONF);
+      uz = "zaif global, lokal qarshi";
       return true;
    }
    // 3. A holding zone of the other side right in front.
@@ -294,6 +299,7 @@ bool MBCouncilEval(const int dir, string &why)
          {
             why = StringFormat("council: %s %s holds right in front (%.2f ATR) - waiting for an M5 close through it",
                                (dir > 0 ? "resistance" : "support"), DoubleToString(lvl, _Digits), MathAbs(lvl - px) / atr5);
+            uz = StringFormat("oldida %s %s", (dir > 0 ? "resistance" : "support"), DoubleToString(lvl, _Digits));
             return true;
          }
       }
@@ -314,7 +320,7 @@ bool MBCouncilBlocks(const int dir, string &why)
    long msc = SymbolInfoInteger(_Symbol, SYMBOL_TIME_MSC);
    if(msc != cb_msc[k] || msc == 0)
    {
-      cb_res[k] = MBCouncilEval(dir, cb_why[k]);
+      cb_res[k] = MBCouncilEval(dir, cb_why[k], G_MB_COUNCIL_UZ[k]);
       cb_msc[k] = msc;
    }
    why = cb_why[k];

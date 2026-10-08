@@ -607,7 +607,7 @@ void MBDrawPanel()
    double hist_dd = MBHistoryMaxDDPercent();
    double max_dd = MathMax(hist_dd, G_ALL_TIME_MAX_DD_PCT);
    MBPanelLine("A1", StringFormat("Balans %10.2f    Equity %10.2f", bal, eq), ink, true, x0, w, lh);
-   MBPanelLine("A2", StringFormat("Bugun  %+10.2f    Zarba  %4d (tezkor %d)", today, MBTodayEntries(), G_MB_FAST_TODAY),
+   MBPanelLine("A2", StringFormat("Bugun  %+10.2f    Zarba  %4d (tezkor %d)", today, MBTodayEntries(), MBFastToday()),
                (today < 0.0 ? MBVisRed() : (today > 0.0 ? MBVisGreen() : ink)), true, x0, w, lh);
    MBPanelLine("A3", StringFormat("DD hozir %5.2f%%     Max DD %5.2f%%", G_RISK_EQUITY_DD_PCT, max_dd),
                DDSeverityColor(G_RISK_EQUITY_DD_PCT, EmergencyDDPercent * 0.3, EmergencyDDPercent * 0.6), true, x0, w, lh);
@@ -771,6 +771,10 @@ void MBDrawPanel()
                   (G_QUIET_BARS >= 30 ? MBVisAmber() : muted), false, x0, w, lh);
    else
       MBPanelLine("E_QUIET", "To'siqlar bugun: " + MBGateTopUz(3), muted, false, x0, w, lh);
+   if(G_BASKET_ORDERS <= 0 && EnableBrainEntries && (StringLen(G_MB_FAST_WHYNOT[0]) > 0 || StringLen(G_MB_FAST_WHYNOT[1]) > 0))
+      MBPanelLine("E_FAST", StringFormat("Miya  BUY: %s  ·  SELL: %s", G_MB_FAST_WHYNOT[1], G_MB_FAST_WHYNOT[0]), muted, false, x0, w, lh);
+   else
+      ObjectDelete(0, MB_VIS_PREFIX + "E_FAST");
    string sh = MBShadowPanelText();
    if(StringLen(sh) > 0)
       MBPanelLine("E_SHADOW", sh, (StringFind(sh, "⚠") >= 0 ? MBVisAmber() : muted), false, x0, w, lh);
@@ -865,7 +869,7 @@ void MBDrawPanel()
                muted, false, x0, w, lh);
    string prof = MBProfText();
    if(StringLen(prof) > 0)
-      MBPanelLine("F2", prof, muted, false, x0, w, lh);
+      MBPanelLine("F2", prof, (MBProfSlow() ? MBVisAmber() : muted), false, x0, w, lh);   // performance contract: amber above 30 ms
 
    // Size the card to what was drawn.
    ObjectSetInteger(0, MB_VIS_PREFIX + "P_CARD", OBJPROP_YSIZE, G_MB_PANEL_Y - y0 + 8);

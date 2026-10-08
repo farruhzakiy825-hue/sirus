@@ -1,5 +1,21 @@
 # CHANGELOG — Sirus Brain V8
 
+## Katta reja — 0-bosqich: tezkor tuzatishlar va ko'rinish
+
+- **Lokal qatlam ziddiyati:**
+  - panelda bir vaqtda "lokal ▲" va "lokal oyoq ▼" turardi. Sababi: kechikkan M5 tuzilmasi lokal tezisdan oldin o'qilardi;
+  - yangi tartib: M5 impulsi → M5 dagi sof harakat → **faol lokal tezis → M5 bosimi** → eng oxirida M5 tuzilmasi.
+- **"Tezkor 0" restartdan keyin:**
+  - miya kirishlari hisoblagichi har qayta kompilyatsiyada nolga tushardi, kunlik jami esa tarixdan o'qilardi;
+  - endi hisoblagich kuni bilan terminal o'zgaruvchisida saqlanadi.
+- **Paneldagi yangi qator "Miya BUY: … · SELL: …":**
+  - savat yo'q paytda miya nega kirmayotganini har tomon uchun ko'rsatadi: kengash sababi, global qarshi, trigger yo'q yoki setup sharti yo'q;
+  - jimlik sababini endi panelning o'zidan ko'rish mumkin.
+- **Soya klapani:**
+  - `ShadowValveMinSamples` 20 dan 10 ga tushirildi;
+  - to'silgan setuplar turli filtrlarga bo'linib ketgani uchun 20 namunaga hech qachon yetmasdi ("to'silgan 18 → TP 100%" bo'lsa ham klapan ochilmasdi).
+- **Performance shartnomasi:** tick o'rtacha vaqti 30 ms dan oshsa, panelning tezlik qatori sariq rangga o'tadi.
+
 ## Yashirin xato: qaytarib berilgan impuls "yosh" deb qolardi (BE dan keyingi jimlik)
 
 - **Holat (6-oktabr, 19:18–19:36):**

@@ -689,3 +689,26 @@ ishlaydi. Basket SL 50%, Emergency 50% va Force close 52% o'zgarmaydi.
 
 Har bosqichdan keyin: kompilyatsiya, 4126 regression testi, 3 kunlik backtest (savdo/kun, max DD, yutuq foizi)
 va soya buxgalteriyasi hisoboti.
+
+
+## 14. Katta reja: Liquidity → Structure → Reversal (egasi bilan kelishilgan, 2026-10-08)
+
+Manba: egasining 3 kunlik kuzatuvi (4157.88 BUY, 4081.173 SELL, 4142 SELL, 4070 reversal o'tkazib yuborilgan) va 74 bandlik ro'yxat.
+
+| Bosqich | Mazmuni | Bandlar | Holat |
+|---|---|---|---|
+| 0 | Tezkor tuzatishlar: lokal qatlam tartibi, tezkor hisoblagich, "Miya BUY/SELL" qatori, soya klapani, tezlik nazorati | 7, 18 | **bajarildi** |
+| 1 | Tuzilma va yo'nalish xotirasi: HH/HL/LH/LL, himoyalangan darajalar, MSS sifati va xotirasi, Direction Lock, reversal yetilishi 0–6, tuzilma shikasti, tuzoq aniqlash | 1, 4, 5, 22–28, 33 | navbatda |
+| 2 | Kirish joyi va charchash: impulsning o'tilgan foizi, reversal bosimi 0–100, trendga qarshi soliq, TP gacha yo'l | 2, 3, 29, 30, 44–46, 48, 51 | |
+| 3 | Likvidlik xaritasi: multi-TF sweep hodisasi va kuchi, equal highs/lows, likvidlik holati va yoshi, daraja charchashi, Active Zone Champion | 21, 39–43 | |
+| 4 | Mikro yo'nalish (burilish turlari, kim boshqaryapti) va qayta kirish (chiqish sababi, urinishlar soni, nima o'zgardi) | 31, 32, 60 | |
+| 5 | Savdo ichida: kutilgan va haqiqiy harakat, grid javobgarligi | 56–58 | |
+| 6 | Cashback iqtisodi: sof foyda, spread xotirasi | 61–63 | |
+| 7 | Diagnostika: MFE/MAE, xato tasnifi, noto'g'ri ochilgan va o'tkazib yuborilgan savdolar balansi | 65–68 | |
+| 8 | Ixtiyoriy: to'liq bozor holati, hikoya, ssenariylar, moslashuvchan vaznlar, g'ayritabiiy bozor | 34–36, 50, 69, 70 | |
+
+**Qat'iy qoidalar:**
+- og'ir hisob faqat yangi sham yoki hodisada qilinadi;
+- har yangi blok shadow ledger'da o'z nomi bilan sanaladi;
+- har modulda yoqish/o'chirish sozlamasi bo'ladi;
+- FXStreet ishlatilmaydi: WebRequest yo'q, MT5 kalendari yetarli.

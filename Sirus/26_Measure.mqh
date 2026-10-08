@@ -34,9 +34,9 @@ input bool   EnableShadowLedger       = true;   // Rad etilgan setuplarni yashir
 input int    ShadowMaxMinutes         = 30;     // Soya shuncha daqiqada natija bermasa - TIMEOUT
 input bool   ShadowToFile             = true;   // Har natijani CSV ga yozish (Sirus_Shadow_<symbol>_<magic>.csv)
 input int    ShadowMinSamplesToJudge  = 10;     // Filtr bo'yicha xulosa uchun kamida shuncha natija
-input bool   EnableShadowValve        = true;   // SOYA KLAPANI: biror sifat filtri to'sgan setuplar olinganlardan ancha ko'p TP ga yetsa (>= 20 namuna), o'sha filtr vaqtincha yumshaydi. Risk / yangilik / spread / marja / yo'nalish veto'si HECH QACHON yumshamaydi
+input bool   EnableShadowValve        = true;   // SOYA KLAPANI: biror sifat filtri to'sgan setuplar olinganlardan ancha ko'p TP ga yetsa (>= ShadowValveMinSamples namuna), o'sha filtr vaqtincha yumshaydi. Risk / yangilik / spread / marja / yo'nalish veto'si HECH QACHON yumshamaydi
 input int    ShadowValveMinutes       = 30;     // Yumshatish shuncha daqiqa, keyin yangi dalil bilan qayta baholanadi
-input int    ShadowValveMinSamples    = 20;     // Qaror uchun shu filtr bo'yicha kamida shuncha natija
+input int    ShadowValveMinSamples    = 10;     // Qaror uchun shu filtr bo'yicha kamida shuncha natija
 input bool   EnableDailyReport        = true;   // 18-BOSQICH (B6): kun yakunida bitta qator - savdolar, lot, natija, soya, LIVE SWEEP, veto, tezlik (Sirus_DailyReport_<symbol>_<magic>.csv)
 
 //---------------------------------------------------------------------
@@ -130,6 +130,12 @@ void MBProfEnd(const int seg)
 }
 
 // Panel footer text: "tik 1.8 ms (eng ko'p 12.0) · og'iri: skaner 1.1 ms".
+// PERFORMANCE CONTRACT: a tick averaging over 30 ms is a regression - the panel line turns amber.
+bool MBProfSlow()
+{
+   return (EnableProfiler && G_PROF_N[MB_PROF_TICK] > 0 && G_PROF_AVG[MB_PROF_TICK] > 30000.0);
+}
+
 string MBProfText()
 {
    if(!EnableProfiler || G_PROF_N[MB_PROF_TICK] == 0)
