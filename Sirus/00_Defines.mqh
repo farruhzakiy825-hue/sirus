@@ -557,6 +557,8 @@ void MBLiquidityMapUpdate();   // 20a - called by CoreUpdate (16)
 void MBStructUpdate();   // 20b - called by CoreUpdate (16)
 void MBLocationUpdate();   // 20c - called by CoreUpdate (16)
 void MBMicroUpdate();   // 20d - called by CoreUpdate (16)
+void MBCostUpdate();   // 20e - called by CoreUpdate (16)
+void MBCostSlipRecord(const double slip_pts);   // 20e - called by SlippageRecord (06)
 void MBExpectationEvaluate(const int dir, const datetime opened);   // 24 - called earlier in the same file
 void MBNoteCloseReason(const string why);   // 20d - called by CloseSirusBasket (12)
 void MBMissedNote(const int dir, const string reason);   // 20d - called by the first-entry engine (14)

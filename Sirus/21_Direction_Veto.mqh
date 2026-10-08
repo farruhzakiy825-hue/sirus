@@ -440,6 +440,8 @@ bool MBVetoAllowsEntry(const int dir, string &why)
       blocked = true;                  // V8: late in the leg / exhausted / target already taken (plan stage 2)
    else if(MBReentryBlocks(dir, why, late_uz))
       blocked = true;                  // V9: re-entry after a dead idea / too many failed attempts (plan stage 4)
+   else if(MBCostBlocks(dir, why, late_uz))
+      blocked = true;                  // V10: abnormal spread / no room to pay the cost (plan stage 6)
    else if(MBCouncilBlocks(dir, why))
       blocked = true;                  // V6: the entry council (local + candles + zone)
 

@@ -1,5 +1,24 @@
 # CHANGELOG — Sirus Brain V8
 
+## Katta reja — 6-bosqich: cashback iqtisodi
+
+Yangi modul: `Sirus/20e_Cost_Edge.mqh`.
+
+- **Spread xotirasi (`EnableSpreadMemory`).**
+  - Har server soati uchun odatiy spread o'rganiladi: har M1 barda bitta namuna olinadi.
+  - O'rganilgan qiymatlar terminal global o'zgaruvchilarida saqlanadi, restartdan keyin yo'qolmaydi.
+  - Hozirgi spread shu soat uchun odatiydan 2 barobar katta bo'lsa, kirish bo'lmaydi. Cashback ikki barobar spreadni qoplamaydi.
+  - Juda katta sakrashlar (odatiydan 3 barobar ortiq) o'rganishga kirmaydi, aks holda xotira sakrashni "odatiy" deb o'rganib qoladi.
+- **Broker xotirasi.** Har to'ldirilgan orderdagi slippage ham soat bo'yicha o'rtacha qilib saqlanadi va xarajatga qo'shiladi.
+- **Sof foyda (`EnableNetEdge`, faqat cashback rejimi).**
+  - Kirishdan oldin oldindagi eng yaqin to'siqqacha joy o'lchanadi. To'siq — ushlab turgan zona yoki likvidlik darajasi.
+  - Bu joy kerakli harakatga solishtiriladi: kerakli harakat = spread + slippage + TP.
+  - Joy kerakli harakatning 1.2 barobaridan kam bo'lsa, kirish bo'lmaydi: savdo o'zini oqlay olmaydi.
+- **Qayerda ishlaydi:** V10 veto, barcha miya nomzodlari va "Miya" qatorida sabab (`spread 520 (odatiy 240)`, `joy 310 < kerak 650`).
+- **Panel:** `Xarajat: spread 240 (bu soat odatiy 230) · slippage ~12 · kerakli harakat 476`. Spread g'ayritabiiy bo'lsa qator sariq bo'ladi.
+- **Ixtiyoriy sozlama `RebateUSDPerLot`:** brokerning 1 lot uchun cashback summasini kiritsangiz, panelda ko'rsatiladi.
+- **Tuzatish:** butun kod bo'yicha takroriy nomlar tekshiruvi `G_CE_BAR` nomini eski kodda ham borligini topdi, yangi nomlar `G_CX_` ga o'zgartirildi.
+
 ## Katta reja — 5-bosqich: savat ichida — kutilgan va haqiqiy harakat, grid javobgarligi
 
 Kompilyatsiya xatosi ham tuzatildi: `EnableLiquidityMap` va `LiquidityPrintOnUse` nomlari eski sozlamalarda ham bor edi. Yangilari endi `EnableMBLiquidityMap` va `MBLiquidityPrintOnUse`. Shu bilan birga butun kod bo'yicha takroriy nomlar tekshiruvi qo'shildi.

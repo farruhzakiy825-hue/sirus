@@ -1357,6 +1357,7 @@ void SlippageRecord(const double requested, const double filled, const int dir)
       return;
    // Positive = worse than asked for (paid more on a buy, received less on a sell).
    double slip = (filled - requested) / _Point * (double)dir;
+   MBCostSlipRecord(slip);   // plan stage 6: slippage memory per server hour
    G_SLIP_TOTAL += slip;
    G_SLIP_COUNT += 1.0;
 

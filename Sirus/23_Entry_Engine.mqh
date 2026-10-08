@@ -670,6 +670,8 @@ bool MBDirOk(const int d)
       return false;   // late / exhausted / target taken (plan stage 2)
    if(MBReentryBlocks(d, lw, lu))
       return false;   // re-entry after a dead idea / failed attempts (plan stage 4)
+   if(MBCostBlocks(d, lw, lu))
+      return false;   // abnormal spread / no room for the cost (plan stage 6)
    if(!MBCouncilOk(d))
       return false;   // the council (local + candles + zone) refuses this side - leave room for the other
    int a = d * G_MB_BIAS;
@@ -737,6 +739,8 @@ void MBFastWhyNotUpdate()
       else if(MBLateBlocks(d, w, wu))
          G_MB_FAST_WHYNOT[k] = wu;
       else if(MBReentryBlocks(d, w, wu))
+         G_MB_FAST_WHYNOT[k] = wu;
+      else if(MBCostBlocks(d, w, wu))
          G_MB_FAST_WHYNOT[k] = wu;
       else if(MBCouncilBlocks(d, w))
          G_MB_FAST_WHYNOT[k] = "kengash: " + G_MB_COUNCIL_UZ[k];
