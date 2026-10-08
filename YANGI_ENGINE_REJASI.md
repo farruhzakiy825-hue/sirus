@@ -702,7 +702,7 @@ Manba: egasining 3 kunlik kuzatuvi (4157.88 BUY, 4081.173 SELL, 4142 SELL, 4070 
 | 2 | Kirish joyi va charchash: impulsning o'tilgan foizi, reversal bosimi 0–100, trendga qarshi soliq, TP gacha yo'l | 2, 3, 29, 30, 44–46, 48, 51 | **bajarildi** (`20c_Location_Exhaustion.mqh`) |
 | 3 | Likvidlik xaritasi: multi-TF sweep hodisasi va kuchi, equal highs/lows, likvidlik holati va yoshi, daraja charchashi, Active Zone Champion | 21, 39–43 | **bajarildi** (`20a_Liquidity_Map.mqh`) |
 | 4 | Mikro yo'nalish (burilish turlari, kim boshqaryapti) va qayta kirish (chiqish sababi, urinishlar soni, nima o'zgardi) | 31, 32, 60 | **bajarildi** (`20d_Micro_Reentry.mqh`) |
-| 5 | Savdo ichida: kutilgan va haqiqiy harakat, grid javobgarligi | 56–58 | |
+| 5 | Savdo ichida: kutilgan va haqiqiy harakat, grid javobgarligi | 56–58 | **bajarildi** (`24_Position_Brain.mqh`) |
 | 6 | Cashback iqtisodi: sof foyda, spread xotirasi | 61–63 | |
 | 7 | Diagnostika: MFE/MAE, xato tasnifi, noto'g'ri ochilgan va o'tkazib yuborilgan savdolar balansi | 65–68 | |
 | 8 | Ixtiyoriy: to'liq bozor holati, hikoya, ssenariylar, moslashuvchan vaznlar, g'ayritabiiy bozor | 34–36, 50, 69, 70 | |

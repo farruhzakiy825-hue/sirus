@@ -823,9 +823,22 @@ void MBDrawPanel()
                      false, x0, w, lh);
       else
          ObjectDelete(0, MB_VIS_PREFIX + "K5");
+      // Plan stage 5: expectation vs reality.
+      if(EnableExpectationCheck && G_MB_PB_BASKET > 0)
+      {
+         int pb_min = (int)((TimeCurrent() - G_MB_PB_BASKET) / 60);
+         double tp_pts = BasketTPForOrderCount(MathMax(1, G_BASKET_ORDERS));
+         string ex = G_PB_EXP_FAIL ? "BAJARILMADI - BE'da chiqamiz (" + G_PB_EXP_WHY + ")"
+                                   : StringFormat("%d daq · eng yaxshi +%.0f / TP %.0f%s", pb_min, G_PB_MFE, tp_pts,
+                                                  (G_PB_MFE >= ExpectTPShare * tp_pts ? " · ko'rsatdi" : ""));
+         MBPanelLine("K7", "Kutilgan: " + ex, (G_PB_EXP_FAIL ? MBVisAmber() : muted), false, x0, w, lh);
+      }
+      else
+         ObjectDelete(0, MB_VIS_PREFIX + "K7");
    }
    else
    {
+      ObjectDelete(0, MB_VIS_PREFIX + "K7");
       MBPanelLine("K1", "Savat bo'sh - keyingi o'lja poylanmoqda", muted, false, x0, w, lh);
       ObjectDelete(0, MB_VIS_PREFIX + "K2");
       ObjectDelete(0, MB_VIS_PREFIX + "K3");

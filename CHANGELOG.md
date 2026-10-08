@@ -1,5 +1,21 @@
 # CHANGELOG — Sirus Brain V8
 
+## Katta reja — 5-bosqich: savat ichida — kutilgan va haqiqiy harakat, grid javobgarligi
+
+Kompilyatsiya xatosi ham tuzatildi: `EnableLiquidityMap` va `LiquidityPrintOnUse` nomlari eski sozlamalarda ham bor edi. Yangilari endi `EnableMBLiquidityMap` va `MBLiquidityPrintOnUse`. Shu bilan birga butun kod bo'yicha takroriy nomlar tekshiruvi qo'shildi.
+
+- **Kutilgan va haqiqiy harakat (`EnableExpectationCheck`).** Savat ochilgan harakatini ko'rsatishi kerak: 20 daqiqa ichida eng yaxshi nuqtasi TP ning 35% iga yetishi kerak.
+  - Faqat sekinlik yetarli emas, chunki grid tabiatan sekin tiklanadi. Bozor ham savatga qarshi o'girilgan bo'lishi kerak:
+    - savat tomonining nazorati 35% yoki kamroq;
+    - yoki savat tomoni charchagan;
+    - yoki mikro burilish savatga qarshi (CHARCHASH yoki REVERSAL).
+  - Ikkala shart bajarilsa, savat to'liq TP ni kutmasdan **BE + qoplamada** yopiladi. Zararga hech qachon yopilmaydi.
+- **Grid javobgarligi (`EnableGridLiability`).** Har yangi pog'onadan oldin tekshiriladi: pog'onadan keyin BE (o'rtacha narx) qayerga tushadi?
+  - BE HTF MAJOR+ toza likvidlik (H4 yoki kechagi kun darajasi) ortida qolsa, qarshi harakat charchamaguncha pog'ona qo'yilmaydi. Narx u darajani buzmasdan BE ga yetolmaydi, pog'ona faqat chuqurni chuqurlashtiradi.
+  - BE H1 MAJOR darajasi ortida qolsa, pog'ona zaxira pog'ona kabi qo'yiladi: tuzilma + javob + charchash kerak.
+- **Panel (SAVAT bo'limi):** `Kutilgan: 14 daq · eng yaxshi +120 / TP 224 · ko'rsatdi` yoki `Kutilgan: BAJARILMADI - BE'da chiqamiz (...)`.
+- **Tezlik:** eng yaxshi nuqta har tickda bitta taqqoslash bilan yangilanadi. Kutilgan harakat har M1 barda, grid javobgarligi faqat pog'ona vaqtida tekshiriladi.
+
 ## Katta reja — 4-bosqich: mikro nazorat va qayta kirish aqli
 
 Yangi modul: `Sirus/20d_Micro_Reentry.mqh`.

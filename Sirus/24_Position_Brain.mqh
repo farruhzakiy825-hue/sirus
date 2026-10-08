@@ -54,6 +54,10 @@ input int    RunnerMinStepPoints      = 300;    // Kuzatish masofasi kamida shun
 input double RunnerFarTPMult          = 2.5;    // Uzoq maqsad: TP x shu yoki likvidlik maqsadi (DOL), qaysi yaqin bo'lsa
 input int    RunnerMaxOrders          = 2;      // Shundan ko'p orderli savat yugurmaydi
 input int    RunnerStallMinutes       = 10;     // Yangi cho'qqi shuncha daqiqa bo'lmasa - yopiladi
+input bool   EnableExpectationCheck   = true;   // 5-BOSQICH: KUTILGAN vs HAQIQIY - savat ExpectMinutes ichida TP ning ExpectTPShare qismiga yetmasa VA bozor unga qarshi o'girilsa (nazorat / charchash) - BE + qoplamada yopiladi (zararga emas)
+input int    ExpectMinutes            = 20;     // Shu daqiqada savat o'zini ko'rsatishi kerak
+input double ExpectTPShare            = 0.35;   // ... TP ning shuncha qismi (eng yaxshi nuqtasi)
+input bool   EnableGridLiability      = true;   // 5-BOSQICH: GRID JAVOBGARLIGI - yangi pog'onadan keyingi BE kuchli likvidlik (H4 / PD) ortida qolsa pog'ona qo'yilmaydi (qarshi harakat charchamaguncha); H1 darajasi ortida - zaxira pog'onadek (tuzilma + javob + charchash)
 input bool   GridHoldOnCandlesAgainst = true;   // M5 va M15 shamlari savatga qarshi bosayotgan bo'lsa (harakat charchamagan) - grid qo'shilmaydi
 input bool   EnableStaleBasketBE      = true;   // Uzoq DD dan qaytgan savat: shamlar uning tomonida bo'lmasa break-even + qoplamada yopiladi (zararga yopmaydi)
 input int    StaleBasketMinutes       = 90;     // Savat shuncha daqiqadan beri ochiq bo'lsa ...
@@ -69,6 +73,9 @@ int      G_MB_PB_WAIT_ORDERS = -1;  // grid response wait: rung being held
 datetime G_MB_PB_CHECK_BAR   = 0;   // M1 bar of the last death / rescue check
 datetime G_MB_PB_WAIT_LAST   = 0;   // last time the grid asked for this rung
 bool     G_MB_PB_LOCAL       = false; // opened against the global bias (a local leg)
+double   G_PB_MFE            = 0.0;   // plan stage 5: best basket points so far
+bool     G_PB_EXP_FAIL       = false; // the basket did not do what it was opened for, and the tape turned
+string   G_PB_EXP_WHY        = "";
 datetime G_MB_PB_WAIT_SINCE  = 0;
 
 // Stage 16: Recovery Judge state for the open basket.
@@ -634,6 +641,9 @@ void MBPositionBrainUpdate()
          MBPBCloseBookkeeping();
       MBRecoveryReset();
       MBRunnerReset();
+      G_PB_MFE = 0.0;
+      G_PB_EXP_FAIL = false;
+      G_PB_EXP_WHY = "";
       G_MB_PB_BASKET = 0;
       G_MB_PB_DIR = 0;
       G_MB_PB_DEAD = false;
@@ -656,6 +666,9 @@ void MBPositionBrainUpdate()
          MBPBCloseBookkeeping();
       G_MB_PB_LOCAL = (dir * G_MB_BIAS < 0);
       MBRunnerReset();
+      G_PB_MFE = 0.0;
+      G_PB_EXP_FAIL = false;
+      G_PB_EXP_WHY = "";
       G_MB_PB_BASKET = opened;
       G_MB_PB_DIR = dir;
       G_MB_PB_DEAD = false;
@@ -668,6 +681,8 @@ void MBPositionBrainUpdate()
       MBRecoveryRestore(opened);   // same basket after a restart / input change: its judgement comes back
    }
 
+   G_PB_MFE = MathMax(G_PB_MFE, G_BASKET_POINTS);   // plan stage 5: the basket's best moment
+
    // SPEED: death and rescue read events and the thesis, which change once per M1 bar.
    datetime pb_bar = iTime(_Symbol, PERIOD_M1, 0);
    bool pb_check = (pb_bar != G_MB_PB_CHECK_BAR);
@@ -677,6 +692,7 @@ void MBPositionBrainUpdate()
       MBRecoveryEvaluate(dir, opened);
       return;
    }
+   MBExpectationEvaluate(dir, opened);
 
    if(!G_MB_PB_DEAD)
    {
@@ -721,6 +737,36 @@ void MBPositionBrainUpdate()
 
    MBRecoveryEvaluate(dir, opened);   // stage 16 (E1): from RecoveryStartDD, once per M1 bar
    MBRecoverySave();                  // once per M1 bar (this path runs on the bar's first tick)
+}
+
+// Plan stage 5: EXPECTATION vs REALITY, once per M1 bar. A basket opened for a move has to show it:
+// after ExpectMinutes its best moment must have reached ExpectTPShare of the TP. Slow alone is not
+// enough (a recovering grid is slow by design) - the tape must also have turned against it: its
+// side's control share at 35% or less, its side exhausted, or the micro turn against it EXHAUSTION+.
+// Then the basket takes break-even + cover instead of waiting for the full target. Never a loss.
+void MBExpectationEvaluate(const int dir, const datetime opened)
+{
+   if(!EnableExpectationCheck || dir == 0 || opened <= 0)
+   {
+      G_PB_EXP_FAIL = false;
+      return;
+   }
+   int mins = (int)((TimeCurrent() - opened) / 60);
+   double tp = BasketTPForOrderCount(MathMax(1, G_BASKET_ORDERS));
+   bool slow = (mins >= MathMax(1, ExpectMinutes) && tp > 0.0 && G_PB_MFE < ExpectTPShare * tp);
+   string against = "";
+   if(EnableMicroControl && MBControlOf(dir) <= 35)
+      against = StringFormat("control %d%%", MBControlOf(dir));
+   else if(MBExhaustPressure(dir) >= ExhaustCautionScore)
+      against = StringFormat("exhaustion %d", MBExhaustPressure(dir));
+   else if(EnableMicroControl && G_MC_PRIMARY == dir && G_MC_TURN >= MC_TURN_EXHAUST)
+      against = StringFormat("micro turn %s", MBTurnName(G_MC_TURN));
+   bool fail = slow && StringLen(against) > 0;
+   if(fail && !G_PB_EXP_FAIL && (MBPositionPrintOnUse && VerboseLogs))
+      PrintFormat("[SIRUS POSITION] %s basket EXPECTATION FAILED: %d min, best +%.0f of TP %.0f, %s - break-even exit armed",
+                  (dir > 0 ? "BUY" : "SELL"), mins, G_PB_MFE, tp, against);
+   G_PB_EXP_FAIL = fail;
+   G_PB_EXP_WHY = fail ? StringFormat("%d min, best +%.0f/%.0f, %s", mins, G_PB_MFE, tp, against) : "";
 }
 
 // Grid gate. true = the addition may go now.
@@ -821,9 +867,28 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
    // all three, and no timeout opens them.
    string gm_why = "";
    int maxo = GridEffectiveMaxOrders(gm_why);
+   // Plan stage 5 (GRID LIABILITY): where does this rung put the basket's break-even? Behind an HTF
+   // MAJOR+ untaken level (H4 / previous day) the rung only deepens the hole - no rung until the
+   // move against is spent. Behind an H1 MAJOR level it is a reserve-grade rung.
+   bool liability_soft = false;
+   if(EnableGridLiability && G_BASKET_VOLUME > 0.0 && G_BASKET_AVG_PRICE > 0.0)
+   {
+      double lot = (G_NEXT_GRID_LOT > 0.0) ? G_NEXT_GRID_LOT : G_BASKET_VOLUME / MathMax(1, orders);
+      double new_avg = (G_BASKET_AVG_PRICE * G_BASKET_VOLUME + px * lot) / (G_BASKET_VOLUME + lot);
+      double need = dir * (new_avg - px);   // how far price must come back for break-even
+      double hard = MBLqNearestAhead(dir, px, 4);
+      double soft = MBLqNearestAhead(dir, px, 3);
+      if(need > 0.0 && hard > 0.0 && dir * (hard - px) < need && !MBAdverseSpent(dir))
+      {
+         reason = StringFormat("holding - grid liability: break-even after this rung (%s) sits beyond HTF liquidity %s",
+                               DoubleToString(new_avg, _Digits), DoubleToString(hard, _Digits));
+         return false;
+      }
+      liability_soft = (need > 0.0 && soft > 0.0 && dir * (soft - px) < need);
+   }
    // A basket opened on a local leg against the global bias averages only like the reserve rungs:
    // structure, a spent move against it and a response - never on time alone.
-   bool reserve = (GridReserveRungs > 0 && maxo - orders <= GridReserveRungs) || G_MB_PB_LOCAL;
+   bool reserve = (GridReserveRungs > 0 && maxo - orders <= GridReserveRungs) || G_MB_PB_LOCAL || liability_soft;
    if(reserve)
    {
       if(response && at_structure && MBAdverseSpent(dir))
@@ -883,7 +948,8 @@ bool MBBasketBreakEvenExit(const double basket_points, const double profit, stri
    bool stale = EnableStaleBasketBE && G_MB_RC_PEAK_DD >= StaleBasketMinDD &&
                 (TimeCurrent() - G_MB_PB_BASKET) >= (long)MathMax(1, StaleBasketMinutes) * 60 &&
                 !(MBPressureSide(1) == G_MB_PB_DIR && MBPressureSide(2) == G_MB_PB_DIR) && !th_with;
-   if(!G_MB_PB_DEAD && !doubtful && !deep_back && !stale)
+   bool expect_fail = EnableExpectationCheck && G_PB_EXP_FAIL;   // plan stage 5
+   if(!G_MB_PB_DEAD && !doubtful && !deep_back && !stale && !expect_fail)
       return false;
    // AUDIT FIX: break-even in money too - points ignore swap and commission.
    if(basket_points >= (double)MathMax(0, MBBreakEvenCoverPoints) && profit >= 0.0)
@@ -894,6 +960,8 @@ bool MBBasketBreakEvenExit(const double basket_points, const double profit, stri
          why = StringFormat("recovery %s - break-even exit at +%.0f pts", MBRecoveryStateName(G_MB_RC_STATE), basket_points);
       else if(deep_back)
          why = StringFormat("back from %.1f%% DD without a thesis on its side - break-even exit at +%.0f pts", G_MB_RC_PEAK_DD, basket_points);
+      else if(expect_fail && !stale)
+         why = StringFormat("expectation failed (%s) - break-even exit at +%.0f pts", G_PB_EXP_WHY, basket_points);
       else
          why = StringFormat("open %d min, back from %.1f%% DD, candles not with it - break-even exit at +%.0f pts",
                             (int)((TimeCurrent() - G_MB_PB_BASKET) / 60), G_MB_RC_PEAK_DD, basket_points);
