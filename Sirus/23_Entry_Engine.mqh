@@ -716,6 +716,21 @@ bool MBDirOk(const int d)
    return MBLocalOkFor(d);
 }
 
+// AUDIT FIX (tie): the two-sided candidate loops (SWEEP, MOMENTUM, ALIGNED) always tried SELL first, so
+// when both sides qualified on the same tick SELL won every time. The side tried first is now the one
+// the market prefers: the global bias, else the local leg, else the control share; a true tie alternates.
+int MBTieFirst()
+{
+   if(G_MB_BIAS != 0)
+      return MBSign(G_MB_BIAS);
+   int loc = MBLayerLocal();
+   if(loc != 0)
+      return loc;
+   if(G_MC_BUY != G_MC_SELL)
+      return (G_MC_BUY > G_MC_SELL) ? 1 : -1;
+   return (G_TICK_COUNT % 2 == 0) ? 1 : -1;
+}
+
 // AUDIT FIX (B2): a candidate is taken only if the veto would let it through - MBDirOk (lock, late,
 // re-entry, cost, anomaly, council, local) AND the V0 permission for the type it will carry. Before,
 // FAST RE-ENTRY / TREND / HANDOFF / PULLBACK / LOCAL skipped part of that, were found, then vetoed on
@@ -936,8 +951,10 @@ bool MBFastEntryCandidate(int &dir, string &why)
       //    strong brain (V0 would refuse it anyway).
       if(dir == 0 && BrainEntrySweep)
       {
-         for(int sd = -1; sd <= 1 && dir == 0; sd += 2)
+         int sw_first = MBTieFirst();
+         for(int sw_i = 0; sw_i < 2 && dir == 0; sw_i++)
          {
+            int sd = (sw_i == 0) ? sw_first : -sw_first;
             if(!MBCandOk(sd, (int)OPP_TYPE_SWEEP_REJECTION))
                continue;   // V0 would refuse it - leave room for the other candidates
             string w = "";
@@ -985,8 +1002,10 @@ bool MBFastEntryCandidate(int &dir, string &why)
       //    impulse is early, and the brain is not against it. The scalper's bread and butter.
       if(dir == 0 && BrainEntryMomentum)
       {
-         for(int md = -1; md <= 1 && dir == 0; md += 2)
+         int mo_first = MBTieFirst();
+         for(int mo_i = 0; mo_i < 2 && dir == 0; mo_i++)
          {
+            int md = (mo_i == 0) ? mo_first : -mo_first;
             bool disp = (G_MB_LIVE_DIR == md) ||
                         (G_MB_LAST[0].intent == MB_CI_DISPLACEMENT && G_MB_LAST[0].dir == md &&
                          G_MB_LAST[0].time == iTime(_Symbol, PERIOD_M1, 1));
@@ -1025,8 +1044,10 @@ bool MBFastEntryCandidate(int &dir, string &why)
    //    is the side the council keeps open when it refuses the other - turnover without fighting the tape.
    if(dir == 0 && EnableBrainEntries && EnableEntryCouncil)
    {
-      for(int cd = -1; cd <= 1 && dir == 0; cd += 2)
+      int al_first = MBTieFirst();
+      for(int al_i = 0; al_i < 2 && dir == 0; al_i++)
       {
+         int cd = (al_i == 0) ? al_first : -al_first;
          if(MBLayerLocal() != cd || MBPressureSide(1) != cd || MBPressureSide(0) == -cd)
             continue;
          bool late = (G_MB_IMP_DIR[0] == cd && G_MB_SPEED[0] >= MB_SPEED_LATE) ||

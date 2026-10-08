@@ -1023,7 +1023,12 @@ void MBBrainUpdate()
       G_MB_BIAS_CAND = bias;
       G_MB_BIAS_CAND_N = 0;
    }
-   G_MB_BRAIN_PRIMED = true;
+   // AUDIT FIX (start-up): "primed" only once the brain can actually see - ATR on M1 / M5 / M15 and the
+   // M5 / M15 event history replayed. Before, the first M1 bar primed it even when a CopyRates sync miss
+   // left the engines empty, and the veto / council / judge then ran on a blank, NEUTRAL picture.
+   if(!G_MB_BRAIN_PRIMED)
+      G_MB_BRAIN_PRIMED = (G_MB_ATR[0] > 0.0 && G_MB_ATR[1] > 0.0 && G_MB_ATR[2] > 0.0 &&
+                           G_MB_EV_FILLED[1] && G_MB_EV_FILLED[2]);
 
    int conf = 50 + 12 * MathAbs(bias);
    if(MBSign(s1h) != 0) conf += (MBSign(s1h) == MBSign(bias)) ? 8 : -10;

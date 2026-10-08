@@ -1,5 +1,23 @@
 # CHANGELOG — Sirus Brain V8
 
+## Audit qoldiqlari: SELL og'ishi, tezlik, ishga tushish
+
+- **SELL og'ishi.**
+  - SWEEP, MOMENTUM va ALIGNED nomzodlari har doim avval SELL'ni tekshirardi, shuning uchun ikkala tomon bir tickda teng bo'lsa SELL yutardi.
+  - Endi birinchi tekshiriladigan tomon bozorga qarab tanlanadi:
+    1. global bias;
+    2. bias bo'lmasa, lokal oyoq;
+    3. u ham bo'lmasa, nazorat ulushi;
+    4. to'liq teng bo'lsa, navbatma-navbat.
+- **Tezlik.**
+  - Skaner har bir skanda savat sonini 0 ga tushirardi, grid esa uni keyinroq tiklardi. Shuning uchun savat ochiq paytda "savat soni o'zgardi" deb to'liq skan har tickda qayta ishlardi.
+  - Endi skan qaror qilingan paytdagi son saqlanadi.
+- **Ishga tushish.**
+  - Miya "tayyor" belgisini faqat quyidagilar tayyor bo'lgandan keyin qo'yadi:
+    - M1, M5 va M15 ATR;
+    - M5 va M15 voqealar tarixi.
+  - Ilgari birinchi M1 barda, ma'lumot bo'sh bo'lsa ham, qo'yilardi.
+
 ## Tanqidiy audit: first entry (3 bosqich)
 
 Kod to'rt qismga bo'lib tekshirildi:

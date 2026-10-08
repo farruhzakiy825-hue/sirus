@@ -793,8 +793,14 @@ double SN_OPP_CLARITY;
 ENUM_SCORE_DECISION SN_SCORE_DECISION;
 bool   SN_SCORE_MICRO;
 
+// AUDIT FIX (speed): ResetOpportunity() zeroes G_BASKET_ORDERS inside every scan and the grid engine
+// restores it later in the tick, so the snapshot always stored 0 and, with a basket open, "the basket
+// count changed" re-ran the full scan on every tick. The count seen when the scan was decided is kept.
+int G_SCAN_ORDERS_SEEN = 0;
+
 bool ScanDue(const string source)
 {
+   G_SCAN_ORDERS_SEEN = G_BASKET_ORDERS;
    if(!EnableScannerThrottle || source != "TICK" || !G_SCAN_HAVE_SNAP)
       return true;
    datetime bar = iTime(_Symbol, PERIOD_M1, 0);
@@ -812,7 +818,7 @@ void ScanSnapshotSave()
    G_SCAN_BAR = iTime(_Symbol, PERIOD_M1, 0);
    G_SCAN_TIME = TimeCurrent();
    G_SCAN_BID = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   G_SCAN_ORDERS = G_BASKET_ORDERS;
+   G_SCAN_ORDERS = G_SCAN_ORDERS_SEEN;
    SN_OPP_DIR = G_OPP_DIR; SN_OPP_TYPE = G_OPP_TYPE; SN_OPP_GRADE = G_OPP_GRADE;
    SN_OPP_REASON = G_OPP_REASON; SN_OPP_DETAIL = G_OPP_DETAIL; SN_OPP_SCORE = G_OPP_SCORE; SN_OPP_CLARITY = G_OPP_DIR_CLARITY;
    SN_SCORE_FINAL = G_SCORE_FINAL; SN_SCORE_DECISION = G_SCORE_DECISION; SN_SCORE_MIN = G_SCORE_MIN_REQUIRED;
