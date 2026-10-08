@@ -862,6 +862,7 @@ void CoreUpdate(const string source)
    MBCandleEngineUpdate();
    MBEventEngineUpdate();
    MBBrainUpdate();
+   MBLiquidityMapUpdate();   // plan stage 3: liquidity map (once per M5 bar)
    MBStructUpdate();   // plan stage 1: structure memory, direction lock, reversal maturity
    MBLocationUpdate(); // plan stage 2: leg location, exhaustion pressure, taken liquidity
    MBPositionBrainUpdate();

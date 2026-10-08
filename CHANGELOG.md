@@ -1,5 +1,40 @@
 # CHANGELOG — Sirus Brain V8
 
+## Katta reja — 3-bosqich: likvidlik xaritasi
+
+Yangi modul: `Sirus/20a_Liquidity_Map.mqh`.
+
+- **Bitta xarita.**
+  - Nimalar kiradi: M5, M15, H1 va H4 swing high/low'lari, kechagi kun high/low'i (PDH/PDL).
+  - Bir-biriga yaqin darajalar (0.2 ATR(M15) ichida) bitta darajaga birlashadi va qaysi TF'lar yaratganini eslab qoladi. Masalan, "H1+H4+PD" — bu bitta H1 swing emas, katta likvidlik.
+  - Bir TF'ning ikki swing'i bir joyda bo'lsa, bu **teng high/low** hisoblanadi.
+- **Holat:**
+  - toza;
+  - tegilgan;
+  - sweep — o'tib, qaytib yopildi;
+  - qayta sweep;
+  - olingan — ortida 2 ta M5 yopilish (acceptance).
+  - Sweep'dan keyin bir soat ichida olingan bo'lsa — **TUZOQ**: sweep muvaffaqiyatsiz, harakat davom etadi.
+- **Kuch (multi-TF sweep):**
+  - LOCAL — faqat M5;
+  - KUCHLI LOKAL — M15;
+  - MAJOR — H1;
+  - HTF MAJOR — H4 yoki PD;
+  - EXTREME — H1 + H4/PD + M15/M5.
+  - Teng darajalar kuchni bir pog'ona oshiradi.
+  - Bir tomonda 30 daqiqa va yarim ATR(M15) ichida bo'lgan sweep'lar bitta hodisaga birlashadi.
+- **Soya (wick) sifati:** soya barning yarmidan ko'p va yopilish uzoq yarmida bo'lsa — kuchli. Keyingi bar uzoqlashib yopilsa — tasdiqlangan.
+- **Eng muhim daraja (Champion):** har tomonda bitta. Hisoblash: kuch × yosh (12 soat / 48 soat) ÷ masofa.
+- **Daraja charchashi:** 4+ marta test qilingan zona endi devor emas, breakout xavfi. Kengash bunday zona oldida kirishni to'xtatmaydi.
+- **Ulangan joylar:**
+  - LOCK: MAJOR+ xarita sweep'i lock uchun sweep sifatida hisoblanadi.
+  - Burilish 1-bosqichi: xarita sweep'i hisoblanadi.
+  - Kech kirish maqsadi: oldindagi MAJOR+ toza daraja.
+  - Charchash: qarshi tomondagi xarita sweep'i.
+  - Olingan likvidlik himoyasi: xarita sweep'i, tuzoq bo'lmasa.
+- **Panel:** `Likvidlik: ▲ 4184.20 (H1+H4, toza) · ▼ 4070.10 (H1+PD teng, toza) · sweep ▼ MAJOR 12 daq`.
+- **Tezlik:** har M5 barda bir marta (4 ta CopyRates). Har tickda hech narsa qo'shilmadi.
+
 ## Katta reja — 2-bosqich: kirish joyi, charchash va kech kirish himoyasi
 
 Yangi modul: `Sirus/20c_Location_Exhaustion.mqh`. Shu bosqich ikki holatni yopadi: katta tushishning tubida ochilgan 4081.173 SELL va pastdagi likvidlik olingandan keyin ochilgan 4142 SELL.

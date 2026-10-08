@@ -295,7 +295,9 @@ bool MBCouncilEval(const int dir, string &why, string &uz)
          SMBZone z;
          double c5 = iClose(_Symbol, PERIOD_M5, 1);
          bool broken = (c5 > 0.0 && dir * (c5 - lvl) > 0.1 * atr5);
-         if(!broken && MBZoneRead(lvl, z) && z.role == -dir && !z.pending_break)
+         // Plan stage 3 (level fatigue): a zone tested four times or more is wearing out - breakout
+         // risk, not a wall; it does not hold the entry back.
+         if(!broken && MBZoneRead(lvl, z) && z.role == -dir && !z.pending_break && z.touches < 4)
          {
             why = StringFormat("council: %s %s holds right in front (%.2f ATR) - waiting for an M5 close through it",
                                (dir > 0 ? "resistance" : "support"), DoubleToString(lvl, _Digits), MathAbs(lvl - px) / atr5);

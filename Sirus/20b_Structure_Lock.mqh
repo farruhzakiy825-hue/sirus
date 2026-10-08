@@ -259,6 +259,15 @@ void MBLockEvaluate()
       double lv = 0.0;
       // 1. M15+ (or a key level) liquidity taken the lock's way.
       datetime swt = MBStFind(2, d, 2, 4, TimeCurrent() - (long)MathMax(1, LockSweepHours) * 3600, false, lv);
+      // Plan stage 3: or a MAJOR+ sweep on the liquidity map (H1 / H4 / previous-day level, multi-TF).
+      datetime lt = 0;
+      int lc = 0, lq = 0;
+      double le = 0.0;
+      if(MBLqSweepFor(d, 3, MathMax(1, LockSweepHours) * 3600, lt, lc, le, lq) && lt > swt)
+      {
+         swt = lt;
+         lv = le;
+      }
       if(swt <= 0)
          continue;
       // 2. A displacement the lock's way after it (M5+).
@@ -310,6 +319,12 @@ void MBReversalCompute()
    datetime swt = MBStFind(2, rd, 1, 4, base, true, lv);
    if(G_MB_LSW_DIR == rd && G_MB_LSW_TFI >= 1 && G_MB_LSW_TIME >= base && (swt <= 0 || G_MB_LSW_TIME < swt))
       swt = G_MB_LSW_TIME;
+   // Plan stage 3: a sweep on the liquidity map counts too (any class, not a trap).
+   datetime lt = 0;
+   int lc = 0, lq = 0;
+   double le = 0.0;
+   if(MBLqSweepFor(rd, 1, 43200, lt, lc, le, lq) && lt >= base && (swt <= 0 || lt < swt))
+      swt = lt;
    if(swt <= 0)
       return;
    G_ST_REV_STAGE = 1;

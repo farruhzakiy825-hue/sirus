@@ -553,6 +553,7 @@ string SirusOrderComment(const string kind);   // brand comment - used by the gr
 bool MBProfSlow();   // 26_Measure - read by the panel (25)
 void MBStructBreakRecord(const int tfi, const int dir, const int type, const double lvl,
                          const MqlRates &r[], const int n, const int s, const int sw, const double atr);   // 20b - called by 18
+void MBLiquidityMapUpdate();   // 20a - called by CoreUpdate (16)
 void MBStructUpdate();   // 20b - called by CoreUpdate (16)
 void MBLocationUpdate();   // 20c - called by CoreUpdate (16)
 bool MBLocalBasketExit(const double profit, string &why);   // stage 16 smart exit - read by the basket exit check above its definition

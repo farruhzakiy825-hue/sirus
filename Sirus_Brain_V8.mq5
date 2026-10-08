@@ -38,6 +38,7 @@
 #include "Sirus/18_Event_Engine.mqh"     // Market Brain A: liquidity pools and market events, every TF
 #include "Sirus/19_Zone_Role_Engine.mqh" // Market Brain B: a zone's role from its history, not from price
 #include "Sirus/20_Market_Brain.mqh"     // Market Brain C: bias states, dealing range, draw on liquidity, thesis
+#include "Sirus/20a_Liquidity_Map.mqh"   // Plan stage 3: one liquidity map M5..H4 + PDH/PDL, status, multi-TF sweep, champion
 #include "Sirus/20b_Structure_Lock.mqh"  // Plan stage 1: structure memory, MSS quality, direction lock, reversal maturity
 #include "Sirus/20c_Location_Exhaustion.mqh" // Plan stage 2: entry location, late-entry guard, exhaustion pressure, counter-trend tax
 #include "Sirus/21_Direction_Veto.mqh"   // Market Brain D: hard vetoes built on events and zone roles

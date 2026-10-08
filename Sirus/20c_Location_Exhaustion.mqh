@@ -72,6 +72,10 @@ double MBLxTargetAhead(const int dir, const double px, string &what)
       if(dir * (L - px) > 0.0 && (c[4] <= 0.0 || MathAbs(L - px) < MathAbs(c[4] - px)))
          c[4] = L;
    }
+   // Plan stage 3: the nearest MAJOR+ untaken level on the liquidity map ahead.
+   double lq = MBLqNearestAhead(dir, px, 3);
+   if(lq > 0.0 && (c[4] <= 0.0 || MathAbs(lq - px) < MathAbs(c[4] - px)))
+      c[4] = lq;
    for(int k = 0; k < 5; k++)
    {
       if(c[k] <= 0.0 || dir * (c[k] - px) <= 0.0) continue;
@@ -144,6 +148,15 @@ int MBLxPressure(const int dir, string &why)
       liq = MathMax(liq, (MBEventRank(G_MB_EV[idx].tfi) >= 1) ? 20 : 12);
    }
    if(G_MB_LSW_DIR == -dir && (TimeCurrent() - G_MB_LSW_TIME) <= 600) liq = 20;
+   // Plan stage 3: the liquidity map's combined sweep the other way (MAJOR+ = full weight, a strong
+   // wick or a confirmed one more than a plain one).
+   {
+      datetime lt = 0;
+      int lc = 0, lq = 0;
+      double le = 0.0;
+      if(MBLqSweepFor(-dir, 1, 3600, lt, lc, le, lq) && MathAbs(le - px) <= 1.5 * atr5)
+         liq = MathMax(liq, (lc >= 3) ? 20 : ((lq >= 2) ? 15 : 10));
+   }
    if(liq > 0) { p += liq; why += StringFormat("qarshi likvidlik olindi %d; ", liq); }
 
    // 3. Failed continuation: the leg's extreme is four+ M5 bars old with price still near it, or the
@@ -199,6 +212,17 @@ bool MBLxTakenAhead(const int dir, string &why)
    double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    if(atr5 <= 0.0 || px <= 0.0)
       return false;
+   // Plan stage 3: the liquidity map's sweep ahead (not a trap - the map marks a sweep accepted beyond).
+   {
+      datetime lt = 0;
+      int lc = 0, lq = 0;
+      double le = 0.0;
+      if(MBLqSweepFor(-dir, 2, 3600, lt, lc, le, lq) && dir * (px - le) <= 0.0 && MathAbs(px - le) <= 1.0 * atr5)
+      {
+         why = StringFormat("%s likvidlik (%s) olindi va qaytarildi", (dir < 0 ? "sell-side" : "buy-side"), MBLqClassName(lc));
+         return true;
+      }
+   }
    for(int idx = 0; idx < MB_EV_MAX; idx++)
    {
       if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != -dir) continue;
