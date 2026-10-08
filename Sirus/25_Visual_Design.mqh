@@ -812,9 +812,9 @@ void MBDrawPanel()
    string sh = MBShadowPanelText();
    if(StringLen(sh) > 0)
       MBPanelLine("E_SHADOW", sh, (StringFind(sh, "⚠") >= 0 ? MBVisAmber() : muted), false, x0, w, lh);
-   string bal = MBAutopsyPanelText();   // plan stage 7: bad entries taken vs good setups missed
-   if(StringLen(bal) > 0)
-      MBPanelLine("E_BAL", bal, muted, false, x0, w, lh);
+   string au_bal = MBAutopsyPanelText();   // plan stage 7: bad entries taken vs good setups missed
+   if(StringLen(au_bal) > 0)
+      MBPanelLine("E_BAL", au_bal, muted, false, x0, w, lh);
    else
       ObjectDelete(0, MB_VIS_PREFIX + "E_BAL");
 

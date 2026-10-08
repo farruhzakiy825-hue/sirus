@@ -151,7 +151,7 @@ double MBRoomAhead(const int dir, const double px)
 }
 
 // True = the entry cannot pay here (abnormal spread, or no room for spread + slippage + target).
-bool MBCostBlocks(const int dir, string &why, string &uz)
+bool MBCostEval(const int dir, string &why, string &uz)
 {
    why = "";
    uz = "";
@@ -183,6 +183,31 @@ bool MBCostBlocks(const int dir, string &why, string &uz)
       }
    }
    return false;
+}
+
+// SPEED: the brain asks once per candidate - memoised per tick and direction.
+bool MBCostBlocks(const int dir, string &why, string &uz)
+{
+   static long   cm_msc[2] = {0, 0};
+   static bool   cm_res[2] = {false, false};
+   static string cm_why[2];
+   static string cm_uz[2];
+   if(dir == 0)
+   {
+      why = "";
+      uz = "";
+      return false;
+   }
+   int k = (dir > 0) ? 1 : 0;
+   long msc = SymbolInfoInteger(_Symbol, SYMBOL_TIME_MSC);
+   if(msc != cm_msc[k] || msc == 0)
+   {
+      cm_res[k] = MBCostEval(dir, cm_why[k], cm_uz[k]);
+      cm_msc[k] = msc;
+   }
+   why = cm_why[k];
+   uz = cm_uz[k];
+   return cm_res[k];
 }
 
 string MBCostPanelText()
