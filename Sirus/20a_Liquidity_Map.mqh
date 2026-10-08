@@ -25,8 +25,8 @@
 // Speed: harvested once per M5 bar (four CopyRates), status from the closed M5 bar. Nothing per tick.
 
 input group "47a — LIKVIDLIK XARITASI (reja 3-bosqich)"
-input bool   EnableLiquidityMap       = true;   // Bitta likvidlik xaritasi: M5/M15/H1/H4 swing'lari + PDH/PDL, holati (toza/tegilgan/sweep/qayta sweep/olingan), kuchi (LOCAL..EXTREME), eng muhim daraja
-input bool   LiquidityPrintOnUse      = true;   // MAJOR+ sweep va tuzoqlarni jurnalga yozish ([SIRUS LIQUIDITY])
+input bool   EnableMBLiquidityMap       = true;   // Bitta likvidlik xaritasi: M5/M15/H1/H4 swing'lari + PDH/PDL, holati (toza/tegilgan/sweep/qayta sweep/olingan), kuchi (LOCAL..EXTREME), eng muhim daraja
+input bool   MBLiquidityPrintOnUse      = true;   // MAJOR+ sweep va tuzoqlarni jurnalga yozish ([SIRUS LIQUIDITY])
 
 #define LQ_MAX        64
 #define LQ_FRESH      0
@@ -225,7 +225,7 @@ void MBLqRecordSweep(const int i, const double ext, const int q, const datetime 
    }
    G_LQ_SW_TIME[k] = t;
    G_LQ_VERSION++;
-   if(LiquidityPrintOnUse && VerboseLogs && G_LQ_SW_CLASS[k] >= 3)
+   if(MBLiquidityPrintOnUse && VerboseLogs && G_LQ_SW_CLASS[k] >= 3)
       PrintFormat("[SIRUS LIQUIDITY] %s liquidity swept @ %s | %s (%s)%s | wick %s",
                   (G_LQ[i].side > 0 ? "BUY-SIDE" : "SELL-SIDE"), DoubleToString(G_LQ[i].level, _Digits),
                   MBLqClassName(G_LQ_SW_CLASS[k]), MBLqMaskText(G_LQ_SW_MASK[k]), (G_LQ[i].eq ? ", equal levels" : ""),
@@ -285,7 +285,7 @@ void MBLqStatusUpdate(const datetime bar_time)
                if(G_LQ[i].last_sweep > 0 && bar_time - G_LQ[i].last_sweep <= 3600 && G_LQ_SW_TIME[k] == G_LQ[i].last_sweep)
                {
                   G_LQ_SW_TRAP[k] = true;
-                  if(LiquidityPrintOnUse && VerboseLogs)
+                  if(MBLiquidityPrintOnUse && VerboseLogs)
                      PrintFormat("[SIRUS LIQUIDITY] TRAP - the %s sweep @ %s failed: two M5 closes beyond it",
                                  (s > 0 ? "buy-side" : "sell-side"), DoubleToString(L, _Digits));
                }
@@ -319,7 +319,7 @@ void MBLqStatusUpdate(const datetime bar_time)
 
 void MBLiquidityMapUpdate()
 {
-   if(!EnableLiquidityMap || !EnableMarketBrainEngines)
+   if(!EnableMBLiquidityMap || !EnableMarketBrainEngines)
       return;
    datetime m5 = iTime(_Symbol, PERIOD_M5, 0);
    if(m5 <= 0 || m5 == G_LQ_BAR_M5)
@@ -373,7 +373,7 @@ void MBLiquidityMapUpdate()
 bool MBLqSweepFor(const int dir, const int min_class, const int max_age, datetime &t, int &cls, double &ext, int &q)
 {
    t = 0; cls = 0; ext = 0.0; q = 0;
-   if(!EnableLiquidityMap || dir == 0)
+   if(!EnableMBLiquidityMap || dir == 0)
       return false;
    int k = MBLqSideIdx(-dir);
    if(G_LQ_SW_TIME[k] <= 0 || G_LQ_SW_TRAP[k] || G_LQ_SW_CLASS[k] < min_class || TimeCurrent() - G_LQ_SW_TIME[k] > max_age)
@@ -391,7 +391,7 @@ double MBLqChampion(const int side, const double px, string &what)
 {
    what = "";
    double atr15 = G_MB_ATR[2] * _Point;
-   if(!EnableLiquidityMap || atr15 <= 0.0 || px <= 0.0)
+   if(!EnableMBLiquidityMap || atr15 <= 0.0 || px <= 0.0)
       return 0.0;
    double best = 0.0, best_sc = 0.0;
    for(int i = 0; i < G_LQ_N; i++)
@@ -429,7 +429,7 @@ double MBLqNearestAhead(const int dir, const double px, const int min_class)
 
 string MBLiquidityPanelText()
 {
-   if(!EnableLiquidityMap)
+   if(!EnableMBLiquidityMap)
       return "";
    double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    string wu = "", wd = "";

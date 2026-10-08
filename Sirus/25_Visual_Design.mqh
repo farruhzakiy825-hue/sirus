@@ -730,7 +730,7 @@ void MBDrawPanel()
       // Plan stage 1: structure memory, direction lock and reversal maturity.
       MBPanelLine("B_ST", MBStructPanelText(), muted, false, x0, w, lh);
       MBPanelLine("B_LK", MBLockPanelText(), (G_ST_LOCK_DIR != 0 ? MBBiasTone(2 * G_ST_LOCK_DIR) : muted), false, x0, w, lh);
-      if(EnableLiquidityMap)
+      if(EnableMBLiquidityMap)
          MBPanelLine("B_LQ", MBLiquidityPanelText(), muted, false, x0, w, lh);
       else
          ObjectDelete(0, MB_VIS_PREFIX + "B_LQ");
