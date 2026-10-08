@@ -59,6 +59,7 @@ input bool   EnableEntryCouncil       = true;   // Enable entry council
 // CouncilWeakGlobalConf: Global ishonchi shundan past yoki o'tish holatida bo'lsa - yo'nalishni lokal hal qiladi
 input int    CouncilWeakGlobalConf    = 50;   // Council weak global confidence
 // CouncilZoneATR5: SELL ostida ushlab turgan support / BUY ustida resistance shu ATR(M5) ichida bo'lsa - kirmaydi (M5 yopilib buzilmaguncha)
+input bool   EnableCouncilM5Turn      = true;   // Lokal oyoq va M5 bosimi qarshi bo'lsa - faqat yopilgan M5 burilish shami (bitta M1 shami burilish emas)
 input double CouncilZoneATR5          = 0.35;   // Council zone ATR 5
 // MBPermExceptionMargin: V0: zaif qarama-qarshi bias'da faqat reversal setup va ball >= minimum + shu
 input int    MBPermExceptionMargin    = 2;   // Brain perm exception margin
@@ -271,6 +272,34 @@ bool MBGlobalWeak()
    return (MathAbs(G_MB_BIAS) <= 1 || G_MB_BIAS_CONF < CouncilWeakGlobalConf);
 }
 
+// PULLBACK OR REVERSAL? (owner case 2026-10-08 16:00, BRAIN TREND BUY 4111.87): the bias still read
+// the old trend while M5 had broken twice the other way - a reversal under way, bought as a pullback.
+// The trend toward dir is UNDER ATTACK when: M5 made two breaks in a row against it; or a reversal
+// against it reached its MSS (stage 3); or M5 and M15 pressure are both against it with at least one
+// M5 break against. Lifted by an M5 break back its way (the run flips) or a mature reversal its way.
+bool MBTrendUnderAttack(const int dir, string &why)
+{
+   why = "";
+   if(dir == 0 || MBStructStageFor(dir) >= MathMax(1, LockUnlockStage))
+      return false;
+   if(G_ST_SEQ[1] * dir <= -2)
+   {
+      why = StringFormat("M5 broke %d times against it", -G_ST_SEQ[1] * dir);
+      return true;
+   }
+   if(G_ST_REV_DIR == -dir && G_ST_REV_STAGE >= 3)
+   {
+      why = StringFormat("reversal against it at stage %d/6 (MSS made)", G_ST_REV_STAGE);
+      return true;
+   }
+   if(G_ST_SEQ[1] * dir <= -1 && MBPressureSide(1) == -dir && MBPressureSide(2) == -dir)
+   {
+      why = "M5 break against it, M5 and M15 pressure against";
+      return true;
+   }
+   return false;
+}
+
 bool MBCouncilEval(const int dir, string &why, string &uz)
 {
    why = "";
@@ -298,6 +327,38 @@ bool MBCouncilEval(const int dir, string &why, string &uz)
                          MBBiasName(G_MB_BIAS), G_MB_BIAS_CONF);
       uz = "zaif global, lokal qarshi";
       return true;
+   }
+   // 1b. The local leg and M5 pressure against: only a closed M5 candle turning this way (or a
+   //     reversal this way past its MSS) - one small M1 candle is not a turn.
+   if(EnableCouncilM5Turn && loc == -dir && p5 == -dir && !m5_turn && MBStructStageFor(dir) < 3)
+   {
+      why = "council: local leg and M5 pressure the other way - waiting for an M5 candle that turns";
+      uz = "lokal + M5 qarshi, M5 burilishi kutilmoqda";
+      return true;
+   }
+   // 1c. The trend this way is under attack (pullback or reversal?) - an entry with the bias needs
+   //     the M5 to break back first.
+   if(dir * G_MB_BIAS >= 1)
+   {
+      string aw = "";
+      if(MBTrendUnderAttack(dir, aw))
+      {
+         why = "council: trend under attack (" + aw + ") - not a pullback until M5 breaks back";
+         uz = "trend hujumda: " + aw;
+         return true;
+      }
+   }
+   // 1d. Exhaustion is not a reverse signal: the other side was refused as late / exhausted / its
+   //     target taken, but the tape still runs that way (local or M5) - this side needs its own
+   //     proof, a reversal at least at stage 2 (liquidity taken + displacement).
+   {
+      string lw = "", lu = "";
+      if((loc == -dir || p5 == -dir) && MBStructStageFor(dir) < 2 && MBLateBlocks(-dir, lw, lu))
+      {
+         why = "council: the other side is late/exhausted (" + lu + ") but still moving - that is not a reason to reverse";
+         uz = "qarshi tomon charchagan, lekin burilish dalili yo'q";
+         return true;
+      }
    }
    // 3. A holding zone of the other side right in front.
    double atr5 = G_MB_ATR[1] * _Point;

@@ -20,7 +20,7 @@
 //                    INVALID or LOSS exit the same side waits for something new (a new M5+ break that
 //                    way, a new thesis, or a mature reversal), at most ReentryCooldownMaxMin. Failed
 //                    attempts per thesis are counted; ReentryMaxAttempts of them close that side until
-//                    a new thesis (or two hours). The fast re-entry after a win needs a new closed bar,
+//                    a new thesis (or two hours). The fast re-entry after a win goes at once (no bar wait),
 //                    must not chase (within 1 ATR(M5) of the exit price) and must not have the control
 //                    turned against it. A setup refused only for its place (late / chasing / a zone in
 //                    front) gets a SECOND CHANCE when price comes back 0.5 ATR(M5) better.
@@ -273,8 +273,10 @@ bool MBReentryFastOk(const int dir)
 {
    if(!EnableSmartReentry)
       return true;
-   if(G_RE_TIME > 0 && iTime(_Symbol, PERIOD_M1, 1) < G_RE_TIME)
-      return false;   // nothing new yet: no bar has closed since the exit
+   // OWNER RULE (speed): after a TP the next entry goes at once when the signal is there - no waiting
+   // for a new bar. Only after a non-profit exit must something new (a closed bar) come first.
+   if(G_RE_KIND != RE_PROFIT && G_RE_TIME > 0 && iTime(_Symbol, PERIOD_M1, 1) < G_RE_TIME)
+      return false;
    double atr5 = G_MB_ATR[1] * _Point;
    double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
    if(atr5 > 0.0 && G_RE_PX > 0.0 && dir * (px - G_RE_PX) > 1.0 * atr5)

@@ -1,5 +1,23 @@
 # CHANGELOG — Sirus Brain V8
 
+## Pullback yoki reversal? (16:00 BRAIN TREND BUY 4111.87 holati) + TP'dan keyin darhol qayta kirish
+
+- **Holat.**
+  - Bias hali eski ko'tarilishdan qolgan TREND ▲ holatida edi, holvaki M5 ikki marta pastga buzilgan edi (▼×2).
+  - Lokal, mikro va M1/M5/M15 bosimi ham ▼ edi.
+  - Robot buni pullback deb o'qib BUY ochdi, narx esa tushishda davom etdi.
+- **1c. Trend hujumda.** Bias tomoniga kirish to'xtaydi, agar quyidagilardan biri bo'lsa:
+  - M5 trendga qarshi ketma-ket 2 marta buzilgan;
+  - qarshi burilish MSS bosqichiga (3/6) yetgan;
+  - M5 bir marta qarshi buzilgan va M5 hamda M15 bosimi qarshi.
+  - M5 trend tomoniga qayta buzilmaguncha bias tomonga kirilmaydi. Bu TREND, PULLBACK, RE-ENTRY va boshqa barcha kirishlarga (veto orqali) tegishli.
+- **1b. M5 burilishi.** Lokal oyoq va M5 bosimi qarshi bo'lsa, faqat yopilgan M5 burilish shami hisoblanadi. Bitta M1 shami burilish emas. Sozlama: `EnableCouncilM5Turn`.
+- **1d. Charchash teskari signal emas.** Qarshi tomon "kech / charchagan / maqsadi olingan" deb yopilgan bo'lsa-yu, harakat hali o'sha tomonga davom etayotgan bo'lsa (lokal yoki M5), bu tomonga kirish uchun o'z dalili kerak: kamida 2-bosqichli burilish (likvidlik olindi + displacement).
+- **Tezlik: TP'dan keyin qayta kirish.**
+  - Foyda bilan yopilgandan keyin signal bo'lsa, darhol kiriladi. Yangi bar kutish olib tashlandi, u 60 soniyagacha kechiktirardi.
+  - Quvmaslik (1 ATR(M5)) va nazorat tekshiruvlari qoldi.
+  - Zarar yoki g'oya o'lib yopilgandan keyin esa avvalgidek yangi dalil kutiladi.
+
 ## Sozlamalar oynasi: brend darajasida, tushunarli
 
 - **Muammo.** MT5 sozlamalar oynasida har sozlama nomi o'rniga uning izohi ko'rsatiladi. Izohlar esa dasturchi eslatmalari edi ("V249fix: 7 -> 5 ...", "Close at break-even and collect the rebate..."). Jami 3206 ta sozlama va 169 ta bo'lim bor edi, raqamlar aralash, bir qismi ulanmagan.

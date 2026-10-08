@@ -795,6 +795,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
    if(G_MB_LAST_CLOSE_WIN && rd != 0 && (TimeCurrent() - G_MB_LAST_CLOSE_TIME) <= (long)MathMax(1, reentry_bars) * 60)
    {
       bool not_expired = !(G_MB_IMP_DIR[0] == rd && G_MB_SPEED[0] == MB_SPEED_EXPIRED);
+      string aw_re = "";
       // Cashback tempo: the basket just paid this way and the thesis is still open - a neutral
       // bias (hysteresis catching up) does not stop the next one. Against-bias still does.
       int bias_min = MBCashbackTempo() ? 0 : 1;
@@ -803,7 +804,7 @@ bool MBFastEntryCandidate(int &dir, string &why)
       int ra = rd * G_MB_BIAS;
       bool ra_ok = (ra >= 2) || (ra == 0 && bias_min == 0) ||
                    (ra == 1 && IsReversalOpportunityType(G_OPP_TYPE) && G_OPP_DIR == (rd > 0 ? OPP_DIR_BUY : OPP_DIR_SELL));
-      if(ra >= bias_min && ra_ok && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBCouncilOk(rd) && MBReentryFastOk(rd) && MBHasTriggerNow(rd))
+      if(ra >= bias_min && ra_ok && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBCouncilOk(rd) && MBReentryFastOk(rd) && !MBTrendUnderAttack(rd, aw_re) && MBHasTriggerNow(rd))
       {
          dir = rd;
          why = StringFormat("FAST RE-ENTRY %s: last basket won %d min ago, thesis still %s (%s)",
@@ -858,10 +859,11 @@ bool MBFastEntryCandidate(int &dir, string &why)
       // 1. TREND: the brain holds a direction (weak or strong), a thesis is open that way, the
       //    impulse is not late, and something triggers now.
       int d = MBSign(G_MB_BIAS);
+      string aw_tr = "";
       bool fresh_trend = !(G_MB_IMP_DIR[0] == d && G_MB_SPEED[0] >= MB_SPEED_LATE) && MBHasTriggerNow(d);
       bool pullback_trend = MBPullbackResume(d);   // a late trend, entered off its pullback
       if(BrainEntryTrend && d != 0 && d * G_MB_BIAS >= 2 && G_MB_TH_DIR == d && thesis_open && G_MB_TH_CONTRA <= 1 &&
-         (fresh_trend || pullback_trend) && MBCouncilOk(d))
+         (fresh_trend || pullback_trend) && MBCouncilOk(d) && !MBTrendUnderAttack(d, aw_tr))
       {
          dir = d;
          if(pullback_trend && !fresh_trend)
@@ -891,7 +893,8 @@ bool MBFastEntryCandidate(int &dir, string &why)
       if(dir == 0 && MathAbs(G_MB_BIAS) >= 2)
       {
          int gd = MBSign(G_MB_BIAS);
-         if(MBLayerLocal() == gd && MBPullbackResume(gd) && MBCouncilOk(gd))
+         string aw_pb = "";
+         if(MBLayerLocal() == gd && MBPullbackResume(gd) && MBCouncilOk(gd) && !MBTrendUnderAttack(gd, aw_pb))
          {
             dir = gd;
             G_MB_FAST_TYPE = (int)OPP_TYPE_PULLBACK_CONTINUATION;
