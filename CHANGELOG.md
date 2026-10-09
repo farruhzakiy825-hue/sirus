@@ -1,5 +1,22 @@
 # CHANGELOG — Sirus Brain V8
 
+## TEMPO doimiy (egasining soya fayllari asosida: 06–09-Oct, 2065 setup)
+
+- **Soyani to'g'ri o'qish.** TP taxminan 224 punkt, grid qadami taxminan 5500 punkt. Bunday nisbatda tasodifiy kirish ham taxminan 96% hollarda TP ga yetadi. Shuning uchun "TP %" sifat ko'rsatkichi emas. Haqiqiy farqni ikki narsa ko'rsatadi: GRID (grid kerak bo'lgan hollar) ulushi va 2000 punktdan chuqur qarshi harakat ulushi.
+- **Natijalar (GRID ulushi / chuqur MAE ulushi):**
+  - olingan savdolar: 10.4% / 21.6%;
+  - to'silgan, bias tomonida: 6.5% / 18.0%;
+  - to'silgan, biasga qarshi: 8.5% / 21.5%;
+  - miya veto'si, biasga qarshi: 16.1% / 26.9%. Bu yo'nalish veto'sining haqiqatan yomon kirishlarni to'xtatayotganini ko'rsatadi, u o'z joyida qoladi.
+  - ball, bias tomonida: 6.4% / 16.8%;
+  - miya veto'si, bias tomonida: 7.1% / 19.1%.
+  - drift, biasga qarshi: TP 66.7%, timeout 22.2%. Yomon kirishlarni to'xtatadi, qoladi.
+- **Xulosa.** Yo'nalish jihatidan xavfsiz tomonda vaqt va sifat filtrlari olingan savdolardan yaxshiroq setuplarni to'symoqda. Ular savdo sonini kamaytiryapti, sifatni esa oshirmayapti.
+- **O'zgarish.** `TempoQuietMinutes` = 0, ya'ni TEMPO doim yoqiq. Panelda `⚡ TEMPO doim` ko'rinadi.
+  - Yo'nalish himoyalari o'zgarmaydi: V0, LOCK, kengash (uchlik, 1e, 1f), V1, yangilik, spread, risk, anomaliya.
+  - Biasga qarshi tomonda drift va boshqa filtrlar avvalgidek ishlaydi.
+  - Eski shartli rejimga qaytish uchun `TempoQuietMinutes` = 15 qo'ying.
+
 ## TEMPO klapani: filtrlar ortiqcha to'sganda savdo oqimini tiklash (09-Oct: 7 soatda 3 ta savdo)
 
 - **Holat.**

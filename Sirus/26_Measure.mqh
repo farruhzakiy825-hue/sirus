@@ -47,7 +47,7 @@ input int    ShadowValveMinutes       = 30;   // Shadow valve minutes
 input int    ShadowValveMinSamples    = 10;   // Shadow valve min samples
 // EnableTempoValve: TEMPO: no entry for TempoQuietMinutes while the refused setups keep reaching TP (>= TempoMinTPRate over >= TempoMinRefusals recent results) - the timing / quality gates (score, judge, location, late / taken target, drift) relax for TempoMinutes, for the side that is not against the global bias or the M5 structure. Direction gates never relax.
 input bool   EnableTempoValve         = true;   // TEMPO valve (keeps the trade flow when gates over-block)
-input int    TempoQuietMinutes        = 15;   // TEMPO: quiet minutes before it can switch on
+input int    TempoQuietMinutes        = 0;   // TEMPO: quiet minutes before it can switch on (0 = always on)
 input int    TempoMinRefusals         = 10;   // TEMPO: recent refused setups needed as evidence
 input double TempoMinTPRate           = 0.80;   // TEMPO: share of them that reached TP
 input int    TempoMinutes             = 20;   // TEMPO: how long it stays on
@@ -482,7 +482,20 @@ void MBTempoCheck()
    static datetime tempo_t0 = 0;
    if(tempo_t0 == 0)
       tempo_t0 = TimeCurrent();
-   if(!EnableTempoValve || G_BASKET_ORDERS > 0 || TimeCurrent() < G_TEMPO_UNTIL)
+   if(!EnableTempoValve)
+   {
+      G_TEMPO_UNTIL = 0;
+      return;
+   }
+   // ALWAYS ON (TempoQuietMinutes = 0) - the owner's shadow files (06..09-Oct, 2065 setups) showed the
+   // setups refused on the direction-safe side needed the grid LESS often than the trades taken (6.5% vs
+   // 10.4%), so the timing / quality gates cost trades without buying quality there.
+   if(TempoQuietMinutes <= 0)
+   {
+      G_TEMPO_UNTIL = TimeCurrent() + 60;
+      return;
+   }
+   if(G_BASKET_ORDERS > 0 || TimeCurrent() < G_TEMPO_UNTIL)
       return;
    datetime last = MathMax(G_LAST_ENTRY_TIME, tempo_t0);
    if(TimeCurrent() - last < (long)MathMax(1, TempoQuietMinutes) * 60)
@@ -631,7 +644,7 @@ string MBShadowPanelText()
    if(best >= 0 && tn >= ShadowMinSamplesToJudge && best_r >= taken + 0.10)
       t += StringFormat("  ·  ⚠ %s yaxshisini to'smoqda (%.0f%%)", MBShadowGateUz(best), best_r * 100.0);
    if(EnableTempoValve && TimeCurrent() < G_TEMPO_UNTIL)
-      t += StringFormat("  ·  ⚡ TEMPO %d daq", (int)((G_TEMPO_UNTIL - TimeCurrent()) / 60) + 1);
+      t += (TempoQuietMinutes <= 0) ? "  ·  ⚡ TEMPO doim" : StringFormat("  ·  ⚡ TEMPO %d daq", (int)((G_TEMPO_UNTIL - TimeCurrent()) / 60) + 1);
    else
    {
       string vt = MBShadowValveText();
