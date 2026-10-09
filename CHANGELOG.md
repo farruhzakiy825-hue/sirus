@@ -1,5 +1,41 @@
 # CHANGELOG — Sirus Brain V8
 
+## AQLLI TEMPO: faqat kerak bo'lganda va bozor ruxsat berganda yoqiladi, o'z savatlari yomonlashsa o'zi o'chadi
+
+Bu bo'lim avvalgi "TEMPO doimiy" o'zgarishini almashtiradi. Egasi: doim yoqiq bo'lishi katta zararga olib kirishi mumkin.
+
+- **Yoqilish sharti.** To'rttasi birga bajarilishi kerak:
+  1. **Bozor.**
+     - Yangilik oynasi, tezlik pauzasi va anomaliya yo'q.
+     - Spread shu soatning odatiy darajasi × 1.5 dan oshmaydi.
+     - Bozor yomonlashsa, TEMPO "yoqiq" turgan bo'lsa ham hech narsani yumshatmaydi.
+  2. **Ehtiyoj.** `TempoQuietMinutes` (10) daqiqa savat va kirish bo'lmagan.
+  3. **Dalil.**
+     - Faqat yo'nalish jihatidan xavfsiz tomondagi to'silgan setuplar hisobga olinadi: global biasga va buzilmagan M5 tuzilmasiga qarshi bo'lmaganlar.
+     - Ular oxirgi kamida 10 ta natijada **toza** bo'lgan bo'lishi kerak: TP ga 1500 punktdan chuqur qarshi harakatsiz yetgan.
+     - Toza ulushi kamida 72% bo'lishi va olingan savdolarnikidan kamida 3 foiz punkt yuqori bo'lishi kerak.
+     - Egasining fayllarida: olingan savdolar 69% toza, to'silgan xavfsiz setuplar 76%.
+  4. **Circuit breaker o'chiq.**
+- **Nima yumshaydi.**
+  - Faqat xavfsiz tomon uchun: ball, hakam, joy, "kech", olingan likvidlik, drift.
+  - Soya klapani orqali yumshatish ham faqat xavfsiz tomonga beriladi.
+  - Muddat: 20 daqiqa.
+- **Circuit breaker.**
+  - TEMPO bilan ochilgan savatlar alohida kuzatiladi.
+  - Oxirgi 4 tadan 2 tasi grid talab qilsa, TEMPO 60 daqiqaga o'chadi.
+  - Panelda `TEMPO to'xtatildi N daq (sabab)` ko'rinadi, jurnalga `[SIRUS TEMPO] BREAKER` yoziladi.
+- **Hech qachon yumshamaydi:** yo'nalish ruxsati, LOCK, kengash (uchlik, 1e, 1f), V1, yangilik, spread, risk.
+- **Sozlamalar:**
+  - `TempoQuietMinutes` = 10;
+  - `TempoMinRefusals` = 10;
+  - `TempoCleanMAEPts` = 1500;
+  - `TempoMinCleanRate` = 0.72;
+  - `TempoCleanEdge` = 0.03;
+  - `TempoMinutes` = 20;
+  - `TempoBreakerGridBaskets` = 2;
+  - `TempoBreakerMinutes` = 60.
+- **Tezlik.** Har tickda bir necha taqqoslash. Dalil soya natijasi aniqlanganda yangilanadi.
+
 ## TEMPO doimiy (egasining soya fayllari asosida: 06–09-Oct, 2065 setup)
 
 - **Soyani to'g'ri o'qish.** TP taxminan 224 punkt, grid qadami taxminan 5500 punkt. Bunday nisbatda tasodifiy kirish ham taxminan 96% hollarda TP ga yetadi. Shuning uchun "TP %" sifat ko'rsatkichi emas. Haqiqiy farqni ikki narsa ko'rsatadi: GRID (grid kerak bo'lgan hollar) ulushi va 2000 punktdan chuqur qarshi harakat ulushi.

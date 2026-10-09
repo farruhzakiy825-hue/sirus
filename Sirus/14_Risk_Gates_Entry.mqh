@@ -5126,6 +5126,13 @@ void UpdateFirstEntryEngine(const string source)
       // most entries now from the brain it released the score hard blocks (and the naked counter-trend
       // refusal) while the EA was trading all along. Any real entry restarts its clock.
       G_LAST_ENTRY_ALLOWED_BAR = G_BARS_SEEN;
+      // SMART TEMPO: remember whether this basket was entered with TEMPO relaxing the gates - the
+      // circuit breaker judges TEMPO by how its own baskets end.
+      {
+         int te_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
+         G_TEMPO_BASKET = MBTempoOnFor(te_dir);
+         G_TEMPO_BASKET_MAXORD = G_TEMPO_BASKET ? 1 : 0;
+      }
 
       // FIX(first-entry-direction-stale): these two read G_BASKET_DIRECTION, but at this instant it
       // is still the value RefreshGridDashboardStats() wrote for an EMPTY account earlier in the

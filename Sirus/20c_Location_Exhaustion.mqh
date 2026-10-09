@@ -324,11 +324,16 @@ int MBExhaustPressure(const int dir) { return (dir == 0) ? 0 : G_LX_PRESS[MBLxK(
 // TEMPO (26_Measure): the timing / quality gates are relaxed while the valve is on - but only for a side
 // that is direction-safe: not against the global bias and not against an intact M5 structure. The
 // direction gates (V0, lock, council, fresh HTF break) never relax.
+bool MBDirSafe(const int dir)
+{
+   return (dir != 0 && dir * G_MB_BIAS >= 0 && MBM5StructDir() != -dir);
+}
+
 bool MBTempoOnFor(const int dir)
 {
-   if(dir == 0 || TimeCurrent() >= G_TEMPO_UNTIL)
+   if(dir == 0 || TimeCurrent() >= G_TEMPO_UNTIL || !G_TEMPO_MKT_OK || TimeCurrent() < G_TEMPO_BREAK_UNTIL)
       return false;
-   return (dir * G_MB_BIAS >= 0 && MBM5StructDir() != -dir);
+   return MBDirSafe(dir);
 }
 
 // True = no new entry toward dir here (late in the leg, exhausted, or its target already taken).

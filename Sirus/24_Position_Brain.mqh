@@ -648,6 +648,7 @@ void MBPBCloseBookkeeping()
       G_AFFORD_RUNG_CAP = 0;
    }
    MBReExitRecord(G_MB_PB_DIR, res);         // plan stage 4: exit kind + failed attempts per thesis
+   MBTempoBasketClosed();                    // SMART TEMPO circuit breaker
    MBAutopsyOnClose(G_MB_PB_DIR, res, G_PB_MFE, G_PB_MAE, G_MB_PB_BASKET, G_PB_T_SHOW);   // plan stage 7
    MBMemoryOnBasketClosed(G_MB_PB_BASKET);   // Memory (phase 8): write the result next to the Entry DNA
    if(G_MB_PB_LOCAL)
