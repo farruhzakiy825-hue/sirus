@@ -424,6 +424,7 @@ bool MBShadowValveOn(const int g);   // a quality gate relaxed by the shadow led
 double MBNormalSpread();   // spread memory (20e) - read by the news settle check (11)
 bool MBAnomalyBlocks(string &why);   // anomaly guard (20f) - read by the news settle check (11)
 int MBM5StructDir();
+bool MBReversalUnlocked(const int dir);   // 20b - the reversal toward dir reached the unlock stage (read by 14)
 // EVIDENCE GATES (26c): the quality filters that prove their place on the robot's own numbers.
 #define EG_SCORE      0   // detector score
 #define EG_JUDGE      1   // Entry Judge quality

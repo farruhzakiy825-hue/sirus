@@ -61,7 +61,7 @@ void MBHTFZoneScan(const ENUM_TIMEFRAMES tf, const int lookback)
    if(n < 20 || atr <= 0.0)
       return;
    int tfm = PeriodSeconds(tf) / 60;
-   for(int b = 4; b < n && G_HZ_N < HZ_MAX; b++)   // newest bases first - they matter most
+   for(int b = 3; b < n && G_HZ_N < HZ_MAX; b++)   // newest bases first - three closed bars after the base are enough
    {
       // Supply: the base candle, then within three bars a drop of HTFZoneDispATR x ATR below its low.
       double lo3 = MathMin(r[b - 1].low, MathMin(r[b - 2].low, r[b - 3].low));
@@ -161,6 +161,11 @@ bool MBHTFZoneBlocks(const int dir, string &why)
    int k = MBHTFZoneAgainst(dir, px);
    if(k < 0)
       return false;
+   // CHAIN FIX: never both sides - price inside an H1 demand that sits inside an H4 supply is held by the
+   // higher timeframe only; two zones of the same timeframe cancel out.
+   int k2 = MBHTFZoneAgainst(-dir, px);
+   if(k2 >= 0 && G_HZ_TF[k2] >= G_HZ_TF[k])
+      return false;
    why = StringFormat("%s H%d %s zone %s-%s (fresh, %d visits) - no %s until an M15 close %s it",
                       (px >= G_HZ_LO[k] && px <= G_HZ_HI[k]) ? "inside the" : "right at the", G_HZ_TF[k] / 60,
                       (G_HZ_DIR[k] < 0 ? "supply" : "demand"), DoubleToString(G_HZ_LO[k], _Digits), DoubleToString(G_HZ_HI[k], _Digits),
@@ -225,6 +230,10 @@ bool MBLowerHighBlocks(const int dir, string &why)
       return false;                    // an M5 close beyond it already - structure restored
    // Only on the expensive side of the H1 dealing range (premium for BUY, discount for SELL).
    if(G_MB_DR_HI > G_MB_DR_LO && (dir > 0 ? G_MB_DR_POS < 0.55 : G_MB_DR_POS > 0.45))
+      return false;
+   // CHAIN FIX (H): only while the tape has turned away from the level - in a recovering trend (local leg
+   // and M5 pressure this way again) a pause under the latest M15 high is not a lower high yet.
+   if(MBLayerLocal() == dir && MBPressureSide(1) == dir)
       return false;
    why = StringFormat("M15 %s %s after the %s %s - no %s until an M5 close %s it",
                       (dir > 0 ? "lower high" : "higher low"), DoubleToString(lh, _Digits), (dir > 0 ? "top" : "bottom"),

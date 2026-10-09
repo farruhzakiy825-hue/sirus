@@ -1,4 +1,30 @@
-# CHANGELOG — Sirus Brain V8
+﻿# CHANGELOG — Sirus Brain V8
+
+## Yaxlit zanjir tuzatishlari (2026-10-09)
+
+Butun qaror zanjiri (scanner → fast path → kandidatlar → veto → judge) bir paketda tekshirildi va
+bir-biriga zid joylar tuzatildi. Hech qaysi yo'nalish filtri o'zi bo'shashmaydi.
+
+**Noto'g'ri yo'nalishga qarshi (teshiklar yopildi)**
+- R1 (20): "yangi impuls" lokal yo'nalishni faqat M5 bosimi va lokal tezis unga qarshi bo'lmaganda belgilaydi.
+- R2 (20b): MBM5StructDir eski 1-barlik test bilan "neytral" qaytarmaydi - singan breaklar 2-barlik test bilan.
+- R10 (20b): singan break (likvidlik olish) struktura emas - reversal MSS, lock va stage hisobidan chiqarildi.
+- R3/R8 (21): yangi HTF break "ushlab turibdi" chegarasi 0.3 ATR; shu tomonga yangi M5 break bo'lsa 1f to'smaydi.
+- R4 (21): 1g (lower high) qoidasida stage<3 istisnosi olib tashlandi.
+- R5/F4 (20g): HTF zonalar 3 yopiq bardan topiladi; ikki tomonda zona bo'lsa katta TF hal qiladi, teng TF - bir-birini bekor qiladi.
+- R9 (20g): lower high faqat lenta undan qaytganda - lokal oyoq va M5 bosimi shu tomonga bo'lsa to'smaydi.
+- R6 (20): RANGE qutisida spike bar (TR > 2x ATR) bo'lsa chegaralar oxirgi 8 M15 bardan olinadi.
+- R7 (20c): "kech" maqsadi allaqachon olingan (sweep qilingan) quti chetini o'tkazib yuboradi.
+- F10 (21, V0): miya neytral, lekin HTF trend qarshi bo'lsa - M5 struktura, lokal oyoq, unlock-stage reversal yoki range cheti talab qilinadi.
+
+**Jimlik / qulf (deadlock) tuzatishlari**
+- F1 (20b): stage 3 deadlock - MSS qilingan, M5 struktura burilgan va narx MSS ortida bo'lsa lock to'smaydi.
+- F2 (21): council 3-qoida (zona oldida) ikki tomonni birdan to'smaydi.
+- F3 (14): unlock-stage'ga yetgan REVERSAL o'z joyiga ega - eski location/HTF guardlar uni "trendga qarshi" deb o'qimaydi.
+- F5 (14): veto rad etadigan detector PASS endi slotni band qilmaydi - miya QARAMA-QARSHI tomonni ko'ra oladi.
+- F6 (23): kandidat tekshiruvi to'liq veto (V1-V5 ham) bilan, probe sifatida (hisob va log yo'q) - birinchi kandidat qolganlarini yashirmaydi.
+- F7 (08/14): yo'nalishli HARD_BLOCK (counter-context, blow-off, devor) faqat o'sha tomonni to'sadi - miya boshqa tomonni olishi mumkin. Xavfsizlik hard blocklari (chaos, spread, eski tick) o'zgarmadi.
+- F8 (14): shu tomonda qurollangan (armed) setup tasdiq kutayotgan bo'lsa, fast path navbatdan oldin kirmaydi.
 
 ## HTF supply/demand zonalari + M15 past tepa / baland tub qoidasi; "joy" filtrlari endi hech qachon bo'shamaydi (09-Oct 08:33 BUY 4196.811)
 

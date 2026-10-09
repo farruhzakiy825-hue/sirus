@@ -4155,8 +4155,11 @@ bool MBOwnsGate(const bool location_gate)
    // of a live impulse (the old "chasing" guards read that last one as buying high).
    if(G_MB_FAST_ACTIVE)
    {
+      // CHAIN FIX (C3): a brain REVERSAL that reached the unlock stage (sweep, displacement, MSS, held
+      // retest) carries its own place too - the old location / HTF guards read it as fading the trend.
       bool own_place = (G_OPP_TYPE == OPP_TYPE_SWEEP_REJECTION || G_OPP_TYPE == OPP_TYPE_RANGE_EDGE ||
-                        G_OPP_TYPE == OPP_TYPE_MOMENTUM_SCALP);
+                        G_OPP_TYPE == OPP_TYPE_MOMENTUM_SCALP ||
+                        (G_OPP_TYPE == OPP_TYPE_EXHAUSTION_REVERSAL && MBReversalUnlocked(d)));
       if(!location_gate || MBBiasAlign(d) >= 1 || (MBBiasAlign(d) == 0 && own_place))
          return true;
       // A brain LOCAL / momentum entry against the global bias: the judge demands its own place.
@@ -4418,10 +4421,31 @@ bool FirstEntryCanRun(string &reason)
    // MARKET BRAIN FAST ENTRY (speed): no detector score yet, but a winning basket's thesis is still
    // open (re-entry) or a confirmed thesis has a trigger right now. Everything below - the remaining
    // gates, the veto and the Entry Judge - still decides.
-   // AUDIT FIX: only over a plain WAIT (or no setup outside market chaos) - never over a HARD_BLOCK
-   // (chaos, stale tick, extreme spread).
+   // AUDIT FIX: only over a plain WAIT (or no setup outside market chaos) - never over a safety
+   // HARD_BLOCK (chaos, stale tick, extreme spread).
+   // CHAIN FIX: two more openings, both for the OTHER side only -
+   //   - a detector PASS the veto is going to refuse: it used to fill the slot and be vetoed on every
+   //     tick, so the brain never looked at a setup the veto would have let through;
+   //   - a DIRECTIONAL hard block (counter-context, blow-off, wall): it refuses the scanner's side,
+   //     not the market - the brain may still take the other one.
+   int det_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
+   bool det_vetoed = false;
+   if(det_dir != 0 && (G_SCORE_DECISION == SCORE_DECISION_PASS || G_SCORE_DECISION == SCORE_DECISION_MICRO_PASS))
+   {
+      int eg_keep0 = G_EG_SKIP_MASK;
+      G_EG_RECORD = false;
+      G_MB_VETO_PROBE = true;
+      string dv_why = "";
+      det_vetoed = !MBVetoAllowsEntry(det_dir, dv_why);
+      G_MB_VETO_PROBE = false;
+      G_EG_RECORD = true;
+      G_EG_SKIP_MASK = eg_keep0;
+   }
+   bool hb_directional = (G_SCORE_DECISION == SCORE_DECISION_HARD_BLOCK && det_dir != 0 &&
+                          G_SCORE_HB_DIR_WHY != "" && G_SCORE_HARD_BLOCK == G_SCORE_HB_DIR_WHY);
    if(G_SCORE_DECISION == SCORE_DECISION_WAIT ||
-      (G_SCORE_DECISION == SCORE_DECISION_NONE && G_MARKET_STATE != MARKET_CHAOS))
+      (G_SCORE_DECISION == SCORE_DECISION_NONE && G_MARKET_STATE != MARKET_CHAOS) ||
+      det_vetoed || hb_directional)
    {
       int fe_dir = 0;
       string fe_why = "";
@@ -4431,6 +4455,13 @@ bool FirstEntryCanRun(string &reason)
       bool fe_found = MBFastEntryCandidate(fe_dir, fe_why);
       G_EG_RECORD = true;
       G_EG_SKIP_MASK = eg_mask_keep;
+      // Over a vetoed PASS or a directional block only the other side is new information.
+      if(fe_found && (det_vetoed || hb_directional) && fe_dir == det_dir)
+         fe_found = false;
+      // CHAIN FIX (W2): an armed setup of this side is waiting for the market to answer its objection
+      // (a rejection at the zone, a retest) - the brain does not jump the queue on the same side.
+      if(fe_found && G_ARM_DIR == fe_dir)
+         fe_found = false;
       if(fe_found)
       {
          ENUM_OPPORTUNITY_DIR fe_opp = (fe_dir > 0) ? OPP_DIR_BUY : OPP_DIR_SELL;

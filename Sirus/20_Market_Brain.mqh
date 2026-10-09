@@ -415,6 +415,22 @@ void MBRegimeUpdate()
    else if(G_MB_RG_ER >= RegimeTrendER)
    { rg = MB_RG_TREND; dir = (net > 0.0) ? 1 : -1; }
 
+   // CHAIN FIX (R6): a RANGE box that holds a spike bar (true range > 2x ATR14) is the spike's box,
+   // not the range's - its "20% / 80%" edges sit in the middle of the post-spike trading. The edges
+   // then come from the last 8 bars, provided the spike is older than them.
+   if(rg == MB_RG_RANGE)
+   {
+      int spike_at = 0;
+      for(int i = 1; i <= look && i <= 50; i++)
+         if(tr[i] > 2.0 * a14) { spike_at = i; break; }
+      if(spike_at > 8)
+      {
+         double lh = -DBL_MAX, ll = DBL_MAX;
+         for(int i = 1; i <= 8; i++) { lh = MathMax(lh, r[i].high); ll = MathMin(ll, r[i].low); }
+         if(lh > ll) { hi = lh; lo = ll; }
+      }
+   }
+
    if(rg != G_MB_RG && (MBThesisPrintOnUse && VerboseLogs))
       PrintFormat("[SIRUS REGIME] %s%s | ER %.2f | ATR14/50 %.2f | box %s-%s", MBRegimeName(rg),
                   (dir > 0 ? " UP" : (dir < 0 ? " DOWN" : "")), G_MB_RG_ER, G_MB_RG_RATIO,
@@ -673,7 +689,9 @@ int MBLayerLocal()
    int s5i = MBM5StructDir();
    if(imp != 0 && imp != -s5i && G_MB_SPEED[1] <= MB_SPEED_NORMAL && G_MB_SPEED[1] != MB_SPEED_NONE)
    {
-      bool fresh = (G_MB_IMP_PEAK_AGE[1] > 0 && G_MB_IMP_PEAK_AGE[1] <= 6);
+      // CHAIN FIX (B): "fresh" only while the tape does not already run the other way - six bars after a
+      // V-low the M5 pressure and a local leg up are the truth, not the impulse that made the low.
+      bool fresh = (G_MB_IMP_PEAK_AGE[1] > 0 && G_MB_IMP_PEAK_AGE[1] <= 6 && p5 != -imp && G_LOC_TH_DIR != -imp);
       bool contradicted = !fresh && (net == -imp || p5 == -imp || MBSign(G_MB_TF_STATE[1]) == -imp || G_LOC_TH_DIR == -imp);
       if(!contradicted)
          return imp;

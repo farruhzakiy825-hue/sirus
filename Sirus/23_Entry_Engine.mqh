@@ -762,6 +762,15 @@ bool MBCandOk(const int d, const int type)
    G_SCORE_FINAL = MathMax(G_SCORE_FINAL, G_SCORE_MIN_REQUIRED + 2);   // what the fast path will stamp
    string w = "";
    bool blocked = MBPermissionCheck(d, w);
+   // CHAIN FIX (O2): the whole veto, not only part of it - a candidate the reversal / zone /
+   // acceleration / exhaustion veto (V1-V5) refuses would be found, vetoed on every tick, and hide
+   // every candidate behind it. Asked as a probe: nothing counted, nothing printed.
+   if(!blocked)
+   {
+      G_MB_VETO_PROBE = true;
+      blocked = !MBVetoAllowsEntry(d, w);
+      G_MB_VETO_PROBE = false;
+   }
    G_OPP_TYPE = keep_type;
    G_SCORE_FINAL = keep_score;
    return !blocked;

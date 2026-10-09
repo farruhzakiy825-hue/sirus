@@ -100,8 +100,8 @@ int MBM5StructDir()
    int s5 = MBSign(G_MB_TF_STATE[1]);
    if(s5 == 0)
       return 0;
-   if(G_ST_LB_DIR[1] == -s5 && G_ST_LB_Q[1] >= ST_Q_VALID)
-      return 0;
+   // CHAIN FIX (C): the M5 state already skips failed breaks (2-bar test, MBBreakFailed); the old 1-bar
+   // follow-through test here disagreed with it after a grab and returned "neutral", switching 1e off.
    double prot = (s5 > 0) ? G_ST_PROT_LO[1] : G_ST_PROT_HI[1];
    double c1 = iClose(_Symbol, PERIOD_M5, 1);
    if(prot > 0.0 && c1 > 0.0 && s5 * (c1 - prot) < 0.0)
@@ -236,6 +236,10 @@ datetime MBStFindEx(const int kind, const int dir, const int min_rank, const int
       if(ev_t < since)
          continue;
       int ty = G_MB_EV[idx].type;
+      // CHAIN FIX: a failed break (a liquidity grab) is not structure - not the reversal's MSS, not the
+      // lock's run, not the stage base.
+      if(kind == 1 && (ty == MB_EV_BOS || ty == MB_EV_MSS) && MBBreakFailed(idx))
+         continue;
       bool ok = (kind == 1) ? (ty == MB_EV_BOS || ty == MB_EV_MSS) :
                 ((kind == 2) ? (ty == MB_EV_LIQ_SWEEP || ty == MB_EV_FAKE_BREAK) : (ty == MB_EV_DISPLACEMENT));
       if(!ok)
@@ -270,6 +274,10 @@ int MBStCount(const int kind, const int dir, const int min_rank, const int max_r
       if(G_MB_EV[idx].time <= 0 || G_MB_EV[idx].dir != dir || G_MB_EV[idx].time < since)
          continue;
       int ty = G_MB_EV[idx].type;
+      // CHAIN FIX: a failed break (a liquidity grab) is not structure - not the reversal's MSS, not the
+      // lock's run, not the stage base.
+      if(kind == 1 && (ty == MB_EV_BOS || ty == MB_EV_MSS) && MBBreakFailed(idx))
+         continue;
       bool ok = (kind == 1) ? (ty == MB_EV_BOS || ty == MB_EV_MSS) :
                 ((kind == 2) ? (ty == MB_EV_LIQ_SWEEP || ty == MB_EV_FAKE_BREAK) : (ty == MB_EV_DISPLACEMENT));
       int rk = MBEventRank(G_MB_EV[idx].tfi);
@@ -544,6 +552,14 @@ void MBStructUpdate()
    MBReversalEvaluate();
 }
 
+int MBStructStageFor(const int dir);
+
+// The reversal toward dir has reached the stage that unlocks a counter-bias entry.
+bool MBReversalUnlocked(const int dir)
+{
+   return (dir != 0 && MBStructStageFor(dir) >= MathMax(1, LockUnlockStage));
+}
+
 // How far the reversal toward dir has got (0 when the reversal under way is the other way).
 int MBStructStageFor(const int dir)
 {
@@ -576,6 +592,12 @@ bool MBLockBlocks(const int dir, string &why)
       return false;
    int st = MBStructStageFor(dir);
    if(st >= MathMax(1, LockUnlockStage))
+      return false;
+   // CHAIN FIX (stage-3 deadlock): at stage 3 the reversal has made its MSS; with the M5 structure already
+   // turned its way and price beyond the MSS, the lock stands aside. Without this, a V-shaped turn that
+   // never retests left BUY blocked by the lock and SELL blocked by "trend under attack" - both sides.
+   if(st >= 3 && MBM5StructDir() == dir && G_ST_REV_MSS > 0.0 &&
+      dir * (SymbolInfoDouble(_Symbol, SYMBOL_BID) - G_ST_REV_MSS) > 0.0)
       return false;
    why = StringFormat("%s LOCK (%s) - %s waits for a reversal: stage %d/%d", (G_ST_LOCK_DIR > 0 ? "BULLISH" : "BEARISH"),
                       G_ST_LOCK_WHY, (dir > 0 ? "BUY" : "SELL"), st, LockUnlockStage);

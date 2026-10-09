@@ -264,6 +264,7 @@ void ResetScoreEngine(const string reason)
    G_SCORE_ROOM_POINTS = 0.0;
    G_SCORE_IS_MICRO = false;
    G_SCORE_HARD_BLOCK = "none";
+   G_SCORE_HB_DIR_WHY = "";
    G_ENTRY_STATUS = "ENTRY: initializing";
    G_ENTRY_REASON = "initial entry";
    G_ENTRY_DETAIL = "ENTRY DETAIL: initializing";
@@ -6647,6 +6648,7 @@ void UpdateSignalScoreEngine(const string source)
       {
          G_SCORE_DECISION   = SCORE_DECISION_HARD_BLOCK;
          G_SCORE_HARD_BLOCK = imp_hb_reason;
+         G_SCORE_HB_DIR_WHY = imp_hb_reason;   // directional: refuses only the spike's side
          G_SCORE_STATUS = "SCORE: HARD_BLOCK | reason=" + imp_hb_reason;
          G_SCORE_DETAIL = StringFormat("SCORE DETAIL: impulse-end hard block | final=%d/%d | %s",
                                        G_SCORE_FINAL, G_SCORE_MIN_REQUIRED, detail);
@@ -6696,6 +6698,7 @@ void UpdateSignalScoreEngine(const string source)
                                                  (wall_dir_i > 0 ? "BUY" : "SELL"),
                                                  (wall_dir_i > 0 ? "resistance" : "support"),
                                                  wall, wall_strength, wall_dist_pts);
+               G_SCORE_HB_DIR_WHY = G_SCORE_HARD_BLOCK;   // directional: refuses only the side facing the wall
                G_SCORE_STATUS = "SCORE: HARD_BLOCK | reason=" + G_SCORE_HARD_BLOCK;
                G_SCORE_DETAIL = StringFormat("SCORE DETAIL: zone-wall hard block | final=%d/%d | %s",
                                              G_SCORE_FINAL, G_SCORE_MIN_REQUIRED, detail);
@@ -6753,6 +6756,7 @@ void UpdateSignalScoreEngine(const string source)
       {
          G_SCORE_DECISION   = SCORE_DECISION_HARD_BLOCK;
          G_SCORE_HARD_BLOCK = ctx_why;
+         G_SCORE_HB_DIR_WHY = ctx_why;   // CHAIN FIX: a directional refusal - the brain may still look at the other side
          G_SCORE_STATUS = "SCORE: HARD_BLOCK | reason=" + G_SCORE_HARD_BLOCK;
          G_SCORE_DETAIL = StringFormat("SCORE DETAIL: counter-context block | final=%d/%d | %s",
                                        G_SCORE_FINAL, G_SCORE_MIN_REQUIRED, detail);

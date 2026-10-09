@@ -91,6 +91,17 @@ double MBLxTargetAhead(const int dir, const double px, string &what)
    double lq = MBLqNearestAhead(dir, px, 3);
    if(lq > 0.0 && (c[4] <= 0.0 || MathAbs(lq - px) < MathAbs(c[4] - px)))
       c[4] = lq;
+   // CHAIN FIX (R7): a box edge whose liquidity was already taken (swept or run through) is not where
+   // the leg is heading any more - with it the leg read "nearly done" right under an old, spent top.
+   // The taken extreme itself is the taken-liquidity guard's business.
+   double near_tk = 0.25 * G_MB_ATR[2] * _Point;
+   for(int k = 1; k <= 3 && near_tk > 0.0; k++)
+   {
+      if(c[k] <= 0.0) continue;
+      for(int i = 0; i < G_MB_LP_N; i++)
+         if(G_MB_LP_DONE[i] && G_MB_LP_SIDE[i] == dir && MathAbs(G_MB_LP_LEVEL[i] - c[k]) <= near_tk)
+         { c[k] = 0.0; break; }
+   }
    for(int k = 0; k < 5; k++)
    {
       if(c[k] <= 0.0 || dir * (c[k] - px) <= 0.0) continue;

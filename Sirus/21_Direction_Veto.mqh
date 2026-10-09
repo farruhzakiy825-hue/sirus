@@ -334,8 +334,13 @@ bool MBFreshBreakAgainst(const int dir, string &why)
       if(TimeCurrent() - closed > (long)MathMax(1, CouncilFreshBreakMinutes) * 60)
          continue;
       double lvl = G_MB_EV[idx].level;
-      // Holding: the last closed M5 is still on the break side (a close back through by 0.1 ATR(M5) = reclaimed).
-      if(-dir * (c5 - lvl) < -0.1 * atr5)
+      // Holding: the last closed M5 is still on the break side. CHAIN FIX (D): a close back through by
+      // 0.3 ATR(M5) reclaims it (0.1 was a $0.25 dip - any retest wick-close cancelled the rule).
+      if(-dir * (c5 - lvl) < -0.3 * atr5)
+         continue;
+      // CHAIN FIX (F/G): the M5 has already broken back the entry's way after the HTF bar closed - the
+      // market answered the break (a news-spike break given back must not hold the other side for an hour).
+      if(G_ST_LB_DIR[1] == dir && G_ST_LB_TIME[1] >= closed && G_ST_LB_Q[1] >= ST_Q_VALID)
          continue;
       if(MBBreakFailed(idx))
          continue;
@@ -366,6 +371,29 @@ bool MBFreshBreakAgainst(const int dir, string &why)
    return true;
 }
 
+// A holding zone of the other side within CouncilZoneATR5 x ATR(M5) in front of dir (not closed through,
+// not pending a break, fewer than four touches). lvl = that level.
+bool MBCouncilZoneFront(const int dir, double &lvl)
+{
+   lvl = 0.0;
+   double atr5 = G_MB_ATR[1] * _Point;
+   if(!EnableZoneRoleEngine || atr5 <= 0.0 || CouncilZoneATR5 <= 0.0 || dir == 0)
+      return false;
+   double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
+   double l = (dir > 0) ? ZoneMapNearestResistance(px) : ZoneMapNearestSupport(px);
+   if(px <= 0.0 || l <= 0.0 || dir * (l - px) > CouncilZoneATR5 * atr5 || dir * (l - px) < -0.1 * atr5)
+      return false;
+   double c5 = iClose(_Symbol, PERIOD_M5, 1);
+   if(c5 > 0.0 && dir * (c5 - l) > 0.1 * atr5)
+      return false;   // closed through it
+   SMBZone z;
+   // Plan stage 3 (level fatigue): a zone tested four times or more is wearing out - breakout risk, not a wall.
+   if(!MBZoneRead(l, z) || z.role != -dir || z.pending_break || z.touches >= 4)
+      return false;
+   lvl = l;
+   return true;
+}
+
 bool MBCouncilEval(const int dir, string &why, string &uz)
 {
    why = "";
@@ -389,7 +417,7 @@ bool MBCouncilEval(const int dir, string &why, string &uz)
    //     on the premium side until an M5 close above the lower high (mirrored for SELL). 09-Oct 08:33.
    {
       string lw = "";
-      if(MBStructStageFor(dir) < 3 && MBLowerHighBlocks(dir, lw))
+      if(MBLowerHighBlocks(dir, lw))   // CHAIN FIX (E): no stage exemption - the M5 close above it is the release
       {
          why = "council: " + lw;
          uz = (dir > 0) ? "past tepa ostida - BUY yo'q" : "baland tub ustida - SELL yo'q";
@@ -493,28 +521,19 @@ bool MBCouncilEval(const int dir, string &why, string &uz)
          return true;
       }
    }
-   // 3. A holding zone of the other side right in front.
-   double atr5 = G_MB_ATR[1] * _Point;
-   if(EnableZoneRoleEngine && atr5 > 0.0 && CouncilZoneATR5 > 0.0)
+   // 3. A holding zone of the other side right in front. CHAIN FIX (compression): never both sides - when
+   //    a holding support AND a holding resistance sit within the band on either side, price is boxed in
+   //    and the break decides (the old location guard already had this escape; the council did not).
+   double lvl3 = 0.0;
+   if(MBCouncilZoneFront(dir, lvl3) && !MBCouncilZoneFront(-dir, lvl3) && !MBEGSkip(EG_ZONEFRONT, dir))
    {
+      MBCouncilZoneFront(dir, lvl3);   // the level of THIS side again for the text
+      double atr5 = G_MB_ATR[1] * _Point;
       double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
-      double lvl = (dir > 0) ? ZoneMapNearestResistance(px) : ZoneMapNearestSupport(px);
-      if(px > 0.0 && lvl > 0.0 && dir * (lvl - px) <= CouncilZoneATR5 * atr5 && dir * (lvl - px) >= -0.1 * atr5)
-      {
-         SMBZone z;
-         double c5 = iClose(_Symbol, PERIOD_M5, 1);
-         bool broken = (c5 > 0.0 && dir * (c5 - lvl) > 0.1 * atr5);
-         // Plan stage 3 (level fatigue): a zone tested four times or more is wearing out - breakout
-         // risk, not a wall; it does not hold the entry back.
-         if(!broken && MBZoneRead(lvl, z) && z.role == -dir && !z.pending_break && z.touches < 4 &&
-            !MBEGSkip(EG_ZONEFRONT, dir))
-         {
-            why = StringFormat("council: %s %s holds right in front (%.2f ATR) - waiting for an M5 close through it",
-                               (dir > 0 ? "resistance" : "support"), DoubleToString(lvl, _Digits), MathAbs(lvl - px) / atr5);
-            uz = StringFormat("oldida %s %s", (dir > 0 ? "resistance" : "support"), DoubleToString(lvl, _Digits));
-            return true;
-         }
-      }
+      why = StringFormat("council: %s %s holds right in front (%.2f ATR) - waiting for an M5 close through it",
+                         (dir > 0 ? "resistance" : "support"), DoubleToString(lvl3, _Digits), (atr5 > 0.0 ? MathAbs(lvl3 - px) / atr5 : 0.0));
+      uz = StringFormat("oldida %s %s", (dir > 0 ? "resistance" : "support"), DoubleToString(lvl3, _Digits));
+      return true;
    }
    return false;
 }
@@ -659,6 +678,21 @@ bool MBPermissionCheck(const int dir, string &why)
                          MBBiasName(G_MB_BIAS), side, OpportunityTypeToString(G_OPP_TYPE));
       return true;
    }
+   // CHAIN FIX (W5): a NEUTRAL brain bias is blind to the higher-timeframe trend - an entry against
+   // it then had no objection at all. Against the HTF trend a neutral bias asks for its own proof:
+   // M5 structure or the local leg this way, a reversal at its unlock stage, or a range edge / swept
+   // level in a range.
+   if(a == 0 && DeepHTFTrendDirection() == -dir)
+   {
+      bool own_edge = MBRangeRules() && (G_OPP_TYPE == OPP_TYPE_RANGE_EDGE || G_OPP_TYPE == OPP_TYPE_SWEEP_REJECTION);
+      if(MBM5StructDir() != dir && MBLayerLocal() != dir && !own_edge &&
+         MBStructStageFor(dir) < MathMax(1, LockUnlockStage))
+      {
+         why = StringFormat("V0 permission: brain neutral but the HTF trend is %s - %s needs M5 structure, the local leg or a reversal",
+                            (dir > 0 ? "down" : "up"), side);
+         return true;
+      }
+   }
    return false;
 }
 
@@ -701,6 +735,8 @@ bool MBVetoAllowsEntry(const int dir, string &why)
 
    if(!blocked)
       return true;
+   if(G_MB_VETO_PROBE)
+      return false;   // a probe: no count, no journal line
 
    // Counted per decision, not per tick: once per M1 bar for the same reason.
    {
