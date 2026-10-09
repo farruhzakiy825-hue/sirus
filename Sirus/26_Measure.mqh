@@ -45,6 +45,12 @@ input bool   EnableShadowValve        = true;   // Enable shadow valve
 input int    ShadowValveMinutes       = 30;   // Shadow valve minutes
 // ShadowValveMinSamples: Qaror uchun shu filtr bo'yicha kamida shuncha natija
 input int    ShadowValveMinSamples    = 10;   // Shadow valve min samples
+// EnableTempoValve: TEMPO: no entry for TempoQuietMinutes while the refused setups keep reaching TP (>= TempoMinTPRate over >= TempoMinRefusals recent results) - the timing / quality gates (score, judge, location, late / taken target, drift) relax for TempoMinutes, for the side that is not against the global bias or the M5 structure. Direction gates never relax.
+input bool   EnableTempoValve         = true;   // TEMPO valve (keeps the trade flow when gates over-block)
+input int    TempoQuietMinutes        = 15;   // TEMPO: quiet minutes before it can switch on
+input int    TempoMinRefusals         = 10;   // TEMPO: recent refused setups needed as evidence
+input double TempoMinTPRate           = 0.80;   // TEMPO: share of them that reached TP
+input int    TempoMinutes             = 20;   // TEMPO: how long it stays on
 // EnableDailyReport: 18-BOSQICH (B6): kun yakunida bitta qator - savdolar, lot, natija, soya, LIVE SWEEP, veto, tezlik (Sirus_DailyReport_<symbol>_<magic>.csv)
 input bool   EnableDailyReport        = true;   // Enable daily report
 
@@ -461,13 +467,47 @@ bool MBShadowValveEligible(const int g)
 
 bool MBShadowValveOn(const int g)
 {
-   if(!EnableShadowValve || g <= GATE_NONE || g >= GATE_COUNT)
+   if(g <= GATE_NONE || g >= GATE_COUNT)
+      return false;
+   if(EnableTempoValve && TimeCurrent() < G_TEMPO_UNTIL && MBShadowValveEligible(g))
+      return true;   // TEMPO relaxes every quality gate at once
+   if(!EnableShadowValve)
       return false;
    return (TimeCurrent() < G_SV_UNTIL[g]);
 }
 
+// TEMPO: switched on when the EA has been quiet and the setups it refused keep paying.
+void MBTempoCheck()
+{
+   static datetime tempo_t0 = 0;
+   if(tempo_t0 == 0)
+      tempo_t0 = TimeCurrent();
+   if(!EnableTempoValve || G_BASKET_ORDERS > 0 || TimeCurrent() < G_TEMPO_UNTIL)
+      return;
+   datetime last = MathMax(G_LAST_ENTRY_TIME, tempo_t0);
+   if(TimeCurrent() - last < (long)MathMax(1, TempoQuietMinutes) * 60)
+      return;
+   if(G_TEMPO_N < MathMax(3, TempoMinRefusals))
+      return;
+   double rate = (double)G_TEMPO_TP / G_TEMPO_N;
+   if(rate < TempoMinTPRate)
+      return;
+   G_TEMPO_UNTIL = TimeCurrent() + MathMax(1, TempoMinutes) * 60;
+   PrintFormat("[SIRUS TEMPO] on for %d min: quiet %d min, refused setups reached TP %.0f%% (n=%d) - timing / quality gates relaxed for the direction-safe side",
+               TempoMinutes, (int)((TimeCurrent() - last) / 60), rate * 100.0, G_TEMPO_N);
+   G_TEMPO_N = 0;
+   G_TEMPO_TP = 0;
+}
+
 void MBShadowValveFeed(const int g, const int outcome)
 {
+   if(g != MB_SH_TAKEN && g > GATE_NONE && g < GATE_COUNT)
+   {
+      // TEMPO evidence: every refused setup, whatever gate refused it (recent - halved at 40).
+      G_TEMPO_N++;
+      if(outcome == MB_SH_TP) G_TEMPO_TP++;
+      if(G_TEMPO_N >= 40) { G_TEMPO_N /= 2; G_TEMPO_TP /= 2; }
+   }
    if(!EnableShadowValve)
       return;
    if(g == MB_SH_TAKEN)
@@ -518,6 +558,7 @@ void MBShadowUpdate()
    if(!EnableShadowLedger)
       return;
    MBShadowDayRoll();
+   MBTempoCheck();   // TEMPO valve (a few comparisons)
    datetime fb = iTime(_Symbol, PERIOD_M1, 0);
    if(fb != G_SH_FLUSH_BAR)
    {
@@ -589,8 +630,13 @@ string MBShadowPanelText()
    }
    if(best >= 0 && tn >= ShadowMinSamplesToJudge && best_r >= taken + 0.10)
       t += StringFormat("  ·  ⚠ %s yaxshisini to'smoqda (%.0f%%)", MBShadowGateUz(best), best_r * 100.0);
-   string vt = MBShadowValveText();
-   if(StringLen(vt) > 0)
-      t += "  ·  ⚙ yumshatildi: " + vt;
+   if(EnableTempoValve && TimeCurrent() < G_TEMPO_UNTIL)
+      t += StringFormat("  ·  ⚡ TEMPO %d daq", (int)((G_TEMPO_UNTIL - TimeCurrent()) / 60) + 1);
+   else
+   {
+      string vt = MBShadowValveText();
+      if(StringLen(vt) > 0)
+         t += "  ·  ⚙ yumshatildi: " + vt;
+   }
    return t;
 }

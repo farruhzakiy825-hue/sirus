@@ -1,5 +1,31 @@
 # CHANGELOG — Sirus Brain V8
 
+## TEMPO klapani: filtrlar ortiqcha to'sganda savdo oqimini tiklash (09-Oct: 7 soatda 3 ta savdo)
+
+- **Holat.**
+  - 09-Oct Osiyo sessiyasida 7 soatda faqat 3 ta savdo bo'ldi.
+  - Soya: 354 ta to'silgan setupdan 91% i TP ga yetardi. O'tkazilgan yaxshi setuplar: 322.
+  - To'siqlar: "ball yetmadi" 45%, "miya taqiqi" 28%, "drift" 8%.
+  - Har bir filtr alohida to'g'ri, lekin hammasi birga deyarli hech narsani o'tkazmadi.
+- **TEMPO qachon yoqiladi.** Ikki shart birga bajarilishi kerak:
+  - `TempoQuietMinutes` (15) daqiqa kirish bo'lmagan;
+  - oxirgi kamida `TempoMinRefusals` (10) ta to'silgan setupning kamida `TempoMinTPRate` (80%) i TP ga yetgan.
+  - Shunda `TempoMinutes` (20) daqiqaga vaqt va sifat filtrlari yumshaydi.
+- **Nima yumshaydi:**
+  - detektor balli, hakam, joy/zona/HTF-rejim oilasi (soya klapani hammasini birga yoqadi);
+  - "kech kirish" to'siq emas;
+  - charchash chegarasi +15;
+  - olingan likvidlik: faqat daraja ostidagi/ustidagi burilish zonasi (0.5 ATR(M5)) to'sadi;
+  - drift chegarasi 2 barobar.
+- **Kimga tegishli.** Faqat yo'nalish jihatidan xavfsiz tomonga: global biasga qarshi emas va buzilmagan M5 tuzilmasiga qarshi emas.
+- **Hech qachon yumshamaydi:**
+  - V0 yo'nalish ruxsati;
+  - LOCK;
+  - kengash (uchlik, 1e M5 tuzilma, 1f yangi M15/H1 buzilishi);
+  - yangilik, spread, risk, anomaliya.
+- **Drift himoyasi** navbatdagi signalni qayta o'ynatish uchun yozilgan. Endi u miya tez kirishiga umuman qo'llanmaydi, chunki tez kirish jonli narxda baholanadi.
+- **Panel.** Soya qatorida `⚡ TEMPO N daq` ko'rinadi. Jurnalga `[SIRUS TEMPO] on ...` yoziladi.
+
 ## Yangi M15/H1 buzilishiga qarshi kirish yo'q (08-Oct 22:20 BRAIN HANDOFF SELL 4135.106)
 
 - **Holat.**

@@ -321,6 +321,16 @@ bool MBLxRising(const int dir)
 
 int MBExhaustPressure(const int dir) { return (dir == 0) ? 0 : G_LX_PRESS[MBLxK(dir)]; }
 
+// TEMPO (26_Measure): the timing / quality gates are relaxed while the valve is on - but only for a side
+// that is direction-safe: not against the global bias and not against an intact M5 structure. The
+// direction gates (V0, lock, council, fresh HTF break) never relax.
+bool MBTempoOnFor(const int dir)
+{
+   if(dir == 0 || TimeCurrent() >= G_TEMPO_UNTIL)
+      return false;
+   return (dir * G_MB_BIAS >= 0 && MBM5StructDir() != -dir);
+}
+
 // True = no new entry toward dir here (late in the leg, exhausted, or its target already taken).
 bool MBLateBlocks(const int dir, string &why, string &uz)
 {
@@ -334,13 +344,16 @@ bool MBLateBlocks(const int dir, string &why, string &uz)
    // (spread + TP) x TakenLiqRoomMult before the taken level (live price), and outside the reversal
    // zone of TakenLiqBlockATR5 x ATR(M5) under / over it, the entry is not blocked.
    bool taken_close = G_LX_TAKEN[k];
-   if(taken_close && G_LX_TAKEN_EXT[k] > 0.0 && G_LX_TP_NEED > 0.0)
+   bool tempo = MBTempoOnFor(dir);
+   // TEMPO: only the reversal zone right under / over the taken level still blocks.
+   double need_room = tempo ? MathMax(0.0, TakenLiqBlockATR5) * G_MB_ATR[1] : G_LX_TP_NEED;
+   if(taken_close && G_LX_TAKEN_EXT[k] > 0.0 && need_room > 0.0)
    {
       // AUDIT FIX (B5): from the bid on both sides - the need already holds the spread; measuring a BUY
       // from the ask counted it twice and refused BUYs where the mirrored SELL passed.
       double epx = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double room = dir * (G_LX_TAKEN_EXT[k] - epx) / _Point;
-      if(epx > 0.0 && room >= G_LX_TP_NEED)
+      if(epx > 0.0 && room >= need_room)
          taken_close = false;
    }
    if(taken_close)
@@ -349,13 +362,13 @@ bool MBLateBlocks(const int dir, string &why, string &uz)
       uz = "oldindagi likvidlik olingan";
       return true;
    }
-   if(ExhaustBlockScore > 0 && G_LX_PRESS[k] >= ExhaustBlockScore)
+   if(ExhaustBlockScore > 0 && G_LX_PRESS[k] >= ExhaustBlockScore + (tempo ? 15 : 0))
    {
       why = StringFormat("exhaustion %d/100 against more %s (%s)", G_LX_PRESS[k], side, G_LX_PRESS_WHY[k]);
       uz = StringFormat("charchash %d", G_LX_PRESS[k]);
       return true;
    }
-   if(EnableLateEntryGuard)
+   if(EnableLateEntryGuard && !tempo)   // TEMPO: "late in the leg" does not stop a $0.2 scalp with the trend
    {
       double leg15 = 0.0;
       double pct = MBLegPct(dir, leg15);

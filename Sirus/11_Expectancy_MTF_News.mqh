@@ -2031,10 +2031,20 @@ bool EntryDriftAllows(string &reason)
    if(signal_close <= 0.0 || bid <= 0.0)
       return true; // ma'lumot tayyor emas: hech qachon silent block emas
 
+   // The guard protects a QUEUED signal replayed after price moved on. A brain fast entry is judged on
+   // the live price by the veto and the Entry Judge - it has no stale signal to drift from.
+   if(G_MB_FAST_ACTIVE)
+   {
+      reason = "drift guard skipped (brain entry on the live price)";
+      return true;
+   }
    double drift_pts = MathAbs(bid - signal_close) / _Point;
    double atr = ATRPointsManual(SignalTF, ATRPeriod, 1);
    double limit = MathMax((double)MathMax(1, DriftMinPointsFloor),
                           (atr > 0.0 ? atr * DriftMaxATRFraction : 0.0));
+   int dr_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
+   if(MBTempoOnFor(dr_dir))
+      limit *= 2.0;   // TEMPO: twice the room
 
    if(drift_pts > limit)
    {
