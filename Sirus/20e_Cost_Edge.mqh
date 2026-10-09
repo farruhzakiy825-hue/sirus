@@ -196,7 +196,7 @@ bool MBCostEval(const int dir, string &why, string &uz)
       double tp = RebateTargetPoints();
       double need = spr + MBExpectedSlip() + tp;
       double room = MBRoomAhead(dir, px);
-      if(tp > 0.0 && room > 0.0 && room < NetEdgeRoomMult * need)
+      if(tp > 0.0 && room > 0.0 && room < NetEdgeRoomMult * need && !MBEGSkip(EG_NETEDGE, dir))
       {
          why = StringFormat("net edge: room %.0f pts to the obstacle ahead < %.1f x (spread %.0f + slippage %.0f + TP %.0f)",
                             room, NetEdgeRoomMult, spr, MBExpectedSlip(), tp);
@@ -220,13 +220,22 @@ bool MBCostBlocks(const int dir, string &why, string &uz)
       uz = "";
       return false;
    }
+   static int    cm_eg[2] = {0, 0};   // evidence keys that stood aside inside this evaluation
    int k = (dir > 0) ? 1 : 0;
    long msc = SymbolInfoInteger(_Symbol, SYMBOL_TIME_MSC);
    if(msc != cm_msc[k] || msc == 0)
    {
+      int eg_before = G_EG_SKIP_MASK;
+      bool eg_rec = G_EG_RECORD;
+      G_EG_RECORD = true;
       cm_res[k] = MBCostEval(dir, cm_why[k], cm_uz[k]);
+      cm_eg[k] = G_EG_SKIP_MASK & ~eg_before;
+      G_EG_SKIP_MASK = eg_before;
+      G_EG_RECORD = eg_rec;
       cm_msc[k] = msc;
    }
+   if(G_EG_RECORD)
+      G_EG_SKIP_MASK |= cm_eg[k];
    why = cm_why[k];
    uz = cm_uz[k];
    return cm_res[k];

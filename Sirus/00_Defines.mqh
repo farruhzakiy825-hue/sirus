@@ -424,9 +424,23 @@ bool MBShadowValveOn(const int g);   // a quality gate relaxed by the shadow led
 double MBNormalSpread();   // spread memory (20e) - read by the news settle check (11)
 bool MBAnomalyBlocks(string &why);   // anomaly guard (20f) - read by the news settle check (11)
 int MBM5StructDir();
-bool MBTempoOnFor(const int dir);   // TEMPO valve on and dir is direction-safe (20c) - read by the drift guard (11)
-bool MBDirSafe(const int dir);      // not against the global bias nor an intact M5 structure (20c)
-void MBTempoBasketClosed();         // TEMPO circuit breaker bookkeeping (26) - called by the Position Brain (24)   // the M5 structure that still holds (20b) - read by the local layer (20)
+// EVIDENCE GATES (26c): the quality filters that prove their place on the robot's own numbers.
+#define EG_SCORE      0   // detector score
+#define EG_JUDGE      1   // Entry Judge quality
+#define EG_LOCATION   2   // old location / zone / HTF-regime family
+#define EG_DRIFT      3   // queued-signal drift
+#define EG_LATE       4   // V8 late in the leg
+#define EG_TAKEN      5   // V8 target liquidity already taken
+#define EG_EXHAUST    6   // V8 exhaustion pressure / V5 exhausted impulse
+#define EG_ZONEFRONT  7   // V2 zone role / V3 no room / council: a zone right in front
+#define EG_NETEDGE    8   // V10 net edge (room for the TP before an obstacle)
+#define EG_COUNT      9
+bool MBEGSkip(const int k, const int dir);   // a quality filter stands aside for this side now (26c)
+int MBEGKeyOf(const string reason);         // evidence key of a refusal reason (26c)
+void MBEGFeed(const bool taken, const int ek, const int al, const int mask, const int outcome);
+void MBEGTick();
+void MBEGBasketClosed();                     // circuit breaker bookkeeping - called by the Position Brain (24)
+string MBEGPanelText();   // the M5 structure that still holds (20b) - read by the local layer (20)
 double MBM5LegPos(const int sdir);   // where price sits in the current M5 leg (20b) - read by the council (21)
 string MBShadowPanelText();
 int MBBiasAlign(const int dir);

@@ -484,7 +484,8 @@ bool MBCouncilEval(const int dir, string &why, string &uz)
          bool broken = (c5 > 0.0 && dir * (c5 - lvl) > 0.1 * atr5);
          // Plan stage 3 (level fatigue): a zone tested four times or more is wearing out - breakout
          // risk, not a wall; it does not hold the entry back.
-         if(!broken && MBZoneRead(lvl, z) && z.role == -dir && !z.pending_break && z.touches < 4)
+         if(!broken && MBZoneRead(lvl, z) && z.role == -dir && !z.pending_break && z.touches < 4 &&
+            !MBEGSkip(EG_ZONEFRONT, dir))
          {
             why = StringFormat("council: %s %s holds right in front (%.2f ATR) - waiting for an M5 close through it",
                                (dir > 0 ? "resistance" : "support"), DoubleToString(lvl, _Digits), MathAbs(lvl - px) / atr5);
@@ -505,13 +506,24 @@ bool MBCouncilBlocks(const int dir, string &why)
    static long   cb_msc[2] = {0, 0};
    static bool   cb_res[2] = {false, false};
    static string cb_why[2];
+   static int    cb_eg[2] = {0, 0};   // evidence keys that stood aside inside this evaluation
    int k = (dir > 0) ? 1 : 0;
    long msc = SymbolInfoInteger(_Symbol, SYMBOL_TIME_MSC);
    if(msc != cb_msc[k] || msc == 0)
    {
+      // Capture the skips even when the first call of the tick is a candidate probe (recording off),
+      // so the cached answer still tells the final decision which filter stood aside.
+      int eg_before = G_EG_SKIP_MASK;
+      bool eg_rec = G_EG_RECORD;
+      G_EG_RECORD = true;
       cb_res[k] = MBCouncilEval(dir, cb_why[k], G_MB_COUNCIL_UZ[k]);
+      cb_eg[k] = G_EG_SKIP_MASK & ~eg_before;
+      G_EG_SKIP_MASK = eg_before;
+      G_EG_RECORD = eg_rec;
       cb_msc[k] = msc;
    }
+   if(G_EG_RECORD)
+      G_EG_SKIP_MASK |= cb_eg[k];
    why = cb_why[k];
    return cb_res[k];
 }
@@ -645,11 +657,11 @@ bool MBVetoAllowsEntry(const int dir, string &why)
       blocked = true;
    else if(MBVetoReversal && MBVetoReversalCheck(dir, why))
       blocked = true;
-   else if(MBVetoZoneCheck(dir, price, why))
-      blocked = true;
+   else if(MBVetoZoneCheck(dir, price, why) && !MBEGSkip(EG_ZONEFRONT, dir))
+      blocked = true;                  // V2 / V3 (an evidence gate - stands aside when it does not earn its place)
    else if(MBVetoAcceleration && MBVetoAccelerationCheck(dir, why))
       blocked = true;
-   else if(MBExhausted(dir, why))
+   else if(MBExhausted(dir, why) && !MBEGSkip(EG_EXHAUST, dir))
    {
       why = "V5 exhausted: " + why;   // stage 13 (A4): no new entry into a spent impulse
       blocked = true;

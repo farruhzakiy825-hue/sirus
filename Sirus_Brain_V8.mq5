@@ -51,6 +51,7 @@
 #include "Sirus/25_Visual_Design.mqh"    // Watermark and the Sirus panel (card dashboard)
 #include "Sirus/26_Measure.mqh"          // Stage 12: profiler + shadow ledger
 #include "Sirus/26b_Autopsy.mqh"         // Plan stage 7: trade memory, bad-entry autopsy, bad-taken vs good-missed balance
+#include "Sirus/26c_Evidence_Gates.mqh"  // Evidence gates: every quality filter proves its place on the robot's own numbers
 #include "Sirus/90_Reason_Code.mqh"      // Reason Code (always last): why every order was opened (journal + CSV)
 
 //==================================================================//

@@ -4169,6 +4169,8 @@ bool MBOwnsGate(const bool location_gate)
 bool FirstEntryCanRun(string &reason)
 {
    G_MB_FAST_ACTIVE = false;
+   G_EG_SKIP_MASK = 0;     // evidence gates: the quality filters that stand aside for THIS decision
+   G_EG_RECORD = true;
    // BOSQICH 4: kun almashganda kechagi hisob logga yoziladi va nolga qaytadi
    {
       static int fe_day = -1;
@@ -4399,6 +4401,20 @@ bool FirstEntryCanRun(string &reason)
       }
    }
 
+   // EVIDENCE GATE (score): on a side where the detector score's refusals needed the grid no more often
+   // than the trades taken, a score WAIT is not a reason to stay out - the veto and the Entry Judge still
+   // decide. An armed setup of the same side keeps waiting for its own objection to be answered.
+   if(G_SCORE_DECISION == SCORE_DECISION_WAIT && G_OPP_DIR != OPP_DIR_NONE)
+   {
+      int eg_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : -1;
+      if(G_ARM_DIR != eg_dir && MBEGSkip(EG_SCORE, eg_dir))
+      {
+         G_SCORE_DECISION = G_SCORE_IS_MICRO ? SCORE_DECISION_MICRO_PASS : SCORE_DECISION_PASS;
+         DecisionLog("EVIDENCE", StringFormat("score %d/%d short - the score filter stands aside on this side (evidence)",
+                                              G_SCORE_FINAL, G_SCORE_MIN_REQUIRED));
+      }
+   }
+
    // MARKET BRAIN FAST ENTRY (speed): no detector score yet, but a winning basket's thesis is still
    // open (re-entry) or a confirmed thesis has a trigger right now. Everything below - the remaining
    // gates, the veto and the Entry Judge - still decides.
@@ -4409,7 +4425,13 @@ bool FirstEntryCanRun(string &reason)
    {
       int fe_dir = 0;
       string fe_why = "";
-      if(MBFastEntryCandidate(fe_dir, fe_why))
+      // Candidate probes ask the filters for every side they try - only the final decision records skips.
+      int eg_mask_keep = G_EG_SKIP_MASK;
+      G_EG_RECORD = false;
+      bool fe_found = MBFastEntryCandidate(fe_dir, fe_why);
+      G_EG_RECORD = true;
+      G_EG_SKIP_MASK = eg_mask_keep;
+      if(fe_found)
       {
          ENUM_OPPORTUNITY_DIR fe_opp = (fe_dir > 0) ? OPP_DIR_BUY : OPP_DIR_SELL;
          // AUDIT FIX (C2): the context below was worked out for the scanner's setup - its direction, or
@@ -4819,6 +4841,7 @@ void UpdateFirstEntryEngine(const string source)
 {
    string reason = "";
    G_ENTRY_READY = FirstEntryCanRun(reason);
+   G_EG_RECORD = false;   // evidence gates: skips are recorded inside the decision only
 
    // GATE REGISTRY: every refusal passes through here, which is what makes one line worth more
    // than seventy-one scattered ones. The reason text is already written; this turns it into a
@@ -5126,13 +5149,10 @@ void UpdateFirstEntryEngine(const string source)
       // most entries now from the brain it released the score hard blocks (and the naked counter-trend
       // refusal) while the EA was trading all along. Any real entry restarts its clock.
       G_LAST_ENTRY_ALLOWED_BAR = G_BARS_SEEN;
-      // SMART TEMPO: remember whether this basket was entered with TEMPO relaxing the gates - the
-      // circuit breaker judges TEMPO by how its own baskets end.
-      {
-         int te_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
-         G_TEMPO_BASKET = MBTempoOnFor(te_dir);
-         G_TEMPO_BASKET_MAXORD = G_TEMPO_BASKET ? 1 : 0;
-      }
+      // EVIDENCE GATES: remember whether a quality filter stood aside for this basket - the circuit
+      // breaker judges the relaxations by how these baskets end.
+      G_EG_BASKET = (G_EG_SKIP_MASK != 0);
+      G_EG_BASKET_MAXORD = G_EG_BASKET ? 1 : 0;
 
       // FIX(first-entry-direction-stale): these two read G_BASKET_DIRECTION, but at this instant it
       // is still the value RefreshGridDashboardStats() wrote for an EMPTY account earlier in the

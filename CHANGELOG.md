@@ -1,5 +1,63 @@
 # CHANGELOG — Sirus Brain V8
 
+## DALIL DARVOZALARI: har bir sifat filtri o'z o'rnini robotning o'z raqamlari bilan isbotlaydi (TEMPO va TP ga asoslangan soya klapani o'rniga)
+
+- **Asl sabab** (egasining soya fayllari, 06–09-Oct, 2065 setup).
+  - TP ~224 punkt, grid qadami ~5500 punkt. Shuning uchun deyarli har qanday kirish TP ga yetadi: olinganlar 90%, to'silganlar 91%.
+  - Kirishlarni bir-biridan ajratadigan yagona narsa: savat **gridga borganmi**.
+  - Gridga borganlar ulushi:
+    - olingan savdolar: 10.4%;
+    - ball to'sganlar: 7.1%;
+    - miya veto'si to'sganlar, bias tomonida: 7.1%;
+    - miya veto'si to'sganlar, biasga qarshi: 16.1%.
+  - Xulosa: ko'p sifat filtrlari savdo sonini o'n barobar kamaytiradi, lekin sifatni oshirmaydi. Biasga qarshi yo'nalish veto'si esa haqiqatan yomon kirishlarni to'xtatadi.
+- **Yangi modul `26c_Evidence_Gates.mqh`.**
+  - Har bir sifat filtri bo'yicha to'siqlarning qancha qismi gridga borgani yuritiladi. Bias tomoni va biasga qarshi tomon alohida hisoblanadi, natija olingan savdolar bilan solishtiriladi.
+  - Filtrlar: ball, hakam, joy oilasi, drift, kech, olingan likvidlik, charchash, oldidagi zona, TP joyi (net edge).
+  - Qaror:
+    - to'silganlar olinganlardan ko'p gridga bormasa, filtr o'sha tomonda bo'shaydi;
+    - +3 foiz punkt ko'p borsa, filtr qaytadi;
+    - har tomonda kamida 30 natija bo'lmaguncha filtr ishlaydi.
+  - Bo'shatilgan filtr ham o'lchanishda davom etadi: u o'tkazib yuborgan har bir kirishning natijasi uning namunasiga qo'shiladi.
+  - Charchash filtri hech qachon to'liq o'chmaydi: faqat +15 bal joy beriladi. Olingan likvidlik filtri daraja ostidagi/ustidagi 0.5 ATR(M5) burilish zonasini doim to'sadi.
+- **Hech qachon bo'shamaydi:**
+  - V0, LOCK, kengashning tuzilma qoidalari, V1, V4;
+  - yangilik, spread, risk, anomaliya;
+  - o'lgan g'oyadan keyin qayta kirish.
+- **Xavfsizlik.**
+  - Bozor noodatiy bo'lsa, hech narsa bo'shamaydi: yangilik oynasi, tezlik pauzasi, anomaliya yoki spread odatiydan 1.5 barobar katta.
+  - Circuit breaker: bo'sh filtr bilan ochilgan oxirgi 4 savatdan 2 tasi gridga borsa, barcha yumshatish 60 daqiqaga to'xtaydi.
+  - Hisoblar terminal o'zgaruvchilarida saqlanadi, shuning uchun qayta ishga tushganda yo'qolmaydi. 300 natijadan keyin ikkiga bo'linadi, ya'ni eski dalil asta-sekin so'nadi.
+- **Boshlang'ich dalil.** Birinchi ishga tushishda egasining fayllaridan olinadi, har hisob 60 natijagacha kichraytiriladi. Faqat bias tomonidagi ball filtri bo'shab boshlaydi (7.7% / 12.2%). Qolganlari yo yomonroq, yo hali isbotlanmagan.
+- **Hook'lar:**
+  - ball WAIT → PASS, lekin veto va hakam baribir hal qiladi; shu tomonda qurollangan setup bo'lsa, o'zi kutadi;
+  - hakam chegaralari −10;
+  - eski joy oilasi;
+  - drift;
+  - V8: kech, olingan likvidlik, charchash;
+  - V5;
+  - V2/V3 va kengashning 3-qoidasi;
+  - V10 net edge.
+  - Tick ichida eslab qolingan kengash va xarajat natijalari ham bo'sh filtr belgisini to'g'ri uzatadi.
+- **Olib tashlangan, chunki noto'g'ri edi:**
+  - TP % ga asoslangan soya klapani (`EnableShadowValve`, `ShadowValveMinutes`, `ShadowValveMinSamples`). TP % kirishlarni ajratmaydi.
+  - TEMPO (`EnableTempoValve` va `Tempo*`) — dalil darvozalari uni almashtiradi.
+- **Tuzatilgan.** Soya CSV faylidagi `brain_bias` endi yozilgan paytdagi bias, natija aniqlangan paytdagisi emas.
+- **Panel.**
+  - "Soya" qatori endi gridga borish ulushini ko'rsatadi.
+  - Yangi qator: `Filtr dalili (olingan gridga X%): bias tomoni bo'sh: … · qarshi bo'sh: …`. Breaker ishlaganda `yumshatish to'xtatildi`, bozor noodatiy bo'lsa `bozor noodatiy` yoziladi.
+- **Jurnal.**
+  - `[SIRUS EVIDENCE] <filtr> (<tomon>): STANDS ASIDE / WORKS AGAIN …`
+  - `[SIRUS EVIDENCE] BREAKER …`
+- **Sozlamalar** ("BRAIN ▸ Evidence gates"):
+  - `EnableEvidenceGates`;
+  - `EGMinSamples` = 30;
+  - `EGBaseBadRate` = 0.10;
+  - `EGKeepMargin` = 0.03;
+  - `EGBreakerGridBaskets` = 2;
+  - `EGBreakerMinutes` = 60;
+  - `EGSeedFromOwnerFiles`.
+
 ## AQLLI TEMPO: faqat kerak bo'lganda va bozor ruxsat berganda yoqiladi, o'z savatlari yomonlashsa o'zi o'chadi
 
 Bu bo'lim avvalgi "TEMPO doimiy" o'zgarishini almashtiradi. Egasi: doim yoqiq bo'lishi katta zararga olib kirishi mumkin.

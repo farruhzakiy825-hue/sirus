@@ -39,22 +39,6 @@ input int    ShadowMaxMinutes         = 30;   // Shadow max minutes
 input bool   ShadowToFile             = true;   // Shadow to file (on/off)
 // ShadowMinSamplesToJudge: Filtr bo'yicha xulosa uchun kamida shuncha natija
 input int    ShadowMinSamplesToJudge  = 10;   // Shadow min samples to judge
-// EnableShadowValve: SOYA KLAPANI: biror sifat filtri to'sgan setuplar olinganlardan ancha ko'p TP ga yetsa (>= ShadowValveMinSamples namuna), o'sha filtr vaqtincha yumshaydi. Risk / yangilik / spread / marja / yo'nalish veto'si HECH QACHON yumshamaydi
-input bool   EnableShadowValve        = true;   // Enable shadow valve
-// ShadowValveMinutes: Yumshatish shuncha daqiqa, keyin yangi dalil bilan qayta baholanadi
-input int    ShadowValveMinutes       = 30;   // Shadow valve minutes
-// ShadowValveMinSamples: Qaror uchun shu filtr bo'yicha kamida shuncha natija
-input int    ShadowValveMinSamples    = 10;   // Shadow valve min samples
-// EnableTempoValve: SMART TEMPO - switches on only when it is needed and the market allows it: the EA has been quiet, the setups it refused on the direction-safe side were CLEAN (TP without a deep move against) at least as often as the trades it took, and there is no news / spike / anomaly / wide spread. It then relaxes the timing / quality gates (score, judge, location, late / taken target, drift) for the direction-safe side only. If its own baskets start needing the grid, the circuit breaker turns it off. Direction gates never relax.
-input bool   EnableTempoValve         = true;   // SMART TEMPO valve (restores trade flow only when it is needed)
-input int    TempoQuietMinutes        = 10;   // TEMPO: quiet minutes before it may switch on (0 = whenever the evidence holds)
-input int    TempoMinRefusals         = 10;   // TEMPO: recent refused direction-safe setups needed as evidence
-input int    TempoCleanMAEPts         = 1500;   // TEMPO: "clean" = TP reached with the move against below this (points)
-input double TempoMinCleanRate        = 0.72;   // TEMPO: refused setups must be clean at least this often ...
-input double TempoCleanEdge           = 0.03;   // ... and this much more often than the trades taken
-input int    TempoMinutes             = 20;   // TEMPO: how long one activation lasts
-input int    TempoBreakerGridBaskets  = 2;   // TEMPO breaker: this many of its last 4 baskets needed the grid ...
-input int    TempoBreakerMinutes      = 60;   // ... switches it off for this long
 // EnableDailyReport: 18-BOSQICH (B6): kun yakunida bitta qator - savdolar, lot, natija, soya, LIVE SWEEP, veto, tezlik (Sirus_DailyReport_<symbol>_<magic>.csv)
 input bool   EnableDailyReport        = true;   // Enable daily report
 
@@ -196,7 +180,10 @@ struct SMBShadow
    double   adv_px;
    double   mfe;       // best excursion, price units
    double   mae;       // worst excursion, price units
-   bool     safe;      // direction-safe side when it was refused (TEMPO evidence)
+   int      ek;        // evidence key of the gate that refused it (26c), -1 = a direction / hard gate
+   int      al;        // 0 = with or neutral to the global bias, 1 = against it
+   int      mask;      // TAKEN: the evidence keys that stood aside for this entry (26c)
+   int      bias;      // the global bias when it was recorded
 };
 
 SMBShadow G_SH[MB_SH_MAX];
@@ -208,10 +195,6 @@ int       G_SH_ACTIVE = 0;      // SPEED: live shadows - the per-tick loop is sk
 string    G_SH_BUF = "";        // SPEED: CSV rows waiting for the once-a-minute flush
 // Shadow valve state: blocked results per gate since its last decision, taken results, and the
 // time each gate's relaxation ends.
-int       G_SV_N[GATE_COUNT];
-int       G_SV_TP[GATE_COUNT];
-int       G_SV_TN = 0, G_SV_TTP = 0;
-datetime  G_SV_UNTIL[GATE_COUNT];
 datetime  G_SH_FLUSH_BAR = 0;
 
 string MBShadowGateName(const int g)
@@ -255,7 +238,7 @@ void MBShadowCsv(const SMBShadow &s, const int outcome, const string extra)
                                    TimeToString(s.t, TIME_DATE | TIME_SECONDS), TimeToString(TimeCurrent(), TIME_DATE | TIME_SECONDS),
                                    MBShadowGateName(s.gate), (s.dir > 0 ? "BUY" : (s.dir < 0 ? "SELL" : "-")),
                                    DoubleToString(s.entry, _Digits), DoubleToString(s.tp_px, _Digits), DoubleToString(s.adv_px, _Digits),
-                                   oc, (int)((TimeCurrent() - s.t) / 60), s.mfe / _Point, s.mae / _Point, G_MB_BIAS, extra);
+                                   oc, (int)((TimeCurrent() - s.t) / 60), s.mfe / _Point, s.mae / _Point, s.bias, extra);
    if(StringLen(G_SH_BUF) > 60000)
       MBShadowFlush();
 }
@@ -317,7 +300,7 @@ void MBShadowDayRoll()
          G_SH_TALLY[g][o] = 0;
 }
 
-void MBShadowAdd(const int dir, const int gate, const double entry)
+void MBShadowAdd(const int dir, const int gate, const double entry, const int ek = -1, const int mask = 0)
 {
    double tp_pts = BaseBasketTPPoints();
    double adv_pts = MathMax(AutoGridBaseDistance(), AutoGridMinDistance());
@@ -336,7 +319,10 @@ void MBShadowAdd(const int dir, const int gate, const double entry)
    G_SH[k].adv_px = entry - dir * adv_pts * _Point;
    G_SH[k].mfe = 0.0;
    G_SH[k].mae = 0.0;
-   G_SH[k].safe = MBDirSafe(dir);
+   G_SH[k].ek = ek;
+   G_SH[k].al = (dir * G_MB_BIAS < 0) ? 1 : 0;
+   G_SH[k].mask = mask;
+   G_SH[k].bias = G_MB_BIAS;
 }
 
 //---------------------------------------------------------------------
@@ -447,7 +433,7 @@ void MBShadowOnDecision(const bool ready, const string reason)
       return;
    G_SH_LAST_BAR[sl] = G_BARS_SEEN;
    MBShadowDayRoll();
-   MBShadowAdd(dir, gate, SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID)));
+   MBShadowAdd(dir, gate, SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID)), MBEGKeyOf(reason));
 }
 
 // A real first entry, followed the same way for the comparison.
@@ -456,172 +442,23 @@ void MBShadowOnEntry(const int dir, const double price)
    if(!EnableShadowLedger)
       return;
    MBShadowDayRoll();
-   MBShadowAdd(dir, MB_SH_TAKEN, price);
+   MBShadowAdd(dir, MB_SH_TAKEN, price, -1, G_EG_SKIP_MASK);
 }
 
 //---------------------------------------------------------------------
-// SHADOW VALVE (E): the robot corrects its own over-strict gate, on numbers
+// SHADOW VALVE -> EVIDENCE GATES (26c)
 //---------------------------------------------------------------------
-// Only quality gates can relax: the detector score, the location / zone / HTF-regime family and the
-// Entry Judge. A gate relaxes when its refused setups reached TP 15 points more often than the trades
-// that were taken (or than 55% while there are fewer than 10 taken) and at least 70% of the time,
-// over ShadowValveMinSamples results. It relaxes for ShadowValveMinutes, then needs fresh evidence.
-bool MBShadowValveEligible(const int g)
-{
-   return (g == GATE_SCORE || g == GATE_LOCATION || g == GATE_ZONE || g == GATE_REGIME || g == GATE_MBJUDGE);
-}
-
+// The old valve judged a gate by the TP share of its refusals - with a ~224-point TP against a
+// ~5500-point grid step even a random entry reaches TP ~96% of the time, so it proved nothing. The
+// quality gates are now judged by the evidence gates (26c) on what separates entries in this robot:
+// how often they needed the grid. The hooks keep their names.
 bool MBShadowValveOn(const int g)
 {
-   if(g <= GATE_NONE || g >= GATE_COUNT)
-      return false;
-   // TEMPO relaxes every quality gate at once - for the side being judged, and only if it is direction-safe.
-   if(EnableTempoValve && MBShadowValveEligible(g))
-   {
-      int od = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
-      if(MBTempoOnFor(od))
-         return true;
-   }
-   if(!EnableShadowValve)
-      return false;
-   return (TimeCurrent() < G_SV_UNTIL[g]);
-}
-
-// SMART TEMPO, every tick (a few comparisons):
-//  1. MARKET  no news window, no tick-velocity pause, no anomaly, spread within 1.5x this hour's normal -
-//             otherwise TEMPO does nothing at all, even while "on".
-//  2. BREAKER TempoBreakerGridBaskets of its last four baskets needed the grid -> off TempoBreakerMinutes.
-//  3. NEED    quiet for TempoQuietMinutes (no basket, no entry) ...
-//  4. PROOF   ... and the recent direction-safe refusals were clean (TP without going TempoCleanMAEPts
-//             deep) at least TempoMinCleanRate of the time and TempoCleanEdge more often than the
-//             trades taken. The owner's files: taken 69% clean, refused direction-safe 76%.
-void MBTempoCheck()
-{
-   static datetime tempo_t0 = 0;
-   if(tempo_t0 == 0)
-      tempo_t0 = TimeCurrent();
-   if(!EnableTempoValve)
-   {
-      G_TEMPO_UNTIL = 0;
-      G_TEMPO_MKT_OK = false;
-      return;
-   }
-   // 1. Market.
-   string an = "";
-   double norm = MBNormalSpread();
-   double spr = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
-   G_TEMPO_MKT_OK = !(EnableEconomicCalendarGuard && G_CAL_ACTIVE) &&
-                    TimeCurrent() > G_VEL_BLOCK_UNTIL &&
-                    !MBAnomalyBlocks(an) &&
-                    !(norm > 0.0 && spr > 1.5 * norm);
-   // The open TEMPO basket's depth (the breaker reads it at the close).
-   if(G_TEMPO_BASKET && G_BASKET_ORDERS > G_TEMPO_BASKET_MAXORD)
-      G_TEMPO_BASKET_MAXORD = G_BASKET_ORDERS;
-   if(TimeCurrent() < G_TEMPO_BREAK_UNTIL || TimeCurrent() < G_TEMPO_UNTIL || G_BASKET_ORDERS > 0)
-      return;
-   // 3. Need.
-   datetime last = MathMax(G_LAST_ENTRY_TIME, tempo_t0);
-   if(TempoQuietMinutes > 0 && TimeCurrent() - last < (long)TempoQuietMinutes * 60)
-      return;
-   // 4. Proof.
-   if(G_TEMPO_N < MathMax(3, TempoMinRefusals))
-      return;
-   double rate = (double)G_TEMPO_C / G_TEMPO_N;
-   double base = (G_TEMPO_TK_N >= 10) ? (double)G_TEMPO_TK_C / G_TEMPO_TK_N : TempoMinCleanRate - TempoCleanEdge;
-   if(rate < TempoMinCleanRate || rate < base + TempoCleanEdge)
-      return;
-   if(!G_TEMPO_MKT_OK)
-      return;
-   G_TEMPO_UNTIL = TimeCurrent() + MathMax(1, TempoMinutes) * 60;
-   PrintFormat("[SIRUS TEMPO] on for %d min: quiet %d min, direction-safe refusals clean %.0f%% vs taken %.0f%% (n=%d) - timing / quality gates relaxed for the direction-safe side",
-               TempoMinutes, (int)((TimeCurrent() - last) / 60), rate * 100.0, base * 100.0, G_TEMPO_N);
-   G_TEMPO_N = 0;
-   G_TEMPO_C = 0;
-}
-
-// Evidence, at every shadow's resolution.
-void MBTempoFeed(const int g, const int outcome, const double mae_pts, const bool safe)
-{
-   bool clean = (outcome == MB_SH_TP && mae_pts < (double)MathMax(1, TempoCleanMAEPts));
-   if(g == MB_SH_TAKEN)
-   {
-      G_TEMPO_TK_N++;
-      if(clean) G_TEMPO_TK_C++;
-      if(G_TEMPO_TK_N >= 40) { G_TEMPO_TK_N /= 2; G_TEMPO_TK_C /= 2; }
-      return;
-   }
-   if(g <= GATE_NONE || g >= GATE_COUNT || !safe)
-      return;
-   G_TEMPO_N++;
-   if(clean) G_TEMPO_C++;
-   if(G_TEMPO_N >= 40) { G_TEMPO_N /= 2; G_TEMPO_C /= 2; }
-}
-
-// Circuit breaker: called when a basket ends. A TEMPO basket that needed the grid counts against it.
-void MBTempoBasketClosed()
-{
-   if(!G_TEMPO_BASKET)
-      return;
-   G_TEMPO_HIST[G_TEMPO_HIST_POS] = (G_TEMPO_BASKET_MAXORD >= 2) ? 1 : 0;
-   G_TEMPO_HIST_POS = (G_TEMPO_HIST_POS + 1) % 4;
-   G_TEMPO_BASKET = false;
-   G_TEMPO_BASKET_MAXORD = 0;
-   int bad = 0;
-   for(int i = 0; i < 4; i++)
-      if(G_TEMPO_HIST[i] == 1) bad++;
-   if(EnableTempoValve && bad >= MathMax(1, TempoBreakerGridBaskets))
-   {
-      G_TEMPO_BREAK_UNTIL = TimeCurrent() + MathMax(1, TempoBreakerMinutes) * 60;
-      G_TEMPO_UNTIL = 0;
-      G_TEMPO_BREAK_WHY = StringFormat("%d of its last 4 baskets needed the grid", bad);
-      for(int i = 0; i < 4; i++) G_TEMPO_HIST[i] = -1;
-      PrintFormat("[SIRUS TEMPO] BREAKER: %s - TEMPO off for %d min", G_TEMPO_BREAK_WHY, TempoBreakerMinutes);
-   }
-}
-
-void MBShadowValveFeed(const int g, const int outcome)
-{
-   if(!EnableShadowValve)
-      return;
-   if(g == MB_SH_TAKEN)
-   {
-      G_SV_TN++;
-      if(outcome == MB_SH_TP) G_SV_TTP++;
-      if(G_SV_TN >= 60) { G_SV_TN /= 2; G_SV_TTP /= 2; }   // keep it recent
-      return;
-   }
-   if(g <= GATE_NONE || g >= GATE_COUNT || !MBShadowValveEligible(g))
-      return;
-   G_SV_N[g]++;
-   if(outcome == MB_SH_TP) G_SV_TP[g]++;
-   int need = MathMax(5, ShadowValveMinSamples);
-   if(G_SV_N[g] < need || TimeCurrent() < G_SV_UNTIL[g])
-      return;
-   double rate = (double)G_SV_TP[g] / G_SV_N[g];
-   double base = (G_SV_TN >= 10) ? (double)G_SV_TTP / G_SV_TN : 0.55;
-   if(rate >= base + 0.15 && rate >= 0.70)
-   {
-      G_SV_UNTIL[g] = TimeCurrent() + MathMax(1, ShadowValveMinutes) * 60;
-      if(VerboseLogs)
-         PrintFormat("[SIRUS SHADOW VALVE] %s relaxed %d min: its refusals reached TP %.0f%% vs %.0f%% (n=%d)",
-                     GateName(g), ShadowValveMinutes, rate * 100.0, base * 100.0, G_SV_N[g]);
-      G_SV_N[g] = 0;
-      G_SV_TP[g] = 0;
-   }
-   else if(G_SV_N[g] >= 2 * need)
-   {
-      G_SV_N[g] /= 2;
-      G_SV_TP[g] /= 2;
-   }
-}
-
-string MBShadowValveText()
-{
-   string t = "";
-   for(int g = 1; g < GATE_COUNT; g++)
-      if(MBShadowValveOn(g))
-         t += StringFormat("%s%s %d daq", (StringLen(t) > 0 ? ", " : ""), MBGateUz(g), (int)((G_SV_UNTIL[g] - TimeCurrent()) / 60));
-   return t;
+   int od = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
+   if(g == GATE_SCORE)   return MBEGSkip(EG_SCORE, od);
+   if(g == GATE_MBJUDGE) return MBEGSkip(EG_JUDGE, od);
+   if(g == GATE_LOCATION || g == GATE_ZONE || g == GATE_REGIME) return MBEGSkip(EG_LOCATION, od);
+   return false;
 }
 
 // Every tick: resolve the shadows price has decided.
@@ -631,7 +468,7 @@ void MBShadowUpdate()
    if(!EnableShadowLedger)
       return;
    MBShadowDayRoll();
-   MBTempoCheck();   // TEMPO valve (a few comparisons)
+   MBEGTick();   // evidence gates: market check, persistence (a few comparisons)
    datetime fb = iTime(_Symbol, PERIOD_M1, 0);
    if(fb != G_SH_FLUSH_BAR)
    {
@@ -667,8 +504,7 @@ void MBShadowUpdate()
 
       int g = MathMax(0, MathMin(MB_SH_SLOTS - 1, G_SH[i].gate));
       G_SH_TALLY[g][outcome]++;
-      MBShadowValveFeed(G_SH[i].gate, outcome);
-      MBTempoFeed(G_SH[i].gate, outcome, G_SH[i].mae / _Point, G_SH[i].safe);
+      MBEGFeed(G_SH[i].gate == MB_SH_TAKEN, G_SH[i].ek, G_SH[i].al, G_SH[i].mask, outcome);
       MBShadowCsv(G_SH[i], outcome, "");
       G_SH[i].active = false;
       G_SH_ACTIVE = MathMax(0, G_SH_ACTIVE - 1);
@@ -682,37 +518,18 @@ string MBShadowPanelText()
    if(!EnableShadowLedger)
       return "";
    int bn = 0, tn = 0;
-   int b_tp = 0;
    for(int g = 0; g < GATE_COUNT; g++)
-   {
       bn += G_SH_TALLY[g][MB_SH_TP] + G_SH_TALLY[g][MB_SH_GRID] + G_SH_TALLY[g][MB_SH_TIMEOUT];
-      b_tp += G_SH_TALLY[g][MB_SH_TP];
-   }
-   double taken = MBShadowTPRate(MB_SH_TAKEN, tn);
+   MBShadowTPRate(MB_SH_TAKEN, tn);
    if(bn + tn == 0)
       return "Soya: hali natija yo'q";
-   string t = StringFormat("Soya: to'silgan %d → TP %.0f%%  ·  olingan %d → TP %.0f%%",
-                           bn, (bn > 0 ? 100.0 * b_tp / bn : 0.0), tn, MathMax(0.0, taken) * 100.0);
-   // The gate whose refusals reached TP most often, once it has enough samples.
-   int best = -1;
-   double best_r = -1.0;
+   // The share that needed the grid is what separates entries here (TP is reached ~90% of the time
+   // whatever the entry, because the TP is tiny against the grid step).
+   int b_bad = 0;
    for(int g = 0; g < GATE_COUNT; g++)
-   {
-      int n = 0;
-      double r = MBShadowTPRate(g, n);
-      if(n >= ShadowMinSamplesToJudge && r > best_r) { best_r = r; best = g; }
-   }
-   if(best >= 0 && tn >= ShadowMinSamplesToJudge && best_r >= taken + 0.10)
-      t += StringFormat("  ·  ⚠ %s yaxshisini to'smoqda (%.0f%%)", MBShadowGateUz(best), best_r * 100.0);
-   if(EnableTempoValve && TimeCurrent() < G_TEMPO_BREAK_UNTIL)
-      t += StringFormat("  ·  TEMPO to'xtatildi %d daq (%s)", (int)((G_TEMPO_BREAK_UNTIL - TimeCurrent()) / 60) + 1, G_TEMPO_BREAK_WHY);
-   else if(EnableTempoValve && TimeCurrent() < G_TEMPO_UNTIL)
-      t += StringFormat("  ·  ⚡ TEMPO %d daq%s", (int)((G_TEMPO_UNTIL - TimeCurrent()) / 60) + 1, (G_TEMPO_MKT_OK ? "" : " (bozor ruxsat bermayapti)"));
-   else
-   {
-      string vt = MBShadowValveText();
-      if(StringLen(vt) > 0)
-         t += "  ·  ⚙ yumshatildi: " + vt;
-   }
+      b_bad += G_SH_TALLY[g][MB_SH_GRID] + G_SH_TALLY[g][MB_SH_TIMEOUT];
+   int t_bad = G_SH_TALLY[MB_SH_TAKEN][MB_SH_GRID] + G_SH_TALLY[MB_SH_TAKEN][MB_SH_TIMEOUT];
+   string t = StringFormat("Soya: to'silgan %d → gridga %.0f%%  ·  olingan %d → gridga %.0f%%",
+                           bn, (bn > 0 ? 100.0 * b_bad / bn : 0.0), tn, (tn > 0 ? 100.0 * t_bad / tn : 0.0));
    return t;
 }

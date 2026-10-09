@@ -2043,10 +2043,8 @@ bool EntryDriftAllows(string &reason)
    double limit = MathMax((double)MathMax(1, DriftMinPointsFloor),
                           (atr > 0.0 ? atr * DriftMaxATRFraction : 0.0));
    int dr_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
-   if(MBTempoOnFor(dr_dir))
-      limit *= 2.0;   // TEMPO: twice the room
 
-   if(drift_pts > limit)
+   if(drift_pts > limit && !MBEGSkip(EG_DRIFT, dr_dir))   // evidence gate: stands aside when it does not earn its place
    {
       reason = StringFormat("price drifted %.0f/%.0f pts from signal close", drift_pts, limit);
       if((DriftPrintOnUse && VerboseLogs))
