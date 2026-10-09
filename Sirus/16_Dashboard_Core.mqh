@@ -879,6 +879,8 @@ void CoreUpdate(const string source)
    MBCostUpdate();     // plan stage 6: spread memory (one sample per M1 bar)
    MBMarketStateTick();    // plan stage 8: tick-gap anomaly (one comparison)
    MBMarketStateUpdate();  // plan stage 8: market state, scenarios, narrative (once per M1 bar)
+   MBHTFZonesUpdate();     // HTF supply / demand zones (once per H1 bar)
+   MBLowerHighUpdate();    // M15 lower high / higher low (once per M5 bar)
    MBPositionBrainUpdate();
    MBProfEnd(MB_PROF_BRAIN);
    MBProfBegin(MB_PROF_SCAN);

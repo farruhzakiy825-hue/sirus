@@ -1,5 +1,40 @@
 # CHANGELOG — Sirus Brain V8
 
+## HTF supply/demand zonalari + M15 past tepa / baland tub qoidasi; "joy" filtrlari endi hech qachon bo'shamaydi (09-Oct 08:33 BUY 4196.811)
+
+- **Holat.**
+  - 06:00 da 4207.98 dagi tepa olindi (supply), 08:18 da undan past tepa 4201.6 chiqdi.
+  - 08:33 da BUY ochildi. Narx H1 dealing range ning 77% ida edi, ya'ni egasi chizgan H4 supply (4180–4228) ichida.
+  - Keyin narx 4183 gacha tushdi va savat gridga bordi.
+- **Sabablar.**
+  - **Dalil darvozalari "joy" filtrlarini ham bo'shatib qo'ygan.** Panelda "bias tomoni bo'sh: ball, o…" ko'rindi. Bu xato edi. Joy, oldidagi zona, olingan likvidlik, kech va charchash sifat bali emas, ular yo'nalish xavfi.
+  - **Robotda kengligi bor supply/demand zonalari yo'q edi**, faqat alohida swing darajalari bor edi.
+  - **M15 da "past tepa" (tuzilma burilishi) o'qilmasdi.**
+- **1. Dalil darvozalari toraytirildi.** Endi faqat ball, hakam sifati, drift va TP joyi bo'shashi mumkin. Joy oilasi, oldidagi zona, olingan likvidlik, kech va charchash o'lchanadi, lekin doim ishlaydi.
+- **2. Yangi modul `20g_HTF_Zones.mqh`.**
+  - **HTF zonalar.** Zona — H1 yoki H4 da kuchli harakat boshlangan asos sham.
+    - Shart: keyingi 3 bar ichida narx 1.5 ATR uzoqlashgan va shamning ekstremumini buzgan.
+    - Zona narx uning narigi chetidan tashqarida yopilmaguncha yangi hisoblanadi. 3 marta tegilgandan keyin eskiradi.
+    - Hisoblash har H1 barda bir marta.
+  - **Kengash 1h.**
+    - Yangi supply ichida yoki undan 1 ATR(M15) gacha pastda BUY yo'q. M15 zonadan yuqorida yopilmaguncha shunday.
+    - Demand uchun ham xuddi shunday, SELL ga nisbatan.
+  - **Kengash 1g: past tepa.**
+    - Oxirgi 6 soatdagi M15 tepasidan keyin haqiqiy pullback (≥ 0.8 ATR15) va past tepa (≥ 0.3 ATR15 past) bo'lsa, premium tomonda BUY yo'q. Oxirgi M5 past tepadan yuqorida yopilmaguncha shunday.
+    - Baland tub uchun ham xuddi shunday: discount tomonda SELL yo'q.
+    - Hisoblash har M5 barda bir marta.
+  - Ikkalasi ham yo'nalish qoidasi, dalil darvozalari ularni hech qachon bo'shatmaydi.
+  - 08:33 dagi BUY ikkala qoida bilan ham to'silardi:
+    - past tepa 4201.6 tepa 4207.98 ostida edi;
+    - narx 4207 dagi H1 supply asosi ostida edi.
+- **Panel.** `HTF zona: supply H1 x-y · demand H4 x-y · past tepa z`
+- **Sozlamalar** ("BRAIN ▸ HTF zones & structure"):
+  - `EnableHTFZones`;
+  - `HTFZoneDispATR` = 1.5;
+  - `HTFZoneApproachATR15` = 1.0;
+  - `HTFZoneMaxTouches` = 3;
+  - `EnableLowerHighRule`.
+
 ## DALIL DARVOZALARI: har bir sifat filtri o'z o'rnini robotning o'z raqamlari bilan isbotlaydi (TEMPO va TP ga asoslangan soya klapani o'rniga)
 
 - **Asl sabab** (egasining soya fayllari, 06–09-Oct, 2065 setup).

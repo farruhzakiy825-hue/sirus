@@ -385,6 +385,28 @@ bool MBCouncilEval(const int dir, string &why, string &uz)
          return true;
       }
    }
+   // 1g. LOWER HIGH / HIGHER LOW (20g): the market stopped making higher highs under its M15 top - no BUY
+   //     on the premium side until an M5 close above the lower high (mirrored for SELL). 09-Oct 08:33.
+   {
+      string lw = "";
+      if(MBStructStageFor(dir) < 3 && MBLowerHighBlocks(dir, lw))
+      {
+         why = "council: " + lw;
+         uz = (dir > 0) ? "past tepa ostida - BUY yo'q" : "baland tub ustida - SELL yo'q";
+         return true;
+      }
+   }
+   // 1h. HTF SUPPLY / DEMAND (20g): not inside a fresh H1 / H4 zone of the other side, nor right under
+   //     (over) it, until an M15 close has taken it out.
+   {
+      string zw = "";
+      if(MBHTFZoneBlocks(dir, zw))
+      {
+         why = "council: " + zw;
+         uz = (dir > 0) ? "HTF supply zonasida - BUY yo'q" : "HTF demand zonasida - SELL yo'q";
+         return true;
+      }
+   }
    // 1f. FRESH HTF BREAK: no entry against an M15 / H1 break that just closed and still holds - the bias,
    //     the thesis and the lock lag it by minutes, and every candidate built on them (HANDOFF, TREND,
    //     PULLBACK, FAST RE-ENTRY, SECOND-CHANCE, the detectors) would sell the retest of a breakout. It

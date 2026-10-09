@@ -76,6 +76,16 @@ string MBEGKey(const string f, const int k, const int a)
    return StringFormat("SIRUS_EG_%s_%I64d_%s%d_%d", _Symbol, MagicNumber, f, k, a);
 }
 
+// WHERE-filters are never relaxed (owner, 09-Oct 08:33 BUY 4196.8 under a swept top inside H4 supply):
+// location, zone in front, taken liquidity, late in the leg and exhaustion are about WHERE the entry
+// stands - a direction risk, not a quality score - and the grid share within one grid step is too blunt
+// to judge them. They are measured (panel / journal) but always work. Only the score, the judge's
+// quality, the queued-signal drift and the net-edge room can stand aside.
+bool MBEGRelaxable(const int k)
+{
+   return (k == EG_SCORE || k == EG_JUDGE || k == EG_DRIFT || k == EG_NETEDGE);
+}
+
 void MBEGEvaluate(const int k, const int a)
 {
    if(k < 0 || k >= EG_COUNT || a < 0 || a > 1)
@@ -83,7 +93,7 @@ void MBEGEvaluate(const int k, const int a)
    int n = G_EG_N[k][a];
    bool was = G_EG_RELAXED[k][a];
    bool now = false;
-   if(n >= MathMax(10, EGMinSamples))
+   if(MBEGRelaxable(k) && n >= MathMax(10, EGMinSamples))
    {
       double r = (double)G_EG_BAD[k][a] / n;
       double base = (G_EG_TK_N[a] >= 20) ? (double)G_EG_TK_BAD[a] / G_EG_TK_N[a] : EGBaseBadRate;
@@ -160,7 +170,7 @@ void MBEGSave()
 // Called where a quality filter WOULD block: true = it stands aside for this side now.
 bool MBEGSkip(const int k, const int dir)
 {
-   if(!EnableEvidenceGates || k < 0 || k >= EG_COUNT || dir == 0)
+   if(!EnableEvidenceGates || k < 0 || k >= EG_COUNT || dir == 0 || !MBEGRelaxable(k))
       return false;
    if(TimeCurrent() < G_EG_BREAK_UNTIL || !G_EG_MKT_OK)
       return false;
@@ -300,7 +310,7 @@ string MBEGPanelText()
       {
          if(G_EG_RELAXED[k][a])
             side[a] += (StringLen(side[a]) > 0 ? ", " : "") + MBEGName(k);
-         else if(G_EG_N[k][a] > 0 && G_EG_N[k][a] < MathMax(10, EGMinSamples))
+         else if(MBEGRelaxable(k) && G_EG_N[k][a] > 0 && G_EG_N[k][a] < MathMax(10, EGMinSamples))
             learning++;
       }
    double base0 = (G_EG_TK_N[0] >= 20) ? 100.0 * G_EG_TK_BAD[0] / G_EG_TK_N[0] : EGBaseBadRate * 100.0;

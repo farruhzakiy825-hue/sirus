@@ -758,6 +758,11 @@ void MBDrawPanel()
       else
          ObjectDelete(0, MB_VIS_PREFIX + "B_LQ");
       {
+         string hz = MBHTFZoneText();   // HTF supply / demand zones and the M15 lower high / higher low
+         if(StringLen(hz) > 0) MBPanelLine("B_HZ", hz, muted, false, x0, w, lh);
+         else ObjectDelete(0, MB_VIS_PREFIX + "B_HZ");
+      }
+      {
          string mc = MBMicroPanelText();
          if(StringLen(mc) > 0) MBPanelLine("B_MC", mc, muted, false, x0, w, lh);
          else ObjectDelete(0, MB_VIS_PREFIX + "B_MC");
