@@ -1,0 +1,15 @@
+reachable 1317 of 1336
+  04_Trend_Structure.mqh: 1: LocalStructureInvalidation
+  05_Situation_Candles.mqh: 1: GridPreferredAddPrice
+  06_Basket_Session.mqh: 2: ZoneReactionPrice, ZoneRiskPrice
+  12_Exits_Trailing.mqh: 1: RegimeWinRate
+  14_Risk_Gates_Entry.mqh: 3: LGScan, LGLiveLevel, LGSwingLevel
+  15_Legacy_Packs.mqh: 9: FinalAuditAdd, ReleasePresetHint, ReleaseAddCheck, DeepRecoveryAdjustGridDistance, DeepRecoveryAdjustGridLot, RegimeTuneAdjustGridDistance, RegimeTuneAdjustGridLot, FinalMergeAddPenalty, FinalMergeAddBonus
+  20b_Structure_Lock.mqh: 1: MBStructDamage
+  26_Measure.mqh: 1: MBShadowGateUz
+
+inputs read ONLY by dead code (20):
+  LGLookbackM5, LGLookbackM15, LGMinRejections, LGConfluenceRejections, LGStrongBounceATR, LGSeparationATR, LGMinWickATR, LGWickShare, LGMaxDistATR, LGOnLevelATR, LGPierceATR, LGSwingGuard, LGSwingBandATR, LGSwingUseM1, LGSwingFlip, EnableGridLevelSnap, GridSnapMinStrength, GridSnapMaxShiftPoints, GridSnapMinSpacingFactor, RegimePerfMinSamples
+
+inputs read by no function body at all (1):
+  HTFZonePrintOnUse
