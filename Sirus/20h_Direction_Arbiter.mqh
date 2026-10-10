@@ -52,6 +52,9 @@ bool MBArbiterOn()
    return (EnableDirectionArbiter && EnableMarketBrain && EnableMarketBrainEngines && G_MB_BRAIN_PRIMED);
 }
 
+int MBBiasSignNow() { return MBSign(G_MB_BIAS); }
+int MBTFStateSign(const int tfi) { return (tfi >= 0 && tfi < MB_TF_COUNT) ? MBSign(G_MB_TF_STATE[tfi]) : 0; }
+
 // How many of H1 / H4 stand against / with dir (0..2).
 int MBArbiterHTFAgainst(const int dir)
 {

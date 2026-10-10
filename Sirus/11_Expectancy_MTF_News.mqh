@@ -3406,8 +3406,19 @@ void ZoneMapScanTFSupport(const ENUM_TIMEFRAMES tf, const int lookback, const do
       // evaluates to `price` itself - so the function returned the current price as "the nearest
       // support" instead of the real swing level, silently discarding exactly the level V243 was
       // added to keep. Keep the actual swing price; it's already been range-checked above.
-      if(l > 0.0 && l < price + l_tol && (best == 0.0 || l > best))
+      // PACKAGE 5 (zones): ranked like the resistance scan. "Highest qualifying" let a swing up to
+      // ZoneNearAboveTolerance ABOVE price outrank the real support underneath - a SELL then saw its
+      // "support" overhead (V3: negative room -> "no room") and the grid reach aimed above the market.
+      // A level price has just risen through still counts, but only when nothing is actually below.
+      if(l <= 0.0 || l >= price + l_tol)
+         continue;
+      bool best_is_above = (best > price);
+      if(best == 0.0)
          best = l;
+      else if(l <= price && (best_is_above || l > best))
+         best = l;                       // anything genuinely below outranks anything above
+      else if(l > price && best_is_above && l < best)
+         best = l;                       // both above: keep the nearer one
    }
 }
 
@@ -4019,7 +4030,11 @@ void UpdateDailyBias()
    // Component 2: today's open vs prior close (gap). Within a neutral band => no tilt.
    int open_bias = 0;
    double gap_pts = (to - pdc) / _Point;
-   double neutral = MathMax(0.0, DailyBiasNeutralOpenPoints);
+   // PACKAGE 5: a 100-point band is under half the spread on gold - the "gap" was mostly the spread and
+   // the daily break's noise. The band is at least two spreads and 5% of the daily ATR.
+   double neutral = MathMax(MathMax(0.0, DailyBiasNeutralOpenPoints),
+                            MathMax(2.0 * (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD),
+                                    0.05 * ATRPointsManual(PERIOD_D1, 14, 1)));
    if(gap_pts > neutral)       open_bias = 1;
    else if(gap_pts < -neutral) open_bias = -1;
 

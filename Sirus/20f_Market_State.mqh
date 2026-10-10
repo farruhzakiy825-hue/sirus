@@ -208,12 +208,23 @@ void MBMarketStateUpdate()
    else if(P != 0 && (MBExhaustPressure(P) >= 60 || G_MST_SENS == SN_EXHAUST)) { st = MST_EXHAUSTION; sd = P; }
    else if(recent_trap)                                                  { st = MST_FAKE_BREAKOUT; sd = (ksw == 1) ? 1 : -1; }
    else if(comp_release && (G_MST_SENS >= SN_ACTIVE))                     { st = MST_BREAKOUT; sd = (iClose(_Symbol, PERIOD_M1, 1) > iClose(_Symbol, PERIOD_M1, 6)) ? 1 : -1; }
+   // PACKAGE 5 (B-F5): an expansion is on the side the market is MOVING (the forming M1 displacement,
+   // else the M5 pressure, else the last six M1 closes) - it used to take P, the old side, so the judge
+   // gave +4 to the stale side and -8 to the side the market was expanding toward. A strong trend needs
+   // the bias to point the same way as the regime.
    else if((G_MB_RG == MB_RG_EXPANSION) || G_MST_SENS == SN_EXPAND || G_MST_SENS == SN_FAST)
-                                                                         { st = MST_EXPANSION; sd = (G_MB_RG == MB_RG_EXPANSION) ? G_MB_RG_DIR : P; }
-   else if(G_MB_RG == MB_RG_TREND && MathAbs(G_MB_BIAS) >= 3 && (G_ST_LOCK_DIR == 0 || G_ST_LOCK_DIR == G_MB_RG_DIR))
+   {
+      int mv = (G_MB_LIVE_DIR != 0) ? G_MB_LIVE_DIR : MBPressureSide(1);
+      if(mv == 0)
+         mv = (iClose(_Symbol, PERIOD_M1, 1) > iClose(_Symbol, PERIOD_M1, 6)) ? 1 : -1;
+      st = MST_EXPANSION;
+      sd = (G_MB_RG == MB_RG_EXPANSION && G_MB_RG_DIR != 0) ? G_MB_RG_DIR : mv;
+   }
+   else if(G_MB_RG == MB_RG_TREND && MathAbs(G_MB_BIAS) >= 3 && MBSign(G_MB_BIAS) == G_MB_RG_DIR &&
+           (G_ST_LOCK_DIR == 0 || G_ST_LOCK_DIR == G_MB_RG_DIR))
                                                                          { st = MST_STRONG_TREND; sd = G_MB_RG_DIR; }
    else if(EnableMicroControl && G_MC_TURN == MC_TURN_PULLBACK && P != 0) { st = MST_PULLBACK; sd = P; }
-   else if(G_MB_RG == MB_RG_TREND || MathAbs(G_MB_BIAS) >= 2)            { st = MST_TREND; sd = (G_MB_RG == MB_RG_TREND) ? G_MB_RG_DIR : MBSign(G_MB_BIAS); }
+   else if(G_MB_RG == MB_RG_TREND || MathAbs(G_MB_BIAS) >= 2)            { st = MST_TREND; sd = (MathAbs(G_MB_BIAS) >= 2) ? MBSign(G_MB_BIAS) : G_MB_RG_DIR; }
    else if(G_MB_RG == MB_RG_RANGE || G_MB_RG == MB_RG_COMPRESSION)
    {
       // Inside a box: the side whose liquidity was taken last tells accumulation from distribution.

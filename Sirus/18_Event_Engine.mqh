@@ -277,11 +277,37 @@ bool MBEventExists(const int type, const int dir, const int tfi, const double le
    return (MBEventTimeAt(type, dir, tfi, level, since, tol) > 0);
 }
 
+// PACKAGE 5 (B-F11): the structure owner is not overwritten by noise. The ring is shared by sweeps,
+// displacements, rejections, reclaims... - in a busy session 40 of them pushed the last BOS / MSS of a
+// timeframe out and its state fell to NEUTRAL. The three newest structure events of each slot are kept;
+// the write cursor steps over them.
+bool MBEvStructProtected(const int idx)
+{
+   if(G_MB_EV[idx].time <= 0 || (G_MB_EV[idx].type != MB_EV_BOS && G_MB_EV[idx].type != MB_EV_MSS))
+      return false;
+   int base = G_MB_EV[idx].tfi * MB_EV_PER_TF;
+   int newer = 0;
+   for(int i = 0; i < MB_EV_PER_TF; i++)
+   {
+      int j = base + i;
+      if(j != idx && G_MB_EV[j].time > G_MB_EV[idx].time &&
+         (G_MB_EV[j].type == MB_EV_BOS || G_MB_EV[j].type == MB_EV_MSS))
+         newer++;
+   }
+   return (newer < 3);
+}
+
 void MBEventAdd(const int type, const int dir, const int tfi, const double level, const double extreme,
                 const datetime t, const double quality, const string note)
 {
    if(tfi < 0 || tfi >= MB_POOL_TF_COUNT)
       return;
+   for(int tries = 0; tries < MB_EV_PER_TF - 4; tries++)
+   {
+      if(!MBEvStructProtected(tfi * MB_EV_PER_TF + (G_MB_EV_N[tfi] % MB_EV_PER_TF)))
+         break;
+      G_MB_EV_N[tfi]++;   // step over a protected structure event
+   }
    int idx = tfi * MB_EV_PER_TF + (G_MB_EV_N[tfi] % MB_EV_PER_TF);
    G_MB_EV[idx].type = type;
    G_MB_EV[idx].dir = dir;
@@ -587,7 +613,12 @@ void MBDetectStructure(const int tfi, const MqlRates &r[], const int n, const in
          if(r[j].close > lvl + buf) first_close = false;
       if(first_close)
       {
-         int type = (G_MB_TREND[tfi] < 0) ? MB_EV_MSS : MB_EV_BOS;
+         // PACKAGE 5 (B-F1): MSS against the last VALID break (failed ones skipped), not against G_MB_TREND,
+         // which a liquidity grab also flips - the next real break in the old direction was stamped MSS and
+         // the lock, the reversal stages and the TF state all read a trend change that never happened.
+         int pv_up = MBLastStructureEvent(tfi);
+         int type = (pv_up >= 0) ? ((G_MB_EV[pv_up].dir < 0) ? MB_EV_MSS : MB_EV_BOS)
+                                 : ((G_MB_TREND[tfi] < 0) ? MB_EV_MSS : MB_EV_BOS);
          // An MSS straight after a sell-side sweep is the strongest version of it.
          datetime recent = r[MathMin(n - 1, s + 10)].time;
          bool after_sweep = MBEventExists(MB_EV_LIQ_SWEEP, 1, tfi, 0.0, recent, DBL_MAX) ||
@@ -607,7 +638,9 @@ void MBDetectStructure(const int tfi, const MqlRates &r[], const int n, const in
          if(r[j].close < lvl - buf) first_close = false;
       if(first_close)
       {
-         int type = (G_MB_TREND[tfi] > 0) ? MB_EV_MSS : MB_EV_BOS;
+         int pv_dn = MBLastStructureEvent(tfi);   // PACKAGE 5 (B-F1): see the bullish side
+         int type = (pv_dn >= 0) ? ((G_MB_EV[pv_dn].dir > 0) ? MB_EV_MSS : MB_EV_BOS)
+                                 : ((G_MB_TREND[tfi] > 0) ? MB_EV_MSS : MB_EV_BOS);
          datetime recent = r[MathMin(n - 1, s + 10)].time;
          bool after_sweep = MBEventExists(MB_EV_LIQ_SWEEP, -1, tfi, 0.0, recent, DBL_MAX) ||
                             MBEventExists(MB_EV_FAKE_BREAK, -1, tfi, 0.0, recent, DBL_MAX);

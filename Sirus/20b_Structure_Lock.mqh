@@ -56,6 +56,8 @@ int      G_ST_SEQ[MB_TF_COUNT];          // signed run of same-way breaks (VALID
 datetime G_ST_SEQ_START[MB_TF_COUNT];    // first break of the run
 double   G_ST_PROT_HI[MB_TF_COUNT];      // the lower high the last bearish break came from
 double   G_ST_PROT_LO[MB_TF_COUNT];      // the higher low the last bullish break came from
+double   G_ST_PROT_PREV_HI[MB_TF_COUNT]; // package 5 (B-F3): the protected level before the last break -
+double   G_ST_PROT_PREV_LO[MB_TF_COUNT]; //   restored when that break fails
 int      G_ST_LB_DIR[MB_TF_COUNT];       // last break
 double   G_ST_LB_LVL[MB_TF_COUNT];
 datetime G_ST_LB_TIME[MB_TF_COUNT];
@@ -124,6 +126,17 @@ double MBM5LegPos(const int sdir)
    return MathMax(0.0, MathMin(1.0, sdir * (bid - prot) / (sdir * (ext - prot))));
 }
 
+// A recorded break failed (a liquidity grab): out of the run, and its protected level given back.
+void MBStructBreakFailedNow(const int tfi, const int d, const int q)
+{
+   G_ST_LB_Q[tfi] = ST_Q_FAILED;
+   if(q < ST_Q_VALID)
+      return;   // a WEAK break was never in the run and never moved the protected level
+   if(MBSign(G_ST_SEQ[tfi]) == d) G_ST_SEQ[tfi] -= d;
+   if(d < 0) { if(G_ST_PROT_PREV_HI[tfi] > 0.0) G_ST_PROT_HI[tfi] = G_ST_PROT_PREV_HI[tfi]; }
+   else      { if(G_ST_PROT_PREV_LO[tfi] > 0.0) G_ST_PROT_LO[tfi] = G_ST_PROT_PREV_LO[tfi]; }
+}
+
 // Called by the event engine (18) on every BOS / MSS it finds - in the replay too, so the memory is
 // rebuilt after a restart. r[] is series-ordered; s = the breaking bar, sw = the swing it broke.
 void MBStructBreakRecord(const int tfi, const int dir, const int type, const double lvl,
@@ -139,8 +152,15 @@ void MBStructBreakRecord(const int tfi, const int dir, const int type, const dou
    double ext = (dir < 0) ? r[s].high : r[s].low;
    for(int j = s; j <= sw && j < n; j++)
       ext = (dir < 0) ? MathMax(ext, r[j].high) : MathMin(ext, r[j].low);
-   if(dir < 0) G_ST_PROT_HI[tfi] = ext;
-   else        G_ST_PROT_LO[tfi] = ext;
+   // PACKAGE 5 (B-F3): only a break the structure counts (VALID+) moves the protected level, and the
+   // level before it is kept - a liquidity grab (a break that fails) gives it back. Before, every break,
+   // weak or later failed, moved it; after a stop-run the next ordinary pullback closed under the grab's
+   // low and "the M5 structure is broken" read true while the structure itself still pointed up.
+   if(q >= ST_Q_VALID)
+   {
+      if(dir < 0) { G_ST_PROT_PREV_HI[tfi] = G_ST_PROT_HI[tfi]; G_ST_PROT_HI[tfi] = ext; }
+      else        { G_ST_PROT_PREV_LO[tfi] = G_ST_PROT_LO[tfi]; G_ST_PROT_LO[tfi] = ext; }
+   }
 
    if(q >= ST_Q_VALID)
    {
@@ -160,20 +180,21 @@ void MBStructBreakRecord(const int tfi, const int dir, const int type, const dou
    G_ST_LB_TIME[tfi] = r[s].time;
    G_ST_LB_Q[tfi] = q;
    G_ST_LB_CHECKED[tfi] = false;
-   // In the replay the next bar is already known.
+   // In the replay the next bars are already known. PACKAGE 5 (B-F2): the same test as MBBreakFailed -
+   // EITHER of the next two closes back through by 0.1 ATR fails it (it was the next bar only, so a break
+   // the state discarded could still count in the run, the lock and the council).
    if(s >= 2)
    {
-      double c_next = r[s - 1].close;
-      G_ST_LB_CHECKED[tfi] = true;
-      if(dir * (c_next - lvl) > 0.0)
+      bool back = (dir * (r[s - 1].close - lvl) < -0.1 * atr) || (s >= 3 && dir * (r[s - 2].close - lvl) < -0.1 * atr);
+      if(back)
       {
-         if(q >= ST_Q_VALID) G_ST_LB_Q[tfi] = ST_Q_CONFIRMED;
+         G_ST_LB_CHECKED[tfi] = true;
+         MBStructBreakFailedNow(tfi, dir, q);
       }
-      else if(dir * (c_next - lvl) < -0.1 * atr)
+      else if(s >= 3)
       {
-         G_ST_LB_Q[tfi] = ST_Q_FAILED;
-         // AUDIT FIX: only a break the run counted can be taken back from it (a WEAK one never was).
-         if(q >= ST_Q_VALID && MBSign(G_ST_SEQ[tfi]) == dir) G_ST_SEQ[tfi] -= dir;
+         G_ST_LB_CHECKED[tfi] = true;
+         if(dir * (r[s - 1].close - lvl) > 0.0 && q >= ST_Q_VALID) G_ST_LB_Q[tfi] = ST_Q_CONFIRMED;
       }
    }
    if(!G_MB_EV_REPLAYING && tfi >= 2 && StructurePrintOnUse && G_VERBOSE)
@@ -194,20 +215,28 @@ void MBStructFollowThrough()
       if(sh < 2)
          continue;   // the bar after the break is still forming
       double c_next = iClose(_Symbol, tf, sh - 1);
+      double c_next2 = (sh >= 3) ? iClose(_Symbol, tf, sh - 2) : 0.0;
       double atr = G_MB_ATR[tfi] * _Point;
       int d = G_ST_LB_DIR[tfi];
-      G_ST_LB_CHECKED[tfi] = true;
       if(c_next <= 0.0 || atr <= 0.0)
+      {
+         G_ST_LB_CHECKED[tfi] = true;
          continue;
-      if(d * (c_next - G_ST_LB_LVL[tfi]) > 0.0)
-      {
-         if(G_ST_LB_Q[tfi] >= ST_Q_VALID) G_ST_LB_Q[tfi] = ST_Q_CONFIRMED;
       }
-      else if(d * (c_next - G_ST_LB_LVL[tfi]) < -0.1 * atr)
+      // PACKAGE 5 (B-F2): two bars, like MBBreakFailed - the first bar back fails it at once; it is
+      // confirmed only when the second bar has closed without coming back.
+      bool back = (d * (c_next - G_ST_LB_LVL[tfi]) < -0.1 * atr) ||
+                  (c_next2 > 0.0 && d * (c_next2 - G_ST_LB_LVL[tfi]) < -0.1 * atr);
+      if(!back && sh < 3)
+         continue;   // the second bar is still forming
+      G_ST_LB_CHECKED[tfi] = true;
+      if(!back)
       {
-         bool counted = (G_ST_LB_Q[tfi] >= ST_Q_VALID);   // AUDIT FIX: a WEAK break was never in the run
-         G_ST_LB_Q[tfi] = ST_Q_FAILED;
-         if(counted && MBSign(G_ST_SEQ[tfi]) == d) G_ST_SEQ[tfi] -= d;
+         if(d * (c_next - G_ST_LB_LVL[tfi]) > 0.0 && G_ST_LB_Q[tfi] >= ST_Q_VALID) G_ST_LB_Q[tfi] = ST_Q_CONFIRMED;
+      }
+      else
+      {
+         MBStructBreakFailedNow(tfi, d, G_ST_LB_Q[tfi]);
          if(StructurePrintOnUse && G_VERBOSE)
             PrintFormat("[SIRUS STRUCTURE] %s %s break @ %s FAILED - the next bar closed back through it (trap)",
                         MBTFName(tfi), (d > 0 ? "bullish" : "bearish"), DoubleToString(G_ST_LB_LVL[tfi], _Digits));

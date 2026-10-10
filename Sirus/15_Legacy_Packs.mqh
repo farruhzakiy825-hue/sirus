@@ -2304,6 +2304,11 @@ int DeepM15StructureDirection()
 {
    if(!UseDeepHTFCommander)
       return 0;
+   // PACKAGE 5: with the arbiter on, "M15 confirms" means the brain's M15 STRUCTURE (failed breaks
+   // filtered). The legacy reading below calls the bottom quarter of a 36-bar range "+1" and the top
+   // "-1" - a range fade - and scored it as M15 structure confirming, the opposite meaning in a trend.
+   if(MBArbiterOn())
+      return MBTFStateSign(2);
 
    int lookback = MathMax(10, DeepStructureLookbackBars);
 

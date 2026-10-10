@@ -1,5 +1,34 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 5-paket: struktura, zonalar, sham-yo'nalish izchilligi (2026-10-10)
+
+**Struktura (BOS / MSS)**
+- B-F1 (ildizidan): hodisa dvigateli MSS belgisini endi oxirgi HAQIQIY break'ga qarab qo'yadi (failed
+  break'lar o'tkazib yuboriladi). Avval G_MB_TREND bo'yicha qo'yardi - likvidlik olish (failed break)
+  uni ham almashtirgani uchun keyingi haqiqiy break "MSS" bo'lib qolardi va lock, reversal bosqichlari,
+  TF holati yo'q trend o'zgarishini o'qirdi.
+- B-F2: struktura xotirasi (run / quality) endi MBBreakFailed bilan bir xil 2 barlik testni ishlatadi -
+  keyingi ikki yopilishdan biri qaytsa - failed; ikkinchi bar ham ushlasa - tasdiqlangan.
+- B-F3: himoya darajasi (protected high/low) faqat VALID+ break'dan olinadi; break failed bo'lsa oldingi
+  daraja qaytariladi. Avval stop-run'dan keyin oddiy pullback "M5 struktura buzildi" deb o'qilardi
+  (council 1e va lokal qatlam strukturani yo'qotardi).
+- B-F11: hodisa halqasida har TF ning eng yangi 3 ta BOS/MSS hodisasi saqlanadi - shovqin (sweep,
+  displacement, rejection...) struktura egasini siqib chiqarmaydi.
+
+**Zonalar**
+- ZoneMap support qidiruvi resistance qidiruvi kabi tartiblandi: narx OSTIDAGI daraja ustun; narxdan
+  yuqoridagi swing faqat ostida hech narsa bo'lmaganda. Avval yuqoridagi swing haqiqiy supportni bosib
+  ketardi - SELL uchun V3 "joy yo'q" va grid reach bozor ustiga qarab nishonga olardi.
+
+**Holat va tomon**
+- B-F5: market state EXPANSION tomoni endi bozor HARAKAT qilayotgan tomon (jonli M1 displacement, M5
+  bosimi); STRONG_TREND faqat bias rejim bilan bir tomonda; TREND tomoni avval bias. Judge sifati endi
+  eskirgan tomonga +4, harakat tomoniga -8 bermaydi.
+- Detektorlar teng kelganda tomon: avval Brain bias (hakam ko'rgan), keyin kunlik bias, keyin eski HTF.
+- Kunlik bias "gap" chegarasi: kamida 2 spread va kunlik ATR ning 5% i (100 punkt spreadning yarmidan kam edi).
+- Deep HTF paketidagi "M15 tasdiqlaydi" endi Brain'ning M15 STRUKTURASI (avval diapazon chetida teskari
+  o'ynash - trendda teskari ma'no).
+
 ## 4-paket: darhol reaksiya va broker tomonidagi zaxira himoya (2026-10-10)
 
 **Darhol reaksiya (OnTradeTransaction)**

@@ -2464,8 +2464,12 @@ void ConsiderOpportunity(const ENUM_OPPORTUNITY_DIR dir, const ENUM_OPPORTUNITY_
    if(score == G_OPP_SCORE && grade == G_OPP_GRADE &&
       G_OPP_DIR != OPP_DIR_NONE && dir != G_OPP_DIR)
    {
+      // PACKAGE 5: the brain's direction first (the arbiter's H1/H4-aware view feeds it), then the daily
+      // bias, then the legacy HTF trend - yesterday's candle colour used to decide before the brain did.
       int pref = 0;
-      if(EnableDailyBias && G_DAILY_BIAS != 0)
+      if(MBArbiterOn() && MBBiasSignNow() != 0)
+         pref = MBBiasSignNow();
+      else if(EnableDailyBias && G_DAILY_BIAS != 0)
          pref = G_DAILY_BIAS;
       else
          pref = DeepHTFTrendDirection();
