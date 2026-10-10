@@ -845,6 +845,9 @@ void ApplyExpiredBlockSoftPass()
    if(G_OPP_DIR != OPP_DIR_BUY && G_OPP_DIR != OPP_DIR_SELL)
       return;
 
+   if(ArmHoldsSide(OppDirSign()))
+      return;   // PACKAGE 1 (A1): an armed wait is not a block that expired
+
    // AUDIT FIX: the wait that expired was this side's - a scan that just flipped to the other side has
    // not waited at all and gets no boost.
    if(G_BLOCK_DIR != OPP_DIR_NONE && G_OPP_DIR != G_BLOCK_DIR)
@@ -1352,8 +1355,15 @@ void UpdateSignalQueueEngine(const string source)
       }
    }
 
+   // PACKAGE 1 (A2): the queue keeps a PASS alive while the scanner has nothing better to say - it does
+   // not overrule what the scanner says NOW: never over a hard block (safety or a directional wall /
+   // blow-off / counter-context), never over a fresh WAIT of the same side, never over that side's arm.
+   int q_dir_now = (G_QUEUE_DIR == OPP_DIR_BUY) ? 1 : ((G_QUEUE_DIR == OPP_DIR_SELL) ? -1 : 0);
+   bool q_scan_silent = (G_SCORE_DECISION == SCORE_DECISION_NONE) ||
+                        (G_SCORE_DECISION == SCORE_DECISION_WAIT && G_OPP_DIR != G_QUEUE_DIR);
    string replay_reason = "";
-   if(G_QUEUE_ACTIVE && !IsScorePassedDecision(G_SCORE_DECISION) && QueueCanReplay(replay_reason))
+   if(G_QUEUE_ACTIVE && !IsScorePassedDecision(G_SCORE_DECISION) && q_scan_silent && !ArmHoldsSide(q_dir_now) &&
+      QueueCanReplay(replay_reason))
    {
       ReplayQueuedSignal();
    }
@@ -1698,7 +1708,8 @@ void ApplyMissedMemoryBoost()
    G_MEMORY_BOOST_COUNT++;
    G_MEMORY_APPLIED = true;
 
-   if(G_SCORE_FINAL >= G_SCORE_MIN_REQUIRED)
+   // PACKAGE 1 (A1): the boost is recorded, but an armed wait of this side stays a wait.
+   if(G_SCORE_FINAL >= G_SCORE_MIN_REQUIRED && !(G_SCORE_DECISION == SCORE_DECISION_WAIT && ArmHoldsSide(OppDirSign())))
    {
       if(IsMicroOpportunity())
          G_SCORE_DECISION = SCORE_DECISION_MICRO_PASS;

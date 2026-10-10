@@ -425,6 +425,14 @@ double MBNormalSpread();   // spread memory (20e) - read by the news settle chec
 bool MBAnomalyBlocks(string &why);   // anomaly guard (20f) - read by the news settle check (11)
 int MBM5StructDir();
 bool MBReversalUnlocked(const int dir);   // 20b - the reversal toward dir reached the unlock stage (read by 14)
+bool MBArbiterOn();                       // 20h - the direction arbiter is live (read by 11, 13)
+int  MBArbiterHTFAgainst(const int dir);  // 20h - how many of H1 / H4 stand against dir (read by 11, 13)
+bool MBHasTriggerNow(const int dir);      // 23 - a trigger toward dir right now (read by 20h, 21)
+int  OppDirSign();                        // 06 - the scanner's direction as +1 / -1 / 0
+void TraceDecision(const bool ready, const string reason);   // 26d - decision trace row (called by 14)
+void TraceSent(const int dir, const double price);            // 26d - decision trace: the order went out (14)
+void TraceFlush();                                            // 26d - write the buffered trace rows
+string TraceRule(const string reason);                        // 26d - the exact rule inside a refusal (read by 26)
 // EVIDENCE GATES (26c): the quality filters that prove their place on the robot's own numbers.
 #define EG_SCORE      0   // detector score
 #define EG_JUDGE      1   // Entry Judge quality

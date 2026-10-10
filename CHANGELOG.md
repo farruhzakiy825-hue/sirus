@@ -1,5 +1,38 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 1-paket: yo'nalish hakami, xavfli 4 xato, qaror izi (2026-10-10)
+
+Audit (AUDIT_2026-10-09.md) asosida. Yo'nalish filtrlari o'zi bo'shashmaydi.
+
+**Yo'nalish hakami (yangi fayl 20h_Direction_Arbiter.mqh, to'liq yoqilgan)**
+- Avval yo'nalishni faqat M15 hal qilardi (H1/H4 faqat ishonchga ±6..10). TP (~224 pt) M1 ATR'dan kichik,
+  grid qadami (~5500 pt) ≈ 1 H1 ATR - shuning uchun: H1/H4 = grid xavfi, M15 = tomon, M5/M1 = vaqt.
+- TAQIQ: H1 va H4 ikkalasi qarshi (biri barqaror) va H1/H4/KEY likvidlik reversali yo'q; yoki biri qarshi va
+  H1 + M15 bosimi hali qarshi itaryapti.
+- EHTIYOT: biri qarshi (yoki ikkalasi, lekin reversal / o'z HTF zonasi + M15 burilgan) - M5 struktura yoki
+  lokal oyoq + trigger kerak.
+- M15 o'rta qatlam: H1+H4 trendida M15 ning kuchsiz qarshi harakati (-1/-2) pullback - M5/lokal qaytib,
+  trigger bo'lsa trend tomoni ruxsat (V0 va MBDirOk). M15 kuchli qarshi (-3) bo'lsa - yo'q.
+- Veto zanjirida "VH" (V11 dan keyin, V0 dan oldin). Panelda yangi qator: "Hakam: H4 · H1 · M15 · M5 | BUY · SELL".
+- Eski HTF o'quvchilari (Kalman H1 lot x0.6, trend guard x0.4, grid "HTF-against") hakamga ulandi:
+  lot faqat H1+H4 ikkalasi qarshi bo'lganda kesiladi; x0.4 takrori o'chdi; grid bahosi H1/H4 dan.
+
+**Xavfli xatolar**
+- B-F6: BRAIN RANGE kirishi va judge "range edge" faqat quti ICHIDA (tashqarida = breakout, unga qarshi kirish yo'q).
+- A1: ARM (tasdiq kutayotgan setup) WAIT'ini legacy paketlar, missed-memory va expired-block endi PASS'ga aylantira olmaydi.
+- A2: navbat (queue) replay hard block ustidan, shu tomonning yangi WAIT'i yoki ARM'i ustidan ishlamaydi.
+- D-01: evidence gate score'ni faqat kamomad <= 2 ball bo'lsa chetlab o'tadi.
+- B-F1: failed break trendni almashtirgani uchun haqiqiy break MSS deb belgilanib, trend TRANSITION'da
+  qotib qolardi - endi MSS faqat oldingi haqiqiy struktura teskari bo'lsa.
+
+**O'lchov**
+- Yangi fayl 26d_Trace.mqh: MQL5\Files\Sirus_Trace_<symbol>_<magic>.csv - har qaror: aniq qoida (VH, V0, V8,
+  council...), H4/H1/M15/M5 holati, hakam hukmi, ARM, skanerdan keyin qaysi qadam qarorni o'zgartirgani
+  (legacy/queue/memory/expiry/redirect...), tickdagi relief/evidence/fast qadamlari. Savdoga ta'siri yo'q.
+- Shadow CSV "extra" ustuni: rule=... h4= h1= m15=.
+- GateClassify: hard block, clarity, failed break, old level va HTF bias endi "score" deb yozilmaydi
+  (evidence gates toza ma'lumotdan o'rganadi).
+
 ## Yaxlit zanjir tuzatishlari (2026-10-09)
 
 Butun qaror zanjiri (scanner → fast path → kandidatlar → veto → judge) bir paketda tekshirildi va

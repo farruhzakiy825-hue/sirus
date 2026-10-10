@@ -638,6 +638,17 @@ bool MBPermissionCheck(const int dir, string &why)
    // is the proof a counter-bias entry needs - the bias catches up later.
    if(a < 0 && MBStructStageFor(dir) >= MathMax(1, LockUnlockStage))
       return false;
+   // PACKAGE 1 (arbiter, 20h): M15 is the middle layer, not the only authority. Inside an H1 + H4 trend
+   // a weak M15 counter-move (-1 / -2) is that trend's pullback: once M5 structure or the local leg has
+   // turned back and a trigger fires, the trend side is allowed. A turning M15 (+1) toward the HTF trend
+   // needs no reversal-type setup. A strong M15 counter-trend (-3) still forbids it.
+   if(MBArbiterOn() && MBArbiterHTFWithStrong(dir))
+   {
+      if(a < 0 && a >= -2 && (MBM5StructDir() == dir || MBLayerLocal() == dir) && MBHasTriggerNow(dir))
+         return false;
+      if(a == 1)
+         return false;
+   }
    // REGIME DOMINANCE: in a range / compression a weak or turning bias does not veto.
    if(a < 0 && a >= -2 && MBRangeRules())
       return false;
@@ -682,7 +693,7 @@ bool MBPermissionCheck(const int dir, string &why)
    // it then had no objection at all. Against the HTF trend a neutral bias asks for its own proof:
    // M5 structure or the local leg this way, a reversal at its unlock stage, or a range edge / swept
    // level in a range.
-   if(a == 0 && DeepHTFTrendDirection() == -dir)
+   if(a == 0 && !MBArbiterOn() && DeepHTFTrendDirection() == -dir)   // with the arbiter on, H1/H4 speak through it
    {
       bool own_edge = MBRangeRules() && (G_OPP_TYPE == OPP_TYPE_RANGE_EDGE || G_OPP_TYPE == OPP_TYPE_SWEEP_REJECTION);
       if(MBM5StructDir() != dir && MBLayerLocal() != dir && !own_edge &&
@@ -709,6 +720,8 @@ bool MBVetoAllowsEntry(const int dir, string &why)
 
    if(MBAnomalyBlocks(why))
       blocked = true;                  // V11: abnormal market (plan stage 8)
+   else if(MBArbiterBlocks(dir, why))
+      blocked = true;                  // VH: direction arbiter - H1/H4 grid risk (20h)
    else if(MBPermissionCheck(dir, why))
       blocked = true;
    else if(MBVetoReversal && MBVetoReversalCheck(dir, why))

@@ -2143,6 +2143,22 @@ int GateClassify(const string why)
    if(StringFind(why, "entry judge") == 0)         return GATE_MBJUDGE;
 
    if(StringFind(why, "better place") >= 0)        return GATE_LOCATION;
+   // PACKAGE 1 (D-04): the cost gates and the hard blocks carry the score in their text - they are
+   // classified by what refused, not by the word "score".
+   if(StringFind(why, "clarity:") == 0)            return GATE_DIRECTION;
+   if(StringFind(why, "htf bias:") == 0)           return GATE_REGIME;
+   if(StringFind(why, "failed break:") == 0 ||
+      StringFind(why, "old level:") == 0)          return GATE_ZONE;
+   if(StringFind(why, "hard block:") == 0)
+   {
+      if(StringFind(why, "spread") >= 0)           return GATE_SPREAD;
+      if(StringFind(why, "wall") >= 0 ||
+         StringFind(why, "zone") >= 0)             return GATE_ZONE;
+      if(StringFind(why, "chaos") >= 0 ||
+         StringFind(why, "tick") >= 0 ||
+         StringFind(why, "ENV") >= 0)              return GATE_ENV;
+      return GATE_DIRECTION;                       // counter-context, blow-off, trend: directional
+   }
    if(StringFind(why, "score") >= 0)               return GATE_SCORE;
    if(StringFind(why, "zone") >= 0 ||
       StringFind(why, "supply") >= 0 ||
@@ -3561,6 +3577,10 @@ datetime G_DLOG_WHEN = 0;
 
 void DecisionLog(const string verdict, const string why)
 {
+   // DECISION TRACE (26d): the verdicts of this tick, in order - the relief / evidence / fast / redirect
+   // steps and the refusals all go through here.
+   if(StringLen(G_TR_TICK) < 600)
+      G_TR_TICK += verdict + ":" + StringSubstr(why, 0, 70) + "|";
    if(!EnableDecisionLog) return;
 
    string line = StringFormat(
@@ -4174,6 +4194,7 @@ bool FirstEntryCanRun(string &reason)
    G_MB_FAST_ACTIVE = false;
    G_EG_SKIP_MASK = 0;     // evidence gates: the quality filters that stand aside for THIS decision
    G_EG_RECORD = true;
+   G_TR_TICK = "";         // decision trace: this tick's verdicts (26d)
    // BOSQICH 4: kun almashganda kechagi hisob logga yoziladi va nolga qaytadi
    {
       static int fe_day = -1;
@@ -4410,7 +4431,11 @@ bool FirstEntryCanRun(string &reason)
    if(G_SCORE_DECISION == SCORE_DECISION_WAIT && G_OPP_DIR != OPP_DIR_NONE)
    {
       int eg_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : -1;
-      if(G_ARM_DIR != eg_dir && MBEGSkip(EG_SCORE, eg_dir))
+      // PACKAGE 1 (D-01): only a score that fell SHORT by a little - two points at most. A setup scoring
+      // 3 of 20 is not a near-miss the filter cost, it is no setup; without the floor any weak detector
+      // vote could set the grid's direction.
+      if(G_ARM_DIR != eg_dir && G_SCORE_MIN_REQUIRED > 0 && G_SCORE_FINAL >= G_SCORE_MIN_REQUIRED - 2 &&
+         MBEGSkip(EG_SCORE, eg_dir))
       {
          G_SCORE_DECISION = G_SCORE_IS_MICRO ? SCORE_DECISION_MICRO_PASS : SCORE_DECISION_PASS;
          DecisionLog("EVIDENCE", StringFormat("score %d/%d short - the score filter stands aside on this side (evidence)",
@@ -4490,7 +4515,10 @@ bool FirstEntryCanRun(string &reason)
 
    if(G_SCORE_DECISION != SCORE_DECISION_PASS && G_SCORE_DECISION != SCORE_DECISION_MICRO_PASS)
    {
-      reason = "score not passed";
+      // PACKAGE 1 (D-04): a hard block is named for what it is - "score" is kept for a score that fell
+      // short, so the shadow ledger and the evidence gates do not learn the score filter from chaos,
+      // spread or wall refusals.
+      reason = (G_SCORE_DECISION == SCORE_DECISION_HARD_BLOCK) ? ("hard block: " + G_SCORE_HARD_BLOCK) : "score not passed";
 
       // BOSQICH 4 (kuzatuv): ball talabdan 1-2 ga yetmay qolgan setup - yo'qotilgan savdoning eng
       // aniq nomzodi. Uning har bir bonus va jazosi G_SCORE_DETAIL da bor - endi logga yoziladi.
@@ -4699,8 +4727,8 @@ bool FirstEntryCanRun(string &reason)
    {
       if(G_SCORE_FINAL < G_SCORE_MIN_REQUIRED + ClarityScoreCost)
       {
-         reason = StringFormat("score %d, direction contested (%.0f%% clear)",
-                               G_SCORE_FINAL, G_OPP_DIR_CLARITY * 100.0);
+         reason = StringFormat("clarity: direction contested (%.0f%% clear), score %d",
+                               G_OPP_DIR_CLARITY * 100.0, G_SCORE_FINAL);
          DecisionLog("HOLD", reason);
          return false;
       }
@@ -4748,7 +4776,7 @@ bool FirstEntryCanRun(string &reason)
 
          if(fb_cost > 0 && G_SCORE_FINAL < G_SCORE_MIN_REQUIRED + fb_cost)
          {
-            reason = StringFormat("score %d, %s", G_SCORE_FINAL, fb_why);
+            reason = StringFormat("failed break: %s, score %d", fb_why, G_SCORE_FINAL);
             DecisionLog("HOLD", reason);
             return false;
          }
@@ -4768,7 +4796,7 @@ bool FirstEntryCanRun(string &reason)
 
          if(ol_cost > 0 && G_SCORE_FINAL < G_SCORE_MIN_REQUIRED + ol_cost)
          {
-            reason = StringFormat("score %d, %s", G_SCORE_FINAL, ol_why);
+            reason = StringFormat("old level: %s, score %d", ol_why, G_SCORE_FINAL);
             DecisionLog("HOLD", reason);
             return false;
          }
@@ -4790,7 +4818,7 @@ bool FirstEntryCanRun(string &reason)
 
          if(htf_cost > 0 && G_SCORE_FINAL < G_SCORE_MIN_REQUIRED + htf_cost)
          {
-            reason = StringFormat("score %d, %s", G_SCORE_FINAL, htf_why);
+            reason = StringFormat("htf bias: %s, score %d", htf_why, G_SCORE_FINAL);
             DecisionLog("HOLD", reason);
             return false;
          }
@@ -4882,6 +4910,7 @@ void UpdateFirstEntryEngine(const string source)
    if(!G_ENTRY_READY && G_OPP_DIR != OPP_DIR_NONE)
       MBMissedNote(G_OPP_DIR == OPP_DIR_BUY ? 1 : -1, reason);   // plan stage 4: second chance for a setup refused for its place
    MBShadowOnDecision(G_ENTRY_READY, reason);   // stage 12: follow the refused setup in the shadows
+   TraceDecision(G_ENTRY_READY, reason);        // package 1: the decision trace row (26d)
 
    // And how long it has been since anything got through. Eleven guards that do not know about
    // each other can add up to silence without any one of them being wrong.
@@ -5234,6 +5263,7 @@ void UpdateFirstEntryEngine(const string source)
       MBFastEntryFilled();
       MBAutopsyOnEntry(order_type == ORDER_TYPE_BUY ? 1 : -1);   // plan stage 7: snapshot of every layer at entry
       MBShadowOnEntry((order_type == ORDER_TYPE_BUY ? 1 : -1), G_TRADE.ResultPrice());
+      TraceSent((order_type == ORDER_TYPE_BUY ? 1 : -1), G_TRADE.ResultPrice());   // package 1: decision trace
       if(EnableSlippageTracking)
       {
          double slip_filled = G_TRADE.ResultPrice();

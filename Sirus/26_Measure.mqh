@@ -187,6 +187,7 @@ struct SMBShadow
 };
 
 SMBShadow G_SH[MB_SH_MAX];
+string    G_SH_WHY[MB_SH_MAX];  // PACKAGE 1: the exact rule that refused it and the H4/H1/M15 state - CSV "extra"
 int       G_SH_NEXT = 0;
 int       G_SH_TALLY[MB_SH_SLOTS][3];   // today's results per gate: TP / GRID / TIMEOUT
 int       G_SH_DAY = -1;
@@ -300,7 +301,7 @@ void MBShadowDayRoll()
          G_SH_TALLY[g][o] = 0;
 }
 
-void MBShadowAdd(const int dir, const int gate, const double entry, const int ek = -1, const int mask = 0)
+void MBShadowAdd(const int dir, const int gate, const double entry, const int ek = -1, const int mask = 0, const string why = "")
 {
    double tp_pts = BaseBasketTPPoints();
    double adv_pts = MathMax(AutoGridBaseDistance(), AutoGridMinDistance());
@@ -323,6 +324,9 @@ void MBShadowAdd(const int dir, const int gate, const double entry, const int ek
    G_SH[k].al = (dir * G_MB_BIAS < 0) ? 1 : 0;
    G_SH[k].mask = mask;
    G_SH[k].bias = G_MB_BIAS;
+   G_SH_WHY[k] = StringFormat("%sh4=%d h1=%d m15=%d", (StringLen(why) > 0 ? "rule=" + why + " " : ""),
+                              G_MB_TF_STATE[4], G_MB_TF_STATE[3], G_MB_TF_STATE[2]);
+   StringReplace(G_SH_WHY[k], ";", ",");
 }
 
 //---------------------------------------------------------------------
@@ -433,7 +437,7 @@ void MBShadowOnDecision(const bool ready, const string reason)
       return;
    G_SH_LAST_BAR[sl] = G_BARS_SEEN;
    MBShadowDayRoll();
-   MBShadowAdd(dir, gate, SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID)), MBEGKeyOf(reason));
+   MBShadowAdd(dir, gate, SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID)), MBEGKeyOf(reason), 0, TraceRule(reason));
 }
 
 // A real first entry, followed the same way for the comparison.
@@ -505,7 +509,7 @@ void MBShadowUpdate()
       int g = MathMax(0, MathMin(MB_SH_SLOTS - 1, G_SH[i].gate));
       G_SH_TALLY[g][outcome]++;
       MBEGFeed(G_SH[i].gate == MB_SH_TAKEN, G_SH[i].ek, G_SH[i].al, G_SH[i].mask, outcome);
-      MBShadowCsv(G_SH[i], outcome, "");
+      MBShadowCsv(G_SH[i], outcome, G_SH_WHY[i]);
       G_SH[i].active = false;
       G_SH_ACTIVE = MathMax(0, G_SH_ACTIVE - 1);
    }

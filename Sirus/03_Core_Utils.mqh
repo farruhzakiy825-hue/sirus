@@ -1157,3 +1157,25 @@ double ADXDecelerationFactor(const ENUM_TIMEFRAMES tf, const int period, const i
 }
 
 int SimpleTFDirection(const ENUM_TIMEFRAMES tf, const int lookback);
+
+// DECISION TRACE (package 1, file in 26d): every step of the scan that changes the decision leaves one
+// short note - "legacy:BUY WAIT 2/5>PASS 6/5" - so the trace row shows who turned a WAIT into a PASS.
+string TraceDirTxt(const int d) { return (d == (int)OPP_DIR_BUY) ? "BUY" : ((d == (int)OPP_DIR_SELL) ? "SELL" : "-"); }
+
+void TraceSnap()
+{
+   G_TR_S_DEC = (int)G_SCORE_DECISION;
+   G_TR_S_DIR = (int)G_OPP_DIR;
+   G_TR_S_FIN = G_SCORE_FINAL;
+}
+
+void TraceDiff(const string step)
+{
+   if((int)G_SCORE_DECISION == G_TR_S_DEC && (int)G_OPP_DIR == G_TR_S_DIR && G_SCORE_FINAL == G_TR_S_FIN)
+      return;
+   if(StringLen(G_TR_SCAN) > 600)
+      return;
+   string from = StringFormat("%s %s %d", TraceDirTxt(G_TR_S_DIR), ScoreDecisionToString((ENUM_SCORE_DECISION)G_TR_S_DEC), G_TR_S_FIN);
+   string to   = StringFormat("%s %s %d/%d", TraceDirTxt((int)G_OPP_DIR), ScoreDecisionToString(G_SCORE_DECISION), G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
+   G_TR_SCAN += StringFormat("%s:%s>%s|", step, from, to);
+}

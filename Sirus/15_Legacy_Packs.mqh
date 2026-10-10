@@ -722,6 +722,9 @@ void LegacyRecalculateDecision()
 {
    if(G_SCORE_DECISION == SCORE_DECISION_HARD_BLOCK) return;
    if(G_SCORE_MIN_REQUIRED <= 0) return;
+   // PACKAGE 1 (A1): a WAIT held by an arm of this side stays a WAIT - the bonuses below are not the
+   // answer the arm is waiting for (the score engine returned before it even computed the final score).
+   if(G_SCORE_DECISION == SCORE_DECISION_WAIT && ArmHoldsSide(OppDirSign())) return;
 
    if(G_SCORE_FINAL >= G_SCORE_MIN_REQUIRED)
    {

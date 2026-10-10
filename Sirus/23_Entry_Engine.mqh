@@ -330,7 +330,10 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    // STAGE 15 (D1): where in the regime box. RANGE edges are the place; the middle is not.
    int rg = EnableRegimePlaybook ? G_MB_RG : MB_RG_NONE;
    double rg_pos = (G_MB_RG_HI > G_MB_RG_LO) ? (price - G_MB_RG_LO) / (G_MB_RG_HI - G_MB_RG_LO) : 0.5;
-   bool range_edge = (rg == MB_RG_RANGE) && ((dir > 0 && rg_pos <= RegimeRangeEdge) || (dir < 0 && rg_pos >= 1.0 - RegimeRangeEdge));
+   // PACKAGE 1 (B-F6): an edge is INSIDE the box - below the low is a breakdown, above the high a
+   // breakout, not "the bottom / top of the range".
+   bool range_edge = (rg == MB_RG_RANGE) && ((dir > 0 && rg_pos >= 0.0 && rg_pos <= RegimeRangeEdge) ||
+                                             (dir < 0 && rg_pos <= 1.0 && rg_pos >= 1.0 - RegimeRangeEdge));
    bool range_mid = (rg == MB_RG_RANGE) && !range_edge && rg_pos > RegimeRangeEdge && rg_pos < 1.0 - RegimeRangeEdge;
    if(range_edge)
       loc += StringFormat("%srange edge %.2f", (StringLen(loc) > 0 ? ", " : ""), rg_pos);
@@ -730,6 +733,10 @@ bool MBDirOk(const int d)
       return true;
    if(a >= -2 && MBRangeRules())
       return true;   // range / compression: both edges
+   // PACKAGE 1 (arbiter): the pullback in an H1 + H4 trend - same rule as V0 (21); the candidate's own
+   // trigger and the veto probe still decide.
+   if(a >= -2 && MBArbiterOn() && MBArbiterHTFWithStrong(d) && (MBM5StructDir() == d || MBLayerLocal() == d))
+      return true;
    return MBLocalOkFor(d);
 }
 
@@ -1014,7 +1021,9 @@ bool MBFastEntryCandidate(int &dir, string &why)
       if(dir == 0 && BrainEntryRange && EnableRegimePlaybook && G_MB_RG == MB_RG_RANGE && G_MB_RG_HI > G_MB_RG_LO)
       {
          double pos = (bid - G_MB_RG_LO) / (G_MB_RG_HI - G_MB_RG_LO);
-         int rd2 = (pos <= 0.20) ? 1 : ((pos >= 0.80) ? -1 : 0);
+         // PACKAGE 1 (B-F6): only inside the box. With no bounds, price ABOVE the box read pos >= 0.80 and
+         // a breakout was sold (a breakdown bought) - a wrong-direction first entry, guarded only by the veto.
+         int rd2 = (pos >= 0.0 && pos <= 0.20) ? 1 : ((pos >= 0.80 && pos <= 1.0) ? -1 : 0);
          if(rd2 != 0 && MBCandOk(rd2, (int)OPP_TYPE_RANGE_EDGE) && MBHasTriggerNow(rd2))
          {
             dir = rd2;

@@ -167,6 +167,32 @@ bool MBBreakFailed(const int idx)
    return false;
 }
 
+// The newest valid (not failed) structure event on slot tfi strictly older than `before`. -1 = none.
+int MBStructureEventBefore(const int tfi, const datetime before)
+{
+   int base = tfi * MB_EV_PER_TF;
+   datetime below = before;
+   for(int pass = 0; pass < MB_EV_PER_TF; pass++)
+   {
+      int best = -1;
+      for(int i = 0; i < MB_EV_PER_TF; i++)
+      {
+         int idx = base + i;
+         if(G_MB_EV[idx].time <= 0) continue;
+         if(G_MB_EV[idx].type != MB_EV_MSS && G_MB_EV[idx].type != MB_EV_BOS) continue;
+         if(G_MB_EV[idx].time >= below) continue;
+         if(best < 0 || G_MB_EV[idx].time > G_MB_EV[best].time)
+            best = idx;
+      }
+      if(best < 0)
+         return -1;
+      if(!MBBreakFailed(best))
+         return best;
+      below = G_MB_EV[best].time;
+   }
+   return -1;
+}
+
 int MBLastStructureEvent(const int tfi)
 {
    // Newest first; a failed break is skipped and the structure before it stands.
@@ -303,8 +329,16 @@ int MBTimeframeState(const int tfi)
    datetime t_le = G_MB_EV[le].time;
 
    // An MSS not yet followed by a BOS the same way is a transition.
+   // PACKAGE 1 (B-F1): the event engine types a break MSS against G_MB_TREND, which a FAILED break
+   // (a liquidity grab) also flips - so the next real break in the old direction was stamped MSS and
+   // the trend read TRANSITION (59% of the shadow rows). The MSS label stands only when the valid
+   // structure before it really pointed the other way.
    if(G_MB_EV[le].type == MB_EV_MSS)
-      return (d > 0) ? MB_BIAS_TRANSITION_UP : MB_BIAS_TRANSITION_DOWN;
+   {
+      int prev = MBStructureEventBefore(tfi, t_le);
+      if(prev < 0 || G_MB_EV[prev].dir != d)
+         return (d > 0) ? MB_BIAS_TRANSITION_UP : MB_BIAS_TRANSITION_DOWN;
+   }
 
    // A trend - strong unless something is already arguing with it.
    string w = "";

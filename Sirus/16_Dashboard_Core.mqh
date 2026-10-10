@@ -918,24 +918,32 @@ void CoreUpdate(const string source)
    EventChainUpdate();
    if(ScanDue(source))
    {
+      // DECISION TRACE: each step that changes the decision leaves a note (26d).
+      G_TR_SCAN = "";
       UpdateOpportunityScanner(source);
       UpdateSignalScoreEngine(source);
-      UpdateDirectionRedirectEngine(source);
+      G_TR_SCAN = StringFormat("scan:%s %s %d/%d|", TraceDirTxt((int)G_OPP_DIR), ScoreDecisionToString(G_SCORE_DECISION),
+                               G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
+      TraceSnap(); UpdateDirectionRedirectEngine(source);          TraceDiff("redirect");
       if(G_REDIRECT_APPLIED)
-         UpdateSignalScoreEngine("REDIRECT_RESCORE");
-      UpdateLegacyUpgradePack(source);
-      UpdateLegacyDeepParityPack(source);
-      UpdateDeepBOSChochRetest(source);
-      UpdateDeepTopZoneTrapGuard(source);
-      UpdateDeepNewsVolatilityBrain(source);
-      UpdateAdaptiveEntryTimingBrain(source);
-      UpdateMarketRegimeAutoTuningBrain(source);
-      UpdateSignalQueueEngine(source);
-      UpdateMissedTradeMemory(source);
-      UpdateMicroScalpLayer(source);
-      UpdateBlockExpiryEngine(source);
+      {
+         TraceSnap(); UpdateSignalScoreEngine("REDIRECT_RESCORE"); TraceDiff("rescore");
+      }
+      TraceSnap(); UpdateLegacyUpgradePack(source);                TraceDiff("legacy");
+      TraceSnap(); UpdateLegacyDeepParityPack(source);             TraceDiff("deepHTF");
+      TraceSnap(); UpdateDeepBOSChochRetest(source);               TraceDiff("deepBOS");
+      TraceSnap(); UpdateDeepTopZoneTrapGuard(source);             TraceDiff("deepZone");
+      TraceSnap(); UpdateDeepNewsVolatilityBrain(source);          TraceDiff("deepNews");
+      TraceSnap(); UpdateAdaptiveEntryTimingBrain(source);         TraceDiff("deepTiming");
+      TraceSnap(); UpdateMarketRegimeAutoTuningBrain(source);      TraceDiff("regimeTune");
+      TraceSnap(); UpdateSignalQueueEngine(source);                TraceDiff("queue");
+      TraceSnap(); UpdateMissedTradeMemory(source);                TraceDiff("memory");
+      TraceSnap(); UpdateMicroScalpLayer(source);                  TraceDiff("micro");
+      TraceSnap(); UpdateBlockExpiryEngine(source);                TraceDiff("expiry");
       if(G_BLOCK_JUST_EXPIRED && (G_SCORE_DECISION == SCORE_DECISION_PASS || G_SCORE_DECISION == SCORE_DECISION_MICRO_PASS))
-         UpdateMicroScalpLayer("BLOCK_EXPIRY_RESCORE");
+      {
+         TraceSnap(); UpdateMicroScalpLayer("BLOCK_EXPIRY_RESCORE"); TraceDiff("micro2");
+      }
       ScanSnapshotSave();
    }
    else

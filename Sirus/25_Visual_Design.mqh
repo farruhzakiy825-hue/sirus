@@ -500,6 +500,7 @@ string MBReasonUz(const string reason)
    if(reason == "score not passed") return "Nishon hali aniq emas - signal kuchsiz";
    if(reason == "entry allowed") return "Barcha filtrlar o'tdi - zarba tayyor";
    string t = reason;
+   if(StringFind(t, "hard block: ") == 0) t = "Qattiq to'siq: " + StringSubstr(t, 12);
    if(StringFind(t, "market brain veto: ") == 0) t = "Taqiq: " + StringSubstr(t, 19);
    if(StringFind(t, "entry judge: wait - ") == 0) t = "Poylamoqda: " + StringSubstr(t, 20);
    if(StringFind(t, "waiting for a better place: ") == 0) t = "Yaxshiroq joy poylanmoqda: " + StringSubstr(t, 28);
@@ -757,6 +758,11 @@ void MBDrawPanel()
          MBPanelLine("B_LQ", MBLiquidityPanelText(), muted, false, x0, w, lh);
       else
          ObjectDelete(0, MB_VIS_PREFIX + "B_LQ");
+      {
+         string ab = MBArbiterText();   // direction arbiter: what H4 / H1 / M15 / M5 say and the verdict per side
+         if(StringLen(ab) > 0) MBPanelLine("B_ARB", ab, muted, false, x0, w, lh);
+         else ObjectDelete(0, MB_VIS_PREFIX + "B_ARB");
+      }
       {
          string hz = MBHTFZoneText();   // HTF supply / demand zones and the M15 lower high / higher low
          if(StringLen(hz) > 0) MBPanelLine("B_HZ", hz, muted, false, x0, w, lh);

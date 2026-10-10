@@ -4532,6 +4532,14 @@ double HTFStructureLotAdjust(const double lot, const ENUM_ORDER_TYPE order_type)
 
    int bias = HTFStructureBias();
    bool counter = (order_type == ORDER_TYPE_BUY && bias < 0) || (order_type == ORDER_TYPE_SELL && bias > 0);
+   // PACKAGE 1 (arbiter): one HTF reader. The Kalman H1 slope (never neutral at 5 points on gold) trimmed
+   // entries the arbiter had already judged; with the arbiter on, the trim applies only when H1 AND H4
+   // both stand against the entry (an entry the arbiter let through on a reversal or its own zone).
+   if(MBArbiterOn())
+   {
+      bias = 0;
+      counter = (MBArbiterHTFAgainst(order_type == ORDER_TYPE_BUY ? 1 : -1) >= 2);
+   }
 
    if(counter)
    {
@@ -4551,6 +4559,10 @@ double HTFStructureLotAdjust(const double lot, const ENUM_ORDER_TYPE order_type)
 double FirstEntryTrendGuardLotAdjust(const double lot, const ENUM_ORDER_TYPE order_type)
 {
    if(!EnableFirstEntryTrendGuard)
+      return lot;
+   // PACKAGE 1 (arbiter): legacy MARKET_STATE / Deep HTF / latched legacy BOS - three more HTF readers
+   // the arbiter replaces; stacking this x0.4 on the HTF trim cut brain-approved entries to x0.24.
+   if(MBArbiterOn())
       return lot;
 
    bool against = false;

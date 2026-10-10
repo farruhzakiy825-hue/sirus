@@ -832,7 +832,23 @@ double GridIntelligenceScoreRaw(const long grid_direction, string &detail)
    // multiplying blindly outside it. ---
    int struct_against_count = 0;
    string struct_detail = "";
-   if(EnableStructureConfluence)
+   if(EnableStructureConfluence && MBArbiterOn())
+   {
+      // PACKAGE 1 (arbiter): the H1 / H4 structure of the brain, not the latched legacy BOS and the
+      // Kalman / ADX HTF reader - the same view the first entry was judged by.
+      int ag = MBArbiterHTFAgainst(dir_i);
+      if(ag >= 1)
+      {
+         struct_against_count += ag;
+         struct_detail += StringFormat("H1/H4-against(%d) ", ag);
+      }
+      if((dir_i > 0 && G_DTZ_TOP_DANGER) || (dir_i < 0 && G_DTZ_BOTTOM_DANGER))
+      {
+         struct_against_count++;
+         struct_detail += "ZoneTrap-danger ";
+      }
+   }
+   else if(EnableStructureConfluence)
    {
       if((dir_i > 0 && G_DBOS_DIR < 0) || (dir_i < 0 && G_DBOS_DIR > 0))
       {

@@ -45,6 +45,7 @@
 #include "Sirus/20e_Cost_Edge.mqh"       // Plan stage 6: spread memory per hour, net edge (cashback), broker reality
 #include "Sirus/20f_Market_State.mqh"    // Plan stage 8: sensitivity, anomaly guard, market state, weighting, scenarios, narrative
 #include "Sirus/20g_HTF_Zones.mqh"       // HTF supply / demand zones and the M15 lower-high / higher-low rule
+#include "Sirus/20h_Direction_Arbiter.mqh" // One direction authority: H1/H4 grid risk > M15 side > M5/M1 timing
 #include "Sirus/21_Direction_Veto.mqh"   // Market Brain D: hard vetoes built on events and zone roles
 #include "Sirus/22_Memory.mqh"           // Market Brain H: Entry DNA and bounded evidence learning
 #include "Sirus/23_Entry_Engine.mqh"     // Market Brain E+F: entry location, timing, quality and the judge
@@ -53,6 +54,7 @@
 #include "Sirus/26_Measure.mqh"          // Stage 12: profiler + shadow ledger
 #include "Sirus/26b_Autopsy.mqh"         // Plan stage 7: trade memory, bad-entry autopsy, bad-taken vs good-missed balance
 #include "Sirus/26c_Evidence_Gates.mqh"  // Evidence gates: every quality filter proves its place on the robot's own numbers
+#include "Sirus/26d_Trace.mqh"           // Decision trace: one CSV row per decision - who changed it, which rule refused, what every TF said
 #include "Sirus/90_Reason_Code.mqh"      // Reason Code (always last): why every order was opened (journal + CSV)
 
 //==================================================================//
@@ -788,6 +790,7 @@ void OnDeinit(const int reason)
    DeleteDashboard();
    MBDeleteAllVisuals();   // watermark + Sirus panel
    MBShadowFlush();        // stage 12: write the buffered shadow rows
+   TraceFlush();           // package 1: write the buffered decision-trace rows
    LegacyDeleteZoneObjects();
    PremiumVisualDeleteObjects();
 

@@ -1482,6 +1482,20 @@ void SetupArmClear()
    G_ARM_START_SCORE = 0;
 }
 
+// PACKAGE 1 (A1): an arm of this side is still waiting for the market to answer its objection. Only the
+// score engine itself (and SetupArmConfirmed) may end that wait - the score up-graders that run after it
+// (legacy packs, missed-trade memory, expired-block boost, the signal queue) must not turn its WAIT
+// into a PASS on score alone.
+bool ArmHoldsSide(const int dir)
+{
+   return (EnableSetupArming && dir != 0 && G_ARM_DIR == dir && G_ARM_REASON != ARM_REASON_NONE);
+}
+
+int OppDirSign()
+{
+   return (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
+}
+
 // Hold a setup that is right in direction but early in timing.
 bool SetupArm(const int dir, const int reason_code, const double trigger_price, const string detail, const bool trigger_is_wall)
 {
