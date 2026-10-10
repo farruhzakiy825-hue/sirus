@@ -6659,3 +6659,14 @@ input double            ExhaustionConsensusMinFactor = 0.3;   // Exhaustion cons
 input double            ExhaustionConsensusExtraPenaltyStep = 0.04;   // Exhaustion consensus extra penalty step
 // EnableDeepShockExhaustionInConsensus: V31.6z34 NEW: folds Deep News Volatility Brain's own shock-wick exhaustion check in as Factor 6, instead of leaving it as an isolated, uncoordinated signal
 input bool              EnableDeepShockExhaustionInConsensus = true;   // Enable deep shock exhaustion in consensus
+
+input group "SIRUS ▸ Broker backup protection"
+// EnableBrokerDisasterSL: Broker serverida zaxira SL: EA/VPS o'chiq bo'lsa ham basket zarari shu foizga yetganda broker yopadi. Oddiy holatda hech qachon tegmaydi (EA 50% da o'zi yopadi).
+input bool   EnableBrokerDisasterSL     = true;   // Broker-side disaster SL (works while the EA / VPS is offline)
+// BrokerDisasterSLPercent: Zaxira SL - basket zarari balansning shu foizi. EA ning BasketSLPercent va favqulodda yopishidan kamida 5 foiz uzoqda bo'ladi.
+input double BrokerDisasterSLPercent    = 60.0;   // Disaster SL: basket loss as % of balance (kept >= 5% beyond the EA's own stops)
+// EnableBrokerBasketTP: Cashback rejimida gridli basketning har bir orderiga basket TP narxi yoziladi - EA o'chiq bo'lsa ham basket o'z maqsadida yopiladi.
+input bool   EnableBrokerBasketTP       = true;   // Cashback mode: every rung carries the basket TP price
+// EnableTradeEventReaction: Broker TP/SL bilan yopilish bo'lsa, keyingi tickni kutmasdan darhol qaror (tezroq qayta kirish).
+input bool   EnableTradeEventReaction   = true;   // React at once to a broker TP / SL close (faster re-entry)
+

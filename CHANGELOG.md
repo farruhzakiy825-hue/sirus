@@ -1,5 +1,24 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 4-paket: darhol reaksiya va broker tomonidagi zaxira himoya (2026-10-10)
+
+**Darhol reaksiya (OnTradeTransaction)**
+- Basket broker tomonidan yopilsa (TP, zaxira SL, stop-out), EA keyingi tickni kutmaydi: shu zahoti
+  bitta to'liq qaror o'tkazadi - Position Brain yopilishni yozadi va signal bo'lsa yangi basket darhol
+  ochiladi (TP'dan keyin darhol qayta kirish qoidasi). Ko'p orderli basketda - oxirgi order yopilgach.
+- Broker SL / stop-out bo'lsa jurnalga "[SIRUS BROKER CLOSE]" yoziladi. Input: EnableTradeEventReaction=true.
+
+**Broker tomonidagi zaxira himoya (EA yoki VPS o'chiq bo'lsa ham ishlaydi)**
+- Disaster SL: har bir pozitsiyaga butun basket zarari balansning BrokerDisasterSLPercent (60%) iga
+  yetadigan narx yoziladi. EA ning o'z stoplaridan (50% / 52%) kamida 5% uzoqda - EA ishlayotganda hech
+  qachon tegmaydi. Foydadagi trailing SL doim undan qattiqroq va uni almashtiradi; disaster SL trailing
+  SL ni hech qachon bo'shatmaydi.
+- Basket TP (faqat cashback rejimi, 2+ order): har bir orderga basket TP narxi (+50 punkt) yoziladi -
+  EA ishlayotganda u o'z maqsadida birinchi yopadi, o'chiq bo'lsa broker yopadi. Avval grid orderlarida
+  TP yo'q edi va EA o'chiq bo'lsa ko'p orderli basket hech qachon foydada yopilmasdi.
+- Throttle 5 s; SL 20 punkt, TP 60 punkt farq bo'lsagina o'zgartiriladi.
+- Inputlar: EnableBrokerDisasterSL=true, BrokerDisasterSLPercent=60, EnableBrokerBasketTP=true.
+
 ## 3-paket: tozalash va kichik holat xatolari (2026-10-10)
 
 **O'lik kod olib tashlandi (hech qachon chaqirilmagan - asl faylda ham)**

@@ -1469,6 +1469,40 @@ void OnTick()
    // PHASE 21.3: STABLE RC BASELINE
 }
 
+// PACKAGE 4: a basket closed by the BROKER (its TP, the backup SL, a stop-out) used to be noticed on the
+// next tick. On the deal itself the EA now runs one decision pass at once - the Position Brain books the
+// close and, with a signal, the next basket opens without waiting for a tick (owner rule: immediate
+// re-entry after a TP). The EA's own closes are handled where they are made.
+void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest &request, const MqlTradeResult &result)
+{
+   if(!EnableTradeEventReaction || trans.type != TRADE_TRANSACTION_DEAL_ADD || trans.deal == 0)
+      return;
+   if(!HistoryDealSelect(trans.deal))
+      return;
+   if(HistoryDealGetString(trans.deal, DEAL_SYMBOL) != _Symbol || HistoryDealGetInteger(trans.deal, DEAL_MAGIC) != MagicNumber)
+      return;
+   if((ENUM_DEAL_ENTRY)HistoryDealGetInteger(trans.deal, DEAL_ENTRY) != DEAL_ENTRY_OUT)
+      return;
+   ENUM_DEAL_REASON why = (ENUM_DEAL_REASON)HistoryDealGetInteger(trans.deal, DEAL_REASON);
+   if(why != DEAL_REASON_TP && why != DEAL_REASON_SL && why != DEAL_REASON_SO)
+      return;
+   if(why != DEAL_REASON_TP)
+      PrintFormat("[SIRUS BROKER CLOSE] %s by the broker: deal %I64u @ %s profit %.2f",
+                  (why == DEAL_REASON_SL ? "stop-loss" : "stop-out"), trans.deal,
+                  DoubleToString(HistoryDealGetDouble(trans.deal, DEAL_PRICE), _Digits),
+                  HistoryDealGetDouble(trans.deal, DEAL_PROFIT) + HistoryDealGetDouble(trans.deal, DEAL_SWAP));
+   // Only once the whole basket is flat (a multi-rung basket closes one deal per position).
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong t = PositionGetTicket(i);
+      if(t != 0 && PositionGetString(POSITION_SYMBOL) == _Symbol && (long)PositionGetInteger(POSITION_MAGIC) == MagicNumber)
+         return;
+   }
+   G_TICK_COUNT++;
+   G_LAST_TICK_LOCAL = TimeLocal();
+   CoreUpdate("TICK");
+}
+
 void OnTimer()
 {
    G_TIMER_COUNT++;

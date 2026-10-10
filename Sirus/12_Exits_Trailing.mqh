@@ -1454,6 +1454,103 @@ void BrokerTrailSync(const long direction, const double avg_price)
                   DoubleToString(sl, _Digits), modified, lock_pts, DoubleToString(avg_price, _Digits));
 }
 
+// PACKAGE 4: BROKER BACKUP PROTECTION. The basket stop (50%), the emergency close (52%) and the
+// basket TP all live in the EA; with the terminal or the VPS offline nothing protected the account
+// but the broker's margin stop-out, and a grid basket (rungs carry no TP) never took its profit.
+//   - Disaster SL: every position gets the price at which the WHOLE basket would lose
+//     BrokerDisasterSLPercent of the balance - kept at least 5% beyond the EA's own stops, so with the
+//     EA running it is never touched. A profit-lock SL (BrokerTrailSync) is always tighter and wins.
+//   - Basket TP (cashback mode, 2+ orders): every rung carries the basket's TP price, so the basket
+//     closes at its target even offline. The EA closes there itself when it is running.
+// Throttled; a failed modify is retried on a later tick.
+datetime G_BB_LAST = 0;
+
+void BrokerBackupSync(const long direction, const double avg_price, const double volume, const int orders, const double tp_points)
+{
+   if(!EnableBrokerDisasterSL && !EnableBrokerBasketTP)
+      return;
+   if((direction != POSITION_TYPE_BUY && direction != POSITION_TYPE_SELL) || avg_price <= 0.0 || volume <= 0.0 || _Point <= 0.0)
+      return;
+   datetime now = TimeCurrent();
+   if(G_BB_LAST > 0 && now >= G_BB_LAST && (now - G_BB_LAST) < 5)
+      return;
+
+   MqlTick tick;
+   if(!SymbolInfoTick(_Symbol, tick) || tick.bid <= 0.0 || tick.ask <= 0.0)
+      return;
+   bool is_buy = (direction == POSITION_TYPE_BUY);
+   long stops_level = 0, freeze_level = 0;
+   SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL, stops_level);
+   SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL, freeze_level);
+   double min_gap = ((double)MathMax(stops_level, freeze_level) + 5.0) * _Point;
+
+   // Disaster price: loss = (avg - P) x volume x value-per-price-unit = pct x balance.
+   double dsl = 0.0;
+   if(EnableBrokerDisasterSL)
+   {
+      double tv = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE_LOSS);
+      if(tv <= 0.0) tv = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+      double ts = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+      double bal = AccountInfoDouble(ACCOUNT_BALANCE);
+      double pct = MathMax(BrokerDisasterSLPercent, MathMax(BasketSLPercent, EmergencyForceCloseDDPercent) + 5.0);
+      if(tv > 0.0 && ts > 0.0 && bal > 0.0)
+      {
+         double per_price = volume * tv / ts;               // money per 1.0 price move of the whole basket
+         double dist = (pct / 100.0) * bal / per_price;     // price distance from the average
+         dsl = NormalizePriceSafe(is_buy ? avg_price - dist : avg_price + dist);
+         // Already beyond it (or inside the broker minimum): nothing sensible to place.
+         if(is_buy ? (dsl >= tick.bid - min_gap) : (dsl <= tick.ask + min_gap))
+            dsl = 0.0;
+      }
+   }
+
+   // Basket TP price: the target CheckBasketExit uses (bid for a BUY basket, ask for a SELL one) plus 50
+   // points - with the EA running it always closes first at its own (spread-aware) target; the broker's
+   // copy is only the offline backup, and a moving spread does not make it re-modify every few seconds.
+   double btp = 0.0;
+   if(EnableBrokerBasketTP && EnableRebateMode && orders >= 2 && UseBasketTPPoints && !RebateTrailingOn() && tp_points > 0.0)
+   {
+      double bt_pts = tp_points + 50.0;
+      btp = NormalizePriceSafe(is_buy ? avg_price + bt_pts * _Point : avg_price - bt_pts * _Point);
+      if(is_buy ? (btp <= tick.bid + min_gap) : (btp >= tick.ask - min_gap))
+         btp = 0.0;   // within reach - the EA closes it on this tick anyway
+   }
+   if(dsl <= 0.0 && btp <= 0.0)
+      return;
+
+   double tol = 20.0 * _Point;      // SL
+   double tol_tp = 60.0 * _Point;   // TP (the EA's own target moves with the spread)
+   int modified = 0, failed = 0;
+   G_TRADE.SetExpertMagicNumber(MagicNumber);
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0 || PositionGetString(POSITION_SYMBOL) != _Symbol || (long)PositionGetInteger(POSITION_MAGIC) != MagicNumber)
+         continue;
+      double cur_sl = PositionGetDouble(POSITION_SL);
+      double cur_tp = PositionGetDouble(POSITION_TP);
+      double new_sl = cur_sl, new_tp = cur_tp;
+      // SL: only an empty one or our own disaster level (below the average for a BUY) is moved - a
+      // profit-lock SL above the average belongs to the trailing and is never loosened.
+      bool lock_sl = (cur_sl > 0.0) && (is_buy ? (cur_sl >= avg_price) : (cur_sl <= avg_price));
+      if(dsl > 0.0 && !lock_sl && (cur_sl <= 0.0 || MathAbs(cur_sl - dsl) > tol))
+         new_sl = dsl;
+      if(btp > 0.0 && (cur_tp <= 0.0 || MathAbs(cur_tp - btp) > tol_tp))
+         new_tp = btp;
+      if(new_sl == cur_sl && new_tp == cur_tp)
+         continue;
+      if(G_TRADE.PositionModify(ticket, new_sl, new_tp) &&
+         (G_TRADE.ResultRetcode() == TRADE_RETCODE_DONE || G_TRADE.ResultRetcode() == TRADE_RETCODE_NO_CHANGES))
+         modified++;
+      else
+         failed++;
+   }
+   G_BB_LAST = now;
+   if((modified > 0 || failed > 0) && G_VERBOSE)
+      PrintFormat("[SIRUS BROKER BACKUP] %d position(s) updated, %d failed | disaster SL %s | basket TP %s",
+                  modified, failed, (dsl > 0.0 ? DoubleToString(dsl, _Digits) : "-"), (btp > 0.0 ? DoubleToString(btp, _Digits) : "-"));
+}
+
 bool CheckBasketExit()
 {
    int orders = 0;
@@ -1564,6 +1661,8 @@ bool CheckBasketExit()
 
    // Whatever trailing has armed, put it on the broker's books as well.
    BrokerTrailSync(direction, avg);
+   // And the backup stop / target that protect the basket while the EA is offline (package 4).
+   BrokerBackupSync(direction, avg, vol, orders, tp_points);
 
    if(UseBasketSL && BasketSLPercent > 0.0)
    {
