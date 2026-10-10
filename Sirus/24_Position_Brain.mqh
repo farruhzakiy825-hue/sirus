@@ -154,7 +154,7 @@ void MBRecoveryRestore(const datetime opened)
    G_MB_RC_ARM_DD = GlobalVariableGet(MBPBKey("ARMDD"));
    G_MB_RC_WORST_STATE = (int)GlobalVariableGet(MBPBKey("WORSTST"));
    G_MB_RC_WORST = (G_MB_PB_DIR > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   if((MBPositionPrintOnUse && VerboseLogs))
+   if((MBPositionPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS POSITION] basket state restored: dead %s, peak DD %.1f%%, exit armed %s",
                   (G_MB_PB_DEAD ? "yes" : "no"), G_MB_RC_PEAK_DD, (G_MB_RC_ARMED ? "yes" : "no"));
 }
@@ -290,7 +290,7 @@ void MBRecoveryEvaluate(const int dir, const datetime opened)
       G_MB_RC_ARMED = false;
       G_MB_RC_PERSIST = 0;
       MBRecoverySave();
-      if((MBPositionPrintOnUse && VerboseLogs))
+      if((MBPositionPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS RECOVERY] exit cancelled - a %s thesis is back on the basket's side", (dir > 0 ? "bullish" : "bearish"));
    }
    if(!EnableRecoveryJudge || dd < RecoveryStartDD)
@@ -370,7 +370,7 @@ void MBRecoveryEvaluate(const int dir, const datetime opened)
 
 
    G_MB_RC_PERSIST = (st == MB_RC_IMPOSSIBLE) ? G_MB_RC_PERSIST + 1 : 0;
-   if(st != G_MB_RC_STATE && (MBPositionPrintOnUse && VerboseLogs))
+   if(st != G_MB_RC_STATE && (MBPositionPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS RECOVERY] %s basket DD %.1f%% -> %s (against %d / for %d, need %d incl. dead thesis or reversal: %s) | against: %s| for: %s",
                   (dir > 0 ? "BUY" : "SELL"), dd, MBRecoveryStateName(st), neg, pos, need, (key ? "yes" : "no"), wn, wp);
    G_MB_RC_STATE = st;
@@ -385,7 +385,7 @@ void MBRecoveryEvaluate(const int dir, const datetime opened)
       G_MB_RC_ARM_DD = dd;
       G_MB_RC_WORST = px;
       MBRecoverySave();
-      if((MBPositionPrintOnUse && VerboseLogs))
+      if((MBPositionPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS RECOVERY] EXIT ARMED at DD %.1f%% - closing on the first %.1f ATR bounce, or at once if DD reaches %.1f%%",
                      dd, RecoveryBounceATR, dd + RecoveryWorsenDD);
    }
@@ -555,7 +555,7 @@ bool MBRunnerManage(const double basket_points, const double tp_points, string &
       if(G_BASKET_TRAIL_LOCK >= basket_points)
          G_BASKET_TRAIL_LOCK = MathMax(0.0, basket_points - 0.5 * step);
       MBRunnerClearBrokerTP();
-      if((MBPositionPrintOnUse && VerboseLogs))
+      if((MBPositionPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS RUNNER] %s basket runs (%s): armed at +%.0f, lock +%.0f, trail %.0f, far target +%.0f",
                      (dir > 0 ? "BUY" : "SELL"), ew, basket_points, G_BASKET_TRAIL_LOCK, step, G_RUN_TARGET);
    }
@@ -753,7 +753,7 @@ void MBPositionBrainUpdate()
          G_MB_PB_DEAD_WHY = why;
          G_MB_PB_RESCUED = false;
          MBRecoverySave();
-         if((MBPositionPrintOnUse && VerboseLogs))
+         if((MBPositionPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS POSITION] %s basket thesis DEAD (%d orders, %.0f pts) | %s | grid stopped, exit at break-even",
                         (dir > 0 ? "BUY" : "SELL"), G_BASKET_ORDERS, G_BASKET_POINTS, why);
       }
@@ -776,7 +776,7 @@ void MBPositionBrainUpdate()
          G_MB_PB_RESCUED = true;
          G_MB_PB_DEAD_TIME = TimeCurrent();
          MBRecoverySave();
-         if((MBPositionPrintOnUse && VerboseLogs))
+         if((MBPositionPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS POSITION] %s basket RESCUE allowed: %s - additions and the normal target are back",
                         (dir > 0 ? "BUY" : "SELL"), what);
       }
@@ -811,7 +811,7 @@ void MBExpectationEvaluate(const int dir, const datetime opened)
    else if(EnableMicroControl && G_MC_PRIMARY == dir && G_MC_TURN >= MC_TURN_EXHAUST)
       against = StringFormat("micro turn %s", MBTurnName(G_MC_TURN));
    bool fail = slow && StringLen(against) > 0;
-   if(fail && !G_PB_EXP_FAIL && (MBPositionPrintOnUse && VerboseLogs))
+   if(fail && !G_PB_EXP_FAIL && (MBPositionPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS POSITION] %s basket EXPECTATION FAILED: %d min, best +%.0f of TP %.0f, %s - break-even exit armed",
                   (dir > 0 ? "BUY" : "SELL"), mins, G_PB_MFE, tp, against);
    G_PB_EXP_FAIL = fail;
@@ -1049,7 +1049,7 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
       reason = StringFormat("holding - no response after %d M1 bars; waiting for the move against to pause", waited);
       return false;
    }
-   if((MBPositionPrintOnUse && VerboseLogs))
+   if((MBPositionPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS POSITION] no response after %d M1 bars - grid addition on a pause (%s)", waited, pw);
    G_MB_PB_WAIT_ORDERS = -1;
    return true;

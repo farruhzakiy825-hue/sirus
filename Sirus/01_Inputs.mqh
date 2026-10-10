@@ -97,6 +97,10 @@ input bool              ShowDashboard            = true;   // Show dashboard
 input bool              EnablePushNotifications  = false;   // Push notifications
 // VerboseLogs: FIX(log-noise): master switch for the ~170 "...PrintOnUse" diagnostic logs. false = quiet journal (trades, closes, errors and warnings still print). Each individual PrintOnUse switch still works when this is true.
 input bool              VerboseLogs              = true;   // Detailed journal logs
+// TesterQuietLogs: Testerda (vizual bo'lmagan) batafsil loglar o'chadi - jurnal toshqini testni soatlab sekinlashtiradi. Ma'lumot Sirus_Trace CSV da qoladi.
+input bool              TesterQuietLogs          = true;   // Tester: quiet journal (non-visual runs)
+// TesterUseDXYProxy: Testerda DXY proxy (EURUSD/GBPUSD/USDJPY) - yoqilsa tester 3 ta qo'shimcha symbolni ham modellaydi (sekin)
+input bool              TesterUseDXYProxy        = false;  // Tester: use the DXY proxy (loads 3 more symbols)
 input group "ADVANCED ▸ Diagnostics & reason code"
 // EnableReasonCode: Har ochilgan order (birinchi kirish, grid, scale-in) uchun "nega ochildi" yozuvi: signal, ball, struktura, zonalar, joylashuv, yangilik, qarshi dalillar (CONFLICTS)
 input bool              EnableReasonCode         = true;   // Enable reason code

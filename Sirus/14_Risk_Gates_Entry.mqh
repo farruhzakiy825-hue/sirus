@@ -294,7 +294,8 @@ bool SetupDoctorAllowsEntry(string &reason)
       return true;
    }
 
-   bool terminal_ok  = TerminalInfoInteger(TERMINAL_CONNECTED) != 0;
+   // TESTER: the tester need not report a server connection - it must not refuse every entry for it.
+   bool terminal_ok  = TerminalInfoInteger(TERMINAL_CONNECTED) != 0 || (bool)MQLInfoInteger(MQL_TESTER);
    bool algo_ok      = TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) != 0;
    bool account_ok   = AccountInfoInteger(ACCOUNT_TRADE_ALLOWED) != 0;
    bool mql_ok       = MQLInfoInteger(MQL_TRADE_ALLOWED) != 0;
@@ -708,7 +709,7 @@ bool MarginAllowsOrder(const ENUM_ORDER_TYPE order_type, const double lot, strin
    if(need_margin > free_margin)
    {
       reason = StringFormat("margin guard: need=%.2f > free=%.2f", need_margin, free_margin);
-      if((MarginGuardPrintOnUse && VerboseLogs))
+      if((MarginGuardPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v30 MARGIN GUARD] BLOCK | %s | lot=%.2f", reason, lot);
       return false;
    }
@@ -721,7 +722,7 @@ bool MarginAllowsOrder(const ENUM_ORDER_TYPE order_type, const double lot, strin
       {
          reason = StringFormat("margin guard: projected level %.0f%% < min %.0f%%",
                                projected_level, MarginGuardMinLevelPct);
-         if((MarginGuardPrintOnUse && VerboseLogs))
+         if((MarginGuardPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v30 MARGIN GUARD] BLOCK | %s | lot=%.2f need=%.2f", reason, lot, need_margin);
          return false;
       }
@@ -814,7 +815,7 @@ double ZoneMapMomentumLotAdjust(const double lot)
       double factor = ZoneMapMomentumLotFactor / (1.0 + (strength - 1.0) * ZoneStrengthLotTrimScale);
       factor = MathMax(0.05, factor);
 
-      if((ZoneMapPrintOnUse && VerboseLogs))
+      if((ZoneMapPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v31.6c ZONE WALL] entry %.0f pts from wall (strength=%.2f) - lot trimmed x%.2f (not blocked)",
                      dist, strength, factor);
       return lot * factor;
@@ -846,7 +847,7 @@ double LotForCurrentEntry(const bool apply_side_effects)
       double fitted = AffordableStartLot(bs_dir);
       if(fitted > 0.0 && fitted < lot)
       {
-         if(apply_side_effects && (BalanceSizedLotPrintOnUse && VerboseLogs))
+         if(apply_side_effects && (BalanceSizedLotPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v285 SIZE] balance %.2f carries %.2f lots for a %d-rung ladder (StartLot %.2f)",
                         AccountInfoDouble(ACCOUNT_BALANCE), fitted, MaxOrders, StartLot);
          lot = fitted;
@@ -860,8 +861,8 @@ double LotForCurrentEntry(const bool apply_side_effects)
    // which used to get overwritten by every "just checking" call made while G_BASKET_ORDERS <= 0,
    // corrupting the real scale-in completion armed by an actual entry moments earlier in the same tick.
    bool eff_trace           = EnableLotTrace && apply_side_effects;
-   bool eff_autolot_print   = (AutoLotPrintOnUse && VerboseLogs) && apply_side_effects;
-   bool eff_confidence_print = (ConfidenceLotPrintOnUse && VerboseLogs) && apply_side_effects;
+   bool eff_autolot_print   = (AutoLotPrintOnUse && G_VERBOSE) && apply_side_effects;
+   bool eff_confidence_print = (ConfidenceLotPrintOnUse && G_VERBOSE) && apply_side_effects;
 
    // V31 AUTOLOT: yoqilganda StartLot va mode-lotlar o'rniga balans/equity'dan hisoblanadi.
    if(UseAutoLot)
@@ -1227,7 +1228,7 @@ double EntryTPPoints()
          if(atr_tp < (double)MathMax(1, ATRTPMinPoints)) atr_tp = (double)ATRTPMinPoints;
          if(ATRTPMaxPoints > ATRTPMinPoints && atr_tp > (double)ATRTPMaxPoints) atr_tp = (double)ATRTPMaxPoints;
 
-         if((ATRTPPrintOnUse && VerboseLogs) && MathAbs(atr_tp - tp) > 1.0)
+         if((ATRTPPrintOnUse && G_VERBOSE) && MathAbs(atr_tp - tp) > 1.0)
             PrintFormat("[SIRUS v31.1 ATR-TP] fixed %.0f -> adaptive %.0f (ATR=%.0f x %.2f)", tp, atr_tp, atr, ATRTPFactor);
          tp = atr_tp;
       }
@@ -1270,7 +1271,7 @@ void HTFStructureWarnIfCounterTrend(const ENUM_ORDER_TYPE order_type)
    int bias = HTFStructureBias();
    bool counter = (order_type == ORDER_TYPE_BUY && bias < 0) || (order_type == ORDER_TYPE_SELL && bias > 0);
 
-   if(counter && (HTFStructurePrintOnUse && VerboseLogs))
+   if(counter && (HTFStructurePrintOnUse && G_VERBOSE))
    {
       PrintFormat("[SIRUS v29 HTF STRUCTURE] warning: entering %s against H1 bias=%d (info only, not blocked)",
                   (order_type == ORDER_TYPE_BUY ? "BUY" : "SELL"), bias);
@@ -1305,7 +1306,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
          if(current_tp_points < min_required)
          {
             double widened = price + min_required * _Point;
-            if((SpreadAwarePrintOnUse && VerboseLogs))
+            if((SpreadAwarePrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v29 SPREAD-AWARE TP] widened %.5f -> %.5f (spread=%.0fpts ratio=%.1f)",
                            tp, widened, spread_points, SpreadAwareMinRatio);
             tp = widened;
@@ -1326,7 +1327,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
          double min_floor = price + (EnableRebateMode ? RebateTargetPoints() : (double)FirstEntryTPMinPoints) * _Point;
             if(capped > min_floor)
             {
-               if((ZoneMapPrintOnUse && VerboseLogs))
+               if((ZoneMapPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v29 ZONE MAP] TP capped before resistance %.5f -> %.5f (strength=%.2f buffer=%.0f)",
                               tp, capped, strength, buffer_points);
                tp = capped;
@@ -1350,7 +1351,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
          if(current_tp_points < min_required)
          {
             double widened = price - min_required * _Point;
-            if((SpreadAwarePrintOnUse && VerboseLogs))
+            if((SpreadAwarePrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v29 SPREAD-AWARE TP] widened %.5f -> %.5f (spread=%.0fpts ratio=%.1f)",
                            tp, widened, spread_points, SpreadAwareMinRatio);
             tp = widened;
@@ -1368,7 +1369,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
             double min_floor = price - (EnableRebateMode ? RebateTargetPoints() : (double)FirstEntryTPMinPoints) * _Point;
             if(capped < min_floor)
             {
-               if((ZoneMapPrintOnUse && VerboseLogs))
+               if((ZoneMapPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v29 ZONE MAP] TP capped before support %.5f -> %.5f (strength=%.2f buffer=%.0f)",
                               tp, capped, strength, buffer_points);
                tp = capped;
@@ -2295,7 +2296,7 @@ void QuietTick(const bool entry_allowed)
       G_QUIET_BARS++;
       if(G_QUIET_BARS > G_QUIET_PEAK) G_QUIET_PEAK = G_QUIET_BARS;
 
-      if((QuietAlarmPrintOnUse && VerboseLogs) && G_QUIET_BARS == QuietAlarmBars)
+      if((QuietAlarmPrintOnUse && G_VERBOSE) && G_QUIET_BARS == QuietAlarmBars)
          PrintFormat("[SIRUS QUIET] nothing opened for %d bars - %s has been the usual reason",
                      G_QUIET_BARS, GateName(G_GATE_LAST));
    }
@@ -2354,7 +2355,7 @@ void AdaptRecord(const bool won)
       {
          G_ADAPT_EXTRA = MathMin(EvidenceMaxExtra, G_ADAPT_EXTRA + EvidenceStep);
 
-         if((EvidenceTightenPrintOnUse && VerboseLogs))
+         if((EvidenceTightenPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS ADAPT] %d of %d won - entries now need %.2f more of the leg",
                         G_ADAPT_WINS, total, G_ADAPT_EXTRA);
       }
@@ -2365,7 +2366,7 @@ void AdaptRecord(const bool won)
       // to where it started, because the baseline was never the thing that was wrong.
       G_ADAPT_EXTRA = MathMax(0.0, G_ADAPT_EXTRA - EvidenceStep);
 
-      if((EvidenceTightenPrintOnUse && VerboseLogs))
+      if((EvidenceTightenPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS ADAPT] %d of %d won - extra demand down to %.2f",
                      G_ADAPT_WINS, total, G_ADAPT_EXTRA);
    }
@@ -2502,7 +2503,7 @@ bool ValveIsOff(const int v)
    {
       // Its turn is over. Back on, and if the silence continues the next check will pick
       // whichever guard is responsible now.
-      if((SafetyValvePrintOnUse && VerboseLogs))
+      if((SafetyValvePrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS VALVE] %s back on", ValveName(G_VALVE_OFF));
       G_VALVE_OFF = VALVE_NONE;
       return false;
@@ -3024,7 +3025,7 @@ void ScenarioRestore()
    int total = 0;
    for(int b = 0; b < SCEN_BUCKETS; b++) total += G_SCEN_N[b];
 
-   if(total > 0 && (ScenRecordPrintOnUse && VerboseLogs))
+   if(total > 0 && (ScenRecordPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS SCENARIO] %d reactions recovered", total);
 }
 
@@ -3083,7 +3084,7 @@ void ScenarioTrack()
 
          ScenarioStore(b);
 
-         if((ScenRecordPrintOnUse && VerboseLogs))
+         if((ScenRecordPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS SCENARIO] reaction at %.2f went %.1f ATR - bucket %d now averages %.1f over %d",
                         G_SCEN_PENDING_LVL, recorded, b,
                         G_SCEN_SUM[b] / MathMax(1, G_SCEN_N[b]), G_SCEN_N[b]);
@@ -3534,7 +3535,7 @@ void LocationBrainRecordStop(const int dir, const double price)
    G_LB_LAST_STOP_PRICE = price;
    G_LB_LAST_STOP_TIME  = TimeCurrent();
 
-   if((LocationBrainPrintOnUse && VerboseLogs))
+   if((LocationBrainPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS BRAIN] %s stopped at %.2f - the next one that way has to be better",
                   (dir > 0 ? "BUY" : "SELL"), price);
 }
@@ -4149,7 +4150,7 @@ bool TryLocationRedirect(const int from_dir, string &why)
    why = StringFormat("%s blocked at a level -> %s %s %d/%d",
                       (from_dir > 0 ? "BUY" : "SELL"), (to_dir > 0 ? "BUY" : "SELL"),
                       OpportunityTypeToString(bt), G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
-   if((LGPrintOnUse && VerboseLogs))
+   if((LGPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS LOCATION REDIRECT] %s", why);
    return true;
 }
@@ -4377,7 +4378,7 @@ bool FirstEntryCanRun(string &reason)
       if(relief > 0 && G_SCORE_FINAL + relief >= G_SCORE_MIN_REQUIRED)
       {
          G_SCORE_DECISION = G_SCORE_IS_MICRO ? SCORE_DECISION_MICRO_PASS : SCORE_DECISION_PASS;
-         if((LGPrintOnUse && VerboseLogs))
+         if((LGPrintOnUse && G_VERBOSE))
          {
             static int rl_bar = -100000;
             if(rl_bar > G_BARS_SEEN) rl_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
@@ -4570,7 +4571,7 @@ bool FirstEntryCanRun(string &reason)
             if(lg_cnt_bar > G_BARS_SEEN) lg_cnt_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
             if(lg_cnt_bar != G_BARS_SEEN) { lg_cnt_bar = G_BARS_SEEN; G_LOCATION_BLOCKS_TODAY++; }
          }
-         if((LGPrintOnUse && VerboseLogs))
+         if((LGPrintOnUse && G_VERBOSE))
          {
             static int lg_print_bar = -100000;
             if(lg_print_bar > G_BARS_SEEN) lg_print_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
@@ -4757,7 +4758,7 @@ bool FirstEntryCanRun(string &reason)
             if(adj != 0)
             {
                G_SCORE_FINAL += adj;
-               if((ScenRecordPrintOnUse && VerboseLogs) && adj < 0)
+               if((ScenRecordPrintOnUse && G_VERBOSE) && adj < 0)
                   PrintFormat("[SIRUS SCENARIO] %.1f ATR expected here - score %+d", se_proj, adj);
             }
          }
@@ -4856,7 +4857,7 @@ bool FirstEntryCanRun(string &reason)
          {
             G_LB_HELD++;
 
-            if((LocationBrainPrintOnUse && VerboseLogs) && (G_LB_HELD % 20) == 1)
+            if((LocationBrainPrintOnUse && G_VERBOSE) && (G_LB_HELD % 20) == 1)
                PrintFormat("[SIRUS BRAIN] holding %s - %s", (lb_dir > 0 ? "BUY" : "SELL"), lb_why);
 
             reason = "waiting for a better place: " + lb_why;
@@ -4944,7 +4945,7 @@ void UpdateFirstEntryEngine(const string source)
             if(fits >= MathMax(1, MinAffordableRungs))
             {
                G_AFFORD_RUNG_CAP = fits;
-               if((EntryAffordabilityPrintOnUse && VerboseLogs))
+               if((EntryAffordabilityPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v282 TRIM] full ladder does not fit - capping the basket at %d rungs", fits);
             }
          }
@@ -4962,7 +4963,7 @@ void UpdateFirstEntryEngine(const string source)
       {
          G_ENTRY_READY = false;
          reason = aff_reason;
-         if((EntryAffordabilityPrintOnUse && VerboseLogs))
+         if((EntryAffordabilityPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v248 AFFORD] %s", aff_reason);
       }
    }
@@ -5108,7 +5109,7 @@ void UpdateFirstEntryEngine(const string source)
       if(sf_momentum)
       {
          G_SF_ACTIVE = false;
-         if((SmartFillPrintOnUse && VerboseLogs))
+         if((SmartFillPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS SMARTFILL] skipped - momentum %s now", (sf_dir_now > 0 ? "up" : "down"));
       }
       else if(!G_SF_ACTIVE)
@@ -5146,7 +5147,7 @@ void UpdateFirstEntryEngine(const string source)
          G_SF_FILL_COUNT++;
          if(sf_pullback && sf_pull > 0.0)
             G_SF_SAVED_POINTS += sf_pull;
-         if((SmartFillPrintOnUse && VerboseLogs))
+         if((SmartFillPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v31.3 SMARTFILL] fire: %s | pull=%.0f pts | spread %d->%d | fills=%d savedTotal=%.0f pts",
                         (sf_pullback ? "PULLBACK" : (sf_spreddip ? "SPREAD-DIP" : "TIMEOUT")),
                         sf_pull, G_SF_ARM_SPREAD, sf_spread, G_SF_FILL_COUNT, G_SF_SAVED_POINTS);
@@ -5383,7 +5384,7 @@ void UpdateFirstEntryEngine(const string source)
          else
             G_FIRST_TRANSIENT_RETRY_COUNT = 0;
 
-         if((RetryPrintOnUse && VerboseLogs))
+         if((RetryPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v29 RETRY] first-entry fail ret=%d transient=%s attempt=%d/%d",
                         retcode, YesNoV29(transient), G_FIRST_TRANSIENT_RETRY_COUNT, RetryMaxAttempts);
       }

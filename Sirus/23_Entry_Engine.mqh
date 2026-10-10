@@ -665,7 +665,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
 
    G_MB_DNA_PENDING_TEXT = G_MB_ENTRY_TEXT;
 
-   if((MBEntryPrintOnUse && VerboseLogs))
+   if((MBEntryPrintOnUse && G_VERBOSE))
    {
       string key = MBEntryDecisionName(decision) + "|" + missing + "|" + etype;
       if(key != G_MB_ENTRY_LAST_PRINT || (TimeCurrent() - G_MB_ENTRY_PRINT_TIME) >= 60)

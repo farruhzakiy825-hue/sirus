@@ -1228,7 +1228,7 @@ void ReplayQueuedSignal()
          string q_why = "";
          if(LocationBrainVerdict(q_dir, q_why) != LB_OK)
          {
-            if((QueueRecheckPrintOnUse && VerboseLogs))
+            if((QueueRecheckPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS QUEUE] replay held - %s", q_why);
             return;
          }
@@ -2529,7 +2529,7 @@ double Pack2BasketTPForOrders(const int orders, const double base_tp)
             if(st_pts >= (double)SituationTargetMinPoints &&
                st_pts <= (double)SituationTargetMaxPoints)
             {
-               if((StructureTargetPrintOnUse && VerboseLogs))
+               if((StructureTargetPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v224 TARGET] structure ends at %.2f -> %.0f pts (was %.0f)",
                               G_LS_INVALIDATE, st_pts, tp);
                tp = st_pts;
@@ -2571,7 +2571,7 @@ double Pack2BasketTPForOrders(const int orders, const double base_tp)
       double sp_pts = SituationTargetPoints(G_SITUATION, G_SITUATION_DIR, sp_detail);
       if(sp_pts > 0.0)
       {
-         if((SituationPlanPrintOnUse && VerboseLogs))
+         if((SituationPlanPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v220 PLAN] %s -> %s (%.0f pts, was %.0f)",
                         SituationName(G_SITUATION), sp_detail, sp_pts, tp);
          tp = sp_pts;
@@ -2651,7 +2651,7 @@ double Pack2BasketTPForOrders(const int orders, const double base_tp)
       double adjusted = tp * tp_factor;
       if(adjusted < BasketTPMinPoints)
          adjusted = (double)BasketTPMinPoints;
-      if((TPAdjustPrintOnUse && VerboseLogs) && MathAbs(adjusted - tp) > 50.0)
+      if((TPAdjustPrintOnUse && G_VERBOSE) && MathAbs(adjusted - tp) > 50.0)
          PrintFormat("[SIRUS v170 TP] %.0f -> %.0f (x%.2f: %s)", tp, adjusted, tp_factor, tp_why);
       tp = adjusted;
    }
@@ -2850,7 +2850,7 @@ int SmartTrailEffectiveStep()
    int step = (int)MathRound(BasketTrailStepPoints - frac * (BasketTrailStepPoints - SmartTrailMinStepPoints));
    step = MathMax(SmartTrailMinStepPoints, MathMin(BasketTrailStepPoints, step));
 
-   if((SmartTrailPrintOnUse && VerboseLogs) && warnings > 0)
+   if((SmartTrailPrintOnUse && G_VERBOSE) && warnings > 0)
       PrintFormat("[SIRUS v31.6z11 SMART TRAIL] dir=%d warnings=%.2f (%s) step %d -> %d",
                   dir_i, warnings, reasons, BasketTrailStepPoints, step);
 
@@ -2922,7 +2922,7 @@ bool Pack2CheckBasketBreakEvenOrTrail()
       {
          effective_trail_start = basket_tp * MathMax(0.1, MathMin(0.95, AdaptiveTrailArmTPFraction));
 
-         if((SmartTrailPrintOnUse && VerboseLogs))
+         if((SmartTrailPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v31.6z64 ADAPTIVE TRAIL ARM] fixed arm %d >= basket TP %.0f (orders=%d) - trailing could never engage; arming at %.0f instead",
                         BasketTrailStartPoints, basket_tp, G_BASKET_ORDERS, effective_trail_start);
       }

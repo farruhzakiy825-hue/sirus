@@ -192,7 +192,7 @@ void WarningRecordOutcome(const int warnings_mask, const bool won)
 
    WarningStatsSave();
 
-   if((WarningLearningPrintOnUse && VerboseLogs) && StringLen(touched) > 0)
+   if((WarningLearningPrintOnUse && G_VERBOSE) && StringLen(touched) > 0)
       PrintFormat("[SIRUS v155 WARNINGS] basket %s - credited: %s",
                   (won ? "WON" : "LOST"), touched);
 }
@@ -393,14 +393,14 @@ void BlockAuditSettle()
       if(moved <= -(double)BlockAuditDecisivePoints)
       {
          G_BA_SAVED += 1.0;      // the refused entry would have gone straight into loss
-         if((BlockAuditPrintOnUse && VerboseLogs))
+         if((BlockAuditPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v157 BLOCK AUDIT] block was RIGHT (%.0f pts against) | saved=%.0f cost=%.0f",
                         -moved, G_BA_SAVED, G_BA_COST);
       }
       else if(moved >= (double)BlockAuditDecisivePoints)
       {
          G_BA_COST += 1.0;       // it would have worked - the block cost us
-         if((BlockAuditPrintOnUse && VerboseLogs))
+         if((BlockAuditPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v157 BLOCK AUDIT] block was WRONG (%.0f pts in favour) | saved=%.0f cost=%.0f",
                         moved, G_BA_SAVED, G_BA_COST);
       }
@@ -587,7 +587,7 @@ void ScoreBandRecordOutcome(const int score, const bool won)
 
    ScoreBandSave();
 
-   if((ScoreCalibrationPrintOnUse && VerboseLogs))
+   if((ScoreCalibrationPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v153 CALIBRATION] band %s: %s | now %.0f/%.0f",
                   ScoreBandName(band), (won ? "WIN" : "LOSS"),
                   G_SCORE_BAND_WINS[band], G_SCORE_BAND_LOSSES[band]);
@@ -802,7 +802,7 @@ double MarketConfidenceLotAdjust(const double lot, const int opp_type)
    double half_range = (ConfidenceMaxLotMultiplier - ConfidenceMinLotMultiplier) / 2.0;
    double multiplier = mid + avg_score * half_range;
 
-   if((ConfidencePrintOnUse && VerboseLogs))
+   if((ConfidencePrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v29 CONFIDENCE] vol=%.2f bayes=%.2f hurst=%.2f avg=%.2f -> lot x%.2f",
                   vol_score, bayes_score, hurst_score, avg_score, multiplier);
 
@@ -924,7 +924,7 @@ string BasketCloseTag(const string reason)
 // dashboard cleanup or on OnDeinit, leaving a permanent visual trail of every basket outcome.
 void DrawBasketCloseMarker(const string reason, const double profit)
 {
-   if(!EnableCloseMarkers)
+   if(!EnableCloseMarkers || TesterHeadless())   // TESTER: markers pile up with no chart to show them
       return;
 
    bool win = (profit >= 0.0);
@@ -1276,7 +1276,7 @@ void CheckNewsAutoFlat()
    if(CloseSirusBasket(StringFormat("Auto-flat before news: %s (%d min)", ev_name, ev_min)))
    {
       G_NEWS_FLAT_LAST_EVENT = G_CAL_EV_ID[ev];
-      if((NewsAutoFlatPrintOnUse && VerboseLogs))
+      if((NewsAutoFlatPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v29 NEWS AUTO-FLAT] closed basket before %s (%d min, profit=%.2f)",
                      ev_name, ev_min, profit);
    }
@@ -1336,7 +1336,7 @@ bool RebateTrailManage(const double basket_points, const double tp_points, const
       G_RB_TRAIL_ACTIVE = true;
       G_RB_TRAIL_PEAK = basket_points;
       G_RB_TRAIL_LOCK = MathMax(lock_floor, basket_points - step);
-      if((BrokerTrailPrintOnUse && VerboseLogs))
+      if((BrokerTrailPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS REBATE TRAIL] armed at %.0f pts (TP %.0f, orders=%d) | lock %.0f | step %.0f",
                      basket_points, tp_points, orders, G_RB_TRAIL_LOCK, step);
    }
@@ -1441,7 +1441,7 @@ void BrokerTrailSync(const long direction, const double avg_price)
       else
       {
          failed++;
-         if((BrokerTrailPrintOnUse && VerboseLogs))
+         if((BrokerTrailPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS BROKER TRAIL] modify failed ticket=%I64u sl=%s | ret=%d %s",
                         ticket, DoubleToString(sl, _Digits),
                         (int)G_TRADE.ResultRetcode(), G_TRADE.ResultRetcodeDescription());
@@ -1451,7 +1451,7 @@ void BrokerTrailSync(const long direction, const double avg_price)
    G_BROKER_TRAIL_LAST = now;
    if(failed == 0)
       G_BROKER_TRAIL_LAST_LOCK = lock_pts;   // a failed pass is retried on the next tick
-   if(modified > 0 && (BrokerTrailPrintOnUse && VerboseLogs))
+   if(modified > 0 && (BrokerTrailPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS BROKER TRAIL] stop-loss %s on %d position(s) | lock %.0f pts over avg %s",
                   DoubleToString(sl, _Digits), modified, lock_pts, DoubleToString(avg_price, _Digits));
 }
@@ -1619,7 +1619,7 @@ bool CheckBasketExit()
       if(trimmed > 0)
       {
          G_PARTIAL_CLOSE_STAGE = 1;
-         if((PartialClosePrintOnUse && VerboseLogs))
+         if((PartialClosePrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v29 PARTIAL CLOSE] stage 1: trimmed %d position(s) by %.1f%% at basket profit %.0f pts (orders=%d)",
                         trimmed, PartialClosePercent, basket_points, orders);
       }
@@ -1655,7 +1655,7 @@ bool CheckBasketExit()
       if(trimmed2 > 0)
       {
          G_PARTIAL_CLOSE_STAGE = 2;
-         if((PartialClosePrintOnUse && VerboseLogs))
+         if((PartialClosePrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v29 PARTIAL CLOSE] stage 2: trimmed %d position(s) by %.1f%% at basket profit %.0f pts (orders=%d)",
                         trimmed2, LadderStage2Percent, basket_points, orders);
       }
@@ -2004,7 +2004,7 @@ bool MarginLevelAllowsGrid(string &reason)
    if(level < MarginLevelDangerPercent)
    {
       reason = StringFormat("margin level %.0f%% below danger floor %.0f%%", level, MarginLevelDangerPercent);
-      if((MarginLevelPrintOnUse && VerboseLogs))
+      if((MarginLevelPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v31.6k MARGIN LEVEL] grid BLOCKED - %s", reason);
       return false;
    }
@@ -2022,7 +2022,7 @@ double MarginLevelLotAdjust(const double lot)
    if(level <= 0.0 || level >= MarginLevelWarnPercent)
       return lot;
 
-   if((MarginLevelPrintOnUse && VerboseLogs))
+   if((MarginLevelPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v31.6k MARGIN LEVEL] caution %.0f%% < %.0f%% - lot trimmed x%.2f",
                   level, MarginLevelWarnPercent, MarginLevelLotFactor);
 

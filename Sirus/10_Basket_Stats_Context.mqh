@@ -537,7 +537,7 @@ void RecordEvent(const int kind, const int dir, const double price)
    G_EVT_PRICE[idx] = price;
    G_EVT_COUNT++;
 
-   if((EventChainPrintOnUse && VerboseLogs))
+   if((EventChainPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v142 EVENT] %s %s at %.2f (chain length %d)",
                   EventKindName(kind), (dir > 0 ? "up" : (dir < 0 ? "down" : "-")),
                   price, MathMin(G_EVT_COUNT, SIRUS_EVENT_MAX));
@@ -662,7 +662,7 @@ void ChainPatternRestore()
       if(GlobalVariableCheck(kw)) { G_CHAIN_PAT_WINS[i]   = GlobalVariableGet(kw); restored++; }
       if(GlobalVariableCheck(kl)) { G_CHAIN_PAT_LOSSES[i] = GlobalVariableGet(kl); }
    }
-   if(restored > 0 && (ChainLearningPrintOnUse && VerboseLogs))
+   if(restored > 0 && (ChainLearningPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v145 CHAIN LEARNING] restored outcome history for %d patterns", restored);
 }
 
@@ -725,14 +725,14 @@ void ChainPatternSettle()
    if(moved_pts >= (double)ChainLearningWinPoints)
    {
       G_CHAIN_PAT_WINS[pat] += 1.0;
-      if((ChainLearningPrintOnUse && VerboseLogs))
+      if((ChainLearningPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v145 CHAIN LEARNING] pattern %d CORRECT (%.0f pts) | now %.0f/%.0f",
                      pat, moved_pts, G_CHAIN_PAT_WINS[pat], G_CHAIN_PAT_LOSSES[pat]);
    }
    else if(moved_pts <= -(double)ChainLearningWinPoints)
    {
       G_CHAIN_PAT_LOSSES[pat] += 1.0;
-      if((ChainLearningPrintOnUse && VerboseLogs))
+      if((ChainLearningPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v145 CHAIN LEARNING] pattern %d WRONG (%.0f pts) | now %.0f/%.0f",
                      pat, moved_pts, G_CHAIN_PAT_WINS[pat], G_CHAIN_PAT_LOSSES[pat]);
    }
@@ -1703,7 +1703,7 @@ void PreparedLevelsRefresh()
       G_PREP_NOTE[G_PREP_COUNT]  = note;
       G_PREP_COUNT++;
 
-      if((PreparedLevelsPrintOnUse && VerboseLogs))
+      if((PreparedLevelsPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v291 PREP] %.2f ready for %s (%.1f) - %s",
                      cands[i], (dirs[i] > 0 ? "BUY" : "SELL"), sc, note);
    }
@@ -2708,7 +2708,7 @@ void ProtectedZonesRefresh()
       }
    }
 
-   if((ProtectedZonePrintOnUse && VerboseLogs) && G_PZ_COUNT > 0)
+   if((ProtectedZonePrintOnUse && G_VERBOSE) && G_PZ_COUNT > 0)
       PrintFormat("[SIRUS v264 PROTECTED] %d levels held", G_PZ_COUNT);
 }
 
@@ -4095,7 +4095,7 @@ int MajorReversalContext(double &neckline, double &confidence, string &detail)
 
    neckline = rc_neck; confidence = rc_conf; detail = rc_detail;
 
-   if(rc_state != REVCTX_NONE && (ReversalContextPrintOnUse && VerboseLogs))
+   if(rc_state != REVCTX_NONE && (ReversalContextPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v250 REVERSAL] %s (%.0f%% confidence)", rc_detail, rc_conf * 100.0);
 
    return rc_state;
@@ -4915,7 +4915,7 @@ void SetBasketThesis(const int dir)
    G_BASKET_INVALIDATION = invalid;
    G_BASKET_THESIS = why;
 
-   if((ThesisPrintOnUse && VerboseLogs))
+   if((ThesisPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v247 THESIS] %s basket - wrong above/below %.2f (%s, %.0f pts away)",
                   (dir > 0 ? "long" : "short"), invalid, why, dist);
 }
@@ -4952,7 +4952,7 @@ bool BasketPremiseDead(string &detail)
    detail = StringFormat("premise gone - closed through %.2f (%s)",
                          G_BASKET_INVALIDATION, G_BASKET_THESIS);
 
-   if((ThesisPrintOnUse && VerboseLogs))
+   if((ThesisPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v247 THESIS] %s - the ladder stops here", detail);
 
    return true;

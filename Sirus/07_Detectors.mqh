@@ -552,7 +552,7 @@ bool DetectFakeBreakoutReturnBuy(string &reason, int &score)
    reason = StringFormat("fbr buy: wall=%.2f (str=%.2f) broke %d bars ago, close=%.2f returned=%s score=%d",
                          sup, strength, broke_ago, c1, BoolText(returned), score);
 
-   if((FBRPrintOnUse && VerboseLogs) && returned)
+   if((FBRPrintOnUse && G_VERBOSE) && returned)
       PrintFormat("[SIRUS v31.6c FAKE BREAKOUT RETURN] BUY: %s", reason);
 
    return (broke && returned);
@@ -635,7 +635,7 @@ bool DetectFakeBreakoutReturnSell(string &reason, int &score)
    reason = StringFormat("fbr sell: wall=%.2f (str=%.2f) broke %d bars ago, close=%.2f returned=%s score=%d",
                          res, strength, broke_ago, c1, BoolText(returned), score);
 
-   if((FBRPrintOnUse && VerboseLogs) && returned)
+   if((FBRPrintOnUse && G_VERBOSE) && returned)
       PrintFormat("[SIRUS v31.6c FAKE BREAKOUT RETURN] SELL: %s", reason);
 
    return (broke && returned);
@@ -2393,7 +2393,7 @@ void ConsiderOpportunity(const ENUM_OPPORTUNITY_DIR dir, const ENUM_OPPORTUNITY_
    // competes to become the chosen opportunity.
    if(BayesDetectorDisabled((int)type))
    {
-      if((BayesAutoDisablePrintOnUse && VerboseLogs))
+      if((BayesAutoDisablePrintOnUse && G_VERBOSE))
       {
          static datetime last_disable_print = 0;
          if(TimeCurrent() - last_disable_print > 300)   // throttle: at most once / 5 min

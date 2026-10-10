@@ -787,7 +787,7 @@ int ReadSituation(int &dir, double &weight, string &detail)
                   if(!BreakConfirmedTwoLevels(br_price, br_dir, dc_detail))
                   {
                      holding = false;
-                     if((BrokenRetestPrintOnUse && VerboseLogs) && StringLen(dc_detail) > 0)
+                     if((BrokenRetestPrintOnUse && G_VERBOSE) && StringLen(dc_detail) > 0)
                         PrintFormat("[SIRUS v250 DEEP] %s", dc_detail);
                   }
                }
@@ -801,7 +801,7 @@ int ReadSituation(int &dir, double &weight, string &detail)
                      if(!htf_beyond)
                      {
                         holding = false;
-                        if((BrokenRetestPrintOnUse && VerboseLogs))
+                        if((BrokenRetestPrintOnUse && G_VERBOSE))
                            PrintFormat("[SIRUS v232 RETEST] %.2f broke on %s but %s has not closed through it",
                                        br_price, EnumToString(LocalStructureTF),
                                        EnumToString(BrokenRetestConfirmTF));
@@ -836,7 +836,7 @@ int ReadSituation(int &dir, double &weight, string &detail)
                      if(wick_gap <= ScaleAdjustedPoints(MathMax(1, BrokenRetestWickTolerance)))
                      {
                         holding = false;
-                        if((BrokenRetestPrintOnUse && VerboseLogs))
+                        if((BrokenRetestPrintOnUse && G_VERBOSE))
                            PrintFormat("[SIRUS v232 RETEST] %.2f sits under a %.0f%% wick on %s - liquidity, not support",
                                        br_price, (wick / wrange) * 100.0,
                                        EnumToString(BrokenRetestConfirmTF));
@@ -2006,7 +2006,7 @@ void PatternJudgeSettle()
       G_PAT_WON[p] *= sc; G_PAT_LOST[p] *= sc;
    }
 
-   if((PatternGradePrintOnUse && VerboseLogs))
+   if((PatternGradePrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v211 PATTERN GRADE] %s -> %.0f pts | record %.0f/%.0f",
                   CandlePatternName(p), moved, G_PAT_WON[p], G_PAT_LOST[p]);
 
@@ -2396,7 +2396,7 @@ void CandleEventSettle()
          if(violated) G_CE_REJECT_FAILED += 1.0;
          else         G_CE_REJECT_HELD   += 1.0;
 
-         if((CandleFollowThroughPrintOnUse && VerboseLogs))
+         if((CandleFollowThroughPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v209 FOLLOW] rejection at %.2f %s after %d bars",
                         G_CE_LEVEL[i], (violated ? "FAILED" : "held"), age);
       }
@@ -2408,7 +2408,7 @@ void CandleEventSettle()
          if(back_inside) G_CE_BREAK_FAILED += 1.0;
          else            G_CE_BREAK_HELD   += 1.0;
 
-         if((CandleFollowThroughPrintOnUse && VerboseLogs))
+         if((CandleFollowThroughPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v209 FOLLOW] break of %.2f %s after %d bars",
                         G_CE_LEVEL[i], (back_inside ? "FAILED - trapped" : "held"), age);
       }
@@ -3325,7 +3325,7 @@ void UpdateMarketStateRouter(const string source)
       else
          G_LAST_IMPULSE_TREND_ALIGNED = false; // no established trend -> treat conservatively as correction-like
 
-      if((ImpulseCooldownPrintOnUse && VerboseLogs))
+      if((ImpulseCooldownPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v29 IMPULSE] bar=%d trend=%s aligned=%s | %s",
                      G_LAST_IMPULSE_BAR, MarketStateToString(trend_state),
                      YesNoV29(G_LAST_IMPULSE_TREND_ALIGNED), main_reason);

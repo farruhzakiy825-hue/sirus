@@ -176,7 +176,7 @@ void MBStructBreakRecord(const int tfi, const int dir, const int type, const dou
          if(q >= ST_Q_VALID && MBSign(G_ST_SEQ[tfi]) == dir) G_ST_SEQ[tfi] -= dir;
       }
    }
-   if(!G_MB_EV_REPLAYING && tfi >= 2 && StructurePrintOnUse && VerboseLogs)
+   if(!G_MB_EV_REPLAYING && tfi >= 2 && StructurePrintOnUse && G_VERBOSE)
       PrintFormat("[SIRUS STRUCTURE] %s %s %s @ %s (%s) | run %+d | protects %s",
                   MBTFName(tfi), (type == MB_EV_MSS ? "MSS" : "BOS"), (dir > 0 ? "BULLISH" : "BEARISH"),
                   DoubleToString(lvl, _Digits), MBStQName(q), G_ST_SEQ[tfi], DoubleToString(ext, _Digits));
@@ -208,7 +208,7 @@ void MBStructFollowThrough()
          bool counted = (G_ST_LB_Q[tfi] >= ST_Q_VALID);   // AUDIT FIX: a WEAK break was never in the run
          G_ST_LB_Q[tfi] = ST_Q_FAILED;
          if(counted && MBSign(G_ST_SEQ[tfi]) == d) G_ST_SEQ[tfi] -= d;
-         if(StructurePrintOnUse && VerboseLogs)
+         if(StructurePrintOnUse && G_VERBOSE)
             PrintFormat("[SIRUS STRUCTURE] %s %s break @ %s FAILED - the next bar closed back through it (trap)",
                         MBTFName(tfi), (d > 0 ? "bullish" : "bearish"), DoubleToString(G_ST_LB_LVL[tfi], _Digits));
       }
@@ -291,7 +291,7 @@ void MBLockRelease(const string why)
 {
    if(G_ST_LOCK_DIR == 0)
       return;
-   if(StructurePrintOnUse && VerboseLogs)
+   if(StructurePrintOnUse && G_VERBOSE)
       PrintFormat("[SIRUS STRUCTURE] %s LOCK released - %s", (G_ST_LOCK_DIR > 0 ? "BULLISH" : "BEARISH"), why);
    G_ST_LOCK_END = why;
    G_ST_LOCK_DIR = 0;
@@ -366,7 +366,7 @@ void MBLockEvaluate()
       G_ST_LOCK_PROT = prot;
       G_ST_LOCK_WHY = StringFormat("%s sweep @ %s, displacement, %d breaks in a row", (d < 0 ? "buy-side" : "sell-side"),
                                    DoubleToString(lv, _Digits), MathMax(MathAbs(G_ST_SEQ[2]), MathAbs(G_ST_SEQ[1])));
-      if(StructurePrintOnUse && VerboseLogs)
+      if(StructurePrintOnUse && G_VERBOSE)
          PrintFormat("[SIRUS STRUCTURE] %s LOCK on: %s | protected %s | %s entries wait for a reversal to stage %d",
                      (d > 0 ? "BULLISH" : "BEARISH"), G_ST_LOCK_WHY, DoubleToString(prot, _Digits),
                      (d > 0 ? "SELL" : "BUY"), LockUnlockStage);
@@ -442,7 +442,7 @@ void MBReversalCompute()
       {
          string trap = StringFormat("%s reversal failed: M5 closed beyond the sweep extreme %s", (rd > 0 ? "bullish" : "bearish"),
                                     DoubleToString(ext, _Digits));
-         if(trap != G_ST_REV_TRAP && StructurePrintOnUse && VerboseLogs)
+         if(trap != G_ST_REV_TRAP && StructurePrintOnUse && G_VERBOSE)
             PrintFormat("[SIRUS STRUCTURE] TRAP - %s", trap);
          G_ST_REV_TRAP = trap;
          G_ST_REV_STAGE = 0;
@@ -521,7 +521,7 @@ void MBReversalEvaluate()
 {
    int prev_stage = G_ST_REV_STAGE, prev_dir = G_ST_REV_DIR;
    MBReversalCompute();
-   if((G_ST_REV_STAGE != prev_stage || G_ST_REV_DIR != prev_dir) && G_ST_REV_STAGE >= 3 && StructurePrintOnUse && VerboseLogs)
+   if((G_ST_REV_STAGE != prev_stage || G_ST_REV_DIR != prev_dir) && G_ST_REV_STAGE >= 3 && StructurePrintOnUse && G_VERBOSE)
       PrintFormat("[SIRUS STRUCTURE] %s reversal stage %d/6 | sweep extreme %s | MSS %s",
                   (G_ST_REV_DIR > 0 ? "bullish" : "bearish"), G_ST_REV_STAGE, DoubleToString(G_ST_REV_EXT, _Digits),
                   DoubleToString(G_ST_REV_MSS, _Digits));

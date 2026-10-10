@@ -124,7 +124,7 @@ void MBMarketStateTick()
    {
       G_MST_ANOM_UNTIL = TimeCurrent() + MathMax(1, AnomalyCooldownMin) * 60;
       G_MST_ANOM_WHY = StringFormat("price jumped %.1f ATR(M5) in one tick", MathAbs(bid - G_MST_LAST_BID) / atr5);
-      if(StatePrintOnUse && VerboseLogs)
+      if(StatePrintOnUse && G_VERBOSE)
          PrintFormat("[SIRUS STATE] ABNORMAL - %s", G_MST_ANOM_WHY);
    }
    G_MST_LAST_BID = bid;
@@ -178,7 +178,7 @@ void MBMarketStateUpdate()
       else if(norm > 0.0 && spr >= 2.5 * norm) w = StringFormat("spread %.0f = %.1fx normal", spr, spr / norm);
       if(StringLen(w) > 0)
       {
-         if(TimeCurrent() >= G_MST_ANOM_UNTIL && StatePrintOnUse && VerboseLogs)
+         if(TimeCurrent() >= G_MST_ANOM_UNTIL && StatePrintOnUse && G_VERBOSE)
             PrintFormat("[SIRUS STATE] ABNORMAL - %s", w);
          G_MST_ANOM_UNTIL = TimeCurrent() + MathMax(1, AnomalyCooldownMin) * 60;
          G_MST_ANOM_WHY = w;
@@ -229,7 +229,7 @@ void MBMarketStateUpdate()
 
    if(st != G_MST_STATE || sd != G_MST_DIR)
    {
-      if(StatePrintOnUse && VerboseLogs && G_MST_SINCE > 0)
+      if(StatePrintOnUse && G_VERBOSE && G_MST_SINCE > 0)
          PrintFormat("[SIRUS STATE] %s %s -> %s %s (after %d min)", MBStateName(G_MST_STATE), MBDirArrow(G_MST_DIR),
                      MBStateName(st), MBDirArrow(sd), (int)((TimeCurrent() - G_MST_SINCE) / 60));
       G_MST_PREV = G_MST_STATE;

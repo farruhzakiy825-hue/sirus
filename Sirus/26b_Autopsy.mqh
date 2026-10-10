@@ -155,7 +155,7 @@ void MBAutopsyOnClose(const int dir, const double res, const double mfe, const d
       tags = MBAutopsyTags(dir, mfe, tp, G_RE_KIND, first);
       if(first >= 0) G_AU_TODAY[first]++;
       G_AU_LAST = StringFormat("%s %s: %s", (dir > 0 ? "BUY" : "SELL"), MBReKindName(G_RE_KIND), tags);
-      if(VerboseLogs)
+      if(G_VERBOSE)
          PrintFormat("[SIRUS AUTOPSY] %s basket %d min, %s %.2f | MFE %+.0f MAE %+.0f (TP %.0f) | %s | entry: %s, leg %.0f%%, exhaustion %d, control %d%%, room %.0f/%.0f",
                      (dir > 0 ? "BUY" : "SELL"), mins, MBReKindName(G_RE_KIND), res, mfe, mae, tp, tags,
                      (G_AU_HAVE ? G_AU_KIND : "-"), G_AU_LEGPCT, G_AU_EXH, G_AU_CTRL, G_AU_ROOM, G_AU_NEED);

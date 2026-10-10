@@ -1,5 +1,17 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## Strategy Tester moslashuvi (2026-10-10)
+
+Faqat testerga ta'sir qiladi (jonli savdo o'zgarmaydi). Batafsil: docs/audit_2026-10-09/T_tester.md.
+- Jurnal toshqini: vizual bo'lmagan testda batafsil loglar o'chadi (yangi input TesterQuietLogs=true).
+  ENV va MODE loglari endi spread har o'zgarganda emas, holat o'zgarganda yoziladi (jonli rejimda ham shovqin kamaydi).
+- Setup Doctor testerda "terminal ulanmagan" deb hamma kirishni to'smaydi.
+- Testerda (vizual bo'lmagan) chart obyektlari chizilmaydi: TP/SL chiziqlari, premium visual, yopilish markerlari.
+- ATR handle keshi 12 -> 32 (12 ta to'la edi - bitta TF o'zgarsa indikator har safar qayta yaratilardi).
+- Tick-velocity guard testerda kompyuter soatini emas, tickning o'z vaqtini (time_msc) o'lchaydi.
+- Testerda OnTimer o'tkazib yuboriladi (har tick allaqachon himoyani bajaradi; kuniga 86 400 ortiqcha o'tish edi).
+- DXY proxy testerda o'chiq (yangi input TesterUseDXYProxy=false) - test 3 ta qo'shimcha symbolni modellamaydi.
+
 ## 1-paket: yo'nalish hakami, xavfli 4 xato, qaror izi (2026-10-10)
 
 Audit (AUDIT_2026-10-09.md) asosida. Yo'nalish filtrlari o'zi bo'shashmaydi.

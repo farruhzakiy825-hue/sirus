@@ -62,6 +62,9 @@
 //==================================================================//
 int OnInit()
 {
+   // TESTER: a non-visual run has nobody reading the journal - ~35 print-on-change loggers flooding it
+   // were the main cost of a slow test. The decision trace CSV keeps the evidence.
+   G_VERBOSE = VerboseLogs && !(TesterHeadless() && TesterQuietLogs);
    ScenarioRestore();
 
    Print("[SIRUS BY ZAKIY | CEO Farruh Zakiy | Telegram @farruh_zakiy]");
@@ -1459,6 +1462,11 @@ void OnTimer()
 {
    G_TIMER_COUNT++;
    G_LAST_TIMER_LOCAL = TimeLocal();
+
+   // TESTER: the timer pass is clock-driven protection (emergency close, news flat) that every tick
+   // already runs; in a non-visual test it only added 86,400 passes per simulated day.
+   if(TesterHeadless())
+      return;
 
    CoreUpdate("TIMER");   // clock-driven protection only - see FIX(timer-trades) in CoreUpdate
 

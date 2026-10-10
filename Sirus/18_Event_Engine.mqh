@@ -273,7 +273,7 @@ void MBEventAdd(const int type, const int dir, const int tfi, const double level
                                  type == MB_EV_MSS || type == MB_EV_ACCEPTANCE || type == MB_EV_COMP_RELEASE);
    if(G_MB_EV_REPLAYING && tfi < 2)
       notable = false;
-   if(notable && (MBEventPrintOnUse && VerboseLogs))
+   if(notable && (MBEventPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS EVENT]%s %s %s %s @ %s | %s | strength %.1f | bar %s",
                   (G_MB_EV_REPLAYING ? " (history)" : ""),
                   MBTFName(tfi), MBEventName(type), (dir > 0 ? "BULLISH" : "BEARISH"),
@@ -1058,7 +1058,7 @@ void MBLiveSweepUpdate()
          G_MB_LSW_KIND = G_MB_LP_KIND[i];
          G_MB_LSW_COUNT++;
          MBSweepStatPush(G_MB_LSW_DIR, G_MB_LSW_KIND, bid);
-         if(MBEventPrintOnUse && VerboseLogs)
+         if(MBEventPrintOnUse && G_VERBOSE)
             PrintFormat("[SIRUS EVENT] LIVE SWEEP %s: %s %s pool %s taken to %s and reclaimed in %d s",
                         (G_MB_LSW_DIR > 0 ? "BULLISH" : "BEARISH"), MBTFName(G_MB_LSW_TFI),
                         (side > 0 ? "buy-side" : "sell-side"), DoubleToString(lvl, _Digits),

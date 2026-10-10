@@ -178,7 +178,7 @@ void UpdateOpportunityScanner(const string source)
          }
          G_OPP_REASON += StringFormat(" [consensus: %d voices against %d]", lose_n, win_n);
 
-         if((ConsensusPrintOnUse && VerboseLogs))
+         if((ConsensusPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS CONSENSUS] %d detectors said %s at best %d - overriding one-sided %s at %d",
                         lose_n, (win_dir > 0 ? "SELL" : "BUY"), lose_best,
                         (win_dir > 0 ? "BUY" : "SELL"), win_best);
@@ -732,7 +732,7 @@ int MTFTrendDirection()
    else if(last_close < sma - band)
       G_MTF_CACHE_DIR = -1;
 
-   if((MTFConfirmPrintOnUse && VerboseLogs))
+   if((MTFConfirmPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v30.1 MTF] dir=%d | close=%.2f sma=%.2f band=%.2f | tf=%d ma=%d",
                   G_MTF_CACHE_DIR, last_close, sma, band, (int)MTFConfirmTF, period);
 
@@ -816,7 +816,7 @@ void UpdateGapFillMagnet()
    if(G_GAP_FILL_DIR != 0 && GapFillMagnetMaxAgeBars > 0 && G_GAP_FILL_BAR > 0 &&
       (G_BARS_SEEN - G_GAP_FILL_BAR) > GapFillMagnetMaxAgeBars)
    {
-      if((GapFillMagnetPrintOnUse && VerboseLogs))
+      if((GapFillMagnetPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v178 GAP] magnet expired after %d bars unfilled - no longer treating it as a pull",
                      G_BARS_SEEN - G_GAP_FILL_BAR);
       G_GAP_FILL_DIR = 0;
@@ -1510,7 +1510,7 @@ G_PENALTY_TREND_AGAINST += HTFAgainstScorePenalty;
                                         (htf_dir > 0 ? "up" : "down"),
                                         gtc, rc, HTFAgainstReversalOverride,
                                         ct_final, ct_bar);
-                     if((CounterTrendPrintOnUse && VerboseLogs))
+                     if((CounterTrendPrintOnUse && G_VERBOSE))
                         PrintFormat("[SIRUS COUNTER-TREND] REFUSED - %s", why);
                      return true;
                   }
@@ -1519,7 +1519,7 @@ G_PENALTY_TREND_AGAINST += HTFAgainstScorePenalty;
                   // unguarded print here would emit thousands of lines an hour and slow the tester -
                   // the same problem PERF(tester-speed) and FIX(modhealth-per-tick) already fixed
                   // elsewhere. Once per bar per direction is enough to tune from.
-                  if((CounterTrendPrintOnUse && VerboseLogs))
+                  if((CounterTrendPrintOnUse && G_VERBOSE))
                   {
                      static int ct_print_bar[2] = {-1, -1};
                      int ct_ps = (dir > 0) ? 0 : 1;
@@ -1668,7 +1668,7 @@ why = StringFormat("-%d %s against HTF trend (htf=%s, conf %.2f, reversal rc=%.2
             if(held > CounterImpulseMaxAgeBars)
             {
                exhausted = true;   // held long enough that it no longer describes the current market
-               if((CounterImpulsePrintOnUse && VerboseLogs))
+               if((CounterImpulsePrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v177c IMPULSE] block released after %d bars (limit %d) - the move is history, not a live threat",
                               held, CounterImpulseMaxAgeBars);
             }
@@ -1873,7 +1873,7 @@ why = StringFormat("-%d %s against HTF trend (htf=%s, conf %.2f, reversal rc=%.2
       if(ZoneRoleAmbiguous(zr_detail))
       {
          why = StringFormat("%s: %s", (dir > 0 ? "BUY" : "SELL"), zr_detail);
-         if((ZoneRolePrintOnUse && VerboseLogs))
+         if((ZoneRolePrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v119 ZONE ROLE] blocked %s - %s", (dir > 0 ? "BUY" : "SELL"), zr_detail);
          return true;
       }
@@ -1926,7 +1926,7 @@ void UpdateSignalScoreEngine(const string source)
       int silent_bars = G_BARS_SEEN - G_LAST_ENTRY_ALLOWED_BAR;
       if(silent_bars >= BlockSafetyValveBars)
       {
-         if((BlockSafetyValvePrintOnUse && VerboseLogs))
+         if((BlockSafetyValvePrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v180 SAFETY VALVE] %d bars with no entry permitted - releasing one. Last block: %s",
                         silent_bars, hard_reason);
          hard_blocked = false;
@@ -2012,10 +2012,10 @@ void UpdateSignalScoreEngine(const string source)
             ArmJudgeArm(armed_reason, armed_dir, ja_mid);
             G_SCORE_BONUS += SetupArmScoreBonus;
             detail += StringFormat(" +%d confirmed: %s;", SetupArmScoreBonus, arm_detail);
-            if((SetupArmPrintOnUse && VerboseLogs))
+            if((SetupArmPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v194 ARMED] CONFIRMED - %s | %s", armed_text, arm_detail);
          }
-         else if((SetupArmPrintOnUse && VerboseLogs))
+         else if((SetupArmPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS ARMED] %s confirmed, but this scan's setup is the other side - no bonus | %s",
                         armed_text, arm_detail);
          SetupArmClear();
@@ -2037,7 +2037,7 @@ void UpdateSignalScoreEngine(const string source)
       {
          G_SCORE_BONUS += MathMax(0, FirstEntryConsensusBonus);
          detail += StringFormat(" +%d revConsensus(%.2f);", MathMax(0, FirstEntryConsensusBonus), fe_rc);
-         if((FirstEntryConsensusPrintOnUse && VerboseLogs))
+         if((FirstEntryConsensusPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS FIRST-ENTRY CONSENSUS] %s confirmed by consensus %.2f - %s",
                         OpportunityTypeToString(G_OPP_TYPE), fe_rc, fe_rc_detail);
       }
@@ -2153,7 +2153,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d AMBIGUOUS(own=%d vs opposing=%d, margin=%d);",
                                       clarity_penalty, own_score, opp_score, margin);
 
-               if((DirectionalClarityPrintOnUse && VerboseLogs))
+               if((DirectionalClarityPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v31.6z49 DIRECTIONAL CLARITY] both sides scored: %s=%d vs opposing=%d margin=%d -> -%d",
                               (G_OPP_DIR == OPP_DIR_BUY ? "BUY" : "SELL"), own_score, opp_score, margin, clarity_penalty);
             }
@@ -2353,7 +2353,7 @@ void UpdateSignalScoreEngine(const string source)
          {
             G_SCORE_MIN_REQUIRED = balanced_bar;
             detail += " Hunter vs D1 - Balanced bar required;";
-            if((HunterD1PrintOnUse && VerboseLogs))
+            if((HunterD1PrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6c HUNTER D1] entry dir=%d vs D1 dir=%d - bar raised to %d",
                            entry_dir, d1_dir, balanced_bar);
          }
@@ -2375,7 +2375,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" +%d min post-SL same-direction (%d/%d bars);",
                                    PostSLDirectionExtraScoreReq, bars_since_sl, PostSLDirectionWindowBars);
 
-            if((PostSLDirectionPrintOnUse && VerboseLogs))
+            if((PostSLDirectionPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6j POST-SL GUARD] same-direction entry %d bars after SL - bar raised +%d",
                            bars_since_sl, PostSLDirectionExtraScoreReq);
          }
@@ -2435,7 +2435,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" +%d RSI divergence;", TrendReversalDivergenceBonus);
          }
 
-         if((TrendReversalPrintOnUse && VerboseLogs))
+         if((TrendReversalPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v31.6i TREND REVERSAL] %s", reversal_reason_c);
       }
       // V31.6s fix: this was a genuine gap - a confirmed reversal AGAINST the proposed entry
@@ -2452,7 +2452,7 @@ void UpdateSignalScoreEngine(const string source)
          v31_brain_penalty += rev_penalty;
          detail += StringFormat(" -%d reversal AGAINST entry (%s);", rev_penalty, reversal_reason_c);
 
-         if((TrendReversalPrintOnUse && VerboseLogs))
+         if((TrendReversalPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v31.6s TREND REVERSAL AGAINST] %s", reversal_reason_c);
       }
 
@@ -2483,7 +2483,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_TREND_AGAINST += BrainConsensusConflictPenalty;   // V136: same underlying fact as the other trend-conflict penalties
             v31_brain_penalty += BrainConsensusConflictPenalty;
             detail += StringFormat(" -%d reversal-CONFLICTED (both directions confirmed);", BrainConsensusConflictPenalty);
-            if((GlobalLocalPrintOnUse && VerboseLogs))
+            if((GlobalLocalPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z67 REVERSAL CONFLICTED] both directions confirmed (%s | %s) - ambiguous",
                            rc_support_e, rc_against_e);
          }
@@ -2492,7 +2492,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_BONUS += GlobalLocalScoreBonus;
          G_BONUS_TREND_ALIGN += GlobalLocalScoreBonus;   // V134: same underlying fact as the other trend-agreement bonuses
             detail += StringFormat(" +%d %s;", GlobalLocalScoreBonus, rc_support_e);
-            if((GlobalLocalPrintOnUse && VerboseLogs))
+            if((GlobalLocalPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z32 REVERSAL CONSENSUS] entry dir=%d - %s", entry_dir_i, rc_support_e);
          }
          else if(rc_opposes)
@@ -2500,7 +2500,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_PENALTY += GlobalLocalScoreBonus;
             v31_brain_penalty += GlobalLocalScoreBonus;
             detail += StringFormat(" -%d %s;", GlobalLocalScoreBonus, rc_against_e);
-            if((GlobalLocalPrintOnUse && VerboseLogs))
+            if((GlobalLocalPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z32 REVERSAL CONSENSUS AGAINST] entry dir=%d - %s", entry_dir_i, rc_against_e);
          }
       }
@@ -2537,7 +2537,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_BONUS += mtf_bonus;
             detail += StringFormat(" +%d MTF alignment (%d/4 TF agree);", mtf_bonus, mtf_agree);
 
-            if((MTFAlignmentPrintOnUse && VerboseLogs))
+            if((MTFAlignmentPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6i MTF ALIGNMENT] %d/4 timeframes agree with dir=%d", mtf_agree, entry_dir_i);
          }
 
@@ -2556,7 +2556,7 @@ void UpdateSignalScoreEngine(const string source)
             v31_brain_penalty += mtf_penalty;
             detail += StringFormat(" -%d MTF AGAINST (%d/4 TF disagree);", mtf_penalty, mtf_against);
 
-            if((MTFAlignmentPrintOnUse && VerboseLogs))
+            if((MTFAlignmentPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6s MTF AGAINST] %d/4 timeframes disagree with dir=%d", mtf_against, entry_dir_i);
          }
       }
@@ -2579,7 +2579,7 @@ void UpdateSignalScoreEngine(const string source)
                v31_brain_penalty += strength_penalty;
                detail += StringFormat(" -%d trend strength AGAINST (adx-strength=%.2f);", strength_penalty, entry_adverse_strength);
 
-               if((TrendReversalPrintOnUse && VerboseLogs))
+               if((TrendReversalPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v31.6s TREND STRENGTH AGAINST] entry dir=%d adverse_strength=%.2f -> penalty %d",
                               entry_dir_i, entry_adverse_strength, strength_penalty);
             }
@@ -2612,7 +2612,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d major sweep AGAINST (%s);", MajorSweepScoreBonus, sweep_detail_e);
             }
 
-            if((MajorSweepPrintOnUse && VerboseLogs))
+            if((MajorSweepPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6t MAJOR SWEEP] entry dir=%d sweep dir=%d - %s", entry_dir_i, sweep_dir_e, sweep_detail_e);
          }
       }
@@ -2662,7 +2662,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d EQ zone unfavorable (%.0f%%);", eq_weight, range_pos_pct_e);
             }
 
-            if((EQZonePrintOnUse && VerboseLogs))
+            if((EQZonePrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6u EQ ZONE ENTRY] entry dir=%d range_position=%.0f%%", entry_dir_i, range_pos_pct_e);
          }
       }
@@ -2690,7 +2690,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d engulfing AGAINST (%s);", EngulfingScoreBonus, engulf_detail_e);
             }
 
-            if((EngulfingPrintOnUse && VerboseLogs))
+            if((EngulfingPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6v ENGULFING ENTRY] entry dir=%d - %s", entry_dir_i, engulf_detail_e);
          }
       }
@@ -2710,7 +2710,7 @@ void UpdateSignalScoreEngine(const string source)
          G_BONUS_TREND_ALIGN += TrendQualityBonus;   // V134: same underlying fact as the other trend-agreement bonuses
             detail += StringFormat(" +%d trend quality %.2f (%s);", TrendQualityBonus, tq_score_e, tq_detail_e);
 
-            if((TrendQualityPrintOnUse && VerboseLogs))
+            if((TrendQualityPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z TREND QUALITY] entry dir=%d score=%.2f - %s", entry_dir_i, tq_score_e, tq_detail_e);
          }
       }
@@ -2731,7 +2731,7 @@ void UpdateSignalScoreEngine(const string source)
             G_BONUS_TREND_ALIGN += GlobalLocalScoreBonus;   // V134: same underlying fact as the other trend-agreement bonuses
             detail += StringFormat(" +%d %s;", GlobalLocalScoreBonus, gla_detail_e);
 
-            if((GlobalLocalPrintOnUse && VerboseLogs))
+            if((GlobalLocalPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z30 GLOBAL/LOCAL] entry dir=%d - %s", entry_dir_i, gla_detail_e);
          }
          else if(gla_score_e <= 0.30)
@@ -2740,7 +2740,7 @@ void UpdateSignalScoreEngine(const string source)
             v31_brain_penalty += GlobalLocalScoreBonus;
             detail += StringFormat(" -%d %s;", GlobalLocalScoreBonus, gla_detail_e);
 
-            if((GlobalLocalPrintOnUse && VerboseLogs))
+            if((GlobalLocalPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z30 GLOBAL/LOCAL AGAINST] entry dir=%d - %s", entry_dir_i, gla_detail_e);
          }
       }
@@ -2824,7 +2824,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_BONUS += ImpulseScoreBonus;
             detail += StringFormat(" +%d %s;", ImpulseScoreBonus, imp_detail_e);
 
-            if((ImpulsePrintOnUse && VerboseLogs))
+            if((ImpulsePrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z8 IMPULSE] entry dir=%d agrees - %s", entry_dir_i, imp_detail_e);
          }
          else if(imp_score_e <= 0.3)
@@ -2834,7 +2834,7 @@ void UpdateSignalScoreEngine(const string source)
             v31_brain_penalty += ImpulseScoreBonus;
             detail += StringFormat(" -%d %s;", ImpulseScoreBonus, imp_detail_e);
 
-            if((ImpulsePrintOnUse && VerboseLogs))
+            if((ImpulsePrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z8 IMPULSE AGAINST] entry dir=%d - %s", entry_dir_i, imp_detail_e);
          }
       }
@@ -2882,7 +2882,7 @@ void UpdateSignalScoreEngine(const string source)
                v31_brain_penalty += ext_penalty;
                detail += StringFormat(" -%d LATE-ENTRY(move already %.1f ATR extended);", ext_penalty, ext_e);
 
-               if((ImpulsePrintOnUse && VerboseLogs))
+               if((ImpulsePrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v31.6z54 MOVE EXTENSION] entry dir=%d into a move already %.1f ATR extended -> -%d",
                               entry_dir_i, ext_e, ext_penalty);
             }
@@ -2905,7 +2905,7 @@ void UpdateSignalScoreEngine(const string source)
             v31_brain_penalty += ec_penalty;
             detail += StringFormat(" -%d %s;", ec_penalty, ec_detail_e);
 
-            if((ImpulseExhaustionPrintOnUse && VerboseLogs))
+            if((ImpulseExhaustionPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z22 EXHAUSTION CONSENSUS ENTRY] entry dir=%d - %s", entry_dir_i, ec_detail_e);
          }
       }
@@ -2959,7 +2959,7 @@ void UpdateSignalScoreEngine(const string source)
             v31_brain_penalty += CompetingReversalPenalty;
             detail += StringFormat(" -%d competing reversal (%s: %s);", CompetingReversalPenalty, competing_name, comp_reason);
 
-            if((TrendReversalPrintOnUse && VerboseLogs))
+            if((TrendReversalPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z9 COMPETING REVERSAL] %s fires opposite entry dir=%d - %s",
                            competing_name, entry_dir_i, comp_reason);
          }
@@ -2998,7 +2998,7 @@ void UpdateSignalScoreEngine(const string source)
                   G_PENALTY_TREND_AGAINST += MarketStructureAgainstPenalty;   // V136: same underlying fact as the other trend-conflict penalties
                   v31_brain_penalty += MarketStructureAgainstPenalty;
                   detail += StringFormat(" -%d against %s;", MarketStructureAgainstPenalty, G_STRUCTURE_DETAIL);
-                  if((MarketStructurePrintOnUse && VerboseLogs))
+                  if((MarketStructurePrintOnUse && G_VERBOSE))
                      PrintFormat("[SIRUS v112 STRUCTURE] entry dir=%d fights %s", entry_dir_i, G_STRUCTURE_DETAIL);
                }
             }
@@ -3085,7 +3085,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += ScenarioUndecidedPenalty;
             v31_brain_penalty += ScenarioUndecidedPenalty;
             detail += StringFormat(" -%d undecided (%s);", ScenarioUndecidedPenalty, sc_detail);
-            if((ScenarioPrintOnUse && VerboseLogs))
+            if((ScenarioPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v144 SCENARIOS] %s", sc_detail);
          }
       }
@@ -3115,7 +3115,7 @@ void UpdateSignalScoreEngine(const string source)
                v31_brain_penalty += ChainExpectAgainstPenalty;
                detail += StringFormat(" -%d against chain %s;", ChainExpectAgainstPenalty, ce_detail);
             }
-            if((ChainExpectPrintOnUse && VerboseLogs))
+            if((ChainExpectPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v143 CHAIN] %s | entry dir=%d", ce_detail, entry_dir_i);
          }
       }
@@ -3177,7 +3177,7 @@ void UpdateSignalScoreEngine(const string source)
                      G_PENALTY_QUALITY += ZoneEdgeEarlyEntryPenalty;
                      v31_brain_penalty += ZoneEdgeEarlyEntryPenalty;
                      detail += StringFormat(" -%d early: %s;", ZoneEdgeEarlyEntryPenalty, ze_detail);
-                     if((ZoneEdgePrintOnUse && VerboseLogs))
+                     if((ZoneEdgePrintOnUse && G_VERBOSE))
                         PrintFormat("[SIRUS v167 ZONE EDGE] entry is early - %s", ze_detail);
                   }
                }
@@ -3229,7 +3229,7 @@ void UpdateSignalScoreEngine(const string source)
                                             SecondLevelPenalty,
                                             (entry_dir_i > 0 ? "resistance" : "support"),
                                             second_lvl, first_lvl);
-                     if((SecondLevelPrintOnUse && VerboseLogs))
+                     if((SecondLevelPrintOnUse && G_VERBOSE))
                         PrintFormat("[SIRUS v205 SECOND LEVEL] %s at %.2f (strength %.2f) sits behind %.2f (%.2f) - the trade is really facing the stronger one",
                                     (entry_dir_i > 0 ? "resistance" : "support"),
                                     second_lvl, s_second, first_lvl, s_first);
@@ -3271,7 +3271,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d against %s: %s;", sit_adj, SituationName(sit), sit_detail);
             }
 
-            if((SituationPrintOnUse && VerboseLogs))
+            if((SituationPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v219 SITUATION] %s - %s | dir=%d weight %.2f",
                            SituationName(sit), sit_detail, sit_dir, sit_w);
          }
@@ -3347,7 +3347,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" %d %s;", cs_adj, cs_why);
          }
 
-         if((CandleSequencePrintOnUse && VerboseLogs) && cs_adj != 0)
+         if((CandleSequencePrintOnUse && G_VERBOSE) && cs_adj != 0)
             PrintFormat("[SIRUS v207 CANDLES] %s | %s", cs_detail, cs_why);
       }
 
@@ -3396,7 +3396,7 @@ void UpdateSignalScoreEngine(const string source)
                   G_CANDLE_PENALTY += adj;
                }
 
-               if((CandleLocationPrintOnUse && VerboseLogs))
+               if((CandleLocationPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v208 CANDLE] %s | %s | signal %.2f", au_detail, loc_detail, signal);
             }
          }
@@ -3546,7 +3546,7 @@ void UpdateSignalScoreEngine(const string source)
                   PatternJudgeArm(cp_pat, cp_dir, pj_mid);
             }
 
-            if((CandlePatternPrintOnUse && VerboseLogs))
+            if((CandlePatternPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v211 PATTERN] %s%s | weight %.2f | entry dir=%d",
                            cp_detail, extra, weight, entry_dir_i);
          }
@@ -3615,7 +3615,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" %d %s;", lb_adj, lb_why);
             }
 
-            if((LiveBarPrintOnUse && VerboseLogs) && lb_adj != 0)
+            if((LiveBarPrintOnUse && G_VERBOSE) && lb_adj != 0)
                PrintFormat("[SIRUS v212 LIVE BAR] %s | %s", lb_detail, lb_why);
          }
       }
@@ -3637,7 +3637,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_QUALITY += eb_pen;
             detail += StringFormat(" -%d %s;", eb_pen, eb_detail);
 
-            if((EntryBarPrintOnUse && VerboseLogs))
+            if((EntryBarPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v218 ENTRY BAR] %s | dir=%d | severity %.2f",
                            eb_detail, entry_dir_i, eb_sev);
          }
@@ -3717,7 +3717,7 @@ void UpdateSignalScoreEngine(const string source)
             }
          }
 
-         if((StructureMTFPrintOnUse && VerboseLogs) && al != TFALIGN_NONE && StringLen(al_detail) > 0)
+         if((StructureMTFPrintOnUse && G_VERBOSE) && al != TFALIGN_NONE && StringLen(al_detail) > 0)
             PrintFormat("[SIRUS v225 MTF] %s | entry dir=%d", al_detail, entry_dir_i);
       }
 
@@ -3828,7 +3828,7 @@ void UpdateSignalScoreEngine(const string source)
                }
             }
 
-            if((LocalStructurePrintOnUse && VerboseLogs))
+            if((LocalStructurePrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v223 STRUCTURE] %s | entry dir=%d", G_LS_DETAIL, entry_dir_i);
          }
       }
@@ -3917,7 +3917,7 @@ void UpdateSignalScoreEngine(const string source)
                G_STRUCT_PENALTY += sw_adj;
                detail += StringFormat(" -%d entering against %s;", sw_adj, sw_detail);
 
-               if((LocalSwingPrintOnUse && VerboseLogs))
+               if((LocalSwingPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v218 SWINGS] %s | entry dir=%d", sw_detail, entry_dir_i);
             }
          }
@@ -3954,7 +3954,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d %s against;", cf_adj, cf_detail);
             }
 
-            if((CandleConflictPrintOnUse && VerboseLogs))
+            if((CandleConflictPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v215 CONFLICT] %s | dir=%d | weight %.2f",
                            cf_detail, cf_dir, cf_w);
          }
@@ -3992,7 +3992,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d %s against;", ev_adj, ev_detail);
             }
 
-            if((LiveEvolutionPrintOnUse && VerboseLogs))
+            if((LiveEvolutionPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v213 EVOLUTION] %s | entry dir=%d | weight %.2f",
                            ev_detail, entry_dir_i, ev_w);
          }
@@ -4044,7 +4044,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_TREND_AGAINST += htf_pen;
             G_CANDLE_PENALTY += htf_pen;
             detail += StringFormat(" -%d %s;", htf_pen, htf_detail);
-            if((CandleHTFPrintOnUse && VerboseLogs))
+            if((CandleHTFPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v211 HTF] %s | entry dir=%d", htf_detail, entry_dir_i);
          }
          else if(htf_agree > 0 && htf_body >= CandleHTFStrongBody)
@@ -4166,7 +4166,7 @@ void UpdateSignalScoreEngine(const string source)
             G_CANDLE_PENALTY += cp_pen;
             detail += StringFormat(" -%d %s;", cp_pen, cp_detail);
 
-            if((CandleProgressPrintOnUse && VerboseLogs))
+            if((CandleProgressPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v239 PROGRESS] %s | dir=%d", cp_detail, entry_dir_i);
          }
       }
@@ -4202,7 +4202,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += nw_pen;
             detail += StringFormat(" -%d %s;", nw_pen, nw_detail);
 
-            if((LiveNewsPrintOnUse && VerboseLogs))
+            if((LiveNewsPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v248 NEWS] %s", nw_detail);
          }
       }
@@ -4238,7 +4238,7 @@ void UpdateSignalScoreEngine(const string source)
                   G_PENALTY_QUALITY += tb_pen;
                   detail += StringFormat(" -%d %s;", tb_pen, tb_detail);
 
-                  if((TargetBandPrintOnUse && VerboseLogs))
+                  if((TargetBandPrintOnUse && G_VERBOSE))
                      PrintFormat("[SIRUS v245 TARGET BAND] %s | dir=%d", tb_detail, entry_dir_i);
                }
             }
@@ -4264,7 +4264,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += vs_pen;
             detail += StringFormat(" -%d %s;", vs_pen, vs_detail);
 
-            if((VolatilityShiftPrintOnUse && VerboseLogs))
+            if((VolatilityShiftPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v254 VOLATILITY] %s", vs_detail);
          }
       }
@@ -4305,7 +4305,7 @@ void UpdateSignalScoreEngine(const string source)
                   G_PENALTY_QUALITY += pz_pen;
                   detail += StringFormat(" -%d %s in the way;", pz_pen, pz_detail);
 
-                  if((ProtectedZonePrintOnUse && VerboseLogs))
+                  if((ProtectedZonePrintOnUse && G_VERBOSE))
                      PrintFormat("[SIRUS v264 PROTECTED] %s | %.0f pts ahead of a %.0f pt target",
                                  pz_detail, pz_gap, pz_tp);
                }
@@ -4345,7 +4345,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d against the order: %s;", wo_adj, wo_detail);
             }
 
-            if((WickOrderPrintOnUse && VerboseLogs))
+            if((WickOrderPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v262 ORDER] %s | implied dir=%d | entry dir=%d",
                            wo_detail, wo_dir, entry_dir_i);
          }
@@ -4422,7 +4422,7 @@ void UpdateSignalScoreEngine(const string source)
                            detail += StringFormat(" -%d %s;", -ar_adj, ar_detail);
                         }
 
-                        if(ar_adj != 0 && (ArrivalPrintOnUse && VerboseLogs))
+                        if(ar_adj != 0 && (ArrivalPrintOnUse && G_VERBOSE))
                            PrintFormat("[SIRUS v260 ARRIVAL] %s | level %.2f | %s | adj=%d",
                                        ar_detail, ar_level,
                                        (fading ? "fading the approach" : "continuing through"),
@@ -4487,7 +4487,7 @@ void UpdateSignalScoreEngine(const string source)
                }
             }
 
-            if((CandleProgressionPrintOnUse && VerboseLogs))
+            if((CandleProgressionPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v258 PROGRESSION] %s | lean=%d | entry dir=%d",
                            cp_detail, cp_lean, entry_dir_i);
          }
@@ -4529,7 +4529,7 @@ void UpdateSignalScoreEngine(const string source)
                                       lw_adj, lw_detail);
             }
 
-            if((LiquidityWickPrintOnUse && VerboseLogs))
+            if((LiquidityWickPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v257 LIQUIDITY] %s | implied dir=%d | entry dir=%d",
                            lw_detail, implied, entry_dir_i);
          }
@@ -4579,7 +4579,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d against the sweep: %s;", mp_pen, mp_detail);
             }
 
-            if((ManipulationPrintOnUse && VerboseLogs))
+            if((ManipulationPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v253 SWEEP BAR] %s | likely dir=%d | entry dir=%d",
                            mp_detail, mp_dir, entry_dir_i);
          }
@@ -4616,7 +4616,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d %s, short of the %.0f pt target;",
                                       gl_pen, gl_detail, gl_tp);
 
-               if((GlobalLevelPrintOnUse && VerboseLogs))
+               if((GlobalLevelPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v252 GLOBAL] %s | dir=%d", gl_detail, entry_dir_i);
             }
          }
@@ -4645,7 +4645,7 @@ void UpdateSignalScoreEngine(const string source)
             G_STRUCT_PENALTY += rv_pen;
             detail += StringFormat(" -%d %s;", rv_pen, rv_detail);
 
-            if((ReversalContextPrintOnUse && VerboseLogs))
+            if((ReversalContextPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v250 CONTEXT] %s | dir=%d", rv_detail, entry_dir_i);
          }
       }
@@ -4669,7 +4669,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_QUALITY += bg_pen;
             detail += StringFormat(" -%d %s;", bg_pen, bg_detail);
 
-            if((BandGuardPrintOnUse && VerboseLogs))
+            if((BandGuardPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v238 BAND] %s | dir=%d", bg_detail, entry_dir_i);
          }
       }
@@ -4704,7 +4704,7 @@ void UpdateSignalScoreEngine(const string source)
                G_STRUCT_PENALTY += sr_adj;
                detail += StringFormat(" -%d against: %s;", sr_adj, sr_detail);
 
-               if((SweepReversalPrintOnUse && VerboseLogs))
+               if((SweepReversalPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v238 SWEEP] %s | entry dir=%d", sr_detail, entry_dir_i);
             }
          }
@@ -4746,7 +4746,7 @@ void UpdateSignalScoreEngine(const string source)
             G_CANDLE_PENALTY += sc_pen;
             detail += StringFormat(" -%d entering against a %s;", sc_pen, sc_detail);
 
-            if((SingleCandlePrintOnUse && VerboseLogs))
+            if((SingleCandlePrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v229 SINGLE CANDLE] %s | entry dir=%d | strength %.2f",
                            sc_detail, entry_dir_i, sc_strength);
          }
@@ -4780,7 +4780,7 @@ void UpdateSignalScoreEngine(const string source)
                G_CANDLE_PENALTY += sc_chase;
                detail += StringFormat(" -%d chasing a %s;", sc_chase, sc_detail);
 
-               if((SingleCandlePrintOnUse && VerboseLogs))
+               if((SingleCandlePrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v230 CHASE] entry at the far end of %s", sc_detail);
             }
             else
@@ -4831,7 +4831,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_PENALTY += cp_pen;
             G_PENALTY_IMPULSE += cp_pen;
             detail += StringFormat(" -%d %s;", cp_pen, cp_detail);
-            if((ConsecutivePressurePrintOnUse && VerboseLogs))
+            if((ConsecutivePressurePrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v204 PRESSURE] entry against %s", cp_detail);
          }
       }
@@ -4885,7 +4885,7 @@ void UpdateSignalScoreEngine(const string source)
                G_SCORE_STATUS = "SCORE: HARD_BLOCK | reason=" + G_SCORE_HARD_BLOCK;
                G_SCORE_LAST_SIGNATURE = G_SCORE_STATUS + "|" + IntegerToString(G_BARS_SEEN);
                detail += StringFormat(" [BLOCKED: %s];", sp_detail);
-               if((SpreadPrintOnUse && VerboseLogs))
+               if((SpreadPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v165 SPREAD] BLOCKED - %s", sp_detail);
                {
                   double sp_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
@@ -4930,7 +4930,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += SpreadForecastPenalty;
             v31_brain_penalty += SpreadForecastPenalty;
             detail += StringFormat(" -%d %s;", SpreadForecastPenalty, sp_why);
-            if((SpreadPrintOnUse && VerboseLogs))
+            if((SpreadPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v165 SPREAD] widening expected: %s", sp_why);
          }
       }
@@ -4959,7 +4959,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" -%d %s;", SessionChangePenalty, sc_detail);
          }
 
-         if((SessionPrintOnUse && VerboseLogs) && (sc_sess == SESSION_DEAD || sc_mins <= SessionChangeWarnMinutes))
+         if((SessionPrintOnUse && G_VERBOSE) && (sc_sess == SESSION_DEAD || sc_mins <= SessionChangeWarnMinutes))
             PrintFormat("[SIRUS v164 SESSION] %s", sc_detail);
       }
 
@@ -4992,7 +4992,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d against %s;", PressureAgainstPenalty, pr_detail);
             }
 
-            if((PressurePrintOnUse && VerboseLogs) && pr_div)
+            if((PressurePrintOnUse && G_VERBOSE) && pr_div)
                PrintFormat("[SIRUS v163 PRESSURE] %s | entry dir=%d", pr_detail, entry_dir_i);
          }
       }
@@ -5017,7 +5017,7 @@ void UpdateSignalScoreEngine(const string source)
          {
             G_NOISE_TP_FACTOR = MathMax(NoiseMinTPFactor, MathMin(1.0, nz_reach / MathMax(0.01, NoiseMinReachability)));
             detail += StringFormat(" [target scaled to %.0f%% - %s];", G_NOISE_TP_FACTOR * 100.0, nz_detail);
-            if((NoisePrintOnUse && VerboseLogs))
+            if((NoisePrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v162b NOISE] target scaled to %.0f%% - %s",
                            G_NOISE_TP_FACTOR * 100.0, nz_detail);
          }
@@ -5062,7 +5062,7 @@ void UpdateSignalScoreEngine(const string source)
 
                detail += StringFormat(" [size scaled to %.0f%% - %s];",
                                       G_PROJECTION_LOT_FACTOR * 100.0, pj_detail);
-               if((ProjectionPrintOnUse && VerboseLogs))
+               if((ProjectionPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v159b PROJECTION] size scaled to %.0f%% - %s",
                               G_PROJECTION_LOT_FACTOR * 100.0, pj_detail);
 
@@ -5079,7 +5079,7 @@ void UpdateSignalScoreEngine(const string source)
                G_SCORE_STATUS = "SCORE: HARD_BLOCK | reason=" + G_SCORE_HARD_BLOCK;
                G_SCORE_LAST_SIGNATURE = G_SCORE_STATUS + "|" + IntegerToString(G_BARS_SEEN);
                   detail += " [BLOCKED: unsurvivable at any size];";
-                  if((ProjectionPrintOnUse && VerboseLogs))
+                  if((ProjectionPrintOnUse && G_VERBOSE))
                      PrintFormat("[SIRUS v159b PROJECTION] BLOCKED - unsurvivable even at %.0f%% size",
                                  ProjectionMinLotFactor * 100.0);
                   BlockAuditRecord(entry_dir_i, pj_entry);
@@ -5116,7 +5116,7 @@ void UpdateSignalScoreEngine(const string source)
                v31_brain_penalty += PatternMemoryAgainstPenalty;
                detail += StringFormat(" -%d against %s;", PatternMemoryAgainstPenalty, pm_detail);
             }
-            if((PatternMemoryPrintOnUse && VerboseLogs))
+            if((PatternMemoryPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v154 PATTERN MEMORY] %s | entry dir=%d", pm_detail, entry_dir_i);
          }
       }
@@ -5159,7 +5159,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d fading live %s;", ForcedFlowAgainstPenalty, ff_detail);
             }
 
-            if((ForcedFlowPrintOnUse && VerboseLogs))
+            if((ForcedFlowPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v151 FORCED FLOW] %s | spent=%s | entry dir=%d",
                            ff_detail, (ff_spent ? "yes" : "no"), entry_dir_i);
          }
@@ -5181,7 +5181,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += PathDensityCrowdedPenalty;
             v31_brain_penalty += PathDensityCrowdedPenalty;
             detail += StringFormat(" -%d crowded %s;", PathDensityCrowdedPenalty, pd_detail);
-            if((PathDensityPrintOnUse && VerboseLogs))
+            if((PathDensityPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v149 PATH] crowded - %s", pd_detail);
          }
          else if(pd_gap >= pd_target * MathMax(1.0, PathDensityClearGapFactor))
@@ -5225,7 +5225,7 @@ void UpdateSignalScoreEngine(const string source)
                      G_SCORE_BONUS += ParticipantInstBonus;
                      detail += StringFormat(" +%d leaning on an %s;", ParticipantInstBonus, pm_detail);
                   }
-                  if((ParticipantPrintOnUse && VerboseLogs))
+                  if((ParticipantPrintOnUse && G_VERBOSE))
                      PrintFormat("[SIRUS v148 PARTICIPANTS] %.2f is an %s", pm_level, pm_detail);
                }
             }
@@ -5259,7 +5259,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_QUALITY += LiquidityAheadPenalty;
             v31_brain_penalty += LiquidityAheadPenalty;
             detail += StringFormat(" -%d %s;", LiquidityAheadPenalty, lq_detail);
-            if((LiquidityPrintOnUse && VerboseLogs))
+            if((LiquidityPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v140 LIQUIDITY] %s - entry into it penalised", lq_detail);
          }
       }
@@ -5279,7 +5279,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_QUALITY += RoomTooTightPenalty;
             v31_brain_penalty += RoomTooTightPenalty;
             detail += StringFormat(" -%d %s (target needs %.0f);", RoomTooTightPenalty, room_detail, needed);
-            if((RoomPrintOnUse && VerboseLogs))
+            if((RoomPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v118 ROOM] tight: %s | target needs %.0f pts", room_detail, needed);
          }
       }
@@ -5368,7 +5368,7 @@ void UpdateSignalScoreEngine(const string source)
                detail += StringFormat(" -%d zone break AGAINST (%s);", ZoneBreakAgainstPenalty, zb_detail_e);
             }
 
-            if((ZoneBreakPrintOnUse && VerboseLogs))
+            if((ZoneBreakPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z10 ZONE BREAK] entry dir=%d - %s", entry_dir_i, zb_detail_e);
          }
       }
@@ -5710,7 +5710,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" -%d brain CONFLICTED (%d for vs %d against);",
                                    conflict_pen, categories_agree, categories_against);
 
-            if((BrainConsensusPrintOnUse && VerboseLogs))
+            if((BrainConsensusPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6z66 BRAIN CONFLICTED] %d categories agree BUT %d disagree on dir=%d - ambiguous, not confirmation",
                            categories_agree, categories_against, entry_dir_i);
          }
@@ -5721,7 +5721,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" +%d brain consensus (%d independent categories agree);",
                                    BrainConsensusBonus, categories_agree);
 
-            if((BrainConsensusPrintOnUse && VerboseLogs))
+            if((BrainConsensusPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6i BRAIN CONSENSUS] %d independent categories agree on dir=%d - synergy bonus",
                            categories_agree, entry_dir_i);
          }
@@ -5733,7 +5733,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" -%d brain consensus AGAINST (%d independent categories disagree);",
                                    conflict_penalty, categories_against);
 
-            if((BrainConsensusPrintOnUse && VerboseLogs))
+            if((BrainConsensusPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v31.6x BRAIN CONSENSUS AGAINST] %d independent categories disagree with dir=%d - synergy penalty",
                            categories_against, entry_dir_i);
          }
@@ -5903,7 +5903,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += cf_pen;
             detail += StringFormat(" -%d %s;", cf_pen, cf_detail);
 
-            if((ConflictPrintOnUse && VerboseLogs))
+            if((ConflictPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v249 CONFLICT] %s | dir=%d", cf_detail, entry_dir_i);
          }
       }
@@ -6192,7 +6192,7 @@ void UpdateSignalScoreEngine(const string source)
             detail += StringFormat(" +%d %s;", vd_adj, vd_detail);
          }
 
-         if((VolumeDivergencePrintOnUse && VerboseLogs))
+         if((VolumeDivergencePrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v270 DIVERGENCE] %s | fading dir=%d | entry dir=%d",
                         vd_detail, vd_dir, entry_dir_i);
       }
@@ -6242,7 +6242,7 @@ void UpdateSignalScoreEngine(const string source)
          G_PENALTY_CONDITIONS += ct_pen;
          detail += StringFormat(" -%d %s;", ct_pen, ct_detail);
 
-         if((ThinDayPrintOnUse && VerboseLogs))
+         if((ThinDayPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v268 THIN] %s", ct_detail);
       }
    }
@@ -6298,7 +6298,7 @@ void UpdateSignalScoreEngine(const string source)
          {
             G_SCORE_DECISION = SCORE_DECISION_WAIT;
             detail += StringFormat(" [holding for a pullback: %s];", le_detail);
-            if((LateEntryPrintOnUse && VerboseLogs))
+            if((LateEntryPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v288 LATE] %s - waiting for %.2f", le_detail, le_target);
             return;
          }
@@ -6341,7 +6341,7 @@ void UpdateSignalScoreEngine(const string source)
             G_SCORE_DECISION = SCORE_DECISION_WAIT;
             detail += StringFormat(" [holding for a better fill: %s];", fq_detail);
 
-            if((FillTimingPrintOnUse && VerboseLogs))
+            if((FillTimingPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v275 FILL] %s | dir=%d", fq_detail, entry_dir_i);
             return;
          }
@@ -6368,7 +6368,7 @@ void UpdateSignalScoreEngine(const string source)
          G_STRUCT_PENALTY += ct_pen;
          detail += StringFormat(" -%d %s;", ct_pen, gt_detail);
 
-         if((GlobalTrendPrintOnUse && VerboseLogs))
+         if((GlobalTrendPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v273 GLOBAL] %s | dir=%d", gt_detail, entry_dir_i);
       }
       else
@@ -6445,7 +6445,7 @@ void UpdateSignalScoreEngine(const string source)
          G_STRUCT_PENALTY += hs_pen;
          detail += StringFormat(" -%d %s;", hs_pen, hs_detail);
 
-         if((HierarchyPrintOnUse && VerboseLogs))
+         if((HierarchyPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v266 HIERARCHY] %s | dir=%d", hs_detail, entry_dir_i);
       }
    }
@@ -6470,7 +6470,7 @@ void UpdateSignalScoreEngine(const string source)
             G_PENALTY_CONDITIONS += amb_pen;
             detail += StringFormat(" -%d %s;", amb_pen, amb_detail);
 
-            if((AmbiguityPrintOnUse && VerboseLogs))
+            if((AmbiguityPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v266 AMBIGUITY] %s | opposite %.1f against own %d",
                            amb_detail, opp_strength, G_SCORE_BASE + G_SCORE_BONUS);
          }
@@ -6637,7 +6637,7 @@ void UpdateSignalScoreEngine(const string source)
                   imp_hb = true;
                   imp_hb_reason = StringFormat("%s right after a blow-off climax candle (bar%d range %.0fpts = %.1fx ATR)",
                                                (imp_dir_i > 0 ? "BUY" : "SELL"), b, bo_range, bo_range / bo_atr);
-                  if((BlowOffHardBlockPrintOnUse && VerboseLogs))
+                  if((BlowOffHardBlockPrintOnUse && G_VERBOSE))
                      PrintFormat("[SIRUS BLOW-OFF HARD BLOCK] %s", imp_hb_reason);
                }
             }
@@ -6653,7 +6653,7 @@ void UpdateSignalScoreEngine(const string source)
          G_SCORE_DETAIL = StringFormat("SCORE DETAIL: impulse-end hard block | final=%d/%d | %s",
                                        G_SCORE_FINAL, G_SCORE_MIN_REQUIRED, detail);
 
-         if((ImpulseEndHardBlockPrintOnUse && VerboseLogs))
+         if((ImpulseEndHardBlockPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS IMPULSE-END HARD BLOCK] %s | final score was %d/%d (blocked regardless)",
                         imp_hb_reason, G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
 
@@ -6703,7 +6703,7 @@ void UpdateSignalScoreEngine(const string source)
                G_SCORE_DETAIL = StringFormat("SCORE DETAIL: zone-wall hard block | final=%d/%d | %s",
                                              G_SCORE_FINAL, G_SCORE_MIN_REQUIRED, detail);
 
-               if((ZoneWallHardBlockPrintOnUse && VerboseLogs))
+               if((ZoneWallHardBlockPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS ZONE-WALL HARD BLOCK] %s | final score was %d/%d (blocked regardless)",
                               G_SCORE_HARD_BLOCK, G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
 
@@ -6760,7 +6760,7 @@ void UpdateSignalScoreEngine(const string source)
          G_SCORE_STATUS = "SCORE: HARD_BLOCK | reason=" + G_SCORE_HARD_BLOCK;
          G_SCORE_DETAIL = StringFormat("SCORE DETAIL: counter-context block | final=%d/%d | %s",
                                        G_SCORE_FINAL, G_SCORE_MIN_REQUIRED, detail);
-         if((CounterZoneBlockPrintOnUse && VerboseLogs))
+         if((CounterZoneBlockPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS COUNTER-CONTEXT BLOCK] %s | score was %d/%d (first-entry blocked)",
                         G_SCORE_HARD_BLOCK, G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
          G_SCORE_LAST_SIGNATURE = G_SCORE_STATUS + "|" + IntegerToString(G_BARS_SEEN);

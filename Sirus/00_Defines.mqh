@@ -428,6 +428,7 @@ bool MBReversalUnlocked(const int dir);   // 20b - the reversal toward dir reach
 bool MBArbiterOn();                       // 20h - the direction arbiter is live (read by 11, 13)
 int  MBArbiterHTFAgainst(const int dir);  // 20h - how many of H1 / H4 stand against dir (read by 11, 13)
 bool MBHasTriggerNow(const int dir);      // 23 - a trigger toward dir right now (read by 20h, 21)
+bool TesterHeadless();                    // 03 - non-visual tester / optimizer run
 int  OppDirSign();                        // 06 - the scanner's direction as +1 / -1 / 0
 void TraceDecision(const bool ready, const string reason);   // 26d - decision trace row (called by 14)
 void TraceSent(const int dir, const double price);            // 26d - decision trace: the order went out (14)

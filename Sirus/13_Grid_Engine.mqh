@@ -758,7 +758,7 @@ double GridIntelligenceScoreRaw(const long grid_direction, string &detail)
       if(eq_dir != 0 && eq_dir != dir_i)
          detail += StringFormat("EQ-unfavorable(%.0f%%) ", range_pos_pct);
 
-      if((EQZonePrintOnUse && VerboseLogs) && eq_dir != 0)
+      if((EQZonePrintOnUse && G_VERBOSE) && eq_dir != 0)
          PrintFormat("[SIRUS v31.6u EQ ZONE] range_position=%.0f%% dir=%d grid_dir=%d", range_pos_pct, eq_dir, dir_i);
    }
 
@@ -777,7 +777,7 @@ double GridIntelligenceScoreRaw(const long grid_direction, string &detail)
          engulf_component = 0.2;
          detail += engulf_detail;
       }
-      if((EngulfingPrintOnUse && VerboseLogs))
+      if((EngulfingPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v31.6v ENGULFING] %s grid_dir=%d", engulf_detail, dir_i);
    }
 
@@ -796,7 +796,7 @@ double GridIntelligenceScoreRaw(const long grid_direction, string &detail)
          zonebreak_component = 0.15;
          detail += zonebreak_detail;
       }
-      if((ZoneBreakPrintOnUse && VerboseLogs))
+      if((ZoneBreakPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v31.6z10 ZONE BREAK] %s grid_dir=%d", zonebreak_detail, dir_i);
    }
 
@@ -813,13 +813,13 @@ double GridIntelligenceScoreRaw(const long grid_direction, string &detail)
    if(exhaust_score <= 0.3)
    {
       detail += exhaust_detail;
-      if((ImpulseExhaustionPrintOnUse && VerboseLogs))
+      if((ImpulseExhaustionPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v31.6z19 IMPULSE EXHAUSTION] %s grid_dir=%d", exhaust_detail, dir_i);
    }
    if(consensus_exhaust_score < 0.5)
    {
       detail += consensus_exhaust_detail;
-      if((ImpulseExhaustionPrintOnUse && VerboseLogs))
+      if((ImpulseExhaustionPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v31.6z22 EXHAUSTION CONSENSUS] %s grid_dir=%d", consensus_exhaust_detail, dir_i);
    }
 
@@ -915,7 +915,7 @@ double GridIntelligenceScoreRaw(const long grid_direction, string &detail)
    if(gla_component <= 0.35 || gla_component >= 0.65)
    {
       detail += gla_detail + " ";
-      if((GlobalLocalPrintOnUse && VerboseLogs) && gla_component <= 0.35)
+      if((GlobalLocalPrintOnUse && G_VERBOSE) && gla_component <= 0.35)
          PrintFormat("[SIRUS v31.6z30 GLOBAL/LOCAL] %s grid_dir=%d", gla_detail, dir_i);
    }
 
@@ -1021,7 +1021,7 @@ double GridIntelligenceDistanceAdjust(const double dist, const long direction, c
    double widen = 1.0 + (0.5 - gscore) * 2.0 * MathMax(0.0, GridIntelligenceMaxDistanceWiden - 1.0);
    double out = dist * widen;
 
-   if((GridIntelligencePrintOnUse && VerboseLogs))
+   if((GridIntelligencePrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v31.6z59 GRID DISTANCE] score=%.2f -> widen x%.2f (%.0f -> %.0f pts)",
                   gscore, widen, dist, out);
 
@@ -1061,7 +1061,7 @@ double GridIntelligenceLotAdjust(const double lot, const long direction, const i
    else
       factor = min_factor + (gscore / 0.5) * (neutral_factor - min_factor);
 
-   if((GridIntelligencePrintOnUse && VerboseLogs) && gscore < 0.5)
+   if((GridIntelligencePrintOnUse && G_VERBOSE) && gscore < 0.5)
       PrintFormat("[SIRUS v31.6o GRID INTELLIGENCE] score=%.2f depth=%d (%s)-> lot x%.2f", gscore, current_orders, detail, factor);
 
    return lot * factor;
@@ -1161,7 +1161,7 @@ void DuplicateInstanceCheck()
       if(age_sec >= 0 && age_sec < MathMax(1, DuplicateInstanceStaleSeconds))
       {
          G_DUP_INSTANCE_WARNED = true;
-         if((DuplicateInstancePrintOnUse && VerboseLogs))
+         if((DuplicateInstancePrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v31.6k DUPLICATE GUARD] WARNING: another active instance's heartbeat is only %d sec old for Magic=%I64d Symbol=%s - check you don't have this EA attached twice (conflicting orders risk). This does NOT block trading.",
                         age_sec, MagicNumber, _Symbol);
       }
@@ -1226,7 +1226,7 @@ bool BasketExposureAllowsGrid(const double next_lot, const ENUM_ORDER_TYPE order
    {
       reason = StringFormat("basket exposure %.2f/%.2f margin (%.0f%% of equity %.2f)",
                             total_margin, cap, MaxBasketMarginPercent, equity);
-      if((MaxBasketExposurePrintOnUse && VerboseLogs))
+      if((MaxBasketExposurePrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v31.6e EXPOSURE CAP] blocked: %s", reason);
       return false;
    }
@@ -1270,7 +1270,7 @@ double GridDistanceForNextOrder(const int current_orders)
 
          dist *= scale;
 
-         if((ATRRegimePrintOnUse && VerboseLogs))
+         if((ATRRegimePrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v30.1 ATR REGIME] fast=%.0f base=%.0f scale=%.2f -> dist=%.0f",
                         atr_fast, atr_base, scale, dist);
       }
@@ -1285,7 +1285,7 @@ double GridDistanceForNextOrder(const int current_orders)
       if(session_factor != 1.0)
       {
          dist *= session_factor;
-         if((SessionGridPrintOnUse && VerboseLogs))
+         if((SessionGridPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v31.6e SESSION GRID] factor=%.2f -> dist=%.0f", session_factor, dist);
       }
    }
@@ -1431,7 +1431,7 @@ double NextGridLot(const double last_lot, const int current_orders)
       if(gq_f > 0.0 && MathAbs(gq_f - 1.0) > 0.01)
       {
          lot *= gq_f;
-         if((GridQualityPrintOnUse && VerboseLogs) && StringLen(gq_detail) > 0)
+         if((GridQualityPrintOnUse && G_VERBOSE) && StringLen(gq_detail) > 0)
             PrintFormat("[SIRUS v222 GRID LOT] %s", gq_detail);
       }
    }   // V31.6o: continuous multi-sense + depth-aware scaling
@@ -1483,7 +1483,7 @@ double NextGridLot(const double last_lot, const int current_orders)
 
    if(lot < floor_lot)
    {
-      if((GridIntelligencePrintOnUse && VerboseLogs) && lot < floor_lot * 0.99)
+      if((GridIntelligencePrintOnUse && G_VERBOSE) && lot < floor_lot * 0.99)
          PrintFormat("[SIRUS v31.6z52 GRID LOT FLOOR] combined caution would have cut to %.2f - floored to %.2f (orders=%d, LotMultiplier target %.2f)",
                      lot, floor_lot, current_orders, pure_multiplier_target);
       lot = floor_lot;
@@ -2024,7 +2024,7 @@ bool GridCanOpen(string &reason)
       if(is_trend_block && SmartZoneRecoveryAllows(direction, last_price, szr_why))
       {
          szr_active = true;
-         if((SZRPrintOnUse && VerboseLogs))
+         if((SZRPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v31.6 SMART ZONE RECOVERY] trend-block overridden once: %s", szr_why);
       }
       else if(GridSoftHold(reason, auto_grid_safety_reason + (StringLen(szr_why) > 0 ? " | " + szr_why : "")))
@@ -2070,7 +2070,7 @@ bool GridCanOpen(string &reason)
    {
       double frac = MathMax(0.1, MathMin(1.0, GridReactionDistanceFraction));
       distance = distance * frac;
-      if((GridReactionPrintOnUse && VerboseLogs))
+      if((GridReactionPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS GRID REACTION] early add allowed at %.0f%% distance - %s",
                      frac * 100.0, grid_react_why);
    }
@@ -2128,7 +2128,7 @@ bool GridCanOpen(string &reason)
       if(G_BASKET_ORDERS >= eff_max && eff_max < MaxOrders)
       {
          reason = gd_reason;
-         if((GridDepthPrintOnUse && VerboseLogs))
+         if((GridDepthPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v228 DEPTH] %s", gd_reason);
          return false;
       }
@@ -2215,7 +2215,7 @@ bool GridCanOpen(string &reason)
 
       if(stale >= BasketStaleBlockLevel && GridSoftHold(reason, StringFormat("holding - %s", st_detail)))
       {
-         if((BasketStalePrintOnUse && VerboseLogs))
+         if((BasketStalePrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v228 STALE] %s", st_detail);
          return false;
       }
@@ -2266,7 +2266,7 @@ bool GridCanOpen(string &reason)
                                G_GRID_LOT_SOFT_FACTOR, gch_held, GridCautionMaxHoldBars, gch_adverse, gch_release);
          return false;
       }
-      if(VerboseLogs)
+      if(G_VERBOSE)
          PrintFormat("[SIRUS GRID CAUTION HOLD] released after %d bars / %.0f pts - adding at floor lot %.2f",
                      gch_held, gch_adverse, G_NEXT_GRID_LOT);
    }
@@ -2367,14 +2367,14 @@ bool GridCanOpen(string &reason)
             {
                reason = StringFormat("waiting - %s; adding here commits size at a price with no defined level",
                                      gz_detail);
-               if((GridZoneWaitPrintOnUse && VerboseLogs))
+               if((GridZoneWaitPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v137 GRID ZONE WAIT] %s | waited %d/%d bars",
                               reason, gz_waited, GridZoneWaitMaxBars);
                return false;
             }
 
             // Waited long enough - proceed rather than strand the basket inside a band.
-            if((GridZoneWaitPrintOnUse && VerboseLogs))
+            if((GridZoneWaitPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v137 GRID ZONE WAIT] wait expired after %d bars - allowing the addition", gz_waited);
          }
          else
@@ -2394,14 +2394,14 @@ bool GridCanOpen(string &reason)
 
       if(exp_rescue_lot > 0.0)
       {
-         if((GridMarginRescuePrintOnUse && VerboseLogs))
+         if((GridMarginRescuePrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v114 MARGIN RESCUE] exposure gate: %s | original block: %s",
                         exp_rescue_detail, exposure_reason);
          G_NEXT_GRID_LOT = exp_rescue_lot;   // continue with the reduced size
       }
       else
       {
-         if((GridMarginRescuePrintOnUse && VerboseLogs))
+         if((GridMarginRescuePrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v114 MARGIN RESCUE] GRID FROZEN at exposure gate | %s | %s | lot-to-balance ratio is too high for this account size",
                         exposure_reason, exp_rescue_detail);
          reason = exposure_reason + " | " + exp_rescue_detail;
@@ -2423,7 +2423,7 @@ bool GridCanOpen(string &reason)
       string gi_reason = "";
       if(!GridIntelligenceAllowsGrid(direction, orders, gi_reason) && GridSoftHold(reason, gi_reason))
       {
-         if((GridIntelligencePrintOnUse && VerboseLogs))
+         if((GridIntelligencePrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v31.6m GRID INTELLIGENCE BLOCK] %s", gi_reason);
          return false;
       }
@@ -2438,7 +2438,7 @@ bool GridCanOpen(string &reason)
       return false;
    }
 
-   if(StringLen(G_GRID_OVERRIDDEN) > 0 && VerboseLogs)
+   if(StringLen(G_GRID_OVERRIDDEN) > 0 && G_VERBOSE)
       PrintFormat("[SIRUS GRID RESCUE] %s - stepped over: %s", G_GRID_RESCUE_WHY, G_GRID_OVERRIDDEN);
    reason = StringFormat("grid ready%s | profile=%s | orders=%d/%d | distance=%.0f | lot=%.2f | DD=%.2f/%.2f%%",
                          (szr_active ? " (SMART ZONE RECOVERY)" : ""),
@@ -2461,7 +2461,7 @@ void DrawBasketTPSLLines()
 {
    // PERF: chart objects are for live monitoring only - never draw them in the tester/optimizer,
    // where redrawing every tick massively slows runs (same reason the dashboard is skipped there).
-   if((bool)MQLInfoInteger(MQL_OPTIMIZATION))
+   if(TesterHeadless())   // TESTER: the comment above said "tester" - the code skipped only optimization
       return;
 
    string tp_name    = G_PREFIX + "LINE_TP";
@@ -2623,7 +2623,7 @@ void UpdateGridRecoveryEngine(const string source)
          if(!MarginAllowsOrder(si_type, NormalizeVolumeSafe(si_lot), si_margin_why))
          {
             si_allowed = false;
-            if((ScaleInPrintOnUse && VerboseLogs))
+            if((ScaleInPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v161 SCALE-IN] completion held - %s", si_margin_why);
          }
       }
@@ -2647,15 +2647,15 @@ void UpdateGridRecoveryEngine(const string source)
             G_SCALEIN_EXTRA_ORDERS++;
             ReasonCodeEntry("SCALE-IN", (G_SCALEIN_DIR > 0 ? ORDER_TYPE_BUY : ORDER_TYPE_SELL),
                             G_TRADE.ResultVolume(), G_TRADE.ResultPrice(), G_TRADE.ResultOrder());
-            if((ScaleInPrintOnUse && VerboseLogs))
+            if((ScaleInPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v161 SCALE-IN] completed with %.2f lots - %s", si_lot, si_reason);
             ScaleInReset();
          }
-         else if((ScaleInPrintOnUse && VerboseLogs))
+         else if((ScaleInPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v161 SCALE-IN] completion failed: %s (%d)",
                         G_TRADE.ResultRetcodeDescription(), (int)G_TRADE.ResultRetcode());
       }
-      else if(StringLen(si_reason) > 0 && (ScaleInPrintOnUse && VerboseLogs))
+      else if(StringLen(si_reason) > 0 && (ScaleInPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v161 SCALE-IN] %s", si_reason);
    }
 
@@ -2739,7 +2739,7 @@ void UpdateGridRecoveryEngine(const string source)
 
          if(rescue_lot > 0.0)
          {
-            if((GridMarginRescuePrintOnUse && VerboseLogs))
+            if((GridMarginRescuePrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v114 MARGIN RESCUE] %s | free=%.2f equity=%.2f | original block: %s",
                            rescue_detail,
                            AccountInfoDouble(ACCOUNT_MARGIN_FREE),
@@ -2759,7 +2759,7 @@ void UpdateGridRecoveryEngine(const string source)
                                          AccountInfoDouble(ACCOUNT_MARGIN_FREE),
                                          AccountInfoDouble(ACCOUNT_EQUITY),
                                          rescue_detail);
-            if((GridMarginRescuePrintOnUse && VerboseLogs))
+            if((GridMarginRescuePrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v114 MARGIN RESCUE] GRID FROZEN | %s | %s | lot-to-balance ratio is too high for this account size",
                            grid_margin_reason, rescue_detail);
             SetStatus(G_GRID_STATUS, "UpdateGridRecoveryEngine");
@@ -2860,7 +2860,7 @@ void UpdateGridRecoveryEngine(const string source)
             else
                G_GRID_TRANSIENT_RETRY_COUNT = 0;
 
-            if((RetryPrintOnUse && VerboseLogs))
+            if((RetryPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v29 RETRY] grid fail ret=%d transient=%s attempt=%d/%d",
                            retcode, YesNoV29(grid_transient), G_GRID_TRANSIENT_RETRY_COUNT, RetryMaxAttempts);
          }

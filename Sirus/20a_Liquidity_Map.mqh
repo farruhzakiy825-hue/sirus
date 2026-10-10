@@ -229,7 +229,7 @@ void MBLqRecordSweep(const int i, const double ext, const int q, const datetime 
    }
    G_LQ_SW_TIME[k] = t;
    G_LQ_VERSION++;
-   if(MBLiquidityPrintOnUse && VerboseLogs && G_LQ_SW_CLASS[k] >= 3)
+   if(MBLiquidityPrintOnUse && G_VERBOSE && G_LQ_SW_CLASS[k] >= 3)
       PrintFormat("[SIRUS LIQUIDITY] %s liquidity swept @ %s | %s (%s)%s | wick %s",
                   (G_LQ[i].side > 0 ? "BUY-SIDE" : "SELL-SIDE"), DoubleToString(G_LQ[i].level, _Digits),
                   MBLqClassName(G_LQ_SW_CLASS[k]), MBLqMaskText(G_LQ_SW_MASK[k]), (G_LQ[i].eq ? ", equal levels" : ""),
@@ -289,7 +289,7 @@ void MBLqStatusUpdate(const datetime bar_time)
                if(G_LQ[i].last_sweep > 0 && bar_time - G_LQ[i].last_sweep <= 3600 && G_LQ_SW_TIME[k] == G_LQ[i].last_sweep)
                {
                   G_LQ_SW_TRAP[k] = true;
-                  if(MBLiquidityPrintOnUse && VerboseLogs)
+                  if(MBLiquidityPrintOnUse && G_VERBOSE)
                      PrintFormat("[SIRUS LIQUIDITY] TRAP - the %s sweep @ %s failed: two M5 closes beyond it",
                                  (s > 0 ? "buy-side" : "sell-side"), DoubleToString(L, _Digits));
                }

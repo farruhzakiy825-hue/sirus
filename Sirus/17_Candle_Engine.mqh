@@ -779,7 +779,7 @@ void MBCandleEngineUpdate()
       if(tfi < 2)
          MBImpulseUpdate(tfi, r, n, atr);
 
-      if(tfi >= 1 && (MBCandlePrintOnUse && VerboseLogs))
+      if(tfi >= 1 && (MBCandlePrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS CANDLE] %s %s %s | body %.1f ATR | pressure bull %.0f / bear %.0f | %s %s",
                      MBTFName(tfi), MBIntentName(c1.intent), MBSideText(c1.dir), c1.body_atr,
                      G_MB_BULL[tfi], G_MB_BEAR[tfi], seq,

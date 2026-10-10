@@ -763,7 +763,7 @@ bool MBVetoAllowsEntry(const int dir, string &why)
          vc_why = why;
       }
    }
-   if((MBVetoPrintOnUse && VerboseLogs) && (why != G_MB_VETO_LAST || (TimeCurrent() - G_MB_VETO_LAST_PRINT) >= 60))
+   if((MBVetoPrintOnUse && G_VERBOSE) && (why != G_MB_VETO_LAST || (TimeCurrent() - G_MB_VETO_LAST_PRINT) >= 60))
    {
       PrintFormat("[SIRUS VETO] %s %s @ %s blocked | %s",
                   (dir > 0 ? "BUY" : "SELL"), OpportunityTypeToString(G_OPP_TYPE),

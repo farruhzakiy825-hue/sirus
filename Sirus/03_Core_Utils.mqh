@@ -656,9 +656,11 @@ void UpdateEnvironmentEngine()
    else
       G_ENV_STATUS = "ENV BLOCK: " + G_ENV_BLOCK_REASON;
 
-   string signature = G_ENV_STATUS + "|" + G_ENV_SYMBOL_STATUS + "|" + G_ENV_TRADE_STATUS + "|" + G_ENV_SPREAD_STATUS;
+   // TESTER/LOG: the spread status carries the live spread figure, so the line printed on almost every
+   // tick. A spread that blocks is already in G_ENV_STATUS (the block reason).
+   string signature = G_ENV_STATUS + "|" + G_ENV_SYMBOL_STATUS + "|" + G_ENV_TRADE_STATUS;
 
-   if(PrintEnvOnChange && signature != G_ENV_LAST_SIGNATURE)
+   if(PrintEnvOnChange && G_VERBOSE && signature != G_ENV_LAST_SIGNATURE)
    {
       G_ENV_LAST_SIGNATURE = signature;
       PrintFormat("[SIRUS v31.6 PHASE 21.3 ENV] %s | %s | %s | %s | %s",
@@ -1178,4 +1180,11 @@ void TraceDiff(const string step)
    string from = StringFormat("%s %s %d", TraceDirTxt(G_TR_S_DIR), ScoreDecisionToString((ENUM_SCORE_DECISION)G_TR_S_DEC), G_TR_S_FIN);
    string to   = StringFormat("%s %s %d/%d", TraceDirTxt((int)G_OPP_DIR), ScoreDecisionToString(G_SCORE_DECISION), G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
    G_TR_SCAN += StringFormat("%s:%s>%s|", step, from, to);
+}
+
+// TESTER: a Strategy Tester / optimizer run with no chart to look at.
+bool TesterHeadless()
+{
+   return (bool)MQLInfoInteger(MQL_OPTIMIZATION) ||
+          ((bool)MQLInfoInteger(MQL_TESTER) && !(bool)MQLInfoInteger(MQL_VISUAL_MODE));
 }

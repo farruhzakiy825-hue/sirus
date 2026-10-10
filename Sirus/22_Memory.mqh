@@ -206,7 +206,7 @@ void MBMemoryOnBasketClosed(const datetime opened)
 
    string dna = MBDNAString(G_MB_DNA);
    int minutes = (int)((TimeCurrent() - opened) / 60);
-   if((MBMemoryPrintOnUse && VerboseLogs))
+   if((MBMemoryPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS MEMORY] basket %s %s %.2f after %d min | quality %d | DNA: %s | record %.0f W / %.0f L",
                   (G_MB_DNA_DIR > 0 ? "BUY" : "SELL"), (win ? "WIN" : "LOSS"), result, minutes,
                   G_MB_DNA_QUALITY, dna, G_MB_LEARN_W[MB_DNA_COUNT], G_MB_LEARN_L[MB_DNA_COUNT]);

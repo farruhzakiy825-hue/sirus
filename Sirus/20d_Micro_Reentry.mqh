@@ -230,7 +230,7 @@ void MBReExitRecord(const int dir, const double res)
       G_RE_ATT[k]++;
       G_RE_ATT_T[k] = TimeCurrent();
    }
-   if(VerboseLogs && StructurePrintOnUse)
+   if(G_VERBOSE && StructurePrintOnUse)
       PrintFormat("[SIRUS REENTRY] %s basket ended: %s (%s) | failed attempts on this thesis: %d",
                   (dir > 0 ? "BUY" : "SELL"), MBReKindName(kind), r, G_RE_ATT[k]);
 }

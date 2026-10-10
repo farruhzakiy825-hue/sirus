@@ -372,7 +372,7 @@ void BasketAgeRecord(const int age_bars, const bool won)
 
    GlobalVariableSet(BasketAgeGVKey(), G_BASKET_AGE_TYPICAL);
 
-   if((AdaptiveBasketAgePrintOnUse && VerboseLogs))
+   if((AdaptiveBasketAgePrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v160b BASKET AGE] winning basket closed after %d bars | typical now %.0f bars",
                   age_bars, G_BASKET_AGE_TYPICAL);
 }
@@ -517,7 +517,7 @@ void ScaleInArm(const int dir, const double entry_price, const double remaining_
    G_SCALEIN_DIR = dir;
    G_SCALEIN_BAR = G_BARS_SEEN;
 
-   if((ScaleInPrintOnUse && VerboseLogs))
+   if((ScaleInPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v161 SCALE-IN] entered at part size, %.2f lots pending confirmation from %.2f",
                   remaining_lot, entry_price);
 }
@@ -1104,7 +1104,7 @@ void RegimeUpdate()
    if(cand != REGIME_UNKNOWN && cand != G_REGIME &&
       G_REGIME_AGREE >= MathMax(2, RegimeConfirmBars))
    {
-      if((RegimePrintOnUse && VerboseLogs))
+      if((RegimePrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v156 REGIME] %s -> %s (%s, held %d bars)",
                      RegimeName(G_REGIME), RegimeName(cand), why, G_REGIME_AGREE);
       G_REGIME = cand;
@@ -1326,7 +1326,7 @@ void ExitQualitySettle()
       G_EXIT_TURNED *= scale;
    }
 
-   if((ExitQualityPrintOnUse && VerboseLogs))
+   if((ExitQualityPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v169 EXIT] price went %.0f pts after the close | ran-on %.0f / turned %.0f",
                   after_pts, G_EXIT_RAN_ON, G_EXIT_TURNED);
 
@@ -1512,7 +1512,7 @@ bool SetupArm(const int dir, const int reason_code, const double trigger_price, 
    if(EnablePostWinFastEntry && G_LAST_WIN_DIR == dir &&
       (G_BARS_SEEN - G_LAST_WIN_BAR) <= PostWinFastEntryBars)
    {
-      if((SetupArmPrintOnUse && VerboseLogs))
+      if((SetupArmPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v199 ARM] skipped - %s was confirmed by a winning basket %d bars ago",
                      (dir > 0 ? "BUY" : "SELL"), G_BARS_SEEN - G_LAST_WIN_BAR);
       return false;   // no wait - the setup goes straight to the score engine
@@ -1549,7 +1549,7 @@ bool SetupArm(const int dir, const int reason_code, const double trigger_price, 
       G_ARM_SESSION = EnableSessionContext ? SessionContext(arm_mins, arm_sd) : -1;
    }
 
-   if((SetupArmPrintOnUse && VerboseLogs))
+   if((SetupArmPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v194 ARMED] %s held - %s (waiting for confirmation)",
                   (dir > 0 ? "BUY" : "SELL"), detail);
    return true;
@@ -1597,7 +1597,7 @@ bool SetupArmConfirmed(string &detail)
    // a better one. Unlike a fill hold, this one is dropped when its window closes.
    if(waited > window && G_ARM_REASON == ARM_REASON_LATE)
    {
-      if((SetupArmPrintOnUse && VerboseLogs))
+      if((SetupArmPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v288 LATE] no pullback after %d bars - the move ran on without us", waited);
       ArmRecordOutcome(G_ARM_REASON, 0, waited);
       SetupArmClear();
@@ -1606,7 +1606,7 @@ bool SetupArmConfirmed(string &detail)
 
    if(waited > window && G_ARM_REASON == ARM_REASON_FILL)
    {
-      if((SetupArmPrintOnUse && VerboseLogs))
+      if((SetupArmPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v275 FILL] no better price after %d bars - taking the setup anyway", waited);
       ArmRecordOutcome(G_ARM_REASON, 1, waited);
       SetupArmClear();
@@ -1615,7 +1615,7 @@ bool SetupArmConfirmed(string &detail)
 
    if(waited > window)
    {
-      if((SetupArmPrintOnUse && VerboseLogs))
+      if((SetupArmPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v194 ARMED] dropped after %d/%d bars - no confirmation for %s",
                      waited, window, G_ARM_TEXT);
       ArmRecordOutcome(G_ARM_REASON, 0, waited);
@@ -1640,7 +1640,7 @@ bool SetupArmConfirmed(string &detail)
       bool reached = (G_ARM_DIR > 0) ? (la_px <= G_ARM_TRIGGER) : (la_px >= G_ARM_TRIGGER);
       if(reached && la_px > 0.0)
       {
-         if((SetupArmPrintOnUse && VerboseLogs))
+         if((SetupArmPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v288 LATE] pullback reached %.2f after %d bars", la_px, waited);
          ArmRecordOutcome(G_ARM_REASON, 1, waited);
          SetupArmClear();
@@ -1657,7 +1657,7 @@ bool SetupArmConfirmed(string &detail)
 
       if(still_bad < FillTimingMinSeverity)
       {
-         if((SetupArmPrintOnUse && VerboseLogs))
+         if((SetupArmPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v275 FILL] better price reached after %d bars", waited);
          ArmRecordOutcome(G_ARM_REASON, 1, waited);
          SetupArmClear();
@@ -1713,7 +1713,7 @@ bool SetupArmConfirmed(string &detail)
    }
    if(cons < 0)
    {
-      if((SetupArmPrintOnUse && VerboseLogs))
+      if((SetupArmPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v196 ARMED] dropped early - %s", cons_detail);
       ArmRecordOutcome(G_ARM_REASON, -1, G_BARS_SEEN - G_ARM_BAR);
       SetupArmClear();
@@ -1738,7 +1738,7 @@ bool SetupArmConfirmed(string &detail)
       // market is trading, so the reaction it was waiting for cannot happen there.
       if(ArmAbandonDistancePoints > 0 && moved_pts > (double)ArmAbandonDistancePoints)
       {
-         if((SetupArmPrintOnUse && VerboseLogs))
+         if((SetupArmPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v197 ARMED] abandoned - price is %.0f pts from the level (limit %d)",
                         moved_pts, ArmAbandonDistancePoints);
          ArmRecordOutcome(G_ARM_REASON, -1, G_BARS_SEEN - G_ARM_BAR);
@@ -1755,7 +1755,7 @@ bool SetupArmConfirmed(string &detail)
          int sess_now = SessionContext(sc_mins, sc_detail);
          if(G_ARM_SESSION >= 0 && sess_now != G_ARM_SESSION)
          {
-            if((SetupArmPrintOnUse && VerboseLogs))
+            if((SetupArmPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v197 ARMED] abandoned - session changed to %s while waiting",
                            SessionName(sess_now));
             ArmRecordOutcome(G_ARM_REASON, -1, G_BARS_SEEN - G_ARM_BAR);
@@ -1818,7 +1818,7 @@ bool SetupArmConfirmed(string &detail)
             if(turned_back)
             {
                // The wall did exactly what the objection said it would. Stop waiting for it.
-               if((SetupArmPrintOnUse && VerboseLogs))
+               if((SetupArmPrintOnUse && G_VERBOSE))
                   PrintFormat("[SIRUS v194 ARMED] dropped - the wall at %.2f rejected price, objection confirmed",
                               G_ARM_TRIGGER);
                ArmRecordOutcome(G_ARM_REASON, 0, G_BARS_SEEN - G_ARM_BAR);
@@ -1956,7 +1956,7 @@ void ArmJudgeSettle()
    if(r > 0 && r < ARM_OUTCOME_SLOTS && moved >= (double)ArmAuditWinPoints)
       G_ARM_WON[r] += 1.0;
 
-   if((ArmAuditPrintOnUse && VerboseLogs))
+   if((ArmAuditPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS v197 ARM AUDIT] %s wait -> price went %.0f pts after entry",
                   ArmReasonName(r), moved);
 
@@ -2272,7 +2272,7 @@ void StreakRecordOutcome(const bool won)
    if(won) { G_WIN_STREAK++;  G_LOSS_STREAK = 0; }
    else    { G_LOSS_STREAK++; G_WIN_STREAK  = 0; }
 
-   if((StreakPrintOnUse && VerboseLogs) && G_LOSS_STREAK >= StreakCautionLosses)
+   if((StreakPrintOnUse && G_VERBOSE) && G_LOSS_STREAK >= StreakCautionLosses)
       PrintFormat("[SIRUS v166 STREAK] %d consecutive losses - the market may have moved into a state this system does not handle",
                   G_LOSS_STREAK);
 }

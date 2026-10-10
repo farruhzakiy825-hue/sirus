@@ -1038,7 +1038,7 @@ double LowestLow(const ENUM_TIMEFRAMES tf, const int lookback, const int start_s
 // V29 upgrade: was a manual simple-average-of-True-Range loop (choppy, drops old bars abruptly).
 // Now uses MT5's native iATR (proper Wilder smoothing - the real, standard ATR) via a small
 // handle cache, since MQL5 requires one handle per unique (symbol, timeframe, period) combo.
-#define SIRUS_ATR_CACHE_SIZE 12
+#define SIRUS_ATR_CACHE_SIZE 32   // TESTER: 12 was exactly full with default inputs - one changed TF / period recreated handles every call
 int G_ATR_CACHE_TF[SIRUS_ATR_CACHE_SIZE];
 int G_ATR_CACHE_PERIOD[SIRUS_ATR_CACHE_SIZE];
 int G_ATR_CACHE_HANDLE[SIRUS_ATR_CACHE_SIZE];
@@ -1407,7 +1407,7 @@ void UpdateModeManager(const string source)
                                 ModeToString(G_MODE_CANDIDATE),
                                 G_MODE_REASON);
 
-   string signature = G_MODE_STATUS + "|" + IntegerToString(G_BARS_SEEN) + "|" + IntegerToString(G_LAST_SPREAD_POINTS);
+   string signature = G_MODE_STATUS + "|" + IntegerToString(G_BARS_SEEN);   // TESTER/LOG: no live spread in it
 
    if(PrintModeOnChange && signature != G_MODE_LAST_SIGNATURE)
    {
@@ -1458,7 +1458,7 @@ void UpdateKalmanTrendFilter()
       G_KALMAN_LEVEL = predicted_level + KalmanAlpha * residual;
       G_KALMAN_TREND = G_KALMAN_TREND + KalmanBeta * residual;
 
-      if((KalmanPrintOnUse && VerboseLogs))
+      if((KalmanPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS v29 KALMAN] bar=%d level=%.2f trend=%.2fpts/bar residual=%.2f",
                      G_KALMAN_BAR_COUNT, G_KALMAN_LEVEL, G_KALMAN_TREND / _Point, residual);
    }
@@ -2420,7 +2420,7 @@ void LocalStructureBreakUpdate()
             G_LSB_BREAK_BAR = G_BARS_SEEN;
             G_LSB_BREAK_PRICE = G_LSB_LAST_PRICE;
 
-            if((StructureBreakPrintOnUse && VerboseLogs))
+            if((StructureBreakPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v224 BREAK] %s structure ended - closed %s %.2f",
                            (G_LSB_LAST_DIR < 0 ? "falling" : "rising"),
                            (G_LSB_LAST_DIR < 0 ? "above" : "below"), G_LSB_LAST_PRICE);

@@ -465,7 +465,7 @@ void MBRegimeUpdate()
       }
    }
 
-   if(rg != G_MB_RG && (MBThesisPrintOnUse && VerboseLogs))
+   if(rg != G_MB_RG && (MBThesisPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS REGIME] %s%s | ER %.2f | ATR14/50 %.2f | box %s-%s", MBRegimeName(rg),
                   (dir > 0 ? " UP" : (dir < 0 ? " DOWN" : "")), G_MB_RG_ER, G_MB_RG_RATIO,
                   DoubleToString(lo, _Digits), DoubleToString(hi, _Digits));
@@ -781,7 +781,7 @@ void MBLocalRecord(const bool won)
    {
       G_LOC_PAUSE_UNTIL = TimeCurrent() + MathMax(1, LocalLossPauseMinutes) * 60;   // bounded - never a freeze
       G_LOC_LOSS_STREAK = 0;
-      if(VerboseLogs)
+      if(G_VERBOSE)
          PrintFormat("[SIRUS LOCAL] %d local losses in a row - local trading paused %d min (global trading continues)",
                      LocalLossPauseCount, LocalLossPauseMinutes);
    }
@@ -915,7 +915,7 @@ void MBLocalThesisUpdate(const double price)
       G_LOC_TH_TARGET = target;
       G_LOC_TH_SINCE = TimeCurrent();
       G_LOC_TH_STATE = "faol";
-      if(MBThesisPrintOnUse && VerboseLogs)
+      if(MBThesisPrintOnUse && G_VERBOSE)
          PrintFormat("[SIRUS LOCAL] new local %s leg against %s | target %s | invalid beyond %s",
                      (ld > 0 ? "BULLISH" : "BEARISH"), MBBiasName(G_MB_BIAS),
                      DoubleToString(target, _Digits), DoubleToString(G_LOC_TH_INVALID, _Digits));
@@ -1164,21 +1164,21 @@ void MBBrainUpdate()
          G_MB_DEAD_DIR = G_MB_TH_DIR;
          G_MB_DEAD_TIME = now;
          G_MB_DEAD_UNTIL = now + MathMax(1, MBInvalidationMemoryM5) * PeriodSeconds(PERIOD_M5);
-         if((MBThesisPrintOnUse && VerboseLogs))
+         if((MBThesisPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS THESIS] %s thesis INVALIDATED: M5 closed %s beyond %s - that story is dead",
                         (G_MB_TH_DIR > 0 ? "BULLISH" : "BEARISH"), DoubleToString(c1, _Digits), DoubleToString(G_MB_TH_INVALID, _Digits));
       }
       else if(done)
       {
          G_MB_TH_STATE = MB_TH_DONE;
-         if((MBThesisPrintOnUse && VerboseLogs))
+         if((MBThesisPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS THESIS] %s thesis DONE: target %s reached - watching for the other side's liquidity",
                         (G_MB_TH_DIR > 0 ? "BULLISH" : "BEARISH"), DoubleToString(G_MB_TH_TARGET, _Digits));
       }
       else if(G_MB_TH_STATE == MB_TH_ACTIVATED && bdir == G_MB_TH_DIR && MathAbs(bias) >= 2)
       {
          G_MB_TH_STATE = MB_TH_CONFIRMED;
-         if((MBThesisPrintOnUse && VerboseLogs))
+         if((MBThesisPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS THESIS] %s thesis CONFIRMED (%s)", (G_MB_TH_DIR > 0 ? "BULLISH" : "BEARISH"), MBBiasName(bias));
       }
    }
@@ -1211,7 +1211,7 @@ void MBBrainUpdate()
       {
          G_MB_DEAD_UNTIL = 0;
          G_MB_DEAD_DIR = 0;
-         if((MBThesisPrintOnUse && VerboseLogs))
+         if((MBThesisPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS THESIS] %s lock lifted - the market re-confirmed it (%s, %s)",
                         (dd > 0 ? "BULLISH" : "BEARISH"), MBBiasName(bias), lift);
       }
@@ -1229,7 +1229,7 @@ void MBBrainUpdate()
          G_MB_TH_THREAT = false;
          G_MB_TH_INVALID = MBThesisInvalidation(bdir, price);
          G_MB_TH_TARGET = G_MB_DOL;
-         if((MBThesisPrintOnUse && VerboseLogs))
+         if((MBThesisPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS THESIS] new %s thesis %s | %s | target %s (%s) | invalid beyond %s",
                         (bdir > 0 ? "BULLISH" : "BEARISH"), MBThesisStateName(G_MB_TH_STATE), why,
                         (G_MB_TH_TARGET > 0.0 ? DoubleToString(G_MB_TH_TARGET, _Digits) : "-"), G_MB_DOL_WHAT,
@@ -1260,7 +1260,7 @@ void MBBrainUpdate()
          else if(MBCandleConfirms(1, td) || (MBCandleConfirms(0, td) && MBPressureSide(1) != -td))
             G_MB_TH_THREAT = false;
       }
-      if(G_MB_TH_THREAT != was && open_th && (MBThesisPrintOnUse && VerboseLogs))
+      if(G_MB_TH_THREAT != was && open_th && (MBThesisPrintOnUse && G_VERBOSE))
          PrintFormat("[SIRUS THESIS] %s thesis %s%s", (G_MB_TH_DIR > 0 ? "BULLISH" : "BEARISH"),
                      (G_MB_TH_THREAT ? "THREATENED: " : "no longer threatened"), (G_MB_TH_THREAT ? G_MB_TH_THREAT_WHY : ""));
    }

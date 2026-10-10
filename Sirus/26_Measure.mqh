@@ -119,7 +119,7 @@ void MBProfEnd(const int seg)
       else if(hour != G_PROF_HOUR)
       {
          G_PROF_HOUR = hour;
-         if(VerboseLogs)
+         if(G_VERBOSE)
          {
             string t = "";
             for(int i = 0; i < MB_PROF_SEGS; i++)

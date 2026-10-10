@@ -165,7 +165,7 @@ bool MBArbiterBlocks(const int dir, string &why)
    }
    static string last_print = "";
    static datetime last_t = 0;
-   if((ArbiterPrintOnUse && VerboseLogs) && !G_MB_VETO_PROBE && (why != last_print || TimeCurrent() - last_t >= 300))
+   if((ArbiterPrintOnUse && G_VERBOSE) && !G_MB_VETO_PROBE && (why != last_print || TimeCurrent() - last_t >= 300))
    {
       last_print = why;
       last_t = TimeCurrent();

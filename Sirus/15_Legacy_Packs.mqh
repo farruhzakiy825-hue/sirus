@@ -1877,6 +1877,8 @@ void UpdatePremiumVisualClutterControl(const string source)
 
 void UpdatePremiumVisualEngine(const string source)
 {
+   if(TesterHeadless())   // TESTER: chart objects with no chart to show them
+      return;
    if(!UsePremiumVisualEngine)
    {
       G_PV_STATUS = "PV: OFF";
