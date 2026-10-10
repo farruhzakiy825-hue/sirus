@@ -338,23 +338,10 @@ void ResetScoreEngine(const string reason)
    // FIX(grid-cooldown-wipe): grid timing history is NOT cleared by a routine reset. Wiping
    // G_LAST_GRID_BAR to -100000 fails the `> -9999` guard on the GridCooldownBars check, so
    // the grid cooldown was skipped entirely and grid orders could fire back to back.
-   G_GRID_ATTEMPTS = 0;
-   G_GRID_SUCCESSES = 0;
-   G_GRID_FAILS = 0;
-   G_BASKET_ORDERS = 0;
-   G_BASKET_VOLUME = 0.0;
-   G_BASKET_AVG_PRICE = 0.0;
-   G_BASKET_PROFIT = 0.0;
-   G_BASKET_POINTS = 0.0;
-   G_BASKET_DD_PERCENT = 0.0;
-   G_BASKET_DIRECTION = -1;
-   G_BASKET_LAST_GRID_PRICE = 0.0;
-   G_BASKET_ADVERSE_STREAK = 0;
-   G_BASKET_DD_HISTORY_COUNT = 0;
-   G_BASKET_DD_HISTORY_BAR = -1;
-   G_SEE_PERSIST_BARS = 0;
-   G_SEE_PERSIST_DIR = 0;
-   G_LAST_DD_WARNING_LEVEL = 0.0;
+   // PACKAGE 2 (F-C1): the basket's own state (orders, volume, DD history, adverse streak, grid
+   // counters...) is NOT cleared by a per-scan reset - this ran every ~3 s and made the adverse-streak,
+   // DD-acceleration and MaxDailyGridAttempts checks unreachable. RefreshGridDashboardStats clears it
+   // when the basket is gone; the grid counters reset with the risk day.
    G_NEXT_GRID_PRICE = 0.0;
    G_NEXT_GRID_DISTANCE = 0.0;
    G_NEXT_GRID_LOT = 0.0;
@@ -1500,8 +1487,10 @@ G_PENALTY_TREND_AGAINST += HTFAgainstScorePenalty;
                   // exact mechanism behind the 18-hour silence, and a strong global trend on gold
                   // lasts days. Honour the same valve: after BlockSafetyValveBars of unbroken
                   // silence one counter-trend entry goes through and gets judged on its own result.
-                  bool ct_valve_open = (EnableBlockSafetyValve && G_LAST_ENTRY_ALLOWED_BAR > 0 &&
-                                        (G_BARS_SEEN - G_LAST_ENTRY_ALLOWED_BAR) >= BlockSafetyValveBars);
+                  // PACKAGE 2 (A5): owner rule - a direction gate never relaxes on silence. Hours of
+                  // silence against a confirmed trend is that trend, not a stuck filter; the brain's own
+                  // paths (fast entry, reversal at the unlock stage, the arbiter) take the trend side.
+                  bool ct_valve_open = false;
 
                   if(!has_lean && !exceptional && !ct_valve_open)
                   {
@@ -1923,14 +1912,16 @@ void UpdateSignalScoreEngine(const string source)
       if(G_LAST_ENTRY_ALLOWED_BAR <= 0)
          G_LAST_ENTRY_ALLOWED_BAR = G_BARS_SEEN;
 
+      // PACKAGE 2: the hard blocks left in ScoreHardBlockCheck are all SAFETY blocks (ENV not ready, market
+      // chaos, unreadable / extreme spread, no tick / stale tick). Releasing one of them after 180 quiet
+      // bars sent an entry into chaos or a stale quote. The valve now only reports the silence.
       int silent_bars = G_BARS_SEEN - G_LAST_ENTRY_ALLOWED_BAR;
       if(silent_bars >= BlockSafetyValveBars)
       {
          if((BlockSafetyValvePrintOnUse && G_VERBOSE))
-            PrintFormat("[SIRUS v180 SAFETY VALVE] %d bars with no entry permitted - releasing one. Last block: %s",
+            PrintFormat("[SIRUS v180 SAFETY VALVE] %d bars with no entry permitted - safety block kept: %s",
                         silent_bars, hard_reason);
-         hard_blocked = false;
-         G_LAST_ENTRY_ALLOWED_BAR = G_BARS_SEEN;   // restart the clock
+         G_LAST_ENTRY_ALLOWED_BAR = G_BARS_SEEN;   // report again after the next window
       }
    }
 
@@ -3729,14 +3720,14 @@ void UpdateSignalScoreEngine(const string source)
          string mt_detail = "";
          double maturity = StructureMaturity(mt_detail);
 
-         if(maturity >= StructureMatureFrom && G_LS_DIR != 0)
+         if(maturity >= StructureMatureFrom && LSDirEff() != 0)
          {
             double over = (maturity - StructureMatureFrom) / MathMax(0.01, 1.0 - StructureMatureFrom);
             int mt_adj = (int)MathRound(over * (double)StructureMaturityScore);
 
             if(mt_adj > 0)
             {
-               if(G_LS_DIR == entry_dir_i)
+               if(LSDirEff() == entry_dir_i)
                {
                   // Joining a structure that has already run most of its distance.
                   G_SCORE_PENALTY += mt_adj;
@@ -3760,7 +3751,7 @@ void UpdateSignalScoreEngine(const string source)
       {
          LocalStructureUpdate();
 
-         if(G_LS_DIR != 0 && G_LS_STATE != LSTRUCT_CHOPPY && G_LS_CONVICTION > 0.0)
+         if(LSDirEff() != 0 && G_LS_STATE != LSTRUCT_CHOPPY && G_LS_CONVICTION > 0.0)
          {
             double ls_weight = G_LS_CONVICTION;
             string ls_extra = "";
@@ -3770,7 +3761,7 @@ void UpdateSignalScoreEngine(const string source)
             // but reasonable.
             if(G_LS_STATE == LSTRUCT_FADING)
             {
-               if(G_LS_DIR == entry_dir_i)
+               if(LSDirEff() == entry_dir_i)
                {
                   ls_weight *= LocalStructureFadeWithFactor;
                   ls_extra = " (fading - late)";
@@ -3793,7 +3784,7 @@ void UpdateSignalScoreEngine(const string source)
 
             if(ls_adj > 0)
             {
-               if(G_LS_DIR == entry_dir_i)
+               if(LSDirEff() == entry_dir_i)
                {
                   G_SCORE_BONUS += ls_adj;
                   G_STRUCT_BONUS += ls_adj;
@@ -3810,7 +3801,7 @@ void UpdateSignalScoreEngine(const string source)
 
             // How far is the invalidation? A counter-trend entry with the structure's end price
             // close by has a defined, cheap risk; one with it far away does not.
-            if(G_LS_INVALIDATE > 0.0 && G_LS_DIR == -entry_dir_i && _Point > 0.0)
+            if(G_LS_INVALIDATE > 0.0 && LSDirEff() == -entry_dir_i && _Point > 0.0)
             {
                double inv_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
                double inv_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -3872,14 +3863,14 @@ void UpdateSignalScoreEngine(const string source)
          string cf_detail = "";
          double cf_w = StructureLevelConfluence(cf_level, cf_detail);
 
-         if(cf_w >= StructureConfluenceMinWeight && G_LS_DIR != 0)
+         if(cf_w >= StructureConfluenceMinWeight && LSDirEff() != 0)
          {
             // The confluence price is what a counter-trend entry is heading toward and what a
             // with-trend entry is running away from.
             int cf_adj = (int)MathRound(cf_w * (double)StructureConfluenceScore);
             cf_adj = MathMax(1, cf_adj);
 
-            if(G_LS_DIR == -entry_dir_i)
+            if(LSDirEff() == -entry_dir_i)
             {
                // Trading against the structure, toward a price two readings agree on.
                G_SCORE_BONUS += cf_adj;

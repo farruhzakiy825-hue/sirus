@@ -792,6 +792,11 @@ int    SN_OPP_SCORE, SN_SCORE_FINAL, SN_SCORE_MIN, SN_SCORE_BASE, SN_SCORE_BONUS
 double SN_OPP_CLARITY;
 ENUM_SCORE_DECISION SN_SCORE_DECISION;
 bool   SN_SCORE_MICRO;
+// PACKAGE 2 (A3): the entry context the score worked out - FirstEntryCanRun (fast path, location
+// redirect) mutates it, so a throttled tick restoring only OPP/SCORE carried that mutation into the
+// next entry (a counter-trend detector entry opened with against=false and no warning weight).
+bool   SN_AGAINST_GLOBAL;
+int    SN_PENALTY_RAW, SN_SITUATION, SN_SITUATION_DIR;
 
 // AUDIT FIX (speed): ResetOpportunity() zeroes G_BASKET_ORDERS inside every scan and the grid engine
 // restores it later in the tick, so the snapshot always stored 0 and, with a basket open, "the basket
@@ -824,6 +829,8 @@ void ScanSnapshotSave()
    SN_SCORE_FINAL = G_SCORE_FINAL; SN_SCORE_DECISION = G_SCORE_DECISION; SN_SCORE_MIN = G_SCORE_MIN_REQUIRED;
    SN_SCORE_MICRO = G_SCORE_IS_MICRO; SN_SCORE_BASE = G_SCORE_BASE; SN_SCORE_BONUS = G_SCORE_BONUS;
    SN_SCORE_PENALTY = G_SCORE_PENALTY; SN_SCORE_DETAIL = G_SCORE_DETAIL; SN_SCORE_HARD = G_SCORE_HARD_BLOCK;
+   SN_AGAINST_GLOBAL = G_ENTRY_AGAINST_GLOBAL; SN_PENALTY_RAW = G_PENALTY_RAW;
+   SN_SITUATION = G_SITUATION; SN_SITUATION_DIR = G_SITUATION_DIR;
    G_SCAN_HAVE_SNAP = true;
    G_SCAN_RUNS++;
 }
@@ -835,6 +842,8 @@ void ScanSnapshotRestore()
    G_SCORE_FINAL = SN_SCORE_FINAL; G_SCORE_DECISION = SN_SCORE_DECISION; G_SCORE_MIN_REQUIRED = SN_SCORE_MIN;
    G_SCORE_IS_MICRO = SN_SCORE_MICRO; G_SCORE_BASE = SN_SCORE_BASE; G_SCORE_BONUS = SN_SCORE_BONUS;
    G_SCORE_PENALTY = SN_SCORE_PENALTY; G_SCORE_DETAIL = SN_SCORE_DETAIL; G_SCORE_HARD_BLOCK = SN_SCORE_HARD;
+   G_ENTRY_AGAINST_GLOBAL = SN_AGAINST_GLOBAL; G_PENALTY_RAW = SN_PENALTY_RAW;
+   G_SITUATION = SN_SITUATION; G_SITUATION_DIR = SN_SITUATION_DIR;
    G_SCAN_SKIPPED++;
 }
 

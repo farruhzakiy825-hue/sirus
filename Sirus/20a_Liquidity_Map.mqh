@@ -262,9 +262,17 @@ void MBLqStatusUpdate(const datetime bar_time)
       int s = G_LQ[i].side;
       double L = G_LQ[i].level;
       double ext = (s > 0) ? h : l;
+      // PACKAGE 2 (B-F4): the same sweep definition as the event engine - a pierce deeper than
+      // MBSweepMaxATR x the ATR of the level's own (highest) timeframe is a break that came back, not a
+      // liquidity sweep. With no maximum, an M5 bar running two H1 ATRs through an H1 high and closing
+      // back counted as the sweep that arms the lock and the reversal.
+      int lv_tfi = ((G_LQ[i].mask & (LQ_H4 | LQ_KEY)) != 0) ? 4 : (((G_LQ[i].mask & LQ_H1) != 0) ? 3 :
+                   (((G_LQ[i].mask & LQ_M15) != 0) ? 2 : 1));
+      double lv_atr = G_MB_ATR[lv_tfi] * _Point;
+      bool too_deep = (lv_atr > 0.0 && s * (ext - L) > MathMax(0.1, MBSweepMaxATR) * lv_atr);
       if(s * (ext - L) >= pierce)
       {
-         if(s * (c - L) < 0.0)
+         if(s * (c - L) < 0.0 && !too_deep)
          {
             // Pierced and closed back: a sweep. Wick quality: the wick beyond the body is at least half
             // the bar and the close sits in the far half.

@@ -647,6 +647,14 @@ void MBPBCloseBookkeeping()
       G_LAST_WIN_BAR = G_BARS_SEEN;
       G_AFFORD_RUNG_CAP = 0;
    }
+   // PACKAGE 2 (F-C2): a basket the EA did not close (its broker TP, a stop-out) is learned here, from
+   // the deal history - the same records CloseSirusBasket writes for the ones it closes.
+   if(!G_BASKET_OUTCOME_DONE && EnableConfidenceScore && outs > 0)
+   {
+      BasketLearnOutcome(MBBasketGross(G_MB_PB_BASKET), G_BASKET_OPENING_TYPE, G_BASKET_OPENING_MARGIN, G_BASKET_WARNINGS,
+                         G_BASKET_REGIME, G_BASKET_OPEN_BAR);
+      G_BASKET_OPENING_TYPE = 0;
+   }
    MBReExitRecord(G_MB_PB_DIR, res);         // plan stage 4: exit kind + failed attempts per thesis
    MBEGBasketClosed();                       // evidence gates circuit breaker
    MBAutopsyOnClose(G_MB_PB_DIR, res, G_PB_MFE, G_PB_MAE, G_MB_PB_BASKET, G_PB_T_SHOW);   // plan stage 7
@@ -861,7 +869,9 @@ bool MBAdverseSlowing(const int dir, string &why)
       why = "savat tomoniga sham";
       return true;
    }
-   if(MBPressureSide(0) != -dir && MBPressureSide(1) != -dir)
+   // PACKAGE 2 (F-C3): neutral pressure counted as "slowing" even while the forming M1 candle was still
+   // displacing against the basket - the M1/M5 pressure reads closed candles only.
+   if(MBPressureSide(0) != -dir && MBPressureSide(1) != -dir && G_MB_LIVE_DIR != -dir)
    {
       why = "M1/M5 bosimi endi qarshi emas";
       return true;

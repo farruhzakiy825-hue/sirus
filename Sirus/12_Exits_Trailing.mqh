@@ -1002,6 +1002,34 @@ bool CloseRetcodeIsRetryable(const uint rc)
    return false;
 }
 
+// PACKAGE 2 (F-C2): every learning record of a finished basket, in one place. It ran only inside
+// CloseSirusBasket - a basket that ended on its own broker TP (the normal cashback scalp exit) was never
+// counted, while losses (always closed by the EA) always were. The records leaned toward losses and
+// the EA blocked more and traded smaller for no reason. MBPBCloseBookkeeping (24) now records the
+// baskets the EA did not close, from the deal history.
+void BasketLearnOutcome(const double profit, const int opp_type, const int margin, const int warnings,
+                        const int regime, const int open_bar)
+{
+   bool won = (profit > 0.0);
+   BayesRecordOutcome(opp_type, won);
+   // V153: record the same outcome against the SCORE that opened it, so the EA can find out
+   // whether its own conviction ordering means anything.
+   ScoreBandRecordOutcome(margin, won);
+   WarningRecordOutcome(warnings, won);   // V155: credit each warning that was present
+   RegimeRecordOutcome(regime, won);      // V157: and credit the regime it ran in
+   // V160b: learn what a normal lifetime looks like from the baskets that worked.
+   if(open_bar > 0)
+      BasketAgeRecord(G_BARS_SEEN - open_bar, won);
+   // V166: streak and, when it lost, where it lost.
+   StreakRecordOutcome(won);
+   EVRecord(profit);   // V242: what this basket was actually worth
+   OppTypeRecord((int)G_BASKET_OPP_TYPE, profit);   // V269: and which setup produced it
+   // And the record that decides whether entries need to be better placed than they are.
+   if(EnableEvidenceTighten)
+      AdaptRecord(won);
+   G_BASKET_OUTCOME_DONE = true;
+}
+
 bool CloseSirusBasket(const string reason)
 {
    MBNoteCloseReason(reason);   // plan stage 4: the re-entry logic reads how the basket ended
@@ -1143,20 +1171,8 @@ bool CloseSirusBasket(const string reason)
    // basket is actually, fully closed. all_ok guarantees every position was closed this call.
    if(all_ok && closed > 0 && EnableConfidenceScore)
    {
-      BayesRecordOutcome(opening_type_snapshot, pre_close_profit > 0.0);
-      // V153: record the same outcome against the SCORE that opened it, so the EA can find out
-      // whether its own conviction ordering means anything.
-      ScoreBandRecordOutcome(opening_margin_snapshot, pre_close_profit > 0.0);
-      WarningRecordOutcome(warnings_snapshot, pre_close_profit > 0.0);   // V155: credit each warning that was present
-      RegimeRecordOutcome(regime_snapshot, pre_close_profit > 0.0);      // V157: and credit the regime it ran in
-      // V160b: learn what a normal lifetime looks like from the baskets that worked.
-      if(open_bar_snapshot > 0)
-         BasketAgeRecord(G_BARS_SEEN - open_bar_snapshot, pre_close_profit > 0.0);
-
-      // V166: streak and, when it lost, where it lost.
-      StreakRecordOutcome(pre_close_profit > 0.0);
-      EVRecord(pre_close_profit);   // V242: what this basket was actually worth
-      OppTypeRecord((int)G_BASKET_OPP_TYPE, pre_close_profit);   // V269: and which setup produced it
+      BasketLearnOutcome(pre_close_profit, opening_type_snapshot, opening_margin_snapshot, warnings_snapshot,
+                         regime_snapshot, open_bar_snapshot);
 
       // V247: and the thesis it was opened on.
       G_BASKET_INVALIDATION = 0.0;
@@ -1191,11 +1207,6 @@ bool CloseSirusBasket(const string reason)
          else                       LocationBrainClearStop(cb_dir);
       }
 
-      // And the record that decides whether entries need to be better placed than they are.
-      if(EnableEvidenceTighten)
-      {
-         AdaptRecord(pre_close_profit > 0.0);
-      }
 
       // V169: remember where and which way this basket closed, so what follows can be judged.
       {

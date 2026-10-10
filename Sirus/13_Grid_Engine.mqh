@@ -2012,6 +2012,17 @@ bool GridCanOpen(string &reason)
       // guarantees all more serious dangers were already clear.
       bool is_trend_block = (StringFind(auto_grid_safety_reason, "HTF/structure against") >= 0);
 
+      // PACKAGE 2 (F-C3): the comment above says these stay absolute - they were wrapped in GridSoftHold,
+      // so the rescue guarantee stepped over a news release, a shock, chaos or a blown-out spread and added
+      // a rung into the very move it should wait out. They are hard now: the hold lasts minutes, then the
+      // rescue resumes. DD and health stay soft - adding in a deep basket is what the rescue is for.
+      if(StringFind(auto_grid_safety_reason, "news active") >= 0 || StringFind(auto_grid_safety_reason, "shock") >= 0 ||
+         StringFind(auto_grid_safety_reason, "chaos") >= 0 || StringFind(auto_grid_safety_reason, "spread risk") >= 0)
+      {
+         reason = auto_grid_safety_reason;
+         return false;
+      }
+
       // Episode edge tracking: a NEW continuous trend-block period re-arms the one-shot.
       if(is_trend_block && !G_SZR_BLOCK_PREV)
       {
@@ -2628,6 +2639,47 @@ void UpdateGridRecoveryEngine(const string source)
          }
       }
 
+      // PACKAGE 2 (F-C4): the completion is part of the FIRST entry - it carries the first part's broker
+      // TP, and it is never sent once that part is gone. Sent bare, on a quiet cashback market it could
+      // fill, then the first part hit its TP and the remainder stayed as a one-order basket with no TP,
+      // blocking new entries and collecting grid rungs.
+      double si_tp = 0.0;
+      if(si_lot > 0.0 && si_allowed)
+      {
+         int si_live = 0;
+         for(int sp = PositionsTotal() - 1; sp >= 0; sp--)
+         {
+            ulong st = PositionGetTicket(sp);
+            if(st == 0 || PositionGetString(POSITION_SYMBOL) != _Symbol || (long)PositionGetInteger(POSITION_MAGIC) != MagicNumber)
+               continue;
+            si_live++;
+            int pdir = ((ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ? 1 : -1;
+            double ptp = PositionGetDouble(POSITION_TP);
+            if(pdir == G_SCALEIN_DIR && ptp > 0.0)
+               si_tp = ptp;
+         }
+         if(si_live == 0)
+         {
+            if((ScaleInPrintOnUse && G_VERBOSE))
+               Print("[SIRUS v161 SCALE-IN] first part already closed - completion dropped");
+            ScaleInReset();
+            si_allowed = false;
+         }
+         else if(si_tp > 0.0)
+         {
+            // The TP must still be on the right side of the market (it may already be within reach).
+            double sq_bid = SymbolInfoDouble(_Symbol, SYMBOL_BID), sq_ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+            double min_gap = (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point;
+            if((G_SCALEIN_DIR > 0 && si_tp <= sq_bid + min_gap) || (G_SCALEIN_DIR < 0 && si_tp >= sq_ask - min_gap))
+            {
+               if((ScaleInPrintOnUse && G_VERBOSE))
+                  Print("[SIRUS v161 SCALE-IN] the first part's TP is already within reach - completion dropped");
+               ScaleInReset();
+               si_allowed = false;
+            }
+         }
+      }
+
       if(si_lot > 0.0 && si_allowed)
       {
          G_TRADE.SetExpertMagicNumber(MagicNumber);
@@ -2637,9 +2689,9 @@ void UpdateGridRecoveryEngine(const string source)
          string si_comment = SirusOrderComment("SCALE-IN");
          bool si_sent = false;
          if(G_SCALEIN_DIR > 0)
-            si_sent = G_TRADE.Buy(NormalizeVolumeSafe(si_lot), _Symbol, 0.0, 0.0, 0.0, si_comment);
+            si_sent = G_TRADE.Buy(NormalizeVolumeSafe(si_lot), _Symbol, 0.0, 0.0, si_tp, si_comment);
          else
-            si_sent = G_TRADE.Sell(NormalizeVolumeSafe(si_lot), _Symbol, 0.0, 0.0, 0.0, si_comment);
+            si_sent = G_TRADE.Sell(NormalizeVolumeSafe(si_lot), _Symbol, 0.0, 0.0, si_tp, si_comment);
          si_sent = si_sent && TradeRetcodeFilled(G_TRADE.ResultRetcode());   // FIX(sent-is-not-filled)
 
          if(si_sent)

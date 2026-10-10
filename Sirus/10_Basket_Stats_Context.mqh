@@ -4259,9 +4259,9 @@ double LayerContradiction(const int entry_dir, string &detail)
    if(EnableLocalStructure)
    {
       LocalStructureUpdate();
-      if(G_LS_DIR != 0 && G_LS_STATE != LSTRUCT_CHOPPY)
+      if(LSDirEff() != 0 && G_LS_STATE != LSTRUCT_CHOPPY)
       {
-         if(G_LS_DIR == entry_dir) { votes_for++; parts += "structure+ "; }
+         if(LSDirEff() == entry_dir) { votes_for++; parts += "structure+ "; }
          else                      { votes_against++; parts += "structure- "; }
       }
    }

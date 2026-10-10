@@ -1,5 +1,45 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 2-paket: zanjir tartibi, holat, grid, struktura ta'riflari (2026-10-10)
+
+**Yo'nalish filtrlari o'zi bo'shashmaydi (egasi qoidasi)**
+- Counter-trend rad etishning 180 bar jimlikdan keyingi "valve"i olib tashlandi (08).
+- Safety valve endi HTF bias darvozasini o'chira olmaydi (14). 1-paketdagi CSV tasnifi tuzatilgach bu
+  valve haqiqatan ishlay boshlagan bo'lardi - yopildi.
+- v180 valve endi xavfsizlik bloklarini (chaos, juda katta spread, eskirgan tick, ENV) ochmaydi - faqat jurnalga yozadi.
+
+**Holat (state)**
+- Har skanerda (~3 s) basket holatini nollaydigan blok 4 ta reset funksiyasidan olib tashlandi
+  (05/08/09). Natija: adverse-streak, DD tezlanishi va MaxDailyGridAttempts endi haqiqatan ishlaydi
+  (grid intellekti chuqur DD da ehtiyotkorroq). Grid hisoblagichlari endi risk kuni bilan nollanadi.
+- Skaner snapshoti endi kirish kontekstini ham saqlaydi (counter-trend bayrog'i, ogohlantirish og'irligi,
+  situation) - keyingi tickda eskirgan kontekst bilan kirish yo'q.
+
+**Statistika**
+- Broker TP bilan yopilgan basketlar ham o'rganish statistikasiga yoziladi (Bayes, score band, regime,
+  streak, EV, setup turi, evidence tighten). Avval faqat EA yopganlari (asosan zararlar) yozilardi -
+  statistika zararga og'ib, kirishlar va lot keraksiz qisqarardi.
+
+**Grid**
+- Rescue kafolati endi news, shock, chaos va katta spread paytida grid qo'shmaydi (bu holatlar daqiqalarda
+  o'tadi, keyin rescue davom etadi). "Sekinlashdi" uchun jonli M1 sham qarshi displacement qilmasligi ham shart.
+- Post-loss cooldown va kunlik kirish urinishlari limiti endi faqat YANGI kirishni to'xtatadi - ochiq
+  basketning gridi muzlamaydi. Kunlik grid limiti faqat gridga ta'sir qiladi.
+- Scale-in tugallovchi order birinchi qismning broker TP'si bilan yuboriladi; birinchi qism yopilgan
+  bo'lsa yoki TP yetib qolgan bo'lsa - yuborilmaydi ("yetim basket" yo'q).
+
+**Struktura ta'riflari birlashtirildi**
+- Failed break (likvidlik olish) endi hech qayerda tasdiq emas: reversal tasdig'i, V1 javobi va
+  tasdig'i, o'lik tezis "lift"i, qarama-qarshilik og'irligi.
+- Likvidlik xaritasi sweep'i hodisa dvigateli bilan bir xil: daraja TF ATR'ining MBSweepMaxATR dan
+  chuqur teshish - sweep emas, qaytgan break.
+- Eski M5 "staircase" (G_LS_DIR) Brain M5 strukturasiga zid bo'lsa score'ga ovoz bermaydi (sinishdan
+  keyin eski tomonni rag'batlantirish yo'q).
+
+**Boshqa**
+- Location redirect SmartFill kutganda keyingi tickda rad etilmaydi (bir barda bir marta faqat muvaffaqiyatsiz urinish uchun).
+- AdaptDecay soati oxirgi o'zgarishdan hisoblanadi (birinchi qattiqlashuv darhol qaytmaydi).
+
 ## Strategy Tester moslashuvi (2026-10-10)
 
 Faqat testerga ta'sir qiladi (jonli savdo o'zgarmaydi). Batafsil: docs/audit_2026-10-09/T_tester.md.

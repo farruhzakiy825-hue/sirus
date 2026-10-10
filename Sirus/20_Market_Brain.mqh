@@ -261,6 +261,8 @@ bool MBReversalAfterCalc(const int dir, const int tf_lo, const int tf_hi, const 
          if(MBEventRank(G_MB_EV[idx].tfi) < min_rank) continue;
          if(!MBEventRelevant(idx)) continue;   // LOCK FIX: a confirmation that aged out confirms nothing now
          int ty = G_MB_EV[idx].type;
+         if((ty == MB_EV_MSS || ty == MB_EV_BOS) && MBBreakFailed(idx))
+            continue;   // PACKAGE 2 (B-F2): a failed break confirms nothing - same rule as the structure state
          if(ty == MB_EV_DISPLACEMENT || ty == MB_EV_MSS || ty == MB_EV_BOS || ty == MB_EV_RECLAIM)
          {
             sweep_time = G_MB_EV[sw].time;
@@ -665,6 +667,8 @@ int MBContradiction(const int dir, const datetime since)
       if(G_MB_EV[idx].time <= since || G_MB_EV[idx].dir != -dir) continue;
       if(MBEventRank(G_MB_EV[idx].tfi) < 1) continue;
       if(!MBEventRelevant(idx)) continue;   // LOCK FIX: old arguments age out instead of piling up for days
+      if((G_MB_EV[idx].type == MB_EV_MSS || G_MB_EV[idx].type == MB_EV_BOS) && MBBreakFailed(idx))
+         continue;   // PACKAGE 2 (B-F2): a failed break argues nothing
       double ew = MBEventWeight(G_MB_EV[idx]);
       if(ew <= 0.0) continue;
       w += ew * G_MB_EV[idx].strength;
@@ -1200,6 +1204,7 @@ void MBBrainUpdate()
             if(MBEventRank(G_MB_EV[idx].tfi) < 1) continue;
             int ty = G_MB_EV[idx].type;
             if(ty != MB_EV_BOS && ty != MB_EV_MSS && ty != MB_EV_DISPLACEMENT && ty != MB_EV_ACCEPTANCE) continue;
+            if((ty == MB_EV_BOS || ty == MB_EV_MSS) && MBBreakFailed(idx)) continue;   // PACKAGE 2 (B-F2)
             if(G_MB_EV[idx].time + PeriodSeconds(MBEventTF(G_MB_EV[idx].tfi)) <= G_MB_DEAD_TIME) continue;
             lift = StringFormat("%s %s after the death", MBTFName(G_MB_EV[idx].tfi), MBEventName(ty));
          }

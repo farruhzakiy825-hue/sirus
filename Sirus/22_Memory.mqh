@@ -181,6 +181,26 @@ double MBBasketResult(const datetime opened, int &deals_out)
    return total;
 }
 
+// Profit + swap only (no commission) - the figure CloseSirusBasket learns from, so a basket closed by
+// its broker TP is judged the same way as one the EA closed (package 2).
+double MBBasketGross(const datetime opened)
+{
+   double total = 0.0;
+   if(!HistorySelect(opened - 60, TimeCurrent() + 60))
+      return 0.0;
+   int n = HistoryDealsTotal();
+   for(int i = 0; i < n; i++)
+   {
+      ulong d = HistoryDealGetTicket(i);
+      if(d == 0) continue;
+      if(HistoryDealGetString(d, DEAL_SYMBOL) != _Symbol) continue;
+      if(HistoryDealGetInteger(d, DEAL_MAGIC) != MagicNumber) continue;
+      if((datetime)HistoryDealGetInteger(d, DEAL_TIME) < opened) continue;
+      total += HistoryDealGetDouble(d, DEAL_PROFIT) + HistoryDealGetDouble(d, DEAL_SWAP);
+   }
+   return total;
+}
+
 // Called by the Position Brain when the watched basket has gone flat.
 void MBMemoryOnBasketClosed(const datetime opened)
 {

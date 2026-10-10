@@ -2537,6 +2537,16 @@ string LocalStructureName(const int st)
 // Everything the local structure knows, computed once per bar.
 // (G_LS_* declared above with the other structure state - the break tracker reads them)
 
+// PACKAGE 2 (B-F7 / C4): the legacy M5 staircase changes only when new swings confirm, so through a whole
+// breakdown it kept reading "rising" and the score kept rewarding BUY and taxing SELL. While the brain's
+// M5 structure (failed breaks filtered) says the opposite, the legacy reading does not vote.
+int LSDirEff()
+{
+   if(G_LS_DIR != 0 && MBArbiterOn() && MBM5StructDir() == -G_LS_DIR)
+      return 0;
+   return G_LS_DIR;
+}
+
 void LocalStructureUpdate()
 {
    if(!EnableLocalStructure || _Point <= 0.0)

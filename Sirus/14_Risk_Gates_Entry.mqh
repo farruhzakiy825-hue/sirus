@@ -41,6 +41,10 @@ void ResetDailyRiskIfNeeded()
       G_ENTRY_ATTEMPTS = 0;
       G_ENTRY_SUCCESSES = 0;
       G_ENTRY_FAILS = 0;
+      // PACKAGE 2 (F-C1): the grid counters too - the per-scan reset that used to clear them is gone.
+      G_GRID_ATTEMPTS = 0;
+      G_GRID_SUCCESSES = 0;
+      G_GRID_FAILS = 0;
 
       PrintFormat("[SIRUS v31.6 PHASE 21.3 RISK] New risk day | stamp=%s | startBalance=%.2f | startEquity=%.2f",
                   SafeTime(G_RISK_DAY_STAMP),
@@ -418,10 +422,16 @@ bool RiskCloseBasketIfNeeded(const string reason)
    return ok;
 }
 
+// PACKAGE 2 (F-C6): what a risk block applies to - 0 both, 1 new entries only, 2 grid adds only. The
+// post-loss cooldown and the daily entry-attempt limit are about OPENING trades; they used to set the
+// same flag that holds grid adds, so an open basket lost its rescue for the rest of the day.
+int G_RISK_SCOPE = 0;
+
 bool RiskHardBlockCheck(string &reason, bool &close_request)
 {
    close_request = false;
    reason = "none";
+   G_RISK_SCOPE = 0;
 
    if(!UseRiskEngine)
    {
@@ -489,18 +499,21 @@ bool RiskHardBlockCheck(string &reason, bool &close_request)
    if(IsPostLossCooldownActive())
    {
       reason = "post-loss cooldown until " + SafeTime(G_POST_LOSS_COOLDOWN_UNTIL);
+      G_RISK_SCOPE = 1;
       return true;
    }
 
    if(MaxDailyEntryAttempts > 0 && G_ENTRY_ATTEMPTS >= MaxDailyEntryAttempts)
    {
       reason = StringFormat("max daily entry attempts %d/%d", G_ENTRY_ATTEMPTS, MaxDailyEntryAttempts);
+      G_RISK_SCOPE = 1;
       return true;
    }
 
    if(MaxDailyGridAttempts > 0 && G_GRID_ATTEMPTS >= MaxDailyGridAttempts)
    {
       reason = StringFormat("max daily grid attempts %d/%d", G_GRID_ATTEMPTS, MaxDailyGridAttempts);
+      G_RISK_SCOPE = 2;
       return true;
    }
 
@@ -582,7 +595,7 @@ bool RiskAllowsNewEntry(string &reason)
       return true;
    }
 
-   if(G_RISK_HARD_BLOCK)
+   if(G_RISK_HARD_BLOCK && G_RISK_SCOPE != 2)
    {
       reason = G_RISK_STATUS;
       return false;
@@ -600,7 +613,7 @@ bool RiskAllowsGrid(string &reason)
       return true;
    }
 
-   if(G_RISK_HARD_BLOCK)
+   if(G_RISK_HARD_BLOCK && G_RISK_SCOPE != 1)
    {
       reason = G_RISK_STATUS;
       return false;
@@ -2323,14 +2336,17 @@ string   G_ADAPT_TEXT   = "";
 
 // LOCK FIX: the extra location demand was released only by wins it suppresses; it now also fades one
 // step per hour without a new loss.
+// PACKAGE 2 (D-10): the hour is counted from the last change - a tightening or a decay. The clock used
+// to restart only on a decay, so after a quiet spell the first tightening was undone on the next call.
+datetime G_ADAPT_CLOCK = 0;
+
 void AdaptDecay()
 {
-   static datetime ad_last = 0;
-   if(ad_last == 0) { ad_last = TimeCurrent(); return; }
-   if(G_ADAPT_EXTRA > 0.0 && (TimeCurrent() - ad_last) >= 3600)
+   if(G_ADAPT_CLOCK == 0 || G_ADAPT_EXTRA <= 0.0) { G_ADAPT_CLOCK = TimeCurrent(); return; }
+   if((TimeCurrent() - G_ADAPT_CLOCK) >= 3600)
    {
       G_ADAPT_EXTRA = MathMax(0.0, G_ADAPT_EXTRA - EvidenceStep);
-      ad_last = TimeCurrent();
+      G_ADAPT_CLOCK = TimeCurrent();
    }
 }
 
@@ -2354,6 +2370,7 @@ void AdaptRecord(const bool won)
       if(G_ADAPT_EXTRA < EvidenceMaxExtra)
       {
          G_ADAPT_EXTRA = MathMin(EvidenceMaxExtra, G_ADAPT_EXTRA + EvidenceStep);
+         G_ADAPT_CLOCK = TimeCurrent();
 
          if((EvidenceTightenPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS ADAPT] %d of %d won - entries now need %.2f more of the leg",
@@ -2487,7 +2504,8 @@ int ValveForGate(const int gate_id)
    switch(gate_id)
    {
       case GATE_LOCATION: return VALVE_LOCATION;
-      case GATE_REGIME:   return VALVE_HTF;
+      // PACKAGE 2 (A5 / D-03): the HTF bias is a DIRECTION gate - it never stands down on silence
+      // (owner rule). Silence against the higher timeframes is the market, not a broken filter.
       case GATE_ZONE:     return VALVE_OLDLEVEL;
    }
    return VALVE_NONE;
@@ -4040,10 +4058,14 @@ bool TryLocationRedirect(const int from_dir, string &why)
    if(!LGLocationRedirect || from_dir == 0) return false;
    static int lr_bar = -100000;
    static int lr_dir = 0;
+   static bool lr_failed = false;
    if(lr_bar > G_BARS_SEEN) lr_bar = -100000;   // FIX(reinit-bar-rewind): OnInit restarts G_BARS_SEEN at 0 but statics keep their value
-   if(lr_bar == G_BARS_SEEN && lr_dir == from_dir) return false;
+   // PACKAGE 2 (A4): once per bar only for a FAILED attempt. A successful redirect is often held by
+   // SmartFill for a better fill and re-decided on the next ticks - refusing it there lost the trade.
+   if(lr_bar == G_BARS_SEEN && lr_dir == from_dir && lr_failed) return false;
    lr_bar = G_BARS_SEEN;
    lr_dir = from_dir;
+   lr_failed = true;   // cleared below on success
 
    if(RedirectAvoidChaosImpulse && (G_MARKET_STATE == MARKET_CHAOS || G_MARKET_STATE == MARKET_IMPULSE))
       return false;
@@ -4152,6 +4174,7 @@ bool TryLocationRedirect(const int from_dir, string &why)
                       OpportunityTypeToString(bt), G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
    if((LGPrintOnUse && G_VERBOSE))
       PrintFormat("[SIRUS LOCATION REDIRECT] %s", why);
+   lr_failed = false;
    return true;
 }
 
@@ -4808,7 +4831,7 @@ bool FirstEntryCanRun(string &reason)
    // scales with how convincingly the larger timeframes have moved. A marginal daily costs almost
    // nothing; a daily that has run hard costs real score.
    // A direction question: kept unless the Market Brain is with the trade (MBOwnsGate(true)).
-   if(EnableHTFBias && !MBOwnsGate(true) && !ValveIsOff(VALVE_HTF))
+   if(EnableHTFBias && !MBOwnsGate(true))   // PACKAGE 2: no safety valve on a direction gate
    {
       int htf_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(htf_dir != 0)
@@ -5292,6 +5315,7 @@ void UpdateFirstEntryEngine(const string source)
       G_BASKET_WARNINGS      = G_ENTRY_WARNINGS;
       G_BASKET_REGIME        = G_REGIME;
       G_BASKET_OPEN_BAR      = G_BARS_SEEN;
+      G_BASKET_OUTCOME_DONE  = false;   // package 2: this basket's result is still to be learned
       G_SCALEIN_EXTRA_ORDERS = 0;
       if(EnableScaleIn && G_SCALEIN_PENDING_LOT > 0.0)
       {

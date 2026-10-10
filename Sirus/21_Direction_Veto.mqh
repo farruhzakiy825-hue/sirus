@@ -93,6 +93,8 @@ bool MBVetoReversalFrom(const int dir, const int sw, string &why)
       if(G_MB_EV[idx].time <= t0 || G_MB_EV[idx].dir != dir) continue;
       int ty = G_MB_EV[idx].type;
       int rk = MBEventRank(G_MB_EV[idx].tfi);
+      if((ty == MB_EV_MSS || ty == MB_EV_BOS) && MBBreakFailed(idx))
+         continue;   // PACKAGE 2 (B-F2): a failed break answers nothing
       if((ty == MB_EV_ACCEPTANCE || ty == MB_EV_MSS) && rk >= 2)
          return false;
       if((ty == MB_EV_LIQ_SWEEP || ty == MB_EV_FAKE_BREAK) && rk >= 1)
@@ -119,6 +121,7 @@ bool MBVetoReversalFrom(const int dir, const int sw, string &why)
       if(!MBEventRelevant(idx)) continue;
       int ty = G_MB_EV[idx].type;
       if(ty == MB_EV_DISPLACEMENT && !disp) { disp = true; conf += StringFormat(" + %s displacement", MBTFName(G_MB_EV[idx].tfi)); }
+      if((ty == MB_EV_MSS || ty == MB_EV_BOS) && MBBreakFailed(idx)) continue;   // PACKAGE 2 (B-F2): a failed break confirms nothing
       if((ty == MB_EV_MSS || ty == MB_EV_BOS) && !mss) { mss = true; conf += StringFormat(" + %s %s", MBTFName(G_MB_EV[idx].tfi), MBEventName(ty)); }
       if(ty == MB_EV_RECLAIM && !reclaim) { reclaim = true; conf += StringFormat(" + %s reclaim", MBTFName(G_MB_EV[idx].tfi)); }
    }

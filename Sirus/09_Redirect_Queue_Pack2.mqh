@@ -60,23 +60,9 @@ void ResetRedirect(const string reason)
    // FIX(grid-cooldown-wipe): grid timing history is NOT cleared by a routine reset. Wiping
    // G_LAST_GRID_BAR to -100000 fails the `> -9999` guard on the GridCooldownBars check, so
    // the grid cooldown was skipped entirely and grid orders could fire back to back.
-   G_GRID_ATTEMPTS = 0;
-   G_GRID_SUCCESSES = 0;
-   G_GRID_FAILS = 0;
-   G_BASKET_ORDERS = 0;
-   G_BASKET_VOLUME = 0.0;
-   G_BASKET_AVG_PRICE = 0.0;
-   G_BASKET_PROFIT = 0.0;
-   G_BASKET_POINTS = 0.0;
-   G_BASKET_DD_PERCENT = 0.0;
-   G_BASKET_DIRECTION = -1;
-   G_BASKET_LAST_GRID_PRICE = 0.0;
-   G_BASKET_ADVERSE_STREAK = 0;
-   G_BASKET_DD_HISTORY_COUNT = 0;
-   G_BASKET_DD_HISTORY_BAR = -1;
-   G_SEE_PERSIST_BARS = 0;
-   G_SEE_PERSIST_DIR = 0;
-   G_LAST_DD_WARNING_LEVEL = 0.0;
+   // PACKAGE 2 (F-C1): the basket's own state (orders, volume, DD history, adverse streak, grid
+   // counters...) is NOT cleared here - RefreshGridDashboardStats clears it when the basket is gone;
+   // the grid counters reset with the risk day.
    G_NEXT_GRID_PRICE = 0.0;
    G_NEXT_GRID_DISTANCE = 0.0;
    G_NEXT_GRID_LOT = 0.0;
@@ -578,17 +564,11 @@ void ClearTempBlock(const string reason)
    // FIX(grid-cooldown-wipe): grid timing history is NOT cleared by a routine reset. Wiping
    // G_LAST_GRID_BAR to -100000 fails the `> -9999` guard on the GridCooldownBars check, so
    // the grid cooldown was skipped entirely and grid orders could fire back to back.
-   G_GRID_ATTEMPTS = 0;
-   G_GRID_SUCCESSES = 0;
-   G_GRID_FAILS = 0;
    // AUDIT FIX: a temp-block clear is not a basket close - the live basket's stats are no longer
    // zeroed here (an open basket read as "flat" for the rest of the tick).
-   G_BASKET_ADVERSE_STREAK = 0;
-   G_BASKET_DD_HISTORY_COUNT = 0;
-   G_BASKET_DD_HISTORY_BAR = -1;
-   G_SEE_PERSIST_BARS = 0;
-   G_SEE_PERSIST_DIR = 0;
-   G_LAST_DD_WARNING_LEVEL = 0.0;
+   // PACKAGE 2 (F-C1): the basket's own state (orders, volume, DD history, adverse streak, grid
+   // counters...) is NOT cleared here - RefreshGridDashboardStats clears it when the basket is gone;
+   // the grid counters reset with the risk day.
    G_NEXT_GRID_PRICE = 0.0;
    G_NEXT_GRID_DISTANCE = 0.0;
    G_NEXT_GRID_LOT = 0.0;
