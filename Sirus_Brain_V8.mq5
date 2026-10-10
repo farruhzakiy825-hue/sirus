@@ -65,6 +65,17 @@ int OnInit()
    // TESTER: a non-visual run has nobody reading the journal - ~35 print-on-change loggers flooding it
    // were the main cost of a slow test. The decision trace CSV keeps the evidence.
    G_VERBOSE = VerboseLogs && !(TesterHeadless() && TesterQuietLogs);
+
+   // PACKAGE 3 (B-F12): a chart symbol change re-initialises the EA WITHOUT unloading it - every global
+   // (event ring, liquidity map, lock, bias, zones, Kalman) still holds the OLD symbol's market. Trading
+   // the new symbol on that memory is a wrong-direction risk; the EA asks to be attached afresh.
+   if(G_INIT_SYMBOL_PREV != "" && G_INIT_SYMBOL_PREV != _Symbol)
+   {
+      PrintFormat("[SIRUS INIT ABORT] chart symbol changed %s -> %s - the brain's memory belongs to %s. Remove the EA and attach it again on %s.",
+                  G_INIT_SYMBOL_PREV, _Symbol, G_INIT_SYMBOL_PREV, _Symbol);
+      return INIT_FAILED;
+   }
+   G_INIT_SYMBOL_PREV = _Symbol;
    ScenarioRestore();
 
    Print("[SIRUS BY ZAKIY | CEO Farruh Zakiy | Telegram @farruh_zakiy]");

@@ -2686,9 +2686,3 @@ void LocalStructureUpdate()
                               G_LS_INVALIDATE);
 }
 
-// The price above/below which this structure no longer exists.
-double LocalStructureInvalidation()
-{
-   LocalStructureUpdate();
-   return G_LS_INVALIDATE;
-}

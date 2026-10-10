@@ -205,13 +205,6 @@ string MBShadowGateName(const int g)
    return GateName(g);
 }
 
-string MBShadowGateUz(const int g)
-{
-   if(g == MB_SH_TAKEN) return "olingan";
-   if(g <= GATE_NONE || g >= GATE_COUNT) return "boshqa";
-   return MBGateUz(g);
-}
-
 // Rows are buffered and written once per M1 bar (and on deinit) - a fast move can resolve dozens of
 // shadows on one tick, and a file open per row is milliseconds of I/O inside that tick.
 void MBShadowFlush()
@@ -461,7 +454,6 @@ bool MBShadowValveOn(const int g)
    int od = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
    if(g == GATE_SCORE)   return MBEGSkip(EG_SCORE, od);
    if(g == GATE_MBJUDGE) return MBEGSkip(EG_JUDGE, od);
-   if(g == GATE_LOCATION || g == GATE_ZONE || g == GATE_REGIME) return MBEGSkip(EG_LOCATION, od);
    return false;
 }
 

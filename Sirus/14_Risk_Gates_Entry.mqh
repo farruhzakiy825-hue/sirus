@@ -1523,296 +1523,6 @@ bool LGBrokenBeyond(const int dir, const double lvl, const double tol)
    return true;
 }
 
-// Og'ir qism (har daraja uchun qaytishlarni sanash) M1 bariga bir marta; har tikda faqat masofa.
-void LGScan(const int tfs, const int dir, const double px, const double near_px,
-            double &best_lvl, int &best_ep, double &best_ws, bool &best_pierced)
-{
-   best_lvl = 0.0; best_ep = 0; best_ws = 0.0; best_pierced = false;
-   static int    cb_bar[2][2];
-   static bool   cb_init = false;
-   static int    cb_n[2][2];
-   static double cb_lvl[2][2][200], cb_ws[2][2][200];
-   static int    cb_ep[2][2][200];
-   if(!cb_init)
-   {
-      for(int a = 0; a < 2; a++) for(int b = 0; b < 2; b++) { cb_bar[a][b] = -100000; cb_n[a][b] = 0; }
-      cb_init = true;
-   }
-   ENUM_TIMEFRAMES tf = (tfs == 0) ? PERIOD_M5 : PERIOD_M15;
-   int look = (tfs == 0) ? LGLookbackM5 : LGLookbackM15;
-   int ds = (dir > 0) ? 0 : 1;
-
-   if(cb_bar[tfs][ds] != G_BARS_SEEN)
-   {
-      cb_bar[tfs][ds] = G_BARS_SEEN;
-      cb_n[tfs][ds] = 0;
-      double h_[200], l_[200], c_[200];
-      int n = MathMax(6, MathMin(200, look));
-      for(int i = 1; i <= n; i++)
-      {
-         h_[n - i] = CandleHigh(tf, i);
-         l_[n - i] = CandleLow(tf, i);
-         c_[n - i] = CandleClose(tf, i);
-      }
-      double atr = ATRPointsManual(tf, ATRPeriod, 1) * _Point;
-      if(atr > 0.0)
-      {
-         double tol = atr * LGTouchATR, sep = atr * LGSeparationATR, mw = atr * LGMinWickATR;
-         for(int a = 0; a < n; a++)
-         {
-            double rng = h_[a] - l_[a];
-            if(rng <= 0.0) continue;
-            double lvl  = (dir < 0) ? l_[a] : h_[a];
-            double wick = (dir < 0) ? (c_[a] - l_[a]) : (h_[a] - c_[a]);
-            if(wick < mw || wick < rng * LGWickShare) continue;
-
-            int ep = 0; bool away = true; double cur = 0.0, ws = 0.0;
-            for(int k = 0; k < n; k++)
-            {
-               double rk = h_[k] - l_[k];
-               if(rk <= 0.0) continue;
-               bool rej, left; double exc;
-               if(dir < 0)
-               {
-                  double wk = c_[k] - l_[k];
-                  rej  = (MathAbs(l_[k] - lvl) <= tol && wk >= rk * LGWickShare && wk >= mw);
-                  left = (h_[k] >= lvl + sep || l_[k] < lvl - sep);
-                  exc  = h_[k] - lvl;
-               }
-               else
-               {
-                  double wk = h_[k] - c_[k];
-                  rej  = (MathAbs(h_[k] - lvl) <= tol && wk >= rk * LGWickShare && wk >= mw);
-                  left = (l_[k] <= lvl - sep || h_[k] > lvl + sep);
-                  exc  = lvl - l_[k];
-               }
-               if(rej && away)
-               {
-                  if(ep > 0) ws += (cur >= atr * LGStrongBounceATR) ? 2.0 : 1.0;
-                  ep++; away = false; cur = 0.0;
-               }
-               if(ep > 0 && exc > cur) cur = exc;
-               if(left) away = true;
-            }
-            if(ep <= 0) continue;
-            ws += (cur >= atr * LGStrongBounceATR) ? 2.0 : 1.0;
-
-            // BOSQICH 5c: keyinchalik SINGANMI? Daraja paydo bo'lgandan keyin biror sham uning
-            // ortida yopilgan bo'lsa - u endi bu tomon uchun devor emas (support singan bo'lsa,
-            // u endi resistance). Ilgari bu tekshirilmasdi: $25 lik tushishda singan eski support
-            // narx pastdan qaytib kelganda "support" bo'lib qolib, pullback SELL ni to'sardi.
-            bool broken_later = false;
-            for(int k = a + 1; k < n && !broken_later; k++)
-               if(dir < 0 ? (c_[k] < lvl - tol) : (c_[k] > lvl + tol))
-                  broken_later = true;
-            if(broken_later) continue;
-
-            int m = cb_n[tfs][ds];
-            if(m < 200)
-            {
-               cb_lvl[tfs][ds][m] = lvl; cb_ep[tfs][ds][m] = ep; cb_ws[tfs][ds][m] = ws;
-               cb_n[tfs][ds] = m + 1;
-            }
-         }
-      }
-   }
-
-   double atr5 = ATRPointsManual(PERIOD_M5, ATRPeriod, 1) * _Point;
-   if(px <= 0.0 || atr5 <= 0.0) return;
-   double pierce = atr5 * LGPierceATR, brk = atr5 * LGTouchATR;
-   for(int j = 0; j < cb_n[tfs][ds]; j++)
-   {
-      double lvl = cb_lvl[tfs][ds][j];
-      double dist = (dir < 0) ? (px - lvl) : (lvl - px);
-      bool pierced = false;
-      if(dist < 0.0)
-      {
-         if(dist < -pierce) continue;
-         if(LGBrokenBeyond(dir, lvl, brk)) continue;   // BOSQICH 5b: M5 yoki 2 x M1 yopilishi bilan sinish
-         pierced = true;                       // faqat soya - daraja tirik
-      }
-      else if(dist > near_px)
-         continue;
-      double ws = cb_ws[tfs][ds][j];
-      if(ws > best_ws || (ws == best_ws && cb_ep[tfs][ds][j] > best_ep))
-      { best_ws = ws; best_ep = cb_ep[tfs][ds][j]; best_lvl = lvl; best_pierced = pierced; }
-   }
-}
-
-// SELL -> ostidagi support, BUY -> ustidagi resistance
-bool LGLiveLevel(const int dir, string &why)
-{
-   why = "";
-   double px = (dir < 0) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   double atr5 = ATRPointsManual(PERIOD_M5, ATRPeriod, 1) * _Point;
-   if(px <= 0.0 || atr5 <= 0.0) return false;
-
-   // "Shundoq yonida": TP yo'lida VA ~1 ATR ichida (yoki darajaning ustida)
-   double tp_px = BaseBasketTPPoints() * _Point;
-   double near_px = MathMax(atr5 * LGOnLevelATR,
-                            MathMin(tp_px > 0.0 ? tp_px * 0.9 : atr5 * LGMaxDistATR, atr5 * LGMaxDistATR));
-
-   double l5, l15, w5, w15; int e5, e15; bool p5, p15;
-   LGScan(0, dir, px, near_px, l5, e5, w5, p5);
-   LGScan(1, dir, px, near_px, l15, e15, w15, p15);
-   bool u15 = (w15 > w5);
-   double lvl = u15 ? l15 : l5, ws = u15 ? w15 : w5;
-   int ep = u15 ? e15 : e5; bool pc = u15 ? p15 : p5;
-   if(ep <= 0) return false;
-
-   double need = (double)MathMax(1, LGMinRejections);
-   bool confl = false;
-   if(ws < need && ws >= (double)LGConfluenceRejections && ZoneMapStrength(lvl) >= CounterZoneBlockMinStrength)
-   { need = (double)LGConfluenceRejections; confl = true; }
-   if(ws < need) return false;
-
-   why = StringFormat("%s into %s %.2f (%s, %d rejections%s, %s)",
-                      (dir > 0 ? "BUY" : "SELL"), (dir < 0 ? "support" : "resistance"), lvl,
-                      (pc ? "wick-pierced" : StringFormat("%.2f away", (dir < 0) ? (px - lvl) : (lvl - px))),
-                      ep, (confl ? ", zone map confirms" : ""), (u15 ? "M15" : "M5"));
-   return true;
-}
-
-// Swing zonasi: BUY - eng yaqin sinmagan swing high ostida, zona ichida; SELL - swing low ustida.
-// Swing M5 yopilishi bilan sindirilgan bo'lsa (keyingi shamlardan biri uning narigi tomonida yopilgan) -
-// u endi to'siq emas. Og'ir qism (swinglarni topish) M1 bariga bir marta.
-bool LGSwingLevel(const int dir, string &why)
-{
-   why = "";
-   if(!LGSwingGuard) return false;
-   // BOSQICH 6: uch TF (M15, M5, M1). Har swing uchun REAKSIYA o'lchanadi: narx undan keyin qancha
-   // uzoqlashgan. Reaksiya < LGSwingMinReactATR x (shu TF ATR) bo'lsa - bu to'lqin, zona emas.
-   // Zona kengligi: M15/M5 - M5 ATR bo'yicha, M1 - M1 ATR bo'yicha (M1 zonasi tor, faqat shundoq yonida).
-   static int    sw_bar[2] = {-100000, -100000};
-   static int    sw_n[2]   = {0, 0};
-   static double sw_lvl[2][200];
-   static int    sw_tf[2][200];
-   static bool   sw_flip[2][200];
-   int ds = (dir > 0) ? 0 : 1;
-   int dep = MathMax(1, LGSwingDepth);
-
-   if(sw_bar[ds] != G_BARS_SEEN)
-   {
-      sw_bar[ds] = G_BARS_SEEN;
-      sw_n[ds] = 0;
-      int tfs_count = LGSwingUseM1 ? 3 : 2;
-      for(int t = 0; t < tfs_count; t++)
-      {
-         ENUM_TIMEFRAMES tf = (t == 0) ? PERIOD_M15 : ((t == 1) ? PERIOD_M5 : PERIOD_M1);
-         int look = MathMin(200, (t == 0) ? LGSwingLookM15 : ((t == 1) ? LGSwingLookM5 : LGSwingLookM1));
-         double atr_tf = ATRPointsManual(tf, ATRPeriod, 1) * _Point;
-         if(atr_tf <= 0.0) continue;
-         double tol = atr_tf * LGTouchATR;
-         double min_react = atr_tf * LGSwingMinReactATR;
-         for(int i = dep + 1; i <= look; i++)
-         {
-            double v = (dir > 0) ? CandleHigh(tf, i) : CandleLow(tf, i);
-            if(v <= 0.0) continue;
-            bool swing = true;
-            for(int k = 1; k <= dep && swing; k++)
-            {
-               double a = (dir > 0) ? CandleHigh(tf, i - k) : CandleLow(tf, i - k);
-               double b = (dir > 0) ? CandleHigh(tf, i + k) : CandleLow(tf, i + k);
-               if(dir > 0 && (a >= v || b >= v)) swing = false;
-               if(dir < 0 && (a <= v || b <= v)) swing = false;
-            }
-            if(!swing) continue;
-
-            // Reaksiya va keyingi sinish - swingdan keyingi shamlar bo'yicha
-            double react = 0.0;
-            bool broken = false;
-            for(int k = i - 1; k >= 1 && !broken; k--)
-            {
-               double ck = CandleClose(tf, k);
-               if((dir > 0 && ck > v + tol) || (dir < 0 && ck < v - tol)) { broken = true; break; }
-               double away = (dir > 0) ? (v - CandleLow(tf, k)) : (CandleHigh(tf, k) - v);
-               if(away > react) react = away;
-            }
-            if(broken || react < min_react) continue;
-
-            int m = sw_n[ds];
-            if(m < 200) { sw_lvl[ds][m] = v; sw_tf[ds][m] = t; sw_flip[ds][m] = false; sw_n[ds] = m + 1; }
-         }
-
-         // BOSQICH 8: ROL ALMASHGAN DARAJALAR. BUY uchun - yopilish bilan PASTGA singan swing LOW
-         // (endi resistance), SELL uchun - YUQORIGA singan swing HIGH (endi support). Shartlar:
-         // asl swing haqiqiy bo'lgan (reaksiya >= min_react), sinish YOPILISH bilan, va sinishdan
-         // keyin daraja qaytarib olinmagan (qaytib yopilish yo'q).
-         if(LGSwingFlip)
-         {
-            for(int i = dep + 1; i <= look; i++)
-            {
-               double u = (dir > 0) ? CandleLow(tf, i) : CandleHigh(tf, i);
-               if(u <= 0.0) continue;
-               bool fsw = true;
-               for(int k = 1; k <= dep && fsw; k++)
-               {
-                  double a = (dir > 0) ? CandleLow(tf, i - k) : CandleHigh(tf, i - k);
-                  double b = (dir > 0) ? CandleLow(tf, i + k) : CandleHigh(tf, i + k);
-                  if(dir > 0 && (a <= u || b <= u)) fsw = false;   // swing low
-                  if(dir < 0 && (a >= u || b >= u)) fsw = false;   // swing high
-               }
-               if(!fsw) continue;
-
-               int brk_k = -1;
-               double react2 = 0.0;
-               for(int k = i - 1; k >= 1; k--)
-               {
-                  double ck = CandleClose(tf, k);
-                  if((dir > 0 && ck < u - tol) || (dir < 0 && ck > u + tol)) { brk_k = k; break; }
-                  double away = (dir > 0) ? (CandleHigh(tf, k) - u) : (u - CandleLow(tf, k));
-                  if(away > react2) react2 = away;
-               }
-               if(brk_k < 1 || react2 < min_react) continue;
-
-               bool lost = false;
-               for(int k = brk_k - 1; k >= 1 && !lost; k--)
-               {
-                  double ck = CandleClose(tf, k);
-                  if((dir > 0 && ck > u + tol) || (dir < 0 && ck < u - tol)) lost = true;
-               }
-               if(lost) continue;
-
-               int m = sw_n[ds];
-               if(m < 200) { sw_lvl[ds][m] = u; sw_tf[ds][m] = t; sw_flip[ds][m] = true; sw_n[ds] = m + 1; }
-            }
-         }
-      }
-   }
-
-   double atr5 = ATRPointsManual(PERIOD_M5, ATRPeriod, 1) * _Point;
-   double atr1 = ATRPointsManual(PERIOD_M1, ATRPeriod, 1) * _Point;
-   double px = (dir > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   if(atr5 <= 0.0 || px <= 0.0 || sw_n[ds] <= 0) return false;
-   if(atr1 <= 0.0) atr1 = atr5 / 2.2;
-   double pierce = atr5 * LGPierceATR, brk = atr5 * LGTouchATR;
-
-   double best = 0.0, best_d = 1e9; int best_tf = 0; bool best_flip = false;
-   for(int j = 0; j < sw_n[ds]; j++)
-   {
-      double lvl = sw_lvl[ds][j];
-      int    t   = sw_tf[ds][j];
-      double band = (t == 2) ? atr1 * LGSwingBandATR : atr5 * LGSwingBandATR;
-      double d = (dir > 0) ? (lvl - px) : (px - lvl);   // musbat = zona oldinda
-      if(d < 0.0)
-      {
-         if(d < -((t == 2) ? atr1 * LGPierceATR : pierce)) continue;
-         if(LGBrokenBeyond(dir, lvl, brk)) continue;
-      }
-      else if(d > band)
-         continue;
-      if(MathAbs(d) < best_d) { best_d = MathAbs(d); best = lvl; best_tf = t; best_flip = sw_flip[ds][j]; }
-   }
-   if(best <= 0.0) return false;
-
-   why = StringFormat("%s into %s %s %s %.2f (%.2f away)%s",
-                      (dir > 0 ? "BUY" : "SELL"), (best_tf == 0 ? "M15" : (best_tf == 1 ? "M5" : "M1")),
-                      (best_flip ? "flipped" : "swing"),
-                      (dir > 0 ? "resistance" : "support"), best, best_d,
-                      (best_flip ? (dir > 0 ? " - retest of a broken support" : " - retest of a broken resistance") : ""));
-   return true;
-}
-
 // Mayda harakatning uchi: oxirgi LGTipBarsM1 ta M1 shamidagi oyoqning eng chekkasida kirish.
 // BUY: narx oyoq tepasining yuqori LGTipShare qismida; SELL: tubida. Narx ozgina qaytsa - o'zi ochiladi.
 bool LGMicroTip(const int dir, string &why)
@@ -4190,9 +3900,6 @@ int G_LOCATION_BLOCKS_TODAY = 0;  // BOSQICH 4: bugun joy himoyasi necha M1 bar 
 // An older gate stands aside when the Market Brain answers its question (see MBStandsInFor).
 bool MBOwnsGate(const bool location_gate)
 {
-   // Shadow valve on the location / zone / HTF family: those gates stand aside for its window.
-   if(MBShadowValveOn(GATE_LOCATION) || MBShadowValveOn(GATE_ZONE) || MBShadowValveOn(GATE_REGIME))
-      return true;
    int d = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
    // AUDIT FIX: a fast entry skips the location / HTF gates only when the brain is with it - or, with
    // a neutral brain, when the entry carries its own place: a swept level, a range edge or the start
@@ -4746,7 +4453,7 @@ bool FirstEntryCanRun(string &reason)
    // DIRECTION CLARITY: how close the other side came. The engine knew both best scores all along
    // and never used the gap - a BUY at eight against a SELL at seven is a coin on its edge, and a
    // coin on its edge should cost something rather than nothing.
-   if(EnableDirectionClarity && !MBOwnsGate(false) && !ValveIsOff(VALVE_CLARITY) && G_OPP_DIR_CLARITY > 0.0 &&
+   if(EnableDirectionClarity && !MBOwnsGate(false) && G_OPP_DIR_CLARITY > 0.0 &&
       G_OPP_DIR_CLARITY < ClarityLowBelow && ClarityScoreCost > 0)
    {
       if(G_SCORE_FINAL < G_SCORE_MIN_REQUIRED + ClarityScoreCost)
@@ -4762,7 +4469,7 @@ bool FirstEntryCanRun(string &reason)
    // are eleven gates already and a twelfth would be the one that stops the robot trading. A strong
    // record adds; a shallow one takes away, and either way the trade can still clear on its own
    // merits.
-   if(EnableScenario && ScenEntryScoreWeight > 0 && !ValveIsOff(VALVE_SCENARIO))
+   if(EnableScenario && ScenEntryScoreWeight > 0)
    {
       int se_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(se_dir != 0)
@@ -4790,7 +4497,7 @@ bool FirstEntryCanRun(string &reason)
 
    // FAILED BREAK: the impulse went through and the close came back. Selling under support that
    // just held is the trade everyone trapped under it already made.
-   if(EnableFailedBreakGuard && !MBOwnsGate(false) && !ValveIsOff(VALVE_FAILEDBREAK))
+   if(EnableFailedBreakGuard && !MBOwnsGate(false))
    {
       int fb_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
       if(fb_dir != 0)

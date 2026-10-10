@@ -130,8 +130,12 @@ double MBLegPct(const int dir, double &leg_atr15)
       return 0.0;
    leg_atr15 = travelled / atr15;
    double T = G_LX_TARGET[k];
-   if(T <= 0.0 || dir * (T - px) <= 0.0)
+   if(T <= 0.0)
       return 0.0;
+   // PACKAGE 3 (B-F14): the target is chosen once per M1 bar - price running past it inside the bar is a
+   // leg that has ARRIVED (100%), not one with no target (0% read as "not late").
+   if(dir * (T - px) <= 0.0)
+      return 100.0;
    double whole = dir * (T - G_LX_ORIGIN[k]);
    return (whole > 0.0) ? 100.0 * travelled / whole : 0.0;
 }
@@ -345,10 +349,8 @@ bool MBLateBlocks(const int dir, string &why, string &uz)
    // (spread + TP) x TakenLiqRoomMult before the taken level (live price), and outside the reversal
    // zone of TakenLiqBlockATR5 x ATR(M5) under / over it, the entry is not blocked.
    bool taken_close = G_LX_TAKEN[k];
-   // EVIDENCE GATE: when the taken-target filter stands aside on this side (its refusals needed the grid
-   // no more often than the trades taken), only the reversal zone right under / over the level blocks.
-   bool eg_taken = taken_close && MBEGSkip(EG_TAKEN, dir);
-   double need_room = eg_taken ? MathMax(0.0, TakenLiqBlockATR5) * G_MB_ATR[1] : G_LX_TP_NEED;
+   // (A direction rule: the evidence gates never relax it - package 3 removed the dead hook.)
+   double need_room = G_LX_TP_NEED;
    if(taken_close && G_LX_TAKEN_EXT[k] > 0.0 && need_room > 0.0)
    {
       // AUDIT FIX (B5): from the bid on both sides - the need already holds the spread; measuring a BUY
@@ -364,8 +366,7 @@ bool MBLateBlocks(const int dir, string &why, string &uz)
       uz = "oldindagi likvidlik olingan";
       return true;
    }
-   if(ExhaustBlockScore > 0 && G_LX_PRESS[k] >= ExhaustBlockScore &&
-      !(G_LX_PRESS[k] < ExhaustBlockScore + 15 && MBEGSkip(EG_EXHAUST, dir)))   // evidence: +15 room, never fully off
+   if(ExhaustBlockScore > 0 && G_LX_PRESS[k] >= ExhaustBlockScore)
    {
       why = StringFormat("exhaustion %d/100 against more %s (%s)", G_LX_PRESS[k], side, G_LX_PRESS_WHY[k]);
       uz = StringFormat("charchash %d", G_LX_PRESS[k]);
@@ -375,7 +376,7 @@ bool MBLateBlocks(const int dir, string &why, string &uz)
    {
       double leg15 = 0.0;
       double pct = MBLegPct(dir, leg15);
-      if(pct >= LateLegPct && leg15 >= LateLegMinATR15 && !MBEGSkip(EG_LATE, dir))
+      if(pct >= LateLegPct && leg15 >= LateLegMinATR15)
       {
          why = StringFormat("late entry: the %s leg has travelled %.0f%% of its way to %s %s (%.1f ATR15)", side, pct,
                             G_LX_TARGET_WHAT[k], DoubleToString(G_LX_TARGET[k], _Digits), leg15);

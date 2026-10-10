@@ -37,6 +37,7 @@ ulong    G_BASKET_CLOSED_TICK  = ULONG_MAX;   // AUDIT FIX (A6): the tick in whi
 bool     G_MB_JUDGE_PROBE      = false;
 bool     G_MB_FAST_ACTIVE      = false;       // the entry being judged came from the Market Brain fast path
 bool     G_MB_VETO_PROBE       = false;       // the veto is asked as a probe (candidate / detector check): no count, no print
+string   G_INIT_SYMBOL_PREV    = "";          // the symbol of the last OnInit (globals survive a chart symbol change)
 bool     G_BASKET_OUTCOME_DONE = false;       // the finished basket's learning records were written (12 / 24)
 bool     G_VERBOSE             = true;        // VerboseLogs, switched off in a non-visual tester run (TesterQuietLogs) - set in OnInit
 string   G_TR_SCAN             = "";          // decision trace: what the scan phase did to the decision (26d)

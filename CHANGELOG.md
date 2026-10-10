@@ -1,5 +1,28 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 3-paket: tozalash va kichik holat xatolari (2026-10-10)
+
+**O'lik kod olib tashlandi (hech qachon chaqirilmagan - asl faylda ham)**
+- Location Guard'ning "rad etishlar soni / swing darajasi" qismi (LGScan, LGLiveLevel, LGSwingLevel) va
+  faqat ular o'qigan 15 ta input (LGLookbackM5/M15, LGMinRejections, LGSwingGuard ...). Ularning vazifasini
+  hozir council 3, V2/V3, net edge, HTF zona (1h), lower high (1g) bajaradi.
+- Grid level snap (GridPreferredAddPrice + 4 input): xuddi shu ishni V137 "grid reach"
+  (GridZoneAwareDistance) allaqachon qiladi - yoqilsa ikki marta surilardi.
+- Yana 13 ta chaqirilmaydigan funksiya (DeepRecovery/RegimeTune grid sozlashlari, eski hisobot
+  yordamchilari, MBStructDamage, ...), RegimePerfMinSamples va HTFZonePrintOnUse inputlari.
+- Doim false qaytaradigan shoxlar: valve (clarity / scenario / failed break), evidence-gate ilgaklari
+  yo'nalish qoidalarida (taken / exhaustion / late / zone front / V2-V3 / V5), MBOwnsGate shadow valve.
+- Natija: kodda birorta ham chaqirilmaydigan funksiya qolmadi (skript bilan tekshirildi).
+
+**Holat xatolari**
+- Hodisa yoshi endi savdo vaqtida: dam olish kunlari (shanba+yakshanba) hodisani "qaritmaydi" - dushanba
+  ertalab juma strukturasi, sweep va zonalari eskirgan hisoblanmaydi.
+- Chart symboli almashtirilsa EA eski symbol xotirasi bilan savdo qilmaydi: jurnalga sabab yozib to'xtaydi
+  ("EA ni yangi symbolga qayta qo'ying").
+- CandleHTFAgreement: shakllanayotgan M15 sham faqat yopilgan shamning kamida yarmicha kattalikka yetganda
+  hisobga olinadi (birinchi ticklardagi 2 punktlik "kuchli sham" endi yo'q).
+- Late guard: narx bar ichida maqsaddan o'tib ketsa - oyoq "yetib kelgan" (100%), "kech emas" (0%) emas.
+
 ## 2-paket: zanjir tartibi, holat, grid, struktura ta'riflari (2026-10-10)
 
 **Yo'nalish filtrlari o'zi bo'shashmaydi (egasi qoidasi)**

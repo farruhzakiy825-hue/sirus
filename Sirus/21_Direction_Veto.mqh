@@ -528,7 +528,7 @@ bool MBCouncilEval(const int dir, string &why, string &uz)
    //    a holding support AND a holding resistance sit within the band on either side, price is boxed in
    //    and the break decides (the old location guard already had this escape; the council did not).
    double lvl3 = 0.0;
-   if(MBCouncilZoneFront(dir, lvl3) && !MBCouncilZoneFront(-dir, lvl3) && !MBEGSkip(EG_ZONEFRONT, dir))
+   if(MBCouncilZoneFront(dir, lvl3) && !MBCouncilZoneFront(-dir, lvl3))
    {
       MBCouncilZoneFront(dir, lvl3);   // the level of THIS side again for the text
       double atr5 = G_MB_ATR[1] * _Point;
@@ -729,11 +729,11 @@ bool MBVetoAllowsEntry(const int dir, string &why)
       blocked = true;
    else if(MBVetoReversal && MBVetoReversalCheck(dir, why))
       blocked = true;
-   else if(MBVetoZoneCheck(dir, price, why) && !MBEGSkip(EG_ZONEFRONT, dir))
-      blocked = true;                  // V2 / V3 (an evidence gate - stands aside when it does not earn its place)
+   else if(MBVetoZoneCheck(dir, price, why))
+      blocked = true;                  // V2 / V3
    else if(MBVetoAcceleration && MBVetoAccelerationCheck(dir, why))
       blocked = true;
-   else if(MBExhausted(dir, why) && !MBEGSkip(EG_EXHAUST, dir))
+   else if(MBExhausted(dir, why))
    {
       why = "V5 exhausted: " + why;   // stage 13 (A4): no new entry into a spent impulse
       blocked = true;

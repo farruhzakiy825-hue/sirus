@@ -187,12 +187,38 @@ ENUM_TIMEFRAMES MBEventTF(const int tfi)
    return MBTF(tfi);
 }
 
+// Monday 00:00 (server time) of the current week - cached per day.
+datetime MBWeekOpen()
+{
+   static datetime wo = 0, wd = 0;
+   datetime now = TimeCurrent();
+   datetime d0 = now - (now % 86400);
+   if(d0 != wd)
+   {
+      MqlDateTime dt;
+      TimeToStruct(now, dt);
+      wo = d0 - (datetime)(((dt.day_of_week + 6) % 7) * 86400);
+      wd = d0;
+   }
+   return wo;
+}
+
+// PACKAGE 3 (B-F11): an event's age in TRADING time - the closed weekend (Saturday + Sunday) does not
+// age it. On wall-clock age every Friday break, sweep and zone read as long irrelevant on Monday
+// morning, and the brain opened the week blind to the structure it had closed on.
 int MBEventAgeBars(const SMBEvent &ev)
 {
    int sec = PeriodSeconds(MBEventTF(ev.tfi));
    if(sec <= 0)
       return 0;
-   long age = (long)(TimeCurrent() - ev.time) / sec;
+   long secs = (long)(TimeCurrent() - ev.time);
+   datetime wo = MBWeekOpen();
+   if(ev.time < wo && secs > 0)
+   {
+      long weekends = 1 + (long)(wo - ev.time) / 604800;
+      secs -= weekends * 172800;
+   }
+   long age = secs / sec;
    if(age < 0)
       age = 0;
    return (int)age;

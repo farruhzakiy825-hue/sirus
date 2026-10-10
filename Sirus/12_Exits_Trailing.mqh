@@ -437,19 +437,6 @@ void RegimeRecordOutcome(const int regime, const bool won)
    RegimePerfSave();
 }
 
-// Win rate in a regime, or -1 without enough evidence.
-double RegimeWinRate(const int regime, int &samples)
-{
-   samples = 0;
-   if(!EnableRegimePerformance || regime < 0 || regime >= 5)
-      return -1.0;
-   double total = G_REGIME_WINS[regime] + G_REGIME_LOSSES[regime];
-   samples = (int)MathRound(total);
-   if(total < (double)RegimePerfMinSamples)
-      return -1.0;
-   return G_REGIME_WINS[regime] / total;
-}
-
 string BlockAuditText()
 {
    if(!EnableBlockAudit)

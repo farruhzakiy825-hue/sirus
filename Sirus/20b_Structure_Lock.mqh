@@ -577,13 +577,6 @@ int MBStructStageFor(const int dir)
    return G_ST_REV_STAGE;
 }
 
-// Structure damage of the side being reversed, 0..100.
-int MBStructDamage()
-{
-   int map[7] = {0, 15, 30, 55, 70, 85, 100};
-   return map[MathMax(0, MathMin(6, G_ST_REV_STAGE))];
-}
-
 // The lock refuses this direction (true) until the reversal toward it reaches LockUnlockStage.
 bool MBLockBlocks(const int dir, string &why)
 {

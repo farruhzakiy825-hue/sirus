@@ -35,7 +35,6 @@ input double HTFZoneApproachATR15    = 1.0;   // Blocked this close to the zone 
 input int    HTFZoneMaxTouches       = 3;   // A zone wears out after this many visits
 // EnableLowerHighRule: M15 tepasidan keyin past tepa (lower high) - premium tomonda BUY yo'q; past tubdan keyin baland tub - discount tomonda SELL yo'q
 input bool   EnableLowerHighRule     = true;   // M15 lower high / higher low structure rule
-input bool   HTFZonePrintOnUse       = true;   // HTF zones print on use (on/off)
 
 #define HZ_MAX 40
 double   G_HZ_HI[HZ_MAX];

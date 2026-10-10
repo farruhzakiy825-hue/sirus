@@ -392,55 +392,6 @@ double GridDirectionDoubt(const int basket_dir, string &detail)
    return doubt;
 }
 
-// Where should the next addition actually go? Returns a price, or 0 to use the
-// arithmetic one.
-double GridPreferredAddPrice(const int basket_dir, const double arithmetic_price,
-                             const double min_distance_pts, string &detail)
-{
-   detail = "";
-   if(!EnableGridLevelSnap || basket_dir == 0 || arithmetic_price <= 0.0 || _Point <= 0.0)
-      return 0.0;
-
-   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   double mid = (bid > 0.0 && ask > 0.0) ? (bid + ask) / 2.0 : bid;
-   if(mid <= 0.0)
-      return 0.0;
-
-   // Additions go against the basket - a long adds below, a short adds above - so the
-   // level to look for is support for a long, resistance for a short.
-   double level = (basket_dir > 0) ? ZoneMapNearestSupport(arithmetic_price + (10.0 * _Point))
-                                   : ZoneMapNearestResistance(arithmetic_price - (10.0 * _Point));
-   if(level <= 0.0)
-      return 0.0;
-
-   // Only worth moving to if the level is genuinely one, and near enough that waiting
-   // for it is not waiting for a different trade entirely.
-   double strength = ZoneMapStrengthByTouches(level);
-   if(strength < GridSnapMinStrength)
-      return 0.0;
-
-   double shift_pts = MathAbs(level - arithmetic_price) / _Point;
-   double max_shift = ScaleAdjustedPoints(MathMax(1, GridSnapMaxShiftPoints));
-   if(shift_pts > max_shift)
-      return 0.0;
-
-   // And the level has to be beyond the arithmetic price, not short of it - moving the
-   // addition CLOSER would tighten the ladder, which is the opposite of the intent.
-   bool beyond = (basket_dir > 0) ? (level <= arithmetic_price) : (level >= arithmetic_price);
-   if(!beyond)
-      return 0.0;
-
-   // Keep the minimum spacing the account rules require.
-   double from_last = MathAbs(mid - level) / _Point;
-   if(from_last < min_distance_pts * GridSnapMinSpacingFactor)
-      return 0.0;
-
-   detail = StringFormat("adding at %.2f (%.2f strength) instead of %.2f - %.0f pts further",
-                         level, strength, arithmetic_price, shift_pts);
-   return level;
-}
-
 // ============================================================================
 // V220: THE SITUATION DECIDES THE TRADE, NOT JUST THE SCORE
 // ----------------------------------------------------------------------------
@@ -2060,7 +2011,9 @@ int CandleHTFAgreement(const int lower_dir, double &htf_body, string &detail)
    double o0 = CandleOpen(htf, 0), c0 = CandleClose(htf, 0);
    double h0 = CandleHigh(htf, 0), l0 = CandleLow(htf, 0);
    int    live_dir = 0;
-   if(o0 > 0.0 && c0 > 0.0 && h0 > l0)
+   // PACKAGE 3 (B-F13): only once the forming bar has some size - in its first ticks a 2-point range
+   // with a 2-point body read as a "strong" candle and overruled the closed one.
+   if(o0 > 0.0 && c0 > 0.0 && h0 > l0 && (h0 - l0) >= 0.5 * range)
    {
       double live_body = MathAbs(c0 - o0) / (h0 - l0);
       if(live_body >= CandleHTFMinBody)

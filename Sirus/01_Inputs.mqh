@@ -644,30 +644,8 @@ input int               FirstEntryTPMinPoints    = 2000;   // First entry TP min
 // ============================================================================
 // EnableLocationGuard: Joy himoyasi: supportda SELL, resistance da BUY, yangi impuls ichida qarshi kirish yo'q
 input bool   EnableLocationGuard     = true;   // Enable location guard
-// LGLookbackM5: M5 shamlar (8 soat)
-input int    LGLookbackM5            = 96;   // Lg lookback M5
-// LGLookbackM15: M15 shamlar (24 soat)
-input int    LGLookbackM15           = 96;   // Lg lookback M15
-// LGMinRejections: Shuncha ALOHIDA qaytish - kuchli daraja (katta qaytish 2 ga teng)
-input int    LGMinRejections         = 3;   // Lg min rejections
-// LGConfluenceRejections: Zona xaritasi ham tasdiqlasa shuncha yetarli
-input int    LGConfluenceRejections  = 2;   // Lg confluence rejections
-// LGStrongBounceATR: Shuncha ATR qaytish - "katta" (ikki hisoblanadi)
-input double LGStrongBounceATR       = 1.5;   // Lg strong bounce ATR
 // LGTouchATR: Tegish toleransi (ATR)
 input double LGTouchATR              = 0.35;   // Lg touch ATR
-// LGSeparationATR: Ikki qaytish orasida narx shuncha uzoqlashishi kerak
-input double LGSeparationATR         = 0.8;   // Lg separation ATR
-// LGMinWickATR: Rad etish soyasi kamida shuncha ATR
-input double LGMinWickATR            = 0.25;   // Lg min wick ATR
-// LGWickShare: Soya shamning kamida shuncha qismi
-input double LGWickShare             = 0.40;   // Lg wick share
-// LGMaxDistATR: "Shundoq yonida": daraja narxdan shuncha M5 ATR ichida VA TP yo'lida
-input double LGMaxDistATR            = 1.0;   // Lg max distance ATR
-// LGOnLevelATR: Darajaning ustida - TP dan qat'i nazar
-input double LGOnLevelATR            = 0.30;   // Lg on level ATR
-// LGPierceATR: Soya bilan teshish (yopilishsiz) shu chuqurlikkacha - daraja hali tirik
-input double LGPierceATR             = 0.5;   // Lg pierce ATR
 // LGUseFreshImpulse: Yangi impuls tanasi ichida qarshi kirish yo'q
 input bool   LGUseFreshImpulse       = true;   // Lg use fresh impulse (on/off)
 // LGImpulseLookbackM5: Impuls "yangi" hisoblanadigan vaqt (M5, 30 daqiqa)
@@ -676,17 +654,12 @@ input int    LGImpulseLookbackM5     = 6;   // Lg impulse lookback M5
 input double LGImpulseRangeATR       = 2.0;   // Lg impulse range ATR
 // LGImpulseBodyShare: Impuls sham tanasi kamida shuncha qism
 input double LGImpulseBodyShare      = 0.60;   // Lg impulse body share
-// LGSwingGuard: M5 va M15 dagi SWING HIGH = resistance, SWING LOW = support. Uning ostida (zona ichida) BUY, ustida SELL yo'q - tegishlar soni va TP dan qat'i nazar
-input bool   LGSwingGuard            = true;   // Lg swing guard (on/off)
 // LGSwingDepth: Swing: har ikki tomonda shuncha sham undan past (high) / baland (low)
 input int    LGSwingDepth            = 3;   // Lg swing depth
 // LGSwingLookM15: S-FIX: 48 -> 200. Forty-eight M15 bars is twelve hours - the zones price reacted to this morning and nothing from yesterday. M15 is where the clean zones are drawn, and two days of them is what makes them worth reading. The build is cached per bar and the array already holds four hundred, so this costs one scan a bar and no memory.     // M15 shamlar (12 soat)
 input int    LGSwingLookM15          = 200;   // Lg swing look M15
 // LGSwingLookM5: S-FIX: 48 -> 120. Ten hours of M5 rather than four - enough to hold the session's own structure.     // M5 shamlar (4 soat)
 input int    LGSwingLookM5           = 120;   // Lg swing look M5
-input double LGSwingBandATR          = 0.8;   // Lg swing band ATR
-// LGSwingUseM1: BOSQICH 6: M1 swinglar ham zona - narx M1 zonalardan ham reaksiya oladi
-input bool   LGSwingUseM1            = true;   // Lg swing use M1 (on/off)
 // LGSwingLookM1: M1 shamlar (1 soat)
 input int    LGSwingLookM1           = 60;   // Lg swing look M1
 input double LGSwingMinReactATR      = 1.0;   // Lg swing min react ATR
@@ -1033,8 +1006,6 @@ input bool   SRNeverBlockBoth        = true;   // SR never block both (on/off)
 input bool   SRMicroBreakAllow       = true;   // SR micro break allow (on/off)
 // SRMicroBreakBodyATR: Displacement shami diapazoni kamida shuncha M1 ATR  // Hududlarni logga yozish (diagnostika)      // BOSQICH 9: narx darajaning ortida shuncha ketma-ket M1 shamida yopilsa (kichik farq bilan ham) - daraja singan
 input double SRMicroBreakBodyATR     = 1.0;   // SR micro break body ATR
-// LGSwingFlip: BOSQICH 8: ROL ALMASHISHI. Yopilish bilan singan swing high - endi SUPPORT, singan swing low - endi RESISTANCE (M1/M5/M15). Break-retest'da teskari kirish yo'q: bullish sinishdan keyin retestda SELL, bearish sinishdan keyin retestda BUY    // BOSQICH 6: swing faqat narx undan shu TF ning kamida shuncha ATR qaytgan bo'lsa zona. Mayda to'lqin zona emas, reaksiya bergan joy - zona    // Zona kengligi: swing'dan shuncha M5 ATR ichida - "zona ichida"
-input bool   LGSwingFlip             = true;   // Lg swing flip (on/off)
 // LGBlockChase: Katta shamning TEPASIDA (BUY) / TUBIDA (SELL) uni quvib kirish yo'q - hozir shakllanayotgan sham ham hisobga olinadi
 input bool   LGBlockChase            = true;   // Lg block chase (on/off)
 // LGChaseTopShare: Sham diapazonining eng chekka shu qismi - "tepa"
@@ -2288,18 +2259,6 @@ input double GridDoubtHTFWeight          = 0.20;   // Grid doubt HTF weight
 input double GridDoubtSituationWeight    = 0.40;   // Grid doubt situation weight
 // GridDoubtBlockLevel: Accumulated doubt at which additions are held. Deliberately high: the grid exists to recover from being wrong, so it must not stop at the first sign of it.
 input double GridDoubtBlockLevel         = 0.60;   // Grid doubt block level
-// LOCATION: the arithmetic puts the addition wherever the multiplier lands. A strong level just
-// beyond that is where the addition belongs - adding above it buys the last of the move rather than
-// the thing that stops it.
-// EnableGridLevelSnap: Wait for a nearby level rather than adding at the arithmetic price
-input bool   EnableGridLevelSnap         = true;   // Enable grid level snap
-// GridSnapMinStrength: Level strength below which it is not worth waiting for
-input double GridSnapMinStrength         = 1.6;   // Grid snap min strength
-// GridSnapMaxShiftPoints: How much further ($1.50) the addition may be moved - beyond this it is a different trade, not a better fill
-input int    GridSnapMaxShiftPoints      = 1500;   // Grid snap max shift points
-// GridSnapMinSpacingFactor: Minimum spacing retained relative to the account rules
-input double GridSnapMinSpacingFactor    = 0.85;   // Grid snap min spacing factor
-
 // V222: the size of an addition should match its quality. The ladder multiplies by 1.30 regardless
 // of where the addition lands, so the largest commitment of the basket - order seven, four times the
 // starting size - goes in at the deepest point of the drawdown, at whatever price the arithmetic
@@ -4574,8 +4533,6 @@ input int    BlockAuditMaxSamples       = 100;   // Block audit max samples
 input bool   BlockAuditPrintOnUse       = true;   // Block audit print on use
 // EnableRegimePerformance: Track closed-basket outcomes per regime
 input bool   EnableRegimePerformance    = true;   // Enable regime performance
-// RegimePerfMinSamples: Baskets in a regime before its win rate is meaningful
-input int    RegimePerfMinSamples       = 10;   // Regime perf min samples
 // RegimePerfMaxSamples: Sample ceiling per regime
 input int    RegimePerfMaxSamples       = 60;   // Regime perf max samples
 // ShowBlockAuditOnDash: V170d: default OFF. blok auditi - uzoq muddatli statistika. Seventeen new dashboard lines were added today and all defaulted on - together they push the panel past the height of a normal chart window, hiding the lines that matter during trading.

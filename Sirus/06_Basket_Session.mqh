@@ -2200,26 +2200,6 @@ bool ZoneEdgePrices(const double level, const bool is_support,
    return ze_result;
 }
 
-// The price an entry leaning on this zone should actually be aiming at.
-double ZoneReactionPrice(const double level, const bool is_support)
-{
-   double outer = level, inner = level;
-   string detail = "";
-   if(ZoneEdgePrices(level, is_support, outer, inner, detail))
-      return inner;
-   return level;
-}
-
-// The price risk should be measured to - price can reach the extreme.
-double ZoneRiskPrice(const double level, const bool is_support)
-{
-   double outer = level, inner = level;
-   string detail = "";
-   if(ZoneEdgePrices(level, is_support, outer, inner, detail))
-      return outer;
-   return level;
-}
-
 // ============================================================================
 
 // --- carry cost --------------------------------------------------------------

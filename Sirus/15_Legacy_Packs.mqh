@@ -2194,28 +2194,6 @@ void UpdateWarningCleanupPolish(const string source)
 
 
 //==================================================================//
-//  PHASE 22.9 FINAL SELF-AUDIT / v23.76 CHECKLIST
-//==================================================================//
-void FinalAuditAdd(const bool ok,
-                   const string name,
-                   int &passed,
-                   int &total,
-                   string &missing)
-{
-   total++;
-
-   if(ok)
-   {
-      passed++;
-      return;
-   }
-
-   if(StringLen(missing) < 420)
-      missing = missing + name + "; ";
-}
-
-
-//==================================================================//
 //  FINAL RELEASE BUILD / CLIENT PRESET EXPORT
 //==================================================================//
 string ReleaseProfile()
@@ -2238,40 +2216,6 @@ string ReleaseProfile()
 
    return "CLIENT_BALANCED";
 }
-
-string ReleasePresetHint()
-{
-   string p = ReleaseProfile();
-
-   if(p == "CLIENT_SAFE")
-      return "RCSettingsPreset=SAFE | P4MiniClientRiskProfile=CONSERVATIVE | Strict optional";
-
-   if(p == "HIGH_HUNTER")
-      return "RCSettingsPreset=HIGH_HUNTER | P4MiniClientRiskProfile=AGGRESSIVE | More activity/risk";
-
-   if(p == "RENTAL_DEMO")
-      return "License ON recommended | Demo allowed | Low lot cap | Visual ON";
-
-   if(p == "INTERNAL_TEST")
-      return "License OFF allowed | Strict OFF | Full logs ON | Visual ON";
-
-   return "RCSettingsPreset=BALANCED | P4MiniClientRiskProfile=BALANCED | Client default";
-}
-
-void ReleaseAddCheck(const bool ok,
-                     const string name,
-                     int &warnings,
-                     string &reason)
-{
-   if(ok)
-      return;
-
-   warnings++;
-
-   if(StringLen(reason) < 480)
-      reason = reason + name + "; ";
-}
-
 
 //==================================================================//
 //  PHASE 23.1 LEGACY DEEP PARITY / HTF COMMANDER
@@ -3983,32 +3927,6 @@ void UpdateAdaptiveRecoveryIntelligence(const string source)
    }
 }
 
-double DeepRecoveryAdjustGridDistance(const double base_distance)
-{
-   double dist = base_distance;
-
-   if(!UseLegacyDeepParityPack || !UseAdaptiveRecoveryIntelligence || !DeepRecoveryUseGridDistance)
-      return dist;
-
-   if(G_DRI_DISTANCE_FACTOR > 1.0)
-      dist *= G_DRI_DISTANCE_FACTOR;
-
-   return dist;
-}
-
-double DeepRecoveryAdjustGridLot(const double base_lot)
-{
-   double lot = base_lot;
-
-   if(!UseLegacyDeepParityPack || !UseAdaptiveRecoveryIntelligence || !DeepRecoveryUseLotThrottle)
-      return lot;
-
-   if(G_DRI_LOT_FACTOR < 1.0)
-      lot *= G_DRI_LOT_FACTOR;
-
-   return lot;
-}
-
 bool AdaptiveRecoveryAllowsGrid(string &reason)
 {
    if(!UseLegacyDeepParityPack || !UseAdaptiveRecoveryIntelligence)
@@ -4494,32 +4412,6 @@ void UpdateMarketRegimeAutoTuningBrain(const string source)
    }
 }
 
-double RegimeTuneAdjustGridDistance(const double base_distance)
-{
-   double dist = base_distance;
-
-   if(!UseLegacyDeepParityPack || !UseMarketRegimeAutoTuningBrain || !RegimeTuneUseGridDistance)
-      return dist;
-
-   if(G_DRT_GRID_FACTOR > 1.0)
-      dist *= G_DRT_GRID_FACTOR;
-
-   return dist;
-}
-
-double RegimeTuneAdjustGridLot(const double base_lot)
-{
-   double lot = base_lot;
-
-   if(!UseLegacyDeepParityPack || !UseMarketRegimeAutoTuningBrain || !RegimeTuneUseLotThrottle)
-      return lot;
-
-   if(G_DRT_LOT_FACTOR > 0.0 && G_DRT_LOT_FACTOR < 1.0)
-      lot *= G_DRT_LOT_FACTOR;
-
-   return lot;
-}
-
 bool MarketRegimeAutoTuneAllowsEntry(string &reason)
 {
    if(!UseLegacyDeepParityPack || !UseMarketRegimeAutoTuningBrain)
@@ -4877,37 +4769,3 @@ bool SmartClientSafetyAllowsGrid(string &reason)
 }
 
 
-//==================================================================//
-//  PHASE 24.0 FINAL INTELLIGENCE MERGE / v24 PRO BRAIN
-//==================================================================//
-void FinalMergeAddPenalty(const bool condition,
-                          const int value,
-                          const string text,
-                          int &penalty,
-                          string &reason)
-{
-   if(!condition)
-      return;
-
-   int v = MathMax(0, value);
-   penalty += v;
-
-   if(StringLen(reason) < 620)
-      reason = reason + text + " -" + IntegerToString(v) + "; ";
-}
-
-void FinalMergeAddBonus(const bool condition,
-                        const int value,
-                        const string text,
-                        int &bonus,
-                        string &reason)
-{
-   if(!condition)
-      return;
-
-   int v = MathMax(0, value);
-   bonus += v;
-
-   if(StringLen(reason) < 620)
-      reason = reason + text + " +" + IntegerToString(v) + "; ";
-}
