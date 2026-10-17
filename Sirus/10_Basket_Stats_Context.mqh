@@ -4370,6 +4370,10 @@ double AffordableStartLot(const int dir)
       return 0.0;
 
    int n = MathMax(1, MathMin(16, MaxOrders));
+   // Package 9 (owner: cashback needs lot turnover): size for a shorter ladder - a bigger lot, the basket
+   // capped at that depth by the ladder trim (LadderIsAffordable / AffordableRungCount at this lot).
+   if(EnableRebateMode && CashbackSizingRungs > 0)
+      n = MathMax(1, MathMin(n, CashbackSizingRungs));
 
    double base_step = MathMax(1.0, AutoGridBaseDistance());
    double g_mult = AutoGridMultiplier();

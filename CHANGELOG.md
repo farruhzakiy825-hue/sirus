@@ -1,5 +1,21 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 9-paket: Grid Liability Score + cashback lot aylanmasi (2026-10-17)
+
+**Grid Liability Score (reja XII.3, 15.6 #3)** - `MBGridLiabilityScore()`, 0-100, entry signalidan mustaqil:
+chuqurlik 25 (ishlatilgan pog'onalar), DD 25 (basket SL ga nisbatan), margin 15 (300% -> 0, 150% -> to'liq),
+BE masofasi 15 (H1 ATR'da, 2 ATR -> to'liq), bozor 20 (H1/H4 qarshi 7+7, M5 da qarshi yangi impuls 6).
+- `GridLiabilityReserveScore` (60) dan: pog'ona zaxira darajasida tasdiqlanadi (struktura + charchagan qarshi harakat + javob).
+- `GridLiabilityStrongScore` (80) dan: javob kuchli YOPILGAN burilish yoki yangi hodisa bo'lishi shart.
+- Gridni muzlatmaydi: qutqarish kafolati (narx yetarli uzoqlashsa) bahodan ustun. Panelda "grid xavfi NN/100",
+  savat yopilganda jurnalda eng yuqori qiymat.
+
+**Cashback lot aylanmasi (egasi: kichik dollar hisob faqat cashback uchun)**
+- `CashbackSizingRungs` (sukut 0 = to'liq zinapoya): N bo'lsa, lot N pog'onali zinapoya sig'adigan qilib o'lchanadi
+  va savat N pog'onada to'xtaydi - kattaroq lot, ko'proq aylanma, kamroq qutqarish. Faqat cashback rejimida, lot
+  StartLot / MaxLot dan oshmaydi. Egasining qaroriga qoldirildi.
+- Asosiy rejaga egasining qoidalari yozildi (15.1).
+
 ## 8-paket: kichik hisoblar ($100 / 5000 USC), grid pog'onasi, ikkala rejimda to'liq miya (2026-10-17)
 
 Egasining qarorlari: eng kichik hisob $100 (dollar) va 5000 USC (cent); pog'ona oldingisidan kichik bo'lsa - ko'r-ko'rona

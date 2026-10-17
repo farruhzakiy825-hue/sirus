@@ -739,6 +739,9 @@ Bu qoidalar egasi bilan kelishilgan. Hujjatdagi har qanday band shu qoidalar ich
 - Grid faqat tasdiq bilan qo'shiladi va hech qachon muzlab qolmaydi.
 - TP'dan keyin darhol qayta kirish mumkin, lekin har safar bozor qayta baholanadi.
 - Yo'nalish darvozalari o'z-o'zidan yumshamaydi.
+- **Kichik dollar hisob ($100 dan) faqat cashback rejimi uchun.** Cashback'da TP juda kichik, shuning uchun lot aylanmasi zarur: lot hech qachon keraksiz kichraytirilmaydi; kichik hisobda tanlov "kattaroq lot + qisqaroq zinapoya" (`CashbackSizingRungs`). Cent hisob $50 (5000 USC) dan.
+- Oddiy rejim ham kerak; qaysi rejimda bo'lmasin miyaning barcha qatlamlari ishlaydi.
+- Grid pog'onasi oldingisidan kichik bo'lmaydi (ko'r-ko'rona qo'shish kerak emas, faqat asosli qo'shish).
 - Kuniga 250–450 savdo qilinadi, noto'g'ri yo'nalishda kirish bo'lmaydi.
 - Hujjatning XXII qoidalari (kodni tushunmasdan modul qo'shmaslik, ko'r patch yozmaslik, har xato test holatiga aylanadi, look-ahead taqiqlanadi) shu reja uchun ham amal qiladi.
 
@@ -818,7 +821,7 @@ Har paketdan oldin dalil to'planadi (Trace CSV va 2-raund audit). Shundan keyin 
 |---|---|---|---|
 | 1 | 2-raund audit (E/F/G/H) topilmalarini tuzatish — ✅ 6-paket: 20 ta P1/P2 topilma; ✅ 7-paket: F7, F9, F11, F14, F19, G3, G5, G6, G8, G9, E-7, E-8, E-12, E-13, E-17, H-05, H-07 (`docs/audit_2026-10-17/`, CHANGELOG). ✅ 8-paket: H-01 (kichik hisoblar), H-06, H-08, ikkala rejimda to'liq miya. Qolgani: F12/F13/F15/F16 - score qayta qurish, 1 kunlik sinovdan keyin | Tasdiqlangan xatolar yangi moduldan oldin tuzatiladi (XXII.2) | 6-paket |
 | 2 | Order xatolari: Trace'ga FAILED qatori (retcode, narx, spread, lot, urinish). Xatodan keyin holat qayta tekshiriladi — ✅ 6-paket | Arzon ish, ijro xatolarini ko'rinadigan qiladi | X.4, 15.2 |
-| 3 | Grid Liability Score: bitta 0–100 son, entry'dan mustaqil. Faqat yangi pog'onani **sekinlashtiradi yoki tasdiq talab qiladi**, gridni muzlatmaydi | Grid — eng katta DD manbai | XII.3 |
+| 3 | Grid Liability Score: bitta 0–100 son, entry'dan mustaqil. Faqat yangi pog'onani **sekinlashtiradi yoki tasdiq talab qiladi**, gridni muzlatmaydi — ✅ 9-paket | Grid — eng katta DD manbai | XII.3 |
 | 4 | Yagona zona hakami + RBR/DBR/RBD/DBD + 100 ballik baho + zona ID Autopsy'ga | Zonalar uch joyda uch xil o'qiladi | VII, 3-hujjat |
 | 5 | Entry Competition va EXECUTE FAST / WAIT-FOR-LOCATION natijalari | Kuniga 250–450 savdoni noto'g'ri yo'nalishsiz ushlab qoladi | IX.4, 15.5.1 |
 | 6 | Session Engine to'ldirish: Frankfurt, Midnight open, Asia/London H/L likvidlik xaritasiga | Nishon va sweep sifati oshadi | VI.3 |

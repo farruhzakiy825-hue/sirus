@@ -78,6 +78,12 @@ input int    ExpectMinutes            = 20;   // Expect minutes
 input double ExpectTPShare            = 0.35;   // Expect TP share
 // EnableGridLiability: 5-BOSQICH: GRID JAVOBGARLIGI - yangi pog'onadan keyingi BE kuchli likvidlik (H4 / PD) ortida qolsa pog'ona qo'yilmaydi (qarshi harakat charchamaguncha); H1 darajasi ortida - zaxira pog'onadek (tuzilma + javob + charchash)
 input bool   EnableGridLiability      = true;   // Enable grid liability
+// EnableGridLiabilityScore: 9-PAKET: GRID JAVOBGARLIGI BAHOSI 0-100 (chuqurlik, DD, margin, BE masofasi H1 ATR da, H1/H4 + qarshi impuls). Faqat pog'onani SEKINLASHTIRADI / tasdiq so'raydi - gridni muzlatmaydi (qutqarish kafolati ustun)
+input bool   EnableGridLiabilityScore = true;   // Grid liability score (slows / confirms rungs, never freezes)
+// GridLiabilityReserveScore: Shu balldan: pog'ona zaxira darajasida tasdiqlanadi (struktura + charchagan qarshi harakat + javob)
+input int    GridLiabilityReserveScore = 60;   // Liability score: reserve-grade confirmation from
+// GridLiabilityStrongScore: Shu balldan: javob kuchli yopilgan burilish / hodisa bo'lishi shart
+input int    GridLiabilityStrongScore  = 80;   // Liability score: a strong closed turn required from
 // GridHoldOnCandlesAgainst: M5 va M15 shamlari savatga qarshi bosayotgan bo'lsa (harakat charchamagan) - grid qo'shilmaydi
 input bool   GridHoldOnCandlesAgainst = true;   // Grid hold on candles against (on/off)
 // EnableStaleBasketBE: Uzoq DD dan qaytgan savat: shamlar uning tomonida bo'lmasa break-even + qoplamada yopiladi (zararga yopmaydi)
@@ -276,6 +282,48 @@ bool MBAdverseSpent(const int dir)
       return true;
    return (G_MB_IMP_DIR[1] == -dir && G_MB_SPEED[1] >= MB_SPEED_LATE) ||
           (G_MB_IMP_DIR[0] == -dir && G_MB_SPEED[0] >= MB_SPEED_EXPIRED);
+}
+
+// Package 9 (plan 15.6 #3, master plan XII.3): GRID LIABILITY SCORE - one number, 0-100, for how much the
+// open basket already owes, independent of any entry signal. The holds in MBGridAllows each read one
+// fact (thesis, candles, liquidity behind the break-even, the reserve rungs); nothing added them up, and
+// nothing showed it. Parts:
+//   depth    25  orders used of the effective ladder
+//   drawdown 25  basket DD as a share of the basket stop (BasketSLPercent)
+//   margin   15  margin level 300% -> 0, 150% -> full
+//   distance 15  break-even distance in H1 ATRs (0 -> 0, 2 ATR -> full)
+//   market   20  H1 / H4 against the basket (7 each) + a fresh adverse impulse on M5 (6)
+// It only SLOWS a rung (reserve-grade confirmation from GridLiabilityReserveScore, a strong closed turn
+// from GridLiabilityStrongScore). It never freezes the grid: the rescue guarantee steps over it.
+int    G_GLS       = 0;
+int    G_GLS_PEAK  = 0;
+string G_GLS_WHY   = "";
+
+int MBGridLiabilityScore(const int dir, const int orders, string &why)
+{
+   why = "";
+   if(dir == 0 || orders <= 0)
+      return 0;
+   string gr = "";
+   int maxo = MathMax(1, GridEffectiveMaxOrders(gr));
+   double depth = 25.0 * MathMin(1.0, (double)orders / (double)maxo);
+   double sl = MathMax(1.0, BasketSLPercent);
+   double ddp = 25.0 * MathMin(1.0, MathMax(0.0, G_BASKET_DD_PERCENT) / sl);
+   double ml = AccountInfoDouble(ACCOUNT_MARGIN_LEVEL);
+   double mgp = (ml > 0.0) ? 15.0 * MathMin(1.0, MathMax(0.0, (300.0 - ml) / 150.0)) : 0.0;
+   double atr_h1 = ATRPointsManual(PERIOD_H1, 14, 1) * _Point;
+   double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_BID : SYMBOL_ASK));
+   double be_atr = (atr_h1 > 0.0 && G_BASKET_AVG_PRICE > 0.0 && px > 0.0) ? MathMax(0.0, dir * (G_BASKET_AVG_PRICE - px)) / atr_h1 : 0.0;
+   double dsp = 15.0 * MathMin(1.0, be_atr / 2.0);
+   double mkp = 0.0;
+   if(MBSign(G_MB_TF_STATE[3]) == -dir) mkp += 7.0;
+   if(MBSign(G_MB_TF_STATE[4]) == -dir) mkp += 7.0;
+   if((G_MB_IMP_DIR[1] == -dir && G_MB_SPEED[1] <= MB_SPEED_NORMAL) || (G_MB_ACCEL[1] > 0 && G_MB_ACCEL_DIR[1] == -dir))
+      mkp += 6.0;
+   int score = (int)MathRound(MathMin(100.0, depth + ddp + mgp + dsp + mkp));
+   why = StringFormat("grid liability %d/100 (depth %.0f, DD %.0f, margin %.0f, BE %.1f ATR-H1 %.0f, market %.0f)",
+                      score, depth, ddp, mgp, be_atr, dsp, mkp);
+   return score;
 }
 
 void MBRecoveryEvaluate(const int dir, const datetime opened)
@@ -675,6 +723,12 @@ void MBPBCloseBookkeeping()
    G_MB_LAST_CLOSE_DIR = G_MB_PB_DIR;
    G_MB_LAST_CLOSE_WIN = (res > 0.0);
    G_MB_LAST_CLOSE_TIME = TimeCurrent();
+   // Package 9: the basket's peak liability, for the journal - then the next basket starts at zero.
+   if(EnableGridLiabilityScore && G_GLS_PEAK > 0 && (MBPositionPrintOnUse && G_VERBOSE))
+      PrintFormat("[SIRUS GRID LIABILITY] basket closed (%.2f) - peak liability %d/100", res, G_GLS_PEAK);
+   G_GLS = 0;
+   G_GLS_PEAK = 0;
+   G_GLS_WHY = "";
    // AUDIT FIX (B3): the winning direction was only remembered inside CloseSirusBasket - a basket closed
    // by its own broker TP (the normal scalp exit) never counted, so the post-win fast re-entry relief and
    // the post-win arm skip almost never applied. Every way a basket ends passes here.
@@ -1052,18 +1106,31 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
       }
       liability_soft = (need > 0.0 && soft > 0.0 && dir * (soft - px) < need);
    }
+   // Package 9: the basket's liability score - high, the rung is reserve-grade; very high, the response
+   // must be a strong closed turn or a fresh event (not the forming candle, not a plain continuation).
+   bool gls_reserve = false, gls_strong = false;
+   if(EnableGridLiabilityScore)
+   {
+      G_GLS = MBGridLiabilityScore(dir, orders, G_GLS_WHY);
+      G_GLS_PEAK = MathMax(G_GLS_PEAK, G_GLS);
+      gls_reserve = (G_GLS >= GridLiabilityReserveScore);
+      gls_strong  = (G_GLS >= GridLiabilityStrongScore);
+   }
+   bool strong_resp = !gls_strong || MBHasStrongTriggerNow(dir);
    // A basket opened on a local leg against the global bias averages only like the reserve rungs:
    // structure, a spent move against it and a response - never on time alone.
-   bool reserve = (GridReserveRungs > 0 && maxo - orders <= GridReserveRungs) || G_MB_PB_LOCAL || liability_soft;
+   bool reserve = (GridReserveRungs > 0 && maxo - orders <= GridReserveRungs) || G_MB_PB_LOCAL || liability_soft || gls_reserve;
    if(reserve)
    {
-      if(response && at_structure && MBAdverseSpent(dir))
+      if(response && strong_resp && at_structure && MBAdverseSpent(dir))
       {
          G_MB_PB_WAIT_ORDERS = -1;
          return true;
       }
-      reason = StringFormat("holding - reserve rung %d/%d needs structure (%s) + spent adverse move (%s) + response (%s)",
-                            orders + 1, maxo, (at_structure ? "ok" : "no"), (MBAdverseSpent(dir) ? "ok" : "no"), (response ? "ok" : "no"));
+      reason = StringFormat("holding - reserve rung %d/%d needs structure (%s) + spent adverse move (%s) + response (%s%s)%s",
+                            orders + 1, maxo, (at_structure ? "ok" : "no"), (MBAdverseSpent(dir) ? "ok" : "no"), (response ? "ok" : "no"),
+                            (gls_strong ? (strong_resp ? ", strong ok" : ", strong turn needed") : ""),
+                            (gls_reserve ? " | " + G_GLS_WHY : ""));
       return false;
    }
    if(response && at_structure)
@@ -1148,7 +1215,8 @@ string MBPositionText()
 {
    if(!EnableMBPositionBrain || G_MB_PB_BASKET == 0)
       return "no basket";
+   string gls = (EnableGridLiabilityScore && G_GLS > 0) ? StringFormat(" · grid xavfi %d/100", G_GLS) : "";   // package 9
    if(G_MB_PB_DEAD)
-      return "thesis DEAD - " + G_MB_PB_DEAD_WHY + " - exit at break-even";
-   return G_MB_PB_RESCUED ? "thesis RESCUED - normal management" : "thesis alive";
+      return "thesis DEAD - " + G_MB_PB_DEAD_WHY + " - exit at break-even" + gls;
+   return (G_MB_PB_RESCUED ? "thesis RESCUED - normal management" : "thesis alive") + gls;
 }
