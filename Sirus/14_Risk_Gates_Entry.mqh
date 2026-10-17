@@ -852,20 +852,9 @@ double LotForCurrentEntry(const bool apply_side_effects)
    // multiplier - a $100 account trades the same structure as a $10,000 one, in the size that
    // structure costs at $100. It only ever sizes DOWN; a large account still trades what it was
    // told to.
-   if(EnableEntryAffordability && EnableBalanceSizedLot)
-   {
-      int bs_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
-      if(bs_dir == 0) bs_dir = 1;          // sizing is direction-independent; any non-zero will do
-
-      double fitted = AffordableStartLot(bs_dir);
-      if(fitted > 0.0 && fitted < lot)
-      {
-         if(apply_side_effects && (BalanceSizedLotPrintOnUse && G_VERBOSE))
-            PrintFormat("[SIRUS v285 SIZE] balance %.2f carries %.2f lots for a %d-rung ladder (StartLot %.2f)",
-                        AccountInfoDouble(ACCOUNT_BALANCE), fitted, MaxOrders, StartLot);
-         lot = fitted;
-      }
-   }
+   // Package 8 (audit H-01): the fit runs AFTER the mode / AutoLot choice below (it used to run first and
+   // be overwritten by LotForBalancedMode / LotForHighHunterMode) - see EntryBaseLot().
+   int bs_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
 
 
    // FIX(rc-check-side-effects): apply_side_effects=false is for callers that only want the
@@ -908,6 +897,18 @@ double LotForCurrentEntry(const bool apply_side_effects)
          lot = LotForHighHunterMode;
    }
 
+   // Package 8 (H-01): the base lot - mode / AutoLot / StartLot, then what the balance carries (the broker
+   // minimum on an account too small for the full ladder - the ladder is shortened instead).
+   double base_lot = EntryBaseLot(bs_dir);
+   if(base_lot > 0.0 && base_lot < lot)
+   {
+      if(apply_side_effects && (BalanceSizedLotPrintOnUse && G_VERBOSE))
+         PrintFormat("[SIRUS v285 SIZE] balance %.2f carries %.2f lots (configured %.2f) - the ladder fits the account",
+                     AccountInfoDouble(ACCOUNT_BALANCE), base_lot, lot);
+      lot = base_lot;
+   }
+   base_lot = lot;
+
    if(G_SCORE_DECISION == SCORE_DECISION_MICRO_PASS)
       lot *= MicroLotFactor();
 
@@ -947,11 +948,9 @@ double LotForCurrentEntry(const bool apply_side_effects)
    // of the base lot.
    if(MinFirstEntryLotFactor > 0.0)
    {
-      double lot_floor = StartLot * MinFirstEntryLotFactor;
-      if(G_ACTIVE_MODE == SIRUS_MODE_BALANCED && LotForBalancedMode > 0.0)
-         lot_floor = LotForBalancedMode * MinFirstEntryLotFactor;
-      if(G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER && LotForHighHunterMode > 0.0)
-         lot_floor = LotForHighHunterMode * MinFirstEntryLotFactor;
+      // Package 8 (H-01): a fraction of the BASE lot (balance-fitted), not of StartLot - the floor used to
+      // lift a $100 account's fitted 0.01 back to 0.25.
+      double lot_floor = base_lot * MinFirstEntryLotFactor;
 
       // FIX(micro-floor): a MICRO entry is deliberately smaller (StartLot x MicroLotFactor), but the
       // floor above is computed from the FULL StartLot. With MinFirstEntryLotFactor at 1.0 that floor
@@ -1119,12 +1118,13 @@ double LotForCurrentEntry(const bool apply_side_effects)
    // when StartLot is changed for a different account size.
    if(EntryLotAbsoluteFloor > 0.0 && lot > 0.0 && G_BASKET_ORDERS <= 0)
    {
-      double floor_lot = NormalizeVolumeSafe(StartLot * MathMax(0.1, MathMin(1.0, EntryLotAbsoluteFloor)));
+      // Package 8 (H-01): of the base lot (balance-fitted), not StartLot.
+      double floor_lot = NormalizeVolumeSafe(base_lot * MathMax(0.1, MathMin(1.0, EntryLotAbsoluteFloor)));
       if(lot < floor_lot)
       {
          if(eff_confidence_print)
-            PrintFormat("[SIRUS v175 LOT FLOOR] opening lot %.2f -> %.2f (never below %.0f%% of StartLot %.2f)",
-                        lot, floor_lot, EntryLotAbsoluteFloor * 100.0, StartLot);
+            PrintFormat("[SIRUS v175 LOT FLOOR] opening lot %.2f -> %.2f (never below %.0f%% of the base lot %.2f)",
+                        lot, floor_lot, EntryLotAbsoluteFloor * 100.0, base_lot);
          lot = floor_lot;
 
          // The held-back portion is recomputed against the raised lot, so the two still add up to
@@ -1212,7 +1212,7 @@ bool HasOpenSirusPosition()
    return (CountSirusPositions() > 0);
 }
 
-double EntryTPPoints()
+double EntryTPPoints(const bool quiet = false)   // package 8: quiet = a reader asking every tick (20e net edge)
 {
    // V283: rebate mode reaches here too. The switch was put in BaseBasketTPPoints on the assumption
    // that every target reads from it - the basket targets do, and the FIRST entry does not. It has
@@ -1241,7 +1241,7 @@ double EntryTPPoints()
          if(atr_tp < (double)MathMax(1, ATRTPMinPoints)) atr_tp = (double)ATRTPMinPoints;
          if(ATRTPMaxPoints > ATRTPMinPoints && atr_tp > (double)ATRTPMaxPoints) atr_tp = (double)ATRTPMaxPoints;
 
-         if((ATRTPPrintOnUse && G_VERBOSE) && MathAbs(atr_tp - tp) > 1.0)
+         if(!quiet && (ATRTPPrintOnUse && G_VERBOSE) && MathAbs(atr_tp - tp) > 1.0)
             PrintFormat("[SIRUS v31.1 ATR-TP] fixed %.0f -> adaptive %.0f (ATR=%.0f x %.2f)", tp, atr_tp, atr, ATRTPFactor);
          tp = atr_tp;
       }

@@ -792,7 +792,7 @@ double ProjectBasketRisk(const int entry_dir, const double entry_price,
    double lot = LotForCurrentEntry();
    G_PROJECTION_MEASURING = false;
    if(lot <= 0.0)
-      lot = StartLot;
+      lot = BasketBaseLot();   // package 8 (H-01)
 
    double total_lots = lot;
    double weighted_price = entry_price;   // running average entry

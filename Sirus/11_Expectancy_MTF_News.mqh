@@ -230,7 +230,7 @@ double ReachAfterNextRung(string &detail)
 
    // Where would the average land after the next rung? Approximate, using the intended
    // lot for it against the volume already in.
-   double next_lot = StartLot * MathPow(LadderMultiplier(), (double)G_BASKET_ORDERS);
+   double next_lot = BasketBaseLot() * MathPow(LadderMultiplier(), (double)G_BASKET_ORDERS);   // package 8 (H-01)
    double cur_vol = G_BASKET_VOLUME;
    if(cur_vol <= 0.0 || next_lot <= 0.0)
       return now_reach;

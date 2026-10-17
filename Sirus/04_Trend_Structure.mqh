@@ -1990,7 +1990,7 @@ int GridEffectiveMaxOrders(string &reason)
 
    // Value of the remaining rungs, in lots.
    double remaining_lots = 0.0;
-   double lot_n = StartLot * MathPow(LotMultiplier, (double)done);
+   double lot_n = BasketBaseLot() * MathPow(LotMultiplier, (double)done);   // package 8 (H-01)
    for(int k = done; k < base; k++)
    {
       remaining_lots += lot_n;
@@ -2022,7 +2022,7 @@ int GridEffectiveMaxOrders(string &reason)
    {
       // Work backwards to the deepest rung the budget covers.
       double running = 0.0;
-      double lot_k = StartLot * MathPow(LotMultiplier, (double)done);
+      double lot_k = BasketBaseLot() * MathPow(LotMultiplier, (double)done);
       int allowed = done;
       for(int k = done; k < base; k++)
       {

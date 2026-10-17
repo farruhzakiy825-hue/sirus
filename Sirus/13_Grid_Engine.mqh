@@ -1368,7 +1368,7 @@ double NextGridLot(const double last_lot, const int current_orders)
    double lot = last_lot;
 
    if(lot <= 0.0)
-      lot = StartLot;
+      lot = BasketBaseLot();   // package 8 (H-01)
 
    // V31.6p fix: save the "pure" LotMultiplier target BEFORE any caution is applied, so we
    // can floor the final result relative to it below - this is the fix for a real bug found
@@ -1467,14 +1467,14 @@ double NextGridLot(const double last_lot, const int current_orders)
    if(EnableGridNeverBelowPrevious && last_lot > 0.0 && last_lot > floor_lot)
       floor_lot = last_lot;
 
-   if(EnableAbsoluteGridLotFloor && LotMultiplier > 0.0 && StartLot > 0.0)
+   if(EnableAbsoluteGridLotFloor && LotMultiplier > 0.0 && BasketBaseLot() > 0.0)
    {
       // Package 7 (audit H-05): the progression of THIS ladder's shape. The floor used LotMultiplier (1.30)
       // while the long / cautious shapes grow 1.20 / 1.22 - from rung 4-5 the floor sat above the shape's
       // own target, lifted the lot with no caution at all and flagged it "caution floored" (held up to
       // 10 M1 bars), and once one rung was floored every later rung was.
       double floor_mult = (eff_mult > 0.0) ? eff_mult : LotMultiplier;
-      double intended_progression = StartLot * MathPow(floor_mult, MathMax(0, current_orders));
+      double intended_progression = BasketBaseLot() * MathPow(floor_mult, MathMax(0, current_orders));   // package 8 (H-01)
       if(MaxLot > 0.0)
          intended_progression = MathMin(intended_progression, MaxLot);
 
@@ -2315,9 +2315,9 @@ bool GridCanOpen(string &reason)
       double szr_floor = 0.0;
       if(EnableGridNeverBelowPrevious && last_lot > 0.0)
          szr_floor = last_lot;
-      if(EnableAbsoluteGridLotFloor && LotMultiplier > 0.0 && StartLot > 0.0)
+      if(EnableAbsoluteGridLotFloor && LotMultiplier > 0.0 && BasketBaseLot() > 0.0)
       {
-         double intended = StartLot * MathPow(LotMultiplier, MathMax(0, orders));
+         double intended = BasketBaseLot() * MathPow(LotMultiplier, MathMax(0, orders));   // package 8 (H-01)
          if(MaxLot > 0.0)
             intended = MathMin(intended, MaxLot);
          double abs_floor = intended * MathMax(0.05, MathMin(1.0, AbsoluteGridLotFloorFactor));

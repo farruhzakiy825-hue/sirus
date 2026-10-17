@@ -1,5 +1,32 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 8-paket: kichik hisoblar ($100 / 5000 USC), grid pog'onasi, ikkala rejimda to'liq miya (2026-10-17)
+
+Egasining qarorlari: eng kichik hisob $100 (dollar) va 5000 USC (cent); pog'ona oldingisidan kichik bo'lsa - ko'r-ko'rona
+qo'shish, kerak emas; oddiy rejim ham kerak va qaysi rejimda bo'lmasin miya to'liq ishlasin. Score qayta qurish - 1 kunlik
+sinovdan keyin. Kompilyatsiya qilinmagan - statik tekshiruvlar toza.
+
+**Kichik hisoblar (H-01)**
+- Yagona `EntryBaseLot()`: rejim loti / AutoLot / StartLot -> MaxLot -> balans to'liq zinapoyani ko'taradigan lot -> agar
+  minimal lot (0.01) ham to'liq zinapoyani ko'tarmasa: minimal lot, zinapoya esa qisqaradi (`AffordableRungCount`).
+  Lot hech qachon kattalashmaydi.
+- Ilgari: balansga moslangan lot Balanced/Hunter rejim loti bilan almashtirilardi, keyin ikki pastki chegara
+  (StartLot x 1.0, StartLot x 0.80) har kirishni 0.20-0.25 ga qaytarardi. $100 da 50% SL 3-4-pog'onada urardi.
+- Pastki chegaralar endi bazaviy lotdan. Grid progressiyasi (absolute floor, SZR, chuqurlik limiti, reach, projection,
+  sozlama tekshiruvi) `BasketBaseLot()` dan - 0.01 lik savat pog'onalari 0.25 zinapoyaga ko'tarilmaydi.
+- Misol ($100, XAUUSD, qadam 5500, x1.3): 0.01 lot, 4 pog'ona sig'adi ($40 < $50 byudjet), 5-pog'ona yo'q.
+  Cent hisob: barcha hisoblar hisob valyutasida (USC) - chegaralar foiz/punktda, dollar-inputlar sukut bo'yicha 0.
+
+**Grid pog'onasi (H-06)**
+- `EnableGridNeverBelowPrevious = true`: pog'ona oldingisidan kichik bo'lmaydi. Ehtiyot signallari kichikroq lot so'rasa,
+  pog'ona ushlab turiladi (yaxshiroq narx yoki signallar tozalanishi, 10 M1 bargacha) - mayda bo'lak qo'shilmaydi.
+  Hisob himoyasi (margin rescue, qattiq cheklovlar) baribir keyin ishlaydi.
+
+**Ikkala rejimda to'liq miya**
+- Net edge (TP gacha to'siq) faqat cashback'da ishlardi - endi oddiy rejimda ham, o'sha rejimning birinchi TP'si bilan.
+- Uzoq invalidatsiya (-10 sifat) cashback'da o'chiq edi - endi ikkala rejimda (grid xavfi aynan shu).
+- H-08: oddiy rejimda runner broker TP'dan oldin ishga tushadi (broker TP'si yaqinroq bo'lsa arm nuqtasi uning 90% iga).
+
 ## 7-paket: auditdan qolgan topilmalar - score manbalari, zonalar, pul (2026-10-17)
 
 Manba: `docs/audit_2026-10-17/`. Har topilma kodda qayta tekshirildi. Kompilyatsiya qilinmagan - statik tekshiruvlar toza.

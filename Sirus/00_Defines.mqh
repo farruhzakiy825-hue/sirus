@@ -443,6 +443,7 @@ int  MBBiasSignNow();                     // 20h - sign of the brain's global bi
 int  MBTFStateSign(const int tfi);        // 20h - sign of the brain's structure state on a TF slot (read by 15)
 bool MBHasTriggerNow(const int dir);      // 23 - a trigger toward dir right now (read by 20h, 21)
 bool MBHasStrongTriggerNow(const int dir); // 23 - a CLOSED turn / event toward dir (read by 20h, 21)
+double BasketBaseLot();                   // 10 - the base lot the ladder progression starts from (read by 04, 11, 13)
 int  MBZoneRoleAt(const double level);     // 19 - the role engine's role of a level: +1 support, -1 resistance, 0 unknown (read by 14)
 bool TesterHeadless();                    // 03 - non-visual tester / optimizer run
 int  OppDirSign();

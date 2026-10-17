@@ -3473,7 +3473,7 @@ string ValidateSettingsCombination()
    if(UseGridRecovery && MaxOrders > 1 && LotMultiplier > 0.0)
    {
       double total_lots = 0.0;
-      double lot = StartLot;
+      double lot = BasketBaseLot();   // package 8 (H-01): the lot the account will really open
       for(int k = 0; k < MaxOrders; k++)
       {
          total_lots += lot;
@@ -4401,14 +4401,12 @@ double AffordableStartLot(const int dir)
    }
 
    if(pts_per_lot <= 0.0)
-      return StartLot;              // single rung - nothing to project
+      return (MaxLot > 0.0) ? MaxLot : 1000.0;   // single rung - nothing to project, no limit from here
 
    double lot = budget / (pts_per_lot * per_point);
 
-   // Never larger than the configured size. This sizes DOWN for small accounts; it does not
-   // silently trade bigger than asked on large ones.
-   if(lot > StartLot)
-      lot = StartLot;
+   // Never larger than the configured size - the caller takes the smaller of this and its base lot
+   // (package 8: the base may be a mode lot, not StartLot). This sizes DOWN for small accounts only.
    if(MaxLot > 0.0 && lot > MaxLot)
       lot = MaxLot;
 
@@ -4424,6 +4422,52 @@ double AffordableStartLot(const int dir)
    return lot;
 }
 
+// Package 8 (audit H-01, owner: the smallest accounts are $100 and 5000 USC): THE base lot of a first
+// entry - one answer for the entry, the floors after its trims, and both affordability checks. Before,
+// each had its own: the balance-sized lot (V285) was set first and then overwritten by the Balanced /
+// Hunter mode lot, and the two floors (StartLot x MinFirstEntryLotFactor, StartLot x 0.80) put every
+// entry back at 0.20-0.25 - on $100 the 50% basket SL then hit at the 3rd-4th rung.
+//   mode lot / AutoLot / StartLot -> MaxLot -> the size the balance carries for the full ladder ->
+//   if even the broker minimum does not carry the full ladder: the broker minimum, and the ladder is
+//   shortened by AffordableRungCount instead (never a bigger lot).
+double EntryBaseLot(const int dir)
+{
+   double base_lot = StartLot;
+   if(UseAutoLot)
+   {
+      double al = AutoLotBase();
+      if(al > 0.0) base_lot = al;
+   }
+   else
+   {
+      if(G_ACTIVE_MODE == SIRUS_MODE_BALANCED && LotForBalancedMode > 0.0)
+         base_lot = LotForBalancedMode;
+      if(G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER && LotForHighHunterMode > 0.0)
+         base_lot = LotForHighHunterMode;
+   }
+   if(MaxLot > 0.0 && base_lot > MaxLot)
+      base_lot = MaxLot;
+   if(EnableEntryAffordability && EnableBalanceSizedLot)
+   {
+      double fitted = AffordableStartLot((dir != 0) ? dir : 1);
+      double vmin = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+      if(fitted > 0.0)
+         base_lot = MathMin(base_lot, fitted);
+      else if(vmin > 0.0 && AccountInfoDouble(ACCOUNT_BALANCE) > 0.0)
+         base_lot = MathMin(base_lot, vmin);   // the smallest trade there is; the ladder gets shorter
+   }
+   return base_lot;
+}
+
+// Package 8 (H-01): the lot the ladder's progression starts from - the base lot, not the StartLot input.
+// The grid's absolute floor, the depth limit and the reach projection used StartLot x mult^n, so a basket
+// opened at 0.01 on a $100 account would have had its rungs lifted toward a 0.25 ladder.
+double BasketBaseLot()
+{
+   double b = EntryBaseLot(1);
+   return (b > 0.0) ? b : StartLot;
+}
+
 int AffordableRungCount(const int dir)
 {
    if(!EnableEntryAffordability || dir == 0 || _Point <= 0.0)
@@ -4433,14 +4477,7 @@ int AffordableRungCount(const int dir)
    if(balance <= 0.0)
       return 0;
 
-   double base_lot = StartLot;
-   if(UseAutoLot)
-   {
-      double al = AutoLotBase();
-      if(al > 0.0) base_lot = al;
-   }
-   if(MaxLot > 0.0 && base_lot > MaxLot)
-      base_lot = MaxLot;
+   double base_lot = EntryBaseLot(dir);   // package 8 (H-01): the lot the entry really opens
 
    double tick_val = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
    double tick_sz  = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
@@ -4559,25 +4596,9 @@ bool LadderIsAffordable(const int dir, string &reason)
    // sizes the real first entry from balance - so with AutoLot on it judged a ladder the EA was
    // never going to open. Same class as the scale-in remainder fix. AutoLotBase() is a pure
    // calculation (no side effects), so it is safe to call from this check.
-   double base_lot = StartLot;
-   if(UseAutoLot)
-   {
-      double al = AutoLotBase();
-      if(al > 0.0)
-         base_lot = al;
-   }
-   if(MaxLot > 0.0 && base_lot > MaxLot)
-      base_lot = MaxLot;
-
-   // V285: and the size the balance actually carries, which is what will be traded. Projecting the
-   // configured lot while the engine opens a smaller one meant this check refused ladders that were
-   // never going to be that large.
-   if(EnableBalanceSizedLot)
-   {
-      double fitted = AffordableStartLot(dir);
-      if(fitted > 0.0 && fitted < base_lot)
-         base_lot = fitted;
-   }
+   // V285 / package 8 (H-01): the size the balance actually carries, which is what will be traded -
+   // the same base lot the entry uses (mode lot, AutoLot, balance fit, broker minimum).
+   double base_lot = EntryBaseLot(dir);
 
    double tick_val = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
    double tick_sz  = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);

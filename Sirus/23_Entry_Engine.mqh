@@ -432,9 +432,11 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    // Distance to invalidation.
    double inv = (G_MB_TH_DIR == dir && G_MB_TH_INVALID > 0.0) ? G_MB_TH_INVALID : 0.0;
    double inv_atr = (inv > 0.0) ? MathAbs(price - inv) / atr5 : 0.0;
-   // A cashback basket targets a few points and the basket stop is the account's, not the thesis
-   // line - a far invalidation is not this trade's risk. Lateness is still caught by the impulse speed.
-   bool far = (inv > 0.0 && inv_atr > MBMaxInvalidationATR5) && !MBCashbackTempo();
+   // Package 8 (owner: the whole brain in either mode): a far invalidation costs quality in cashback mode too.
+   // It was skipped there ("the basket stop is the account's") - but a far thesis line is exactly the first
+   // entry that turns into a grid, and the grid is the cashback robot's risk. Quality only (-10); the
+   // cashback tempo still lowers the bars it is compared with.
+   bool far = (inv > 0.0 && inv_atr > MBMaxInvalidationATR5);
 
    // --- QUALITY --- (evidence weights learn within ±MBLearnMaxShift once Memory has enough results)
    int align_key = (a >= 3) ? MB_DNA_ALIGN_STRONG : ((a == 2) ? MB_DNA_ALIGN_WEAK : ((a == 1) ? MB_DNA_TRANS_TOWARD : ((a == 0) ? MB_DNA_NEUTRAL : MB_DNA_COUNTER)));

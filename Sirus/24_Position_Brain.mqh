@@ -524,6 +524,30 @@ void MBRunnerClearBrokerTP()
    }
 }
 
+// Package 8 (audit H-08): how far, in basket points from the average, the nearest broker TP of this basket
+// sits (0 = none). In normal mode the first order's broker TP (>= 2125) and the EA target are separate
+// chains - with the target >= ~2415 the runner armed at 2200, the broker closed the basket at 2125 first,
+// and the runner could never run exactly when the EA saw room.
+double MBBrokerTPPointsAhead(const int dir)
+{
+   if(dir == 0 || G_BASKET_AVG_PRICE <= 0.0 || _Point <= 0.0)
+      return 0.0;
+   double best = 0.0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+      if((long)PositionGetInteger(POSITION_MAGIC) != MagicNumber) continue;
+      double tp = PositionGetDouble(POSITION_TP);
+      if(tp <= 0.0) continue;
+      double pts = dir * (tp - G_BASKET_AVG_PRICE) / _Point;
+      if(pts > 0.0 && (best == 0.0 || pts < best))
+         best = pts;
+   }
+   return best;
+}
+
 // Called from the basket exit check before the fixed TP. True = close now (why says how).
 bool MBRunnerManage(const double basket_points, const double tp_points, string &why)
 {
@@ -536,6 +560,13 @@ bool MBRunnerManage(const double basket_points, const double tp_points, string &
    double atr5_pts = G_MB_ATR[1];
    double step = MathMax((double)MathMax(1, RunnerMinStepPoints), 0.5 * atr5_pts);
    double arm = MathMin((double)MathMax(1, RunnerArmPoints), 0.88 * tp_points);
+   // Package 8 (H-08): arm before the broker TP can close the basket (it clears that TP when it arms).
+   if(!MBRunnerActive())
+   {
+      double btp_pts = MBBrokerTPPointsAhead(dir);
+      if(btp_pts > 0.0)
+         arm = MathMin(arm, 0.9 * btp_pts);
+   }
 
    if(!MBRunnerActive())
    {

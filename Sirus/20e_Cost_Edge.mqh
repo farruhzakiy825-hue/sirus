@@ -188,12 +188,16 @@ bool MBCostEval(const int dir, string &why, string &uz)
          return true;
       }
    }
-   if(EnableNetEdge && EnableRebateMode)
+   // Package 8 (owner: "whichever mode, the whole brain works"): the net edge ran in cashback mode only. In
+   // normal mode a first target of ~2125 pts into a holding wall 1000 pts away was never asked about. The
+   // target is now the first order's own target in either mode (EntryTPPoints: the rebate target in
+   // cashback, the ATR / floor target in normal mode).
+   if(EnableNetEdge)
    {
       // AUDIT FIX (B5): obstacles are bid-built and the need holds the spread - measure from the bid on
       // both sides (from the ask a BUY paid the spread twice).
       double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      double tp = RebateTargetPoints();
+      double tp = EntryTPPoints(true);
       double need = spr + MBExpectedSlip() + tp;
       double room = MBRoomAhead(dir, px);
       if(tp > 0.0 && room > 0.0 && room < NetEdgeRoomMult * need && !MBEGSkip(EG_NETEDGE, dir))
