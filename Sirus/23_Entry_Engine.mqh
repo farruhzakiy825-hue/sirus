@@ -693,7 +693,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
 
    G_MB_DNA_PENDING_TEXT = G_MB_ENTRY_TEXT;
 
-   if((MBEntryPrintOnUse && G_VERBOSE))
+   if((MBEntryPrintOnUse && G_VERBOSE) && !G_MB_JUDGE_PROBE)   // package 11: probes (the competition) do not print
    {
       string key = MBEntryDecisionName(decision) + "|" + missing + "|" + etype;
       if(key != G_MB_ENTRY_LAST_PRINT || (TimeCurrent() - G_MB_ENTRY_PRINT_TIME) >= 60)
@@ -806,6 +806,22 @@ bool MBCandOk(const int d, const int type)
 {
    if(d == 0 || !MBDirOk(d))
       return false;
+   // Package 11: every candidate is now asked on every tick (the competition no longer stops at the first) -
+   // the answer for a side and a kind is kept for the tick.
+   static int  co_tick[2][32];
+   static bool co_val[2][32];
+   static bool co_init = false;
+   if(!co_init)
+   {
+      for(int a = 0; a < 2; a++)
+         for(int b = 0; b < 32; b++)
+            co_tick[a][b] = -1;
+      co_init = true;
+   }
+   int cs = (d > 0) ? 1 : 0;
+   int ct = MathMax(0, MathMin(31, type));
+   if(co_tick[cs][ct] == G_TICK_COUNT)
+      return co_val[cs][ct];
    ENUM_OPPORTUNITY_TYPE keep_type = G_OPP_TYPE;
    int keep_score = G_SCORE_FINAL;
    G_OPP_TYPE = (ENUM_OPPORTUNITY_TYPE)type;
@@ -823,6 +839,8 @@ bool MBCandOk(const int d, const int type)
    }
    G_OPP_TYPE = keep_type;
    G_SCORE_FINAL = keep_score;
+   co_tick[cs][ct] = G_TICK_COUNT;
+   co_val[cs][ct] = !blocked;
    return !blocked;
 }
 
@@ -899,10 +917,57 @@ void MBFastWhyNotUpdate()
    }
 }
 
+// Package 11 (plan 15.5 #1, owner's architecture "Entry Priority"): ENTRY COMPETITION. The candidates below
+// used to be a cascade - the first that passed won, whatever the others were - so a weak BUY momentum
+// could take the slot while a clean SELL sweep at a fresh supply was never looked at. Now every candidate
+// that passes is collected; with more than one, each is rated by the Entry Judge (as a probe - nothing is
+// anchored or learned) for its own side and type, and the best quality wins. The old order stays as the
+// tie-break. Every gate, the veto and the final judgement still decide after.
+#define MB_CAND_MAX 12
+int    G_MBC_N = 0;
+int    G_MBC_DIR[MB_CAND_MAX];
+int    G_MBC_TYPE[MB_CAND_MAX];
+string G_MBC_WHY[MB_CAND_MAX];
+string G_MB_COMPETITION = "";   // the last competition, for the trace / journal
+
+void MBCandAdd(const int d, const int type, const string w)
+{
+   if(d == 0 || G_MBC_N >= MB_CAND_MAX)
+      return;
+   for(int i = 0; i < G_MBC_N; i++)
+      if(G_MBC_DIR[i] == d && G_MBC_TYPE[i] == type)
+         return;   // the same side and kind twice - the earlier (higher-priority) reason stays
+   G_MBC_DIR[G_MBC_N] = d;
+   G_MBC_TYPE[G_MBC_N] = type;
+   G_MBC_WHY[G_MBC_N] = w;
+   G_MBC_N++;
+}
+
+// The judge's rating of a candidate, as a probe. EXECUTE outranks CAUTION at the same quality; a WAIT loses.
+int MBCandRate(const int i, string &verdict)
+{
+   ENUM_OPPORTUNITY_TYPE keep_type = G_OPP_TYPE;
+   bool keep_probe = G_MB_JUDGE_PROBE;
+   G_OPP_TYPE = (ENUM_OPPORTUNITY_TYPE)G_MBC_TYPE[i];
+   G_MB_JUDGE_PROBE = true;
+   string w = "";
+   bool ok = MBEntryJudgeAllows(G_MBC_DIR[i], w);
+   int q = MBEntryQualityNow();
+   int dec = G_MB_ENTRY_DECISION;
+   G_MB_JUDGE_PROBE = keep_probe;
+   G_OPP_TYPE = keep_type;
+   verdict = StringFormat("%s %s q%d %s", (G_MBC_DIR[i] > 0 ? "BUY" : "SELL"),
+                          OpportunityTypeToString((ENUM_OPPORTUNITY_TYPE)G_MBC_TYPE[i]), q, MBEntryDecisionName(dec));
+   if(!ok)
+      return q - 1000;
+   return q * 2 + ((dec == MB_ED_EXECUTE) ? 1 : 0);
+}
+
 bool MBFastEntryCandidate(int &dir, string &why)
 {
    dir = 0;
    why = "";
+   G_MBC_N = 0;
    if(!EnableMBFastEntry || !EnableMarketBrain || !EnableMarketBrainEngines || G_BASKET_ORDERS > 0)
       return false;
 
@@ -927,16 +992,11 @@ bool MBFastEntryCandidate(int &dir, string &why)
       int re_type = (IsReversalOpportunityType(G_OPP_TYPE) && G_OPP_DIR == (rd > 0 ? OPP_DIR_BUY : OPP_DIR_SELL)) ? (int)G_OPP_TYPE : (int)OPP_TYPE_TREND_RIDE;
       if(ra >= bias_min && ra_ok && thesis_open && G_MB_TH_DIR == rd && G_MB_TH_CONTRA < 2 && not_expired && MBCandOk(rd, re_type) && MBReentryFastOk(rd) && !MBTrendUnderAttack(rd, aw_re) && MBHasTriggerNow(rd))
       {
-         dir = rd;
-         why = StringFormat("FAST RE-ENTRY %s: last basket won %d min ago, thesis still %s (%s)",
-                            (rd > 0 ? "BUY" : "SELL"), (int)((TimeCurrent() - G_MB_LAST_CLOSE_TIME) / 60),
-                            MBThesisStateName(G_MB_TH_STATE), MBBiasName(G_MB_BIAS));
+         MBCandAdd(rd, re_type, StringFormat("FAST RE-ENTRY %s: last basket won %d min ago, thesis still %s (%s)",
+                                            (rd > 0 ? "BUY" : "SELL"), (int)((TimeCurrent() - G_MB_LAST_CLOSE_TIME) / 60),
+                                            MBThesisStateName(G_MB_TH_STATE), MBBiasName(G_MB_BIAS)));
       }
    }
-
-   G_MB_FAST_TYPE = (int)OPP_TYPE_TREND_RIDE;
-   if(dir != 0 && IsReversalOpportunityType(G_OPP_TYPE) && G_OPP_DIR == (dir > 0 ? OPP_DIR_BUY : OPP_DIR_SELL))
-      G_MB_FAST_TYPE = (int)G_OPP_TYPE;
 
    // BRAIN ENTRIES - simple market logic that does not wait for the old detectors' score. Each one
    // carries an opportunity type the V0 permission understands; the veto, the Entry Judge and every
@@ -944,36 +1004,29 @@ bool MBFastEntryCandidate(int &dir, string &why)
    // 0. REVERSAL (plan stage 1): the structure was swept, displaced, broken (MSS) and the retest of
    //    the break held - the new direction's first good entry (the 4070 kind), taken before the bias
    //    has caught up. Not once the move is late.
-   if(dir == 0 && EnableBrainEntries && EnableReversalEntry && G_ST_REV_DIR != 0 &&
+   if(EnableBrainEntries && EnableReversalEntry && G_ST_REV_DIR != 0 &&
       MBStructStageFor(G_ST_REV_DIR) >= MathMax(1, LockUnlockStage))   // live (AUDIT FIX A5)
    {
       int vd = G_ST_REV_DIR;
       bool late = (G_MB_IMP_DIR[0] == vd && G_MB_SPEED[0] >= MB_SPEED_LATE) ||
                   (G_MB_IMP_DIR[1] == vd && G_MB_SPEED[1] >= MB_SPEED_EXPIRED);
       if(!late && MBCandOk(vd, (int)OPP_TYPE_EXHAUSTION_REVERSAL) && MBHasTriggerNow(vd))
-      {
-         dir = vd;
-         G_MB_FAST_TYPE = (int)OPP_TYPE_EXHAUSTION_REVERSAL;
-         why = StringFormat("BRAIN REVERSAL %s: stage %d/6 - sweep %s, MSS %s, retest held", (vd > 0 ? "BUY" : "SELL"),
-                            G_ST_REV_STAGE, DoubleToString(G_ST_REV_EXT, _Digits), DoubleToString(G_ST_REV_MSS, _Digits));
-      }
+         MBCandAdd(vd, (int)OPP_TYPE_EXHAUSTION_REVERSAL,
+                   StringFormat("BRAIN REVERSAL %s: stage %d/6 - sweep %s, MSS %s, retest held", (vd > 0 ? "BUY" : "SELL"),
+                                G_ST_REV_STAGE, DoubleToString(G_ST_REV_EXT, _Digits), DoubleToString(G_ST_REV_MSS, _Digits)));
    }
 
    // 0b. SECOND CHANCE (plan stage 4): a setup refused only for its place (late, chasing, a zone in
    //     front) - price came back to a better place and something triggers now.
-   if(dir == 0 && EnableBrainEntries)
+   if(EnableBrainEntries)
    {
       int cd = 0;
       string cw = "";
       if(MBSecondChanceNow(cd, cw) && MBCandOk(cd, (int)OPP_TYPE_PULLBACK_CONTINUATION) && MBHasTriggerNow(cd))
-      {
-         dir = cd;
-         G_MB_FAST_TYPE = (int)OPP_TYPE_PULLBACK_CONTINUATION;
-         why = StringFormat("BRAIN SECOND-CHANCE %s: %s", (cd > 0 ? "BUY" : "SELL"), cw);
-      }
+         MBCandAdd(cd, (int)OPP_TYPE_PULLBACK_CONTINUATION, StringFormat("BRAIN SECOND-CHANCE %s: %s", (cd > 0 ? "BUY" : "SELL"), cw));
    }
 
-   if(dir == 0 && EnableBrainEntries)
+   if(EnableBrainEntries)
    {
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
 
@@ -987,48 +1040,38 @@ bool MBFastEntryCandidate(int &dir, string &why)
                     ((MBPressureSide(2) == d && MBPressureSide(0) == -d) ? (int)OPP_TYPE_PULLBACK_CONTINUATION : (int)OPP_TYPE_TREND_RIDE);
       if(BrainEntryTrend && d != 0 && d * G_MB_BIAS >= 2 && G_MB_TH_DIR == d && thesis_open && G_MB_TH_CONTRA <= 1 &&
          (fresh_trend || pullback_trend) && MBCandOk(d, tr_type) && !MBTrendUnderAttack(d, aw_tr))
-      {
-         dir = d;
-         G_MB_FAST_TYPE = tr_type;
-         why = StringFormat("BRAIN TREND %s: %s, thesis %s, %s", (d > 0 ? "BUY" : "SELL"),
-                            MBBiasName(G_MB_BIAS), MBThesisStateName(G_MB_TH_STATE),
-                            (fresh_trend ? "trigger now" : "pullback resuming"));
-      }
+         MBCandAdd(d, tr_type, StringFormat("BRAIN TREND %s: %s, thesis %s, %s", (d > 0 ? "BUY" : "SELL"),
+                                           MBBiasName(G_MB_BIAS), MBThesisStateName(G_MB_TH_STATE),
+                                           (fresh_trend ? "trigger now" : "pullback resuming")));
 
       // 1b. HANDOFF (local -> global): the bounce against the trend ran into the global side's place
       //     and the micro layer turned back - sell the top of the bounce (buy the bottom of the dip).
-      if(dir == 0 && G_MB_BIAS != 0)
+      if(G_MB_BIAS != 0)
       {
          int gd = MBSign(G_MB_BIAS);
          string hw = "";
          if(MBHandoffNow(gd, hw) && MBCandOk(gd, (int)OPP_TYPE_EXHAUSTION_REVERSAL) && MBHasTriggerNow(gd))
-         {
-            dir = gd;
-            G_MB_FAST_TYPE = (int)OPP_TYPE_EXHAUSTION_REVERSAL;
-            why = StringFormat("BRAIN HANDOFF %s: %s - back with %s", (gd > 0 ? "BUY" : "SELL"), hw, MBBiasName(G_MB_BIAS));
-         }
+            MBCandAdd(gd, (int)OPP_TYPE_EXHAUSTION_REVERSAL,
+                      StringFormat("BRAIN HANDOFF %s: %s - back with %s", (gd > 0 ? "BUY" : "SELL"), hw, MBBiasName(G_MB_BIAS)));
       }
 
       // 1c. LAYER PULLBACK: global and local agree, the micro layer pulled back and is now resuming.
-      if(dir == 0 && MathAbs(G_MB_BIAS) >= 2)
+      if(MathAbs(G_MB_BIAS) >= 2)
       {
          int gd = MBSign(G_MB_BIAS);
          string aw_pb = "";
          if(MBLayerLocal() == gd && MBPullbackResume(gd) && MBCandOk(gd, (int)OPP_TYPE_PULLBACK_CONTINUATION) && !MBTrendUnderAttack(gd, aw_pb))
-         {
-            dir = gd;
-            G_MB_FAST_TYPE = (int)OPP_TYPE_PULLBACK_CONTINUATION;
-            why = StringFormat("BRAIN PULLBACK %s: global and local %s, micro pullback resuming", (gd > 0 ? "BUY" : "SELL"),
-                               (gd > 0 ? "up" : "down"));
-         }
+            MBCandAdd(gd, (int)OPP_TYPE_PULLBACK_CONTINUATION,
+                      StringFormat("BRAIN PULLBACK %s: global and local %s, micro pullback resuming", (gd > 0 ? "BUY" : "SELL"),
+                                   (gd > 0 ? "up" : "down")));
       }
 
       // 2. LIQUIDITY HUNT: liquidity was just taken and reclaimed - trade the return. Not against a
       //    strong brain (V0 would refuse it anyway).
-      if(dir == 0 && BrainEntrySweep)
+      if(BrainEntrySweep)
       {
          int sw_first = MBTieFirst();
-         for(int sw_i = 0; sw_i < 2 && dir == 0; sw_i++)
+         for(int sw_i = 0; sw_i < 2; sw_i++)
          {
             int sd = (sw_i == 0) ? sw_first : -sw_first;
             if(!MBCandOk(sd, (int)OPP_TYPE_SWEEP_REJECTION))
@@ -1052,36 +1095,29 @@ bool MBFastEntryCandidate(int &dir, string &why)
                }
             }
             if(live)
-            {
-               dir = sd;
-               G_MB_FAST_TYPE = (int)OPP_TYPE_SWEEP_REJECTION;
-               why = StringFormat("BRAIN SWEEP %s: %s", (sd > 0 ? "BUY" : "SELL"), w);
-            }
+               MBCandAdd(sd, (int)OPP_TYPE_SWEEP_REJECTION, StringFormat("BRAIN SWEEP %s: %s", (sd > 0 ? "BUY" : "SELL"), w));
          }
       }
 
       // 3. RANGE EDGE: the M15 regime is a range and price is at its edge with a turning candle.
-      if(dir == 0 && BrainEntryRange && EnableRegimePlaybook && G_MB_RG == MB_RG_RANGE && G_MB_RG_HI > G_MB_RG_LO)
+      if(BrainEntryRange && EnableRegimePlaybook && G_MB_RG == MB_RG_RANGE && G_MB_RG_HI > G_MB_RG_LO)
       {
          double pos = (bid - G_MB_RG_LO) / (G_MB_RG_HI - G_MB_RG_LO);
          // PACKAGE 1 (B-F6): only inside the box. With no bounds, price ABOVE the box read pos >= 0.80 and
          // a breakout was sold (a breakdown bought) - a wrong-direction first entry, guarded only by the veto.
          int rd2 = (pos >= 0.0 && pos <= 0.20) ? 1 : ((pos >= 0.80 && pos <= 1.0) ? -1 : 0);
          if(rd2 != 0 && MBCandOk(rd2, (int)OPP_TYPE_RANGE_EDGE) && MBHasTriggerNow(rd2))
-         {
-            dir = rd2;
-            G_MB_FAST_TYPE = (int)OPP_TYPE_RANGE_EDGE;
-            why = StringFormat("BRAIN RANGE %s: %.0f%% of the M15 range %s-%s, turning candle", (rd2 > 0 ? "BUY" : "SELL"),
-                               pos * 100.0, DoubleToString(G_MB_RG_LO, _Digits), DoubleToString(G_MB_RG_HI, _Digits));
-         }
+            MBCandAdd(rd2, (int)OPP_TYPE_RANGE_EDGE,
+                      StringFormat("BRAIN RANGE %s: %.0f%% of the M15 range %s-%s, turning candle", (rd2 > 0 ? "BUY" : "SELL"),
+                                   pos * 100.0, DoubleToString(G_MB_RG_LO, _Digits), DoubleToString(G_MB_RG_HI, _Digits)));
       }
 
       // 4. MOMENTUM: a displacement is happening (live) or just closed, M5 pressure agrees, the
       //    impulse is early, and the brain is not against it. The scalper's bread and butter.
-      if(dir == 0 && BrainEntryMomentum)
+      if(BrainEntryMomentum)
       {
          int mo_first = MBTieFirst();
-         for(int mo_i = 0; mo_i < 2 && dir == 0; mo_i++)
+         for(int mo_i = 0; mo_i < 2; mo_i++)
          {
             int md = (mo_i == 0) ? mo_first : -mo_first;
             bool disp = (G_MB_LIVE_DIR == md) ||
@@ -1091,39 +1127,33 @@ bool MBFastEntryCandidate(int &dir, string &why)
                          !(G_MB_IMP_DIR[1] == md && G_MB_SPEED[1] >= MB_SPEED_EXPIRED);
             bool in_box = (EnableRegimePlaybook && G_MB_RG == MB_RG_COMPRESSION && G_MB_LIVE_DIR != md);
             if(disp && early && !in_box && MBPressureSide(1) == md && MBCandOk(md, (int)OPP_TYPE_MOMENTUM_SCALP))
-            {
-               dir = md;
-               G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;
-               why = StringFormat("BRAIN MOMENTUM %s: %s displacement, M5 pressure with it (%s)", (md > 0 ? "BUY" : "SELL"),
-                                  (G_MB_LIVE_DIR == md ? "live" : "fresh M1"), MBBiasName(G_MB_BIAS));
-            }
+               MBCandAdd(md, (int)OPP_TYPE_MOMENTUM_SCALP,
+                         StringFormat("BRAIN MOMENTUM %s: %s displacement, M5 pressure with it (%s)", (md > 0 ? "BUY" : "SELL"),
+                                      (G_MB_LIVE_DIR == md ? "live" : "fresh M1"), MBBiasName(G_MB_BIAS)));
          }
       }
    }
 
    // 5. LOCAL LEG: against the global bias, the M1 / M5 structure and pressure have turned this way
    //    and something triggers now - the bounce inside a falling day, the dip inside a rising one.
-   if(dir == 0 && EnableBrainEntries && EnableLocalTrading && G_MB_BIAS != 0)
+   if(EnableBrainEntries && EnableLocalTrading && G_MB_BIAS != 0)
    {
       int ld = -MBSign(G_MB_BIAS);
       int lv = MBLocalLevel(ld);
       bool late = (G_MB_IMP_DIR[0] == ld && G_MB_SPEED[0] >= MB_SPEED_LATE);
       if(MBLocalOkFor(ld) && !late && MBCandOk(ld, (int)OPP_TYPE_MOMENTUM_SCALP) && MBHasTriggerNow(ld))
-      {
-         dir = ld;
-         G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;
-         why = StringFormat("BRAIN LOCAL %s: local leg %s against %s (M1/M5 structure + pressure), trigger now",
-                            (ld > 0 ? "BUY" : "SELL"), (lv >= 2 ? "strong" : "clear"), MBBiasName(G_MB_BIAS));
-      }
+         MBCandAdd(ld, (int)OPP_TYPE_MOMENTUM_SCALP,
+                   StringFormat("BRAIN LOCAL %s: local leg %s against %s (M1/M5 structure + pressure), trigger now",
+                                (ld > 0 ? "BUY" : "SELL"), (lv >= 2 ? "strong" : "clear"), MBBiasName(G_MB_BIAS)));
    }
 
    // 6. ALIGNED (owner: "where a SELL may not open, a BUY may"): the local leg and the M5 candles
    //    point the same way, M1 is not against it, the leg is not late and something triggers now. This
    //    is the side the council keeps open when it refuses the other - turnover without fighting the tape.
-   if(dir == 0 && EnableBrainEntries && EnableEntryCouncil)
+   if(EnableBrainEntries && EnableEntryCouncil)
    {
       int al_first = MBTieFirst();
-      for(int al_i = 0; al_i < 2 && dir == 0; al_i++)
+      for(int al_i = 0; al_i < 2; al_i++)
       {
          int cd = (al_i == 0) ? al_first : -al_first;
          if(MBLayerLocal() != cd || MBPressureSide(1) != cd || MBPressureSide(0) == -cd)
@@ -1131,20 +1161,42 @@ bool MBFastEntryCandidate(int &dir, string &why)
          bool late = (G_MB_IMP_DIR[0] == cd && G_MB_SPEED[0] >= MB_SPEED_LATE) ||
                      (G_MB_IMP_DIR[1] == cd && G_MB_SPEED[1] >= MB_SPEED_EXPIRED);
          if(!late && MBCandOk(cd, (int)OPP_TYPE_MOMENTUM_SCALP) && MBHasTriggerNow(cd))
-         {
-            dir = cd;
-            G_MB_FAST_TYPE = (int)OPP_TYPE_MOMENTUM_SCALP;
-            why = StringFormat("BRAIN ALIGNED %s: local leg and M5 candles %s, trigger now (%s)", (cd > 0 ? "BUY" : "SELL"),
-                               (cd > 0 ? "up" : "down"), MBBiasName(G_MB_BIAS));
-         }
+            MBCandAdd(cd, (int)OPP_TYPE_MOMENTUM_SCALP,
+                      StringFormat("BRAIN ALIGNED %s: local leg and M5 candles %s, trigger now (%s)", (cd > 0 ? "BUY" : "SELL"),
+                                   (cd > 0 ? "up" : "down"), MBBiasName(G_MB_BIAS)));
       }
    }
 
-   if(dir == 0)
+   if(G_MBC_N == 0)
    {
+      G_MB_COMPETITION = "";
       MBFastWhyNotUpdate();
       return false;
    }
+   // The competition: one candidate takes it as it is; several are rated by the judge, best first,
+   // the old order breaking a tie (the earlier candidate keeps it - strict "greater than").
+   int best = 0;
+   G_MB_COMPETITION = "";
+   if(G_MBC_N > 1)
+   {
+      int best_r = -100000;
+      string tbl = "";
+      for(int i = 0; i < G_MBC_N; i++)
+      {
+         string v = "";
+         int r = MBCandRate(i, v);
+         tbl += (StringLen(tbl) > 0 ? " / " : "") + v;
+         if(r > best_r)
+         {
+            best_r = r;
+            best = i;
+         }
+      }
+      G_MB_COMPETITION = StringFormat("%d candidates: %s", G_MBC_N, tbl);
+   }
+   dir = G_MBC_DIR[best];
+   G_MB_FAST_TYPE = G_MBC_TYPE[best];
+   why = G_MBC_WHY[best] + ((StringLen(G_MB_COMPETITION) > 0) ? " [won " + G_MB_COMPETITION + "]" : "");
    G_MB_FAST_WHYNOT[0] = "";
    G_MB_FAST_WHYNOT[1] = "";
    MBFastToday();   // rolls the counter over at a new day

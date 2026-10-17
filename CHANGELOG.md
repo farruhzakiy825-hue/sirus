@@ -1,5 +1,21 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 11-paket: kirish nomzodlari raqobati (2026-10-17)
+
+Manba: egasining umumiy arxitekturasi ("Entry Priority": BUY #1 = 91, SELL #1 = 38 ... eng yaxshisi) va reja 15.5 #1.
+Kompilyatsiya qilinmagan - statik tekshiruvlar toza.
+
+- Miyaning tez kirish nomzodlari (re-entry, reversal, second chance, trend, handoff, pullback, sweep, range, momentum,
+  local, aligned) KASKAD edi: birinchi o'tgani yutardi, qolganlari ko'rilmasdi - zaif BUY momentum yangi supply'dagi
+  toza SELL sweep o'rnini egallashi mumkin edi.
+- Endi har tikda O'TGAN barcha nomzodlar yig'iladi (har tomon va tur bir marta). Bittadan ko'p bo'lsa, har biri
+  hakam tomonidan o'z tomoni va turi uchun baholanadi (sinov rejimi: hech narsa langarlanmaydi, o'rganilmaydi, print
+  qilinmaydi) - eng yuqori sifat yutadi; EXECUTE bir xil sifatda CAUTION dan ustun; WAIT oladigan nomzod yutqazadi.
+  Teng holatda eski tartib hal qiladi.
+- G'olib sababi oxirida raqobat jadvali: "[won 3 candidates: SELL SWEEP_REJECTION q74 EXECUTE / BUY MOMENTUM_SCALP q52
+  CAUTION / ...]" - DecisionLog orqali Trace CSV ga tushadi.
+- Barcha darvozalar, veto va yakuniy hakam keyin baribir hal qiladi. `MBCandOk` javobi tik davomida saqlanadi (CPU).
+
 ## 10-paket: Zone Intelligence - RBR / DBR / RBD / DBD (2026-10-17)
 
 Manba: egasining "Zone Intelligence & Supply/Demand Engine" rejasi. Yangi modul `Sirus/20i_Zone_Intelligence.mqh`.
