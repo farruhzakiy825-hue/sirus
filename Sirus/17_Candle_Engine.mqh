@@ -370,8 +370,12 @@ void MBReadCandle(const MqlRates &r[], const int n, const int s, const double at
    double bull = 0.0, bear = 0.0;
    if(cdir > 0) bull += 30.0 * bodyf;
    else if(cdir < 0) bear += 30.0 * bodyf;
-   bull += 20.0 * out.close_pos;
-   bear += 20.0 * (1.0 - out.close_pos);
+   // Package 7 (audit E-7): the close location weighs by the bar's size (full at half an ATR of range).
+   // At any size, two or three tiny bars closing near their highs read as "bull pressure" (>= 15) inside
+   // a falling tape - and pb_running, leg_against, council 1b, MBAdverseSlowing and the arbiter push read it.
+   double sizef = MathMin(1.0, out.range_atr / 0.5);
+   bull += 20.0 * out.close_pos * sizef;
+   bear += 20.0 * (1.0 - out.close_pos) * sizef;
    if(intent == MB_CI_DISPLACEMENT)
    {
       if(idir > 0) bull += 20.0; else bear += 20.0;

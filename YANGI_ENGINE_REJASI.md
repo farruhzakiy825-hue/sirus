@@ -816,7 +816,7 @@ Har paketdan oldin dalil to'planadi (Trace CSV va 2-raund audit). Shundan keyin 
 
 | # | Ish | Nega birinchi | Manba |
 |---|---|---|---|
-| 1 | 2-raund audit (E/F/G/H) topilmalarini tuzatish — ✅ 6-paket: 20 ta P1/P2 topilma (`docs/audit_2026-10-17/`, CHANGELOG). Qolgani: F7, F9/F11, G3, G5, G6, H-01, H-07 | Tasdiqlangan xatolar yangi moduldan oldin tuzatiladi (XXII.2) | 6-paket |
+| 1 | 2-raund audit (E/F/G/H) topilmalarini tuzatish — ✅ 6-paket: 20 ta P1/P2 topilma; ✅ 7-paket: F7, F9, F11, F14, F19, G3, G5, G6, G8, G9, E-7, E-8, E-12, E-13, E-17, H-05, H-07 (`docs/audit_2026-10-17/`, CHANGELOG). Qolgani egasining qaroriga: H-01, H-06, H-08, F12, F13/F15/F16 | Tasdiqlangan xatolar yangi moduldan oldin tuzatiladi (XXII.2) | 6-paket |
 | 2 | Order xatolari: Trace'ga FAILED qatori (retcode, narx, spread, lot, urinish). Xatodan keyin holat qayta tekshiriladi — ✅ 6-paket | Arzon ish, ijro xatolarini ko'rinadigan qiladi | X.4, 15.2 |
 | 3 | Grid Liability Score: bitta 0–100 son, entry'dan mustaqil. Faqat yangi pog'onani **sekinlashtiradi yoki tasdiq talab qiladi**, gridni muzlatmaydi | Grid — eng katta DD manbai | XII.3 |
 | 4 | Yagona zona hakami + RBR/DBR/RBD/DBD + 100 ballik baho + zona ID Autopsy'ga | Zonalar uch joyda uch xil o'qiladi | VII, 3-hujjat |

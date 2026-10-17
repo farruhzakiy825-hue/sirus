@@ -157,7 +157,7 @@ double MBExpectedSlip()
 double MBRoomAhead(const int dir, const double px)
 {
    double best = 0.0;
-   double z = (dir > 0) ? ZoneMapNearestResistance(px) : ZoneMapNearestSupport(px);
+   double z = (dir > 0) ? ZoneMapNearestResistancePlain(px) : ZoneMapNearestSupportPlain(px);   // package 7 (G3): the nearest wall, not the strongest
    if(z > 0.0 && dir * (z - px) > 0.0)
    {
       SMBZone zz;

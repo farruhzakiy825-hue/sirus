@@ -868,9 +868,9 @@ bool MBAdverseSlowing(const int dir, string &why)
       why = StringFormat("qarshi harakat charchash %d", xp);
       return true;
    }
-   int it = G_MB_LAST[0].intent;
-   if(G_MB_LIVE_DIR == dir ||
-      (G_MB_LAST[0].dir == dir && (it == MB_CI_REJECTION || it == MB_CI_DISPLACEMENT || it == MB_CI_LIQ_GRAB || it == MB_CI_ABSORPTION)))
+   // Package 7 (audit E-12): a closed M1 turn that MBCandleConfirms accepts (size floor, live invalidation)
+   // - any M1 bar with a lower wick in a falling tape used to step the rescue over the soft grid holds.
+   if(G_MB_LIVE_DIR == dir || MBCandleConfirms(0, dir))
    {
       why = "savat tomoniga sham";
       return true;

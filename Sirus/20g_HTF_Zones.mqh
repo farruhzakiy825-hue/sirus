@@ -45,6 +45,32 @@ datetime G_HZ_T[HZ_MAX];        // base candle time
 int      G_HZ_TOUCH[HZ_MAX];
 int      G_HZ_N = 0;
 datetime G_HZ_BAR = 0;
+// Package 7 (audit G6): zones an M15 close has already taken out (base time + TF). The zone list is
+// rebuilt each H1 bar and a zone counts as broken there only after a close beyond on its OWN TF (an H4
+// close for an H4 zone), so between the two the release hung on the LAST M15 close: the retest of a
+// broken H4 supply (the textbook break-and-retest BUY) found the zone "fresh" again and was refused.
+#define HZ_REL_MAX 40
+datetime G_HZ_REL_T[HZ_REL_MAX];
+int      G_HZ_REL_TF[HZ_REL_MAX];
+int      G_HZ_REL_N = 0;
+
+bool MBHTFZoneReleased(const int k)
+{
+   for(int i = 0; i < MathMin(G_HZ_REL_N, HZ_REL_MAX); i++)
+      if(G_HZ_REL_T[i] == G_HZ_T[k] && G_HZ_REL_TF[i] == G_HZ_TF[k])
+         return true;
+   return false;
+}
+
+void MBHTFZoneRelease(const int k)
+{
+   if(MBHTFZoneReleased(k))
+      return;
+   int i = G_HZ_REL_N % HZ_REL_MAX;
+   G_HZ_REL_T[i] = G_HZ_T[k];
+   G_HZ_REL_TF[i] = G_HZ_TF[k];
+   G_HZ_REL_N++;
+}
 
 // Lower-high / higher-low state, per M5 bar: [0] for SELL (higher low under), [1] for BUY (lower high over).
 double   G_LH_LEVEL[2];
@@ -108,12 +134,26 @@ void MBHTFZonesUpdate()
       return;
    }
    datetime h1 = iTime(_Symbol, PERIOD_H1, 0);
-   if(h1 <= 0 || h1 == G_HZ_BAR)
-      return;
-   G_HZ_BAR = h1;
-   G_HZ_N = 0;
-   MBHTFZoneScan(PERIOD_H4, 120);   // ~20 days
-   MBHTFZoneScan(PERIOD_H1, 240);   // ~10 days
+   if(h1 > 0 && h1 != G_HZ_BAR)
+   {
+      G_HZ_BAR = h1;
+      G_HZ_N = 0;
+      MBHTFZoneScan(PERIOD_H4, 120);   // ~20 days
+      MBHTFZoneScan(PERIOD_H1, 240);   // ~10 days
+   }
+   // Package 7 (G6): each closed M15 bar - a close beyond a zone's far side takes it out for good,
+   // whether or not an entry happened to ask on that bar.
+   static datetime last_m15 = 0;
+   datetime m15 = iTime(_Symbol, PERIOD_M15, 0);
+   if(m15 > 0 && m15 != last_m15)
+   {
+      last_m15 = m15;
+      double c15 = iClose(_Symbol, PERIOD_M15, 1);
+      if(c15 > 0.0)
+         for(int k = 0; k < G_HZ_N; k++)
+            if((G_HZ_DIR[k] < 0 && c15 > G_HZ_HI[k]) || (G_HZ_DIR[k] > 0 && c15 < G_HZ_LO[k]))
+               MBHTFZoneRelease(k);
+   }
 }
 
 // The fresh zone of the other side the entry would stand inside / right under (or over). -1 = none.
@@ -129,16 +169,18 @@ int MBHTFZoneAgainst(const int dir, const double px)
    {
       if(G_HZ_DIR[k] != -dir)
          continue;
+      if(MBHTFZoneReleased(k))
+         continue;                                              // package 7 (G6): an M15 close took it out
       double d;
       if(dir > 0)
       {
-         if(c15 > G_HZ_HI[k]) continue;                         // already closed above it - taken out
+         if(c15 > G_HZ_HI[k]) { MBHTFZoneRelease(k); continue; }   // already closed above it - taken out
          if(px > G_HZ_HI[k]) continue;
          d = (px >= G_HZ_LO[k]) ? 0.0 : G_HZ_LO[k] - px;      // inside = 0, under = the gap
       }
       else
       {
-         if(c15 > 0.0 && c15 < G_HZ_LO[k]) continue;
+         if(c15 > 0.0 && c15 < G_HZ_LO[k]) { MBHTFZoneRelease(k); continue; }
          if(px < G_HZ_LO[k]) continue;
          d = (px <= G_HZ_HI[k]) ? 0.0 : px - G_HZ_HI[k];
       }

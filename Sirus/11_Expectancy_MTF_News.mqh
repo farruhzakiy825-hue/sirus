@@ -1161,8 +1161,12 @@ double BasketTPForOrderCount(const int orders)
    // the basket grew. The reductions below bring a distant target closer as the average price moves
    // toward it - a break-even target is already as close as it can be, and cutting it by forty
    // percent puts it inside the spread, where the basket can never close.
+   // Package 7 (audit H-07): plus the swap / commission the basket has already paid. This return came
+   // before the carry floor, and the TP check compares price points only - a basket held overnight closed
+   // at "+224 pts" with a net LOSS, a loss close outside IMPOSSIBLE. (0 on a swap-free account.) The broker
+   // backup TP is built from the same number.
    if(EnableRebateMode)
-      return tp;
+      return tp + BasketCarryCostPoints();
 
    // Recovery basket should escape faster as order count grows, but not too tiny.
    if(orders >= 3)
@@ -2331,7 +2335,7 @@ double SwingImpulseCorrectionLotAdjust(const double lot, const ENUM_ORDER_TYPE o
    if(KalmanTrendReady())
    {
       double slope = G_KALMAN_TREND / _Point;
-      int kalman_dir = (slope > KalmanTrendMinPoints) ? 1 : (slope < -KalmanTrendMinPoints ? -1 : 0);
+      int kalman_dir = (slope > KalmanTrendMinPts()) ? 1 : (slope < -KalmanTrendMinPts() ? -1 : 0);
       if(kalman_dir != 0)
          big_dir_factor = (kalman_dir == impulse_dir) ? 0.85 : 1.15;
    }
@@ -2618,8 +2622,8 @@ int MTFAlignmentCount(const int direction)
 
    // H1 uses the same Kalman-unified source as the rest of the bot when ready, for consistency.
    int h1_dir = KalmanTrendReady() ?
-                ((G_KALMAN_TREND / _Point > KalmanTrendMinPoints) ? 1 :
-                 (G_KALMAN_TREND / _Point < -KalmanTrendMinPoints ? -1 : 0)) :
+                ((G_KALMAN_TREND / _Point > KalmanTrendMinPts()) ? 1 :
+                 (G_KALMAN_TREND / _Point < -KalmanTrendMinPts() ? -1 : 0)) :
                 SimpleTFDirection(PERIOD_H1, MTFAlignmentH1LookbackBars);
    if(h1_dir == direction) agree++;
 
@@ -3750,6 +3754,32 @@ double ZoneMapMemo(const int side, const double price)
 double ZoneMapNearestSupport(const double price)    { return ZoneMapMemo(0, price); }
 double ZoneMapNearestResistance(const double price) { return ZoneMapMemo(1, price); }
 
+// Package 7 (audit G3): the truly NEAREST level, without the strong-zone override. The override swaps
+// the nearest level for a stronger one up to StrongZoneSearchPoints ($20) away - right for "where will
+// price react" (grid reach, TP, SZR), wrong for "is there room for a 224-pt TP": V3, council 3 and the net
+// edge measured to the far level and the minor wall that decides the scalp disappeared. Memo per tick.
+double ZoneMapNearestPlain(const int side, const double price)
+{
+   static int    pm_tick[2] = {-1, -1};
+   static double pm_px[2]   = {0.0, 0.0};
+   static double pm_val[2]  = {0.0, 0.0};
+   static int    pm_bar[2]  = {-1, -1};
+   int sd = (side == 0) ? 0 : 1;
+   if(pm_tick[sd] == G_TICK_COUNT && pm_px[sd] == price && pm_bar[sd] == G_ZMC_CACHE_BAR)
+      return pm_val[sd];
+   bool was = G_ZONE_LOOKUP_BUSY;
+   G_ZONE_LOOKUP_BUSY = true;   // the override (and the shared memo) stand aside
+   double v = (sd == 0) ? ZoneMapNearestSupportCalc(price) : ZoneMapNearestResistanceCalc(price);
+   G_ZONE_LOOKUP_BUSY = was;
+   pm_tick[sd] = G_TICK_COUNT;
+   pm_px[sd] = price;
+   pm_val[sd] = v;
+   pm_bar[sd] = G_ZMC_CACHE_BAR;
+   return v;
+}
+double ZoneMapNearestSupportPlain(const double price)    { return ZoneMapNearestPlain(0, price); }
+double ZoneMapNearestResistancePlain(const double price) { return ZoneMapNearestPlain(1, price); }
+
 // V29 new (B-block): Zone Strength / Confluence. Given a level already found by the functions
 // above, scores how "real" it is - how many swing points across all included TFs cluster near
 // it, plus a small bonus for round numbers. Returns >= 1.0 always; 1.0 = no extra confirmation.
@@ -4546,8 +4576,8 @@ int HTFStructureBias()
    if(KalmanTrendReady())
    {
       double slope_points = G_KALMAN_TREND / _Point;
-      if(slope_points > KalmanTrendMinPoints)  return 1;
-      if(slope_points < -KalmanTrendMinPoints) return -1;
+      if(slope_points > KalmanTrendMinPts())  return 1;
+      if(slope_points < -KalmanTrendMinPts()) return -1;
       return 0;
    }
 

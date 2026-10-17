@@ -198,7 +198,7 @@ bool MBV3Blocked(const int dir, const double price, double &room_pts, double &ne
    ztxt = "";
    if(dir == 0 || price <= 0.0)
       return false;
-   double other = (dir < 0) ? ZoneMapNearestSupport(price) : ZoneMapNearestResistance(price);
+   double other = (dir < 0) ? ZoneMapNearestSupportPlain(price) : ZoneMapNearestResistancePlain(price);   // package 7 (G3)
    if(other <= 0.0)
       return false;
    SMBZone z;
@@ -452,7 +452,7 @@ bool MBCouncilZoneFront(const int dir, double &lvl)
    if(!EnableZoneRoleEngine || atr5 <= 0.0 || CouncilZoneATR5 <= 0.0 || dir == 0)
       return false;
    double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
-   double l = (dir > 0) ? ZoneMapNearestResistance(px) : ZoneMapNearestSupport(px);
+   double l = (dir > 0) ? ZoneMapNearestResistancePlain(px) : ZoneMapNearestSupportPlain(px);   // package 7 (G3)
    if(px <= 0.0 || l <= 0.0 || dir * (l - px) > CouncilZoneATR5 * atr5 || dir * (l - px) < -0.1 * atr5)
       return false;
    double c5 = iClose(_Symbol, PERIOD_M5, 1);
@@ -716,7 +716,7 @@ bool MBPermissionCheck(const int dir, string &why)
    // needs no reversal-type setup. A strong M15 counter-trend (-3) still forbids it.
    if(MBArbiterOn() && MBArbiterHTFWithStrong(dir))
    {
-      if(a < 0 && a >= -2 && (MBM5StructDir() == dir || MBLayerLocal() == dir) && MBHasTriggerNow(dir))
+      if(a < 0 && a >= -2 && (MBM5StructDir() == dir || MBLayerLocal() == dir) && MBHasStrongTriggerNow(dir))   // package 7 (E-17)
          return false;
       if(a == 1)
          return false;

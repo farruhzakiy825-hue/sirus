@@ -676,6 +676,8 @@ int ReadSituation(int &dir, double &weight, string &detail)
    bool rejected_here   = (cs_state == CANDLE_STATE_REJECTION);
    bool rejection_failed = (evo == LIVE_EVO_WICK_FAILED);
    bool absorbed        = (cs_state == CANDLE_STATE_ABSORPTION || evo == LIVE_EVO_ABSORBED);
+   // Package 7 (audit E-8): who won the absorption - the live evolution's side, else the sequence's.
+   int  absorbed_dir    = (evo == LIVE_EVO_ABSORBED) ? ev_dir : ((cs_state == CANDLE_STATE_ABSORPTION) ? cs_dir : 0);
 
    // --- name it --------------------------------------------------------------
    double level_factor = MathMin(1.0, level_strength / MathMax(0.1, SituationFullStrength));
@@ -851,7 +853,9 @@ int ReadSituation(int &dir, double &weight, string &detail)
    }
 
    // Absorption at a level with a trend running into it - effort meeting size.
-   if(sw_dir != 0 && absorbed)
+   // Package 7 (E-8): only when it was the TREND's push that got absorbed (the winner is the other side).
+   // An absorbed counter-push at resistance in an up-trend means the buyers won - it used to call SELL.
+   if(sw_dir != 0 && absorbed && absorbed_dir == -sw_dir)
    {
       dir = -sw_dir;
       weight = MathMin(1.0, 0.5 * (0.5 + 0.5 * level_factor));
@@ -910,8 +914,11 @@ double EntryBarPlacement(const int dir, string &detail)
    double o = CandleOpen(tf, 0), h = CandleHigh(tf, 0), l = CandleLow(tf, 0);
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   double px = (dir > 0) ? ask : bid;
-   if(o <= 0.0 || h <= 0.0 || l <= 0.0 || px <= 0.0)
+   // Package 7 (audit E-13): the bar is built from the BID - so is the position in it. The ask put a BUY
+   // one spread higher in the bar ($0.24 on a $0.5 bar = +0.48) and charged it -1..-6 for that alone
+   // (the judge fixed the same class at 23: "compare candles with the bid").
+   double px = bid;
+   if(o <= 0.0 || h <= 0.0 || l <= 0.0 || px <= 0.0 || ask <= 0.0)
       return 0.0;
 
    double range = h - l;
@@ -4162,7 +4169,16 @@ double ReversalConsensusScoreRaw(const int direction, string &detail)
       }
    }
 
-   if(EnableStructureConfluence && G_DBOS_DIR == direction)
+   // Package 7 (audit F11/F14): G_DBOS_DIR is latched (a break days old still "confirmed" a reversal) -
+   // and this score lifts the tier-A override of the HTF-against check (rc >= 0.82). With the arbiter
+   // live the structure is the brain's M15 state; otherwise only a legacy break of the last four hours.
+   bool bos_with = false;
+   if(MBArbiterOn())
+      bos_with = (MBTFStateSign(2) == direction);
+   else
+      bos_with = (G_DBOS_DIR == direction && G_DBOS_LAST_BOS_BAR >= 0 && G_BARS_SEEN >= G_DBOS_LAST_BOS_BAR &&
+                  (double)(G_BARS_SEEN - G_DBOS_LAST_BOS_BAR) * (double)PeriodSeconds(CoreBarTF) <= 4.0 * 3600.0);
+   if(EnableStructureConfluence && bos_with)
    {
       confirm_count++;
       confirms += "BOS/CHoCH ";
@@ -4485,9 +4501,9 @@ double MTFAlignmentConfidenceRaw(const int direction, string &detail)
    if(KalmanTrendReady())
    {
       double kalman_pts = G_KALMAN_TREND / _Point;
-      if(MathAbs(kalman_pts) > KalmanTrendMinPoints)
+      if(MathAbs(kalman_pts) > KalmanTrendMinPts())
       {
-         double mag = MathMax(0.0, MathMin(1.0, MathAbs(kalman_pts) / (KalmanTrendMinPoints * 3.0)));
+         double mag = MathMax(0.0, MathMin(1.0, MathAbs(kalman_pts) / (KalmanTrendMinPts() * 3.0)));
          int k_dir = (kalman_pts > 0) ? 1 : -1;
          h1_conf = (k_dir == direction) ? mag : -mag;
       }

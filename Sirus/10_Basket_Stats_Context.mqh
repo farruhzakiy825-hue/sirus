@@ -2548,7 +2548,7 @@ double OppositeSideStrength(const int entry_dir, string &detail)
    if(EnableLocalStructure)
    {
       LocalStructureUpdate();
-      if(G_LS_DIR == opp && G_LS_STATE != LSTRUCT_CHOPPY)
+      if(LSDirEff() == opp && G_LS_STATE != LSTRUCT_CHOPPY)   // package 7 (audit F14): the brain-checked staircase
       {
          points += AmbiguityStructureWeight;
          parts += "structure; ";

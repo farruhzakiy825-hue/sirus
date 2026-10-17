@@ -1472,6 +1472,16 @@ bool KalmanTrendReady()
    return (EnableKalmanTrend && G_KALMAN_BAR_COUNT >= MathMax(2, KalmanWarmupBars));
 }
 
+// Package 7 (audit F11, round-1 S5): the slope a Kalman HTF trend needs to be called up / down. A fixed
+// KalmanTrendMinPoints = 5 is $0.005 per H1 bar at gold's 0.001 point, so the filter was never "flat" and
+// every term reading it (market-state trend, MTF alignment, brain consensus, HTF-against, deep parity)
+// always had a side. At least 5% of the HTF ATR per bar now (~$0.27 an hour on H1).
+double KalmanTrendMinPts()
+{
+   double atr_pts = ATRPointsManual(HTFTrendTF, 14, 1);
+   return MathMax(KalmanTrendMinPoints, (atr_pts > 0.0) ? 0.05 * atr_pts : 0.0);
+}
+
 ENUM_MARKET_STATE DetectTrendState(string &reason)
 {
    if(!UseTrendDetection)
@@ -1497,8 +1507,8 @@ ENUM_MARKET_STATE DetectTrendState(string &reason)
    {
       slope_points = G_KALMAN_TREND / _Point;
 
-      up   = (slope_points > KalmanTrendMinPoints && str_close > str_ma);
-      down = (slope_points < -KalmanTrendMinPoints && str_close < str_ma);
+      up   = (slope_points > KalmanTrendMinPts() && str_close > str_ma);
+      down = (slope_points < -KalmanTrendMinPts() && str_close < str_ma);
 
       reason = StringFormat("KALMAN HTF=%s close=%.2f level=%.2f trend=%.1fpts/bar | STR=%s close=%.2f ma=%.2f",
                             TFToString(HTFTrendTF),

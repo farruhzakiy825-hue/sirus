@@ -1,5 +1,50 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 7-paket: auditdan qolgan topilmalar - score manbalari, zonalar, pul (2026-10-17)
+
+Manba: `docs/audit_2026-10-17/`. Har topilma kodda qayta tekshirildi. Kompilyatsiya qilinmagan - statik tekshiruvlar toza.
+
+**Score: eskirgan va takroriy manbalar**
+- F7: legacy paketlar barcha bonus shiftlaridan KEYIN cheklovsiz bonus qo'shardi (Kalman H1, kunlar oldingi BOS,
+  M1 sham rangi - ~9 ballgacha) va WAIT'ni PASS qilardi. Endi faqat dvigatel shifti ostidagi joyga va jami 3 balldan
+  oshmaydi; jarima ham yagona shift bilan. Hakam yoqiq bo'lsa deep-parity HTF fikri = miyaning H1+H4 tuzilmasi;
+  4 soatdan eski legacy BOS bonus bermaydi.
+- F11 (1-raund S5): Kalman trend chegarasi 5 pt (oltinda $0.005/soat) - hech qachon "flat" emas edi. Endi kamida
+  HTF ATR'ning 5% i (`KalmanTrendMinPts()`), bozor holati, MTF moslik va boshqa 7 o'quvchi uchun.
+- F11/F14: ReversalConsensus eskirgan G_DBOS_DIR o'rniga miyaning M15 tuzilmasini o'qiydi (u HTF-qarshi tekshiruvni
+  bekor qila olardi). Ambiguity jarimasi `LSDirEff()` ni o'qiydi.
+- F9: bitta M15 shamni o'qiydigan bog'liq detektorlar "olomoni" endi daraja-setupni (range edge, sweep, zona
+  reaksiyasi, soxta breakout, zona retest) bosib keta olmaydi va skanerni H1/H4 ko'proq qarshi tomonga burmaydi.
+
+**Zonalar**
+- G3: xona tekshiruvlari (V3, council 3, net edge) endi HAQIQIY eng yaqin darajani o'qiydi
+  (`ZoneMapNearest*Plain`) - kuchli-zona almashtirish $20 gacha uzoqdagi darajani berib, TP'ni to'sadigan yaqin
+  devorni yashirardi. Grid, TP, SZR o'zgarishsiz.
+- G5: counter-zone - hech qachon ikkala tomon emas (narx qutida bo'lsa break hal qiladi). Input izohi tuzatildi.
+- G6: H4/H1 zona M15 yopilishi bilan doimiy bo'shatiladi - break-and-retest BUY endi retestda rad etilmaydi.
+- G8: counter-zone devori narx OLDIDA bo'lishi shart - orqadagi daraja keyingi yopilishda "o'tildi" deb tasdiqlanib,
+  counter-zone'ni o'chirardi.
+- G9: joylashuv qo'riqchisi rol engine "support (swept)" degan darajani BUY uchun "resistance" demaydi (redirect SELL
+  ga aylantirishi mumkin edi).
+- F19: zona-chegara armi faqat narx zona yonida bo'lsa (minglab pt uzoqdagi momentum BUY "reaksiya chegarasini" kutmaydi).
+
+**Shamlar**
+- E-7: sham bosimi sham hajmini hisobga oladi (mayda shamlar yopilish joyi bilan "bosim" yaratmaydi).
+- E-8: "absorbed" holati faqat TREND itarishi yutilganda qarshi tomonni chaqiradi.
+- E-12: qutqarish "sekinlashish" tekshiruvi endi `MBCandleConfirms` (hajm chegarasi + jonli bekor qilish).
+- E-13: kirish shamidagi joy BID bilan o'lchanadi (BUY spread qadar jazolanardi).
+- E-17: H1/H4 grid-xavfi ehtiyoti va V0 HTF pullback ochilishi uchun kuchli (yopilgan) trigger
+  (`MBHasStrongTriggerNow`) - oddiy M1 davom shami yoki yopilmagan sham yetmaydi.
+
+**Pul**
+- H-07: cashback savat TP'si allaqachon to'langan swap'ni qo'shadi (`BasketCarryCostPoints`) - kechasi qolgan savat
+  "+224 pt" da sof zararda yopilmaydi. Swap-free hisobda o'zgarish yo'q. Broker zaxira TP ham shu sondan.
+- H-05: grid lot pastki chegarasi zinapoya shaklining multiplikatorini ishlatadi (1.30 o'rniga 1.20/1.22).
+
+**Qoldi (egasining qarori kerak):** H-01 (balansga qarab lot, hisob hajmi), H-06 (`EnableGridNeverBelowPrevious`
+o'chiq), H-08 (oddiy rejimda runner), F12 (mean-reversion bonuslari - dizayn), F13/F15/F16 (takroriy hisob -
+katta qayta qurish), E-9/E-11/E-16/E-18, G7/G10-G13 (P3/P4).
+
 ## 6-paket: 2-raund audit topilmalari (shamlar, score, zonalar, pul) + order xatolari (2026-10-17)
 
 Manba: `docs/audit_2026-10-17/` (E shamlar, F detektor/score, G zonalar, H pul). Har topilma kodda qayta

@@ -5889,7 +5889,7 @@ input double            EntryFarZoneMinStrength      = 2.5;   // Entry far zone 
 // trade" case. This adds a true HARD BLOCK for that extreme, unambiguous situation only. It sits
 // ON TOP of the penalty system (does not replace it) and is deliberately stricter than the
 // caution thresholds so it fires only on the genuinely dangerous setups.
-// EnableZoneWallHardBlock: V55b: OFF. Its rule now lives in CounterContextBlockNow() with identical thresholds (250pt / strength 2.5), where BOTH the score engine and the queue-replay guard evaluate it. Leaving this one on as well would apply the same veto twice, and only the score-engine path - a queued signal would still have skipped it.
+// EnableZoneWallHardBlock: V55b: OFF. Its rule now lives in CounterContextBlockNow() (its own thresholds: CounterZoneBlockPoints / CounterZoneBlockMinStrength, not 250pt / 2.5 - package 7 note), where BOTH the score engine and the queue-replay guard evaluate it. Leaving this one on as well would apply the same veto twice, and only the score-engine path - a queued signal would still have skipped it.
 input bool              EnableZoneWallHardBlock      = false;   // Enable zone wall hard block
 // ZoneWallHardBlockPoints: Opposing wall must be at least this CLOSE (points) to hard-block. Tighter than the 600pt caution - only an imminent wall blocks
 input int               ZoneWallHardBlockPoints      = 250;   // Zone wall hard block points

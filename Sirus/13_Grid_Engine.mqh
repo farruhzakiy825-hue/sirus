@@ -1469,7 +1469,12 @@ double NextGridLot(const double last_lot, const int current_orders)
 
    if(EnableAbsoluteGridLotFloor && LotMultiplier > 0.0 && StartLot > 0.0)
    {
-      double intended_progression = StartLot * MathPow(LotMultiplier, MathMax(0, current_orders));
+      // Package 7 (audit H-05): the progression of THIS ladder's shape. The floor used LotMultiplier (1.30)
+      // while the long / cautious shapes grow 1.20 / 1.22 - from rung 4-5 the floor sat above the shape's
+      // own target, lifted the lot with no caution at all and flagged it "caution floored" (held up to
+      // 10 M1 bars), and once one rung was floored every later rung was.
+      double floor_mult = (eff_mult > 0.0) ? eff_mult : LotMultiplier;
+      double intended_progression = StartLot * MathPow(floor_mult, MathMax(0, current_orders));
       if(MaxLot > 0.0)
          intended_progression = MathMin(intended_progression, MaxLot);
 

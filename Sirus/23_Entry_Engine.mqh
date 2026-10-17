@@ -720,6 +720,21 @@ bool MBHasTriggerNow(const int dir)
           (G_MB_LIVE_DIR == dir) || MBFreshTriggerEvent(dir, w);
 }
 
+// Package 7 (audit E-17): the trigger that may lift a GRID-RISK caution - the arbiter's H1/H4 CAUTION
+// (20h) and the V0 HTF pullback release (21). MBHasTriggerNow takes an ordinary M1 continuation bar or
+// the forming candle, so "M5 / local leg + trigger" was "M5 / local leg + any M1 body bar". Here: a closed
+// strong turn (MBCandleConfirms: size floor, live invalidation), a fresh structure / liquidity event, or
+// a closed M5 trigger that is more than a plain continuation.
+bool MBHasStrongTriggerNow(const int dir)
+{
+   if(dir == 0)
+      return false;
+   string w = "";
+   double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
+   return MBCandleConfirms(0, dir) || MBCandleConfirms(1, dir) || MBFreshTriggerEvent(dir, w) ||
+          (MBCandleTriggerNow(1, dir, px) && G_MB_LAST[1].intent != MB_CI_CONTINUATION);
+}
+
 // May a brain entry go this way? With the global bias, or neutral - or against it on a local leg
 // (a strong one against the strongest bias).
 bool MBDirOk(const int d)

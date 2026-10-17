@@ -3487,6 +3487,10 @@ bool ZoneBlocks(const int dir, string &why)
       else if(d > band) continue;
       // SINISH: savdo yo'nalishida yopilish bilan o'tilganmi
       if(LGBrokenBeyond(dir, (dir > 0) ? hi : lo, tol)) continue;
+      // Package 7 (audit G9): the role is not only where the zone sits. During a sweep under a support the
+      // support is ABOVE the bid, so it read "resistance - no BUY" - and TryLocationRedirect could then turn
+      // the swept-support BUY into a SELL. The role engine still calls it SUPPORT (swept): not a wall.
+      if(MBZoneRoleAt(0.5 * (lo + hi)) == dir) continue;
       if(d < best_d) { best_d = d; best = z; }
    }
    if(best < 0) return false;

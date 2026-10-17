@@ -399,6 +399,15 @@ bool MBZoneRead(const double level, SMBZone &z)
    return true;
 }
 
+// Package 7 (audit G9): the role of a level for readers that cannot hold an SMBZone (they come earlier).
+int MBZoneRoleAt(const double level)
+{
+   SMBZone z;
+   if(!MBZoneRead(level, z))
+      return 0;
+   return (z.role > 0) ? 1 : ((z.role < 0) ? -1 : 0);
+}
+
 string MBZoneText(const SMBZone &z)
 {
    if(!z.valid)

@@ -679,13 +679,29 @@ bool LegacyTrendExhaustionForDir(const int dir, string &reason)
    return risk;
 }
 
+// Package 7 (audit F7): the most the legacy packs together may add on one scan. They run AFTER every
+// bonus cap (trend agreement 8, BonusCap, MaxTotalScoreBonus) and re-scored facts the engine had already
+// counted - the Kalman H1 slope, a BOS latched for days, the M1 bar colour - up to ~9 points one way,
+// which LegacyRecalculateDecision then turned from WAIT into PASS.
+#define LEGACY_MAX_TOTAL_BONUS 3
+
 void LegacyApplyScoreChange(const int bonus, const int penalty, const string why)
 {
    if(bonus > 0)
    {
-      G_SCORE_BONUS += bonus;
-      G_SCORE_FINAL += bonus;
-      G_LEGACY_BONUS += bonus;
+      // Package 7 (F7): only into the room left under the engine's ceiling and the legacy budget.
+      int allowed_b = bonus;
+      if(G_SCORE_BONUS_CEILING > 0)
+         allowed_b = (int)MathMin((double)allowed_b, (double)MathMax(0, G_SCORE_BONUS_CEILING - G_SCORE_BONUS));
+      allowed_b = (int)MathMin((double)allowed_b, (double)MathMax(0, LEGACY_MAX_TOTAL_BONUS - G_LEGACY_BONUS));
+      if(allowed_b > 0)
+      {
+         G_SCORE_BONUS += allowed_b;
+         G_SCORE_FINAL += allowed_b;
+         G_LEGACY_BONUS += allowed_b;
+      }
+      if(allowed_b < bonus)
+         G_SCORE_DETAIL = G_SCORE_DETAIL + StringFormat(" [legacy bonus %d capped to %d];", bonus, allowed_b);
    }
 
    if(penalty > 0)
@@ -696,9 +712,10 @@ void LegacyApplyScoreChange(const int bonus, const int penalty, const string why
       // penalty straight back past the ceiling and re-create the stacking the cap exists to stop.
       // Only the portion that still fits under the cap is charged; the rest is dropped and logged.
       int allowed = penalty;
-      if(MaxTotalScorePenalty > 0)
+      int pen_ceiling = ScorePenaltyCeiling();   // package 7: the engine's one ceiling (package 6, F6)
+      if(pen_ceiling > 0)
       {
-         int room = MaxTotalScorePenalty - G_SCORE_PENALTY;
+         int room = pen_ceiling - G_SCORE_PENALTY;
          if(room < 0)
             room = 0;
          allowed = (int)MathMin((double)penalty, (double)room);
@@ -2249,11 +2266,19 @@ int DeepHTFTrendDirection()
    // same Kalman signal MARKET_STATE and HTF Structure Commander now use, instead of an
    // independent dual-SMA cross+slope opinion. Falls back to the original method only while
    // Kalman is still warming up.
-   if(KalmanTrendReady())
+   // Package 7 (audit F7/F11): with the direction arbiter live, the HTF opinion is the brain's H1 and H4
+   // structure (both the same way, else none) - the Kalman H1 slope over 5 points is never neutral at
+   // gold's 0.001 point and contradicted the arbiter the entry then had to pass.
+   if(MBArbiterOn())
+   {
+      int s1 = MBTFStateSign(3), s4 = MBTFStateSign(4);
+      htf_dir = (s1 != 0 && s1 == s4) ? s1 : 0;
+   }
+   else if(KalmanTrendReady())
    {
       double kalman_slope = G_KALMAN_TREND / _Point;
-      if(kalman_slope > KalmanTrendMinPoints)  htf_dir = 1;
-      else if(kalman_slope < -KalmanTrendMinPoints) htf_dir = -1;
+      if(kalman_slope > KalmanTrendMinPts())  htf_dir = 1;
+      else if(kalman_slope < -KalmanTrendMinPts()) htf_dir = -1;
    }
    else
    {
@@ -2703,7 +2728,11 @@ void UpdateDeepBOSChochRetest(const string source)
 
    string reason = "";
 
-   if(opp != 0 && G_DBOS_DIR != 0)
+   // Package 7 (audit F7/F11): G_DBOS_DIR is latched - "BOS aligned (confirmed)" paid +2 for a break days
+   // old. A break older than four hours earns nothing here (the brain's structure engine judges it).
+   bool dbos_fresh = (G_DBOS_LAST_BOS_BAR >= 0 && G_BARS_SEEN >= G_DBOS_LAST_BOS_BAR &&
+                      (double)(G_BARS_SEEN - G_DBOS_LAST_BOS_BAR) * (double)PeriodSeconds(CoreBarTF) <= 4.0 * 3600.0);
+   if(opp != 0 && G_DBOS_DIR != 0 && dbos_fresh)
    {
       if(G_DBOS_DIR == opp)
       {

@@ -160,7 +160,7 @@ bool MBArbiterBlocks(const int dir, string &why)
    else
    {
       bool m5 = (MBM5StructDir() == dir || MBLayerLocal() == dir);
-      bool trig = MBHasTriggerNow(dir);
+      bool trig = MBHasStrongTriggerNow(dir);   // package 7 (E-17): a closed turn, not any M1 body bar
       if(m5 && trig)
          return false;
       why = StringFormat("VH arbiter caution: %s - %s needs M5 structure / local leg (%s) and a trigger (%s)",

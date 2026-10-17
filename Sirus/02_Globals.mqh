@@ -689,6 +689,9 @@ string                  G_LEGACY_LAST_SIGNATURE = "";
 bool                    G_LEGACY_HARD_BLOCK     = false;
 bool                    G_LEGACY_APPLIED        = false;
 int                     G_LEGACY_BONUS          = 0;
+// Package 7 (audit F7): the bonus ceiling the score engine applied on this scan - the legacy packs add
+// only into the room left under it (they added on top of every cap before).
+int                     G_SCORE_BONUS_CEILING   = 0;
 int                     G_LEGACY_PENALTY        = 0;
 double                  G_LEGACY_NEAREST_SUPPORT= 0.0;
 double                  G_LEGACY_NEAREST_RESIST = 0.0;

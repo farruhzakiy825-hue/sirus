@@ -160,10 +160,21 @@ void UpdateOpportunityScanner(const string source)
       int win_best = (win_dir > 0) ? G_OPP_BEST_BUY_SCORE  : G_OPP_BEST_SELL_SCORE;
       int lose_best= (win_dir > 0) ? G_OPP_BEST_SELL_SCORE : G_OPP_BEST_BUY_SCORE;
 
+      // Package 7 (audit F9): the "crowd" is mostly detectors reading the same closed M15 / M1 bar
+      // (consecutive candles, expanding volatility, volume push, VWAP / MA bounce, Donchian, trend ride) -
+      // not independent evidence. It no longer overturns a LEVEL-based setup (range edge, sweep, zone
+      // reaction, fake-breakout return, zone retest: "a genuinely strong setup keeps its place"), and never
+      // turns the scanner toward a side H1/H4 stand more against than the side it had.
+      int win_type = (int)G_OPP_TYPE;
+      bool level_setup = (win_type == OPP_TYPE_RANGE_EDGE || win_type == OPP_TYPE_SWEEP_REJECTION ||
+                          win_type == OPP_TYPE_NEAR_ZONE_REACTION || win_type == OPP_TYPE_FAKE_BREAKOUT_RETURN ||
+                          win_type == OPP_TYPE_ZONE_RETEST);
+      bool htf_worse = MBArbiterOn() && (MBArbiterHTFAgainst(-win_dir) > MBArbiterHTFAgainst(win_dir));
+
       // The other side has a crowd and this one does not, and the score gap is small enough
       // that the crowd is the better evidence.
       if(lose_n >= win_n + ConsensusVoiceEdge &&
-         (win_best - lose_best) <= ConsensusMaxScoreGap)
+         (win_best - lose_best) <= ConsensusMaxScoreGap && !level_setup && !htf_worse)
       {
          G_OPP_DIR    = (win_dir > 0) ? OPP_DIR_SELL : OPP_DIR_BUY;
          G_OPP_SCORE  = lose_best;
@@ -1328,9 +1339,31 @@ bool CounterContextBlockNow(const int dir, string &why, const bool skip_counter_
          {
             double dist_cc = MathAbs(mid_cc - zone_cc) / _Point;
             double str_cc  = ZoneMapStrength(zone_cc);
-            bool   single_wall = (dist_cc <= (double)CounterZoneBlockPoints &&
+            // Package 7 (audit G8): a wall is AHEAD of the entry. The distance was MathAbs, so a level just
+            // behind price (the scans' V243 tolerance) was "the wall"; the wall arm then confirmed on the very
+            // next close ("cleared") - +3 and the counter-zone switched off - the opposite of what its
+            // comment says should happen to a trigger already behind us.
+            bool   cz_ahead = (dir > 0) ? (zone_cc > mid_cc) : (zone_cc < mid_cc);
+            bool   single_wall = (cz_ahead && dist_cc <= (double)CounterZoneBlockPoints &&
                                   str_cc >= CounterZoneBlockMinStrength);
+            if(!cz_ahead && cluster_wall && clus_near > 0.0)
+               zone_cc = clus_near;    // the shelf ahead is the wall, not the level behind
+            // Package 7 (audit G5): never both sides. With a 3500-pt window a qualifying wall above AND
+            // below is common - price is boxed and the break decides; the arm then rotated between the
+            // sides (one arm at a time) and every first entry waited for price to clear a wall $1-3 away.
+            // V3 and council 3 already have this escape.
+            bool cz_boxed = false;
             if(single_wall || cluster_wall)
+            {
+               double zone_o = (dir < 0) ? ZoneMapNearestResistance(mid_cc) : ZoneMapNearestSupport(mid_cc);
+               double co_sum = 0.0, co_near = 0.0;
+               int    co_n = CounterZoneWallCluster(-dir, mid_cc, (double)CounterZoneBlockPoints, co_sum, co_near, false);
+               bool   o_cluster = (EnableCounterZoneCluster && co_n >= CounterZoneClusterMinLevels && co_sum >= CounterZoneClusterMinSum);
+               bool   o_single  = (zone_o > 0.0 && MathAbs(mid_cc - zone_o) / _Point <= (double)CounterZoneBlockPoints &&
+                                   ZoneMapStrength(zone_o) >= CounterZoneBlockMinStrength);
+               cz_boxed = (o_single || o_cluster);
+            }
+            if((single_wall || cluster_wall) && !cz_boxed)
             {
                if(single_wall)
                   why = StringFormat("%s into strong %s it should bounce off (%.2f, str=%.1f, %.0fpts)",
@@ -2539,8 +2572,8 @@ void UpdateSignalScoreEngine(const string source)
          {
             mtf_m15_dir_c = SimpleTFDirection(PERIOD_M15, MTFAlignmentM15LookbackBars);
             mtf_h1_dir_c  = KalmanTrendReady() ?
-                            ((G_KALMAN_TREND / _Point > KalmanTrendMinPoints) ? 1 :
-                             (G_KALMAN_TREND / _Point < -KalmanTrendMinPoints ? -1 : 0)) :
+                            ((G_KALMAN_TREND / _Point > KalmanTrendMinPts()) ? 1 :
+                             (G_KALMAN_TREND / _Point < -KalmanTrendMinPts() ? -1 : 0)) :
                             SimpleTFDirection(PERIOD_H1, MTFAlignmentH1LookbackBars);
          mtf_h4_dir_c  = SimpleTFDirection(PERIOD_H4, MTFAlignmentH4LookbackBars);
             mtf_d1_dir_c  = D1OverallDirection();
@@ -3178,7 +3211,13 @@ void UpdateSignalScoreEngine(const string source)
                   // Has price reached the edge that actually reacts, or only the one it reaches?
                   bool reaction_reached = ze_is_support ? (ze_mid <= ze_inner)
                                                         : (ze_mid >= ze_inner);
-                  if(!reaction_reached)
+                  // Package 7 (audit F19): only an entry that is AT the zone leans on it. With no distance
+                  // test a momentum BUY or a breakout thousands of points above its nearest support was
+                  // armed "waiting for the reaction edge" (abandoned at 4000 pts and re-armed the same scan).
+                  // Near = within the zone's own depth plus half an M15 ATR of the reaction edge.
+                  double ze_atr15 = ATRPointsManual(PERIOD_M15, 14, 1) * _Point;
+                  bool ze_near = (MathAbs(ze_mid - ze_inner) <= MathAbs(ze_outer - ze_inner) + 0.5 * ze_atr15);
+                  if(!reaction_reached && ze_near)
                   {
                      // V195: the zone's reaction edge is a PRICE, and price is something the EA can
                      // wait for rather than pay a penalty over. Entering here means filling early
@@ -5686,7 +5725,7 @@ void UpdateSignalScoreEngine(const string source)
       if(KalmanTrendReady())
       {
          double slope = G_KALMAN_TREND / _Point;
-         int kalman_dir = (slope > KalmanTrendMinPoints) ? 1 : (slope < -KalmanTrendMinPoints ? -1 : 0);
+         int kalman_dir = (slope > KalmanTrendMinPts()) ? 1 : (slope < -KalmanTrendMinPts() ? -1 : 0);
          cat_bigtrend = (kalman_dir != 0 && kalman_dir == entry_dir_i);
          cat_bigtrend_against = (kalman_dir != 0 && kalman_dir == -entry_dir_i);
       }
@@ -6530,6 +6569,7 @@ void UpdateSignalScoreEngine(const string source)
       detail += StringFormat(" [bonus capped %d->%d];", G_SCORE_BONUS, eff_bonus_cap);
       G_SCORE_BONUS = eff_bonus_cap;
    }
+   G_SCORE_BONUS_CEILING = eff_bonus_cap;   // package 7 (F7): the legacy packs add only under it
 
    // V249fix(auto-mode): the penalty cap is now RELATIVE TO THE BAR IN FORCE. It was a shared 12
    // while MinScoreForContext() moves between 2 (Hunter) and 4 (Balanced), so the number of penalty
