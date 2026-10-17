@@ -764,6 +764,11 @@ void MBDrawPanel()
          else ObjectDelete(0, MB_VIS_PREFIX + "B_ARB");
       }
       {
+         string zi = ZIPanelText();     // package 10: the nearest RBR / DBR / RBD / DBD zones with their score
+         if(StringLen(zi) > 0) MBPanelLine("B_ZI", zi, muted, false, x0, w, lh);
+         else ObjectDelete(0, MB_VIS_PREFIX + "B_ZI");
+      }
+      {
          string hz = MBHTFZoneText();   // HTF supply / demand zones and the M15 lower high / higher low
          if(StringLen(hz) > 0) MBPanelLine("B_HZ", hz, muted, false, x0, w, lh);
          else ObjectDelete(0, MB_VIS_PREFIX + "B_HZ");

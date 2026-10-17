@@ -1,5 +1,33 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 10-paket: Zone Intelligence - RBR / DBR / RBD / DBD (2026-10-17)
+
+Manba: egasining "Zone Intelligence & Supply/Demand Engine" rejasi. Yangi modul `Sirus/20i_Zone_Intelligence.mqh`.
+Kompilyatsiya qilinmagan - statik tekshiruvlar toza.
+
+**Aniqlash** (M5, M15, H1, H4; faqat yopilgan barlar, har TF o'z yangi barida qayta quriladi - kelajak ma'lumoti yo'q):
+- baza: 1-3 kichik sham (diapazon <= 0.8 ATR, tana <= diapazonning yarmi);
+- chiqish: 3 sham ichida bazadan >= 1.5 ATR, birinchi sham haqiqiy tana bilan -> zona tomoni;
+- kirish: bazadan oldingi 3 sham >= 0.5 ATR - rally yoki drop -> model RBR / DBR (demand), RBD / DBD (supply);
+- chegaralar: proximal (narx birinchi tegadigan) va distal (yopilish shu ortida = buzildi), <= 1.5 ATR.
+
+**Hayot bosqichi**: FRESH / TESTED / WEAKENED; BROKEN (distal ortida yopilish) va EXPIRED (M5 1 kun, M15 2 kun,
+H1 10 kun, H4 30 kun) chiqarib tashlanadi. ID = TF + baza vaqti.
+
+**100 ballik baho** (egasining vaznlari): kelib chiqish/impuls 20, likvidlik 20 (bazada sweep + chiqishda BOS),
+struktura 20 (BOS + miyaning TF tuzilmasi), yangilik 15, shamlar 15 (chiqish tanasi + baza zichligi), joylashuv/ijro 10
+(kenglik, spread). Boshlang'ich sozlama - trace va autopsy bilan tekshiriladi.
+
+**Ishlatilishi** (o'zi hech qachon bloklamaydi):
+- hakam: o'z tomonidagi zona (>= 60) - kirish joyi (zona-only bo'lsa reaksiya shami baribir kerak); >= 80 +5 sifat;
+  oldinda YANGI qarshi zona (>= 80) - -10 sifat (CAUTION). HTF qattiq qoidasi 20g da qoladi.
+- grid: "pog'ona strukturada" - avval o'z tomonidagi zona (>= 50), keyin swing daraja (faqat rol engine uni qarshi
+  tomonniki demasa - buzilgan support BUY savat uchun joy emas), keyin FVG.
+- panel: "Zona: DBR demand M15 ... 82/100 fresh | RBD supply ...".
+- autopsy: yangi `zone` ustuni - yangi fayl nomi `Sirus_Autopsy2_<symbol>_<magic>.csv`.
+
+**Egasining qarori**: `CashbackSizingRungs = 3` (cashback'da lot 3 pog'onali zinapoya uchun o'lchanadi).
+
 ## 9-paket: Grid Liability Score + cashback lot aylanmasi (2026-10-17)
 
 **Grid Liability Score (reja XII.3, 15.6 #3)** - `MBGridLiabilityScore()`, 0-100, entry signalidan mustaqil:

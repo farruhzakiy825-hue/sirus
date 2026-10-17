@@ -2775,7 +2775,7 @@ input bool   EnableAffordableLadderTrim  = true;   // Enable affordable ladder t
 // MinAffordableRungs: V284: 2 -> 1. On a small account two rungs can exceed the stop budget while one is plainly affordable, and refusing the entry over that leaves the EA unable to trade at all. A single-rung basket has no recovery ladder, which is a real limitation and a better one than no trade.      // V282: fewest rungs worth trading. Below this the basket has no recovery room at all and the entry is refused as before.
 input int    MinAffordableRungs          = 1;   // Min affordable rungs
 // CashbackSizingRungs: 9-PAKET (egasi: kichik dollar hisob faqat cashback uchun - TP juda kichik, LOT AYLANMASI zarur). 0 = lot butun zinapoya (MaxOrders) sig'adigan qilib o'lchanadi. N = lot N pog'onali zinapoya sig'adigan qilib o'lchanadi va savat N pog'onada to'xtaydi: kattaroq lot (ko'proq aylanma), kamroq qutqarish. Faqat cashback rejimida; lot StartLot / MaxLot dan oshmaydi
-input int    CashbackSizingRungs         = 0;   // Cashback: size the lot for this many rungs (0 = full ladder)
+input int    CashbackSizingRungs         = 3;   // Cashback: size the lot for this many rungs (0 = full ladder) - owner: 3
 // EnableBalanceSizedLot: V285: derive the base lot from the balance so the full ladder fits, instead of refusing entries when a fixed StartLot does not. Sizes down only - a large account still trades the size it was configured for.
 input bool   EnableBalanceSizedLot       = true;   // Enable balance sized lot
 // BalanceSizedLotPrintOnUse: V285: log when the lot is sized down

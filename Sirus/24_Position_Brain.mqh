@@ -259,8 +259,17 @@ string MBRecoveryStateName(const int st)
 bool MBStructureNear(const int dir, const double price, const double reach, string &what)
 {
    what = "";
+   // Package 10 (owner: "a rung at a zone, where price can turn, with confirmation"): first a supply /
+   // demand zone of the basket's side born from a base, then a swing level - only one the role engine does
+   // not call the OTHER side's (a broken support is not a place to average a BUY) - then an FVG.
+   int zi = ZIOwnZoneAt(dir, price, reach, ZIGridMinScore);
+   if(zi >= 0)
+   {
+      what = ZIDescribe(zi);
+      return true;
+   }
    double z = (dir > 0) ? ZoneMapNearestSupport(price) : ZoneMapNearestResistance(price);
-   if(z > 0.0 && MathAbs(price - z) <= reach)
+   if(z > 0.0 && MathAbs(price - z) <= reach && MBZoneRoleAt(z) != -dir)
    {
       what = StringFormat("zone %s", DoubleToString(z, _Digits));
       return true;

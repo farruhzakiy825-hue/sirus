@@ -15,7 +15,7 @@
 //   QARSHI LOCK . KECH KIRISH . OLINGAN LIKVIDLIK . CHARCHASH E'TIBORSIZ . QARSHI ZONA .
 //   TRENDGA QARSHI . NAZORAT QARSHI . SPREAD/YANGILIK . SOXTA SWEEP . VAQT (to'g'ri edi) .
 //   NOTO'G'RI YO'NALISH . ANIQLANMADI
-// One CSV row per basket (Sirus_Autopsy_<symbol>_<magic>.csv) with MFE, MAE, minutes to show and
+// One CSV row per basket (Sirus_Autopsy2_<symbol>_<magic>.csv) with MFE, MAE, minutes to show and
 // the snapshot; counters per label for the day; and the balance on the panel: bad entries taken
 // (false positives) against refused setups that would have reached TP (false negatives, from the
 // shadow ledger). Cutting one without watching the other is how the EA once fell to 3 trades a day.
@@ -23,7 +23,7 @@
 input group "DIAGNOSTICS ▸ Trade autopsy"
 // EnableAutopsy: Har savat yakunida: MFE / MAE / ko'rsatish vaqti va (yomon tugagan bo'lsa) xato turi - jurnal, CSV va panel
 input bool   EnableAutopsy            = true;   // Enable autopsy
-// AutopsyToFile: Sirus_Autopsy_<symbol>_<magic>.csv
+// AutopsyToFile: Sirus_Autopsy2_<symbol>_<magic>.csv
 input bool   AutopsyToFile            = true;   // Autopsy to file (on/off)
 
 #define AU_TAGS 13
@@ -51,6 +51,7 @@ int      G_AU_CTRL  = 50;
 double   G_AU_ROOM  = 0.0, G_AU_NEED = 0.0;
 double   G_AU_SPR   = 0.0, G_AU_NORM = 0.0;
 bool     G_AU_NEWS  = false;
+string   G_AU_ZONE  = "-";   // package 10: the supply / demand zone the entry stood in (model, TF, score, state)
 
 void MBAutopsyDayRoll()
 {
@@ -95,6 +96,10 @@ void MBAutopsyOnEntry(const int dir)
    G_AU_ROOM = MBRoomAhead(dir, px);
    G_AU_NEED = G_AU_SPR + MBExpectedSlip() + BasketTPForOrderCount(1);
    G_AU_NEWS = G_CAL_ACTIVE;
+   // Package 10 (zone failure autopsy): the zone of this side the entry leaned on, else "-".
+   double atr5 = G_MB_ATR[1] * _Point;
+   int zk = ZIOwnZoneAt(dir, px, 0.3 * atr5, 0);
+   G_AU_ZONE = (zk >= 0) ? ZIDescribe(zk) : "-";
 }
 
 // The labels of a basket that went wrong, most telling first.
@@ -162,18 +167,20 @@ void MBAutopsyOnClose(const int dir, const double res, const double mfe, const d
    }
    if(AutopsyToFile && !MQLInfoInteger(MQL_OPTIMIZATION))
    {
-      string name = StringFormat("Sirus_Autopsy_%s_%I64d.csv", _Symbol, MagicNumber);
+      // Package 10: a new column (zone), so a new file name - the old file keeps its own header.
+      string name = StringFormat("Sirus_Autopsy2_%s_%I64d.csv", _Symbol, MagicNumber);
       int h = FileOpen(name, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_SHARE_READ);
       if(h != INVALID_HANDLE)
       {
          if(FileSize(h) == 0)
-            FileWriteString(h, "open;close;dir;entry_kind;exit;result;minutes;mfe_pts;mae_pts;tp_pts;min_to_show;labels;leg_pct;leg_atr15;exhaustion;taken_liq;lock;rev_stage;bias_align;control;room_pts;need_pts;spread;normal_spread;news\r\n");
+            FileWriteString(h, "open;close;dir;entry_kind;exit;result;minutes;mfe_pts;mae_pts;tp_pts;min_to_show;labels;leg_pct;leg_atr15;exhaustion;taken_liq;lock;rev_stage;bias_align;control;room_pts;need_pts;spread;normal_spread;news;zone\r\n");
          FileSeek(h, 0, SEEK_END);
-         FileWriteString(h, StringFormat("%s;%s;%s;%s;%s;%.2f;%d;%.0f;%.0f;%.0f;%d;%s;%.0f;%.1f;%d;%d;%d;%d;%d;%d;%.0f;%.0f;%.0f;%.0f;%d\r\n",
+         FileWriteString(h, StringFormat("%s;%s;%s;%s;%s;%.2f;%d;%.0f;%.0f;%.0f;%d;%s;%.0f;%.1f;%d;%d;%d;%d;%d;%d;%.0f;%.0f;%.0f;%.0f;%d;%s\r\n",
                                          TimeToString(opened, TIME_DATE | TIME_MINUTES), TimeToString(TimeCurrent(), TIME_DATE | TIME_MINUTES),
                                          (dir > 0 ? "BUY" : "SELL"), (G_AU_HAVE ? G_AU_KIND : "-"), MBReKindName(G_RE_KIND), res, mins,
                                          mfe, mae, tp, show, tags, G_AU_LEGPCT, G_AU_LEG15, G_AU_EXH, (G_AU_TAKEN ? 1 : 0), G_AU_LOCK,
-                                         G_AU_STAGE, G_AU_A, G_AU_CTRL, G_AU_ROOM, G_AU_NEED, G_AU_SPR, G_AU_NORM, (G_AU_NEWS ? 1 : 0)));
+                                         G_AU_STAGE, G_AU_A, G_AU_CTRL, G_AU_ROOM, G_AU_NEED, G_AU_SPR, G_AU_NORM, (G_AU_NEWS ? 1 : 0),
+                                         (G_AU_HAVE ? G_AU_ZONE : "-")));
          FileClose(h);
       }
    }

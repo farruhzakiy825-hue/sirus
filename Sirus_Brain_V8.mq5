@@ -46,6 +46,7 @@
 #include "Sirus/20f_Market_State.mqh"    // Plan stage 8: sensitivity, anomaly guard, market state, weighting, scenarios, narrative
 #include "Sirus/20g_HTF_Zones.mqh"       // HTF supply / demand zones and the M15 lower-high / higher-low rule
 #include "Sirus/20h_Direction_Arbiter.mqh" // One direction authority: H1/H4 grid risk > M15 side > M5/M1 timing
+#include "Sirus/20i_Zone_Intelligence.mqh" // Supply / demand zones from their bases: RBR / DBR / RBD / DBD, lifecycle, 100-point score
 #include "Sirus/21_Direction_Veto.mqh"   // Market Brain D: hard vetoes built on events and zone roles
 #include "Sirus/22_Memory.mqh"           // Market Brain H: Entry DNA and bounded evidence learning
 #include "Sirus/23_Entry_Engine.mqh"     // Market Brain E+F: entry location, timing, quality and the judge

@@ -889,6 +889,7 @@ void CoreUpdate(const string source)
    MBMarketStateTick();    // plan stage 8: tick-gap anomaly (one comparison)
    MBMarketStateUpdate();  // plan stage 8: market state, scenarios, narrative (once per M1 bar)
    MBHTFZonesUpdate();     // HTF supply / demand zones (once per H1 bar)
+   ZIUpdate();             // package 10: RBR / DBR / RBD / DBD zones (per new bar of M5 / M15 / H1 / H4)
    MBLowerHighUpdate();    // M15 lower high / higher low (once per M5 bar)
    MBPositionBrainUpdate();
    MBProfEnd(MB_PROF_BRAIN);

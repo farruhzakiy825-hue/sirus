@@ -273,7 +273,15 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(disc_ok) loc += StringFormat("%s %.2f", (dir > 0 ? "discount" : "premium"), G_MB_DR_POS);
 
    bool zone_ok = false;
-   if(EnableZoneRoleEngine)
+   // Package 10: a supply / demand zone of this side, born from a base (RBR / DBR / RBD / DBD), that price
+   // stands in or right at - a location by itself. zone_only still asks for a reaction candle there.
+   int zi_own = ZIOwnZoneAt(dir, price, 0.3 * atr5, ZIMinScore);
+   if(zi_own >= 0)
+   {
+      zone_ok = true;
+      loc += StringFormat("%s%s", (StringLen(loc) > 0 ? ", " : ""), ZIDescribe(zi_own));
+   }
+   if(EnableZoneRoleEngine && !zone_ok)
    {
       double lvl = (dir > 0) ? ZoneMapNearestSupport(price) : ZoneMapNearestResistance(price);
       if(lvl > 0.0 && MathAbs(price - lvl) <= atr5)
@@ -456,6 +464,15 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    q -= decay;
    // STAGE 15: playbook, candles and FVG.
    if(fvg_ok) q += 5.0;
+   // Package 10: a strong zone of this side adds; a strong FRESH zone of the other side right ahead (within
+   // one M5 ATR) takes away - CAUTION, not a block (20g keeps the hard H1/H4 rule).
+   if(zi_own >= 0 && G_ZI_SCORE[zi_own] >= 80) q += 5.0;
+   int zi_opp = ZIOpposingAhead(dir, price, atr5, ZIOpposeScore);
+   if(zi_opp >= 0)
+   {
+      q -= 10.0;
+      loc += StringFormat("%sahead: %s", (StringLen(loc) > 0 ? ", " : ""), ZIDescribe(zi_opp));
+   }
    if(st_stage >= MathMax(1, LockUnlockStage)) q += 8.0;   // a mature reversal (retest held) this way
    if(loc_lv >= 2) q += 15.0; else if(loc_lv == 1) q += 10.0;   // local leg against the global bias
    if(seq_against) q -= 6.0;   // an M5 reversal is forming against this entry
