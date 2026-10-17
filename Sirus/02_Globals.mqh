@@ -133,6 +133,10 @@ int              G_MODE_EVAL_BAR        = -1;
 //==================================================================//
 ENUM_MARKET_STATE G_MARKET_STATE          = MARKET_UNKNOWN;
 ENUM_MARKET_STATE G_PREVIOUS_MARKET_STATE = MARKET_UNKNOWN;
+// Package 6 (audit F1): the trend a PULLBACK belongs to (+1 up, -1 down, 0 when the state is not PULLBACK).
+// The state alone carried no side, so the pullback detector and four score / redirect terms read an
+// up-trend's dip as "aligned" for SELL and a down-trend's bounce as "aligned" for BUY.
+int               G_PULLBACK_TREND_DIR = 0;
 string            G_MARKET_STATUS         = "MARKET: waiting";
 string            G_MARKET_REASON         = "initializing";
 string            G_MARKET_LAST_SIGNATURE = "";
@@ -503,6 +507,12 @@ int                     G_FIRST_TRANSIENT_RETRY_COUNT = 0;
 datetime                G_GRID_LAST_FAIL_TIME       = 0;
 bool                    G_GRID_LAST_FAIL_TRANSIENT  = false;
 int                     G_GRID_TRANSIENT_RETRY_COUNT = 0;
+// Package 6: a send that timed out or lost its connection may still have filled. The own-position count
+// at that send (-1 = the last failure was a plain refusal) and the send time: no retry before a look.
+int                     G_FIRST_FAIL_POS  = -1;
+datetime                G_FIRST_FAIL_SENT = 0;
+int                     G_GRID_FAIL_POS   = -1;
+datetime                G_GRID_FAIL_SENT  = 0;
 
 // --- V29 Stage 4: Economic Calendar state ---
 datetime                G_CAL_LAST_SCAN          = 0;

@@ -369,6 +369,13 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(trig_seq) trig += StringFormat("%sM5 pressure resumes", (StringLen(trig) > 0 ? ", " : ""));
    bool seq_against = EnableCandleDirectionLink && G_MB_SEQ_STORY[1] == 2 && G_MB_SEQ_DIR[1] == -dir;
    bool trig_ok = trig_m1 || trig_m5 || trig_live || trig_event || trig_seq;
+   // Package 6 (audit E-5): the forming M1 candle (G_MB_LIVE_DIR) was a location ("early live impulse"),
+   // a trigger ("live early displacement") and the reversal proof (mom_conf) at once - so "location AND
+   // trigger" and "trigger AND reversal" were met by one candle that had not closed and could give it all
+   // back seconds later. It still counts - once: where a rule asks for two pieces, one must be closed.
+   bool trig_closed = trig_m1 || trig_m5 || trig_event || trig_seq;
+   bool loc_closed  = (loc_n - (early_loc ? 1 : 0)) > 0;
+   bool one_live_candle = (G_MB_LIVE_DIR == dir) && !trig_closed && !loc_closed;
    // (A failed live spike this way already cancelled the M1 reading in MBCandleTriggerNow.)
    if(!trig_ok && G_MB_LIVE_FAILED == dir)
       trig = "live displacement failed";
@@ -556,7 +563,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    {
       // Cashback tempo: the target is a few points of spread, so a neutral market needs only a
       // location OR a trigger - the turnover is the income.
-      bool neutral_ok = MBCashbackTempo() ? (loc_ok || trig_ok) : (loc_ok && trig_ok);
+      bool neutral_ok = MBCashbackTempo() ? (loc_ok || trig_ok) : (loc_ok && trig_ok && !one_live_candle);
       if(!neutral_ok)
          missing = StringFormat("neutral market needs location AND trigger (location %s, trigger %s)",
                                 (loc_ok ? "ok" : "none"), (trig_ok ? "ok" : "none"));
@@ -566,15 +573,17 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       // LOCK FIX: a breakdown without a sweep never has a "confirmed liquidity reversal"; a strong
       // candle the new way (displacement / rejection / grab) on M1 or M5, or a live one, is the proof.
       // A confirmed turn (local, M5 and control all this way) is the proof too - V0 takes it as well.
-      bool mom_conf = (G_MB_LIVE_DIR == dir || MBCandleConfirms(0, dir) || MBCandleConfirms(1, dir) || MBTransitionConfirmed(dir));
-      if(!(trig_ok && (rev_ok || mom_conf)))
+      bool mom_closed = (MBCandleConfirms(0, dir) || MBCandleConfirms(1, dir) || MBTransitionConfirmed(dir));
+      bool mom_conf = (G_MB_LIVE_DIR == dir || mom_closed);
+      // Package 6 (E-5): a live trigger and a live "momentum proof" are the same candle - one must be closed.
+      if(!(trig_ok && (rev_ok || mom_conf)) || (!trig_closed && !rev_ok && !mom_closed))
          missing = StringFormat("transition entry needs a trigger AND a confirmed liquidity reversal (trigger %s, reversal %s)",
                                 (trig_ok ? "ok" : "none"), (rev_ok ? "ok" : "none"));
    }
    else if(a >= -2 && MBRangeRules())
    {
       // A range trade against a weak global bias: what a range trade needs - a place and a trigger.
-      bool range_ok = MBCashbackTempo() ? (loc_ok || trig_ok) && trig_ok : (loc_ok && trig_ok);
+      bool range_ok = MBCashbackTempo() ? (loc_ok || trig_ok) && trig_ok : (loc_ok && trig_ok && !one_live_candle);
       if(!range_ok)
          missing = StringFormat("range trade needs location AND trigger (location %s, trigger %s)",
                                 (loc_ok ? "ok" : "none"), (trig_ok ? "ok" : "none"));

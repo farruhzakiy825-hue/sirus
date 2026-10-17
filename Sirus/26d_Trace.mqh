@@ -126,3 +126,17 @@ void TraceSent(const int dir, const double price)
    TraceRow(dir, "SENT", GATE_NONE, StringFormat("sent @ %s", DoubleToString(price, _Digits)));
    TraceFlush();
 }
+
+// Package 6 (plan X.4): an order the broker refused or never answered, with its code - execution errors
+// are then counted, not guessed. kind: "entry" or "grid".
+void TraceSendFailed(const int dir, const string kind, const double lot, const int retcode, const string desc,
+                     const double price)
+{
+   if(!EnableDecisionTrace || MQLInfoInteger(MQL_OPTIMIZATION))
+      return;
+   TraceRow(dir, "FAILED", GATE_NONE,
+            StringFormat("%s send failed ret=%d %s | lot %.2f @ %s%s", kind, retcode, desc, lot,
+                         DoubleToString(price, _Digits),
+                         (TradeSendMayHaveFilled(retcode) ? " | no answer - the account is checked before any retry" : "")));
+   TraceFlush();
+}

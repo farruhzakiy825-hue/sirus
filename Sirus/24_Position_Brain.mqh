@@ -330,9 +330,15 @@ void MBRecoveryEvaluate(const int dir, const datetime opened)
    if(a <= -2) { neg++; wn += "brain strongly against; "; }
    else if(a >= 1) { pos++; wp += "brain with it; "; }
    // 3. Confirmed liquidity reversal against it on M15+ since it opened.
+   // Package 6 (audit H-04): one market fact was two "against" readings and the key. The M15+ reversal
+   // that killed the thesis (reading 1, MBBasketDeathReason) was counted again here - at DD >= 45% that
+   // alone was IMPOSSIBLE, a loss close on one fact. And anchored on the open, the reversal a RESCUE had
+   // already answered stayed a key reading. Counted from the death (a NEW reversal after it) or from the
+   // rescue; G_MB_PB_DEAD_TIME holds whichever came last.
    string rv = "";
    datetime rvt = 0;
-   if(MBReversalAfter(-dir, 2, 4, true, opened, rv, rvt)) { neg++; key = true; wn += "reversal against: " + rv + "; "; }
+   datetime rv_since = (G_MB_PB_DEAD || G_MB_PB_RESCUED) ? G_MB_PB_DEAD_TIME : opened;
+   if(MBReversalAfter(-dir, 2, 4, true, rv_since, rv, rvt)) { neg++; key = true; wn += "reversal against: " + rv + "; "; }
    // 4. The move against it: still running, or spent.
    if(MBAdverseSpent(dir)) { pos++; wp += "adverse move spent; "; }
    else if((G_MB_IMP_DIR[1] == -dir && G_MB_SPEED[1] <= MB_SPEED_NORMAL) || (G_MB_ACCEL[1] > 0 && G_MB_ACCEL_DIR[1] == -dir))

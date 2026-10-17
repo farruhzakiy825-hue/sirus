@@ -184,10 +184,12 @@ bool DirectionAlignedWithMarket(ENUM_OPPORTUNITY_DIR dir)
    if(!RedirectRespectMarketTrend)
       return true;
 
-   if(G_MARKET_STATE == MARKET_TREND_UP || G_MARKET_STATE == MARKET_PULLBACK)
+   // Package 6 (F1): a PULLBACK takes its trend's side (a down-trend's bounce used to allow only BUY).
+   int trend_side = MarketTrendSideNow();
+   if(trend_side > 0)
       return (dir == OPP_DIR_BUY);
 
-   if(G_MARKET_STATE == MARKET_TREND_DOWN)
+   if(trend_side < 0)
       return (dir == OPP_DIR_SELL);
 
    // Range/exhaustion/dead can redirect both ways if setup is valid.
@@ -436,6 +438,16 @@ void UpdateDirectionRedirectEngine(const string source)
    if(RedirectOnlyOnScoreWait && G_SCORE_DECISION != SCORE_DECISION_WAIT)
    {
       ResetRedirect("score is not WAIT");
+      return;
+   }
+
+   // Package 6 (audit F5): a WAIT from an arm is a timing hold on the side judged RIGHT ("right side,
+   // early"), not a reason to look the other way. On the rescore the other side met none of the arm
+   // sites' objections (SetupArm will not hold a second side), so the same spread / zone edge / pressure
+   // that held this side let the opposite one through - and it undid a consensus flip on every such WAIT.
+   if(ArmHoldsSide(OppDirSign()))
+   {
+      ResetRedirect("armed: the side is right, only early");
       return;
    }
 

@@ -45,6 +45,8 @@ input double MBIndecisionBodyRatio    = 0.25;   // Brain indecision body ratio
 input double MBAbsorptionRangeATR     = 1.3;   // Brain absorption range ATR
 // MBAbsorptionBodyRatio: ... lekin tana / diapazon <= shu
 input double MBAbsorptionBodyRatio    = 0.35;   // Brain absorption body ratio
+// MBTurnMinRangeATR: "Kuchli burilish" uchun wick shamining eng kichik diapazoni (ATR x shu) - spreaddan kichik sham burilish emas
+input double MBTurnMinRangeATR        = 0.5;   // Strong turn: minimum range of a wick candle (ATR)
 // MBLiveDispBodyATR: Jonli (yopilmagan) M1 sham: tana >= ATR x shu = early displacement
 input double MBLiveDispBodyATR        = 0.8;   // Brain live disp body ATR
 // MBCompressionBars: Compression: oxirgi N bar ...
@@ -290,7 +292,21 @@ void MBReadCandle(const MqlRates &r[], const int n, const int s, const double at
    else if(have_prior && h > ph && c < ph && upper >= MBRejectWickRatio * range)
    { intent = MB_CI_LIQ_GRAB; idir = -1; }
 
-   // 2. Fake breakout: the previous candle closed beyond its prior extreme, this one closes back
+   // 2. Displacement: a big body that owns its range and closes at the far end.
+   //    Package 6 (audit E-3): read BEFORE the fake breakout. A 2-ATR bar that closes back inside after a
+   //    breakout bar was labelled FAKE_BREAKOUT (strong = false) whatever its size, and every check that
+   //    asks "is a displacement pushing against?" (V4, the thesis threat, the grid holds, the judge's
+   //    candles_against) missed the strongest reversal bar there is - a trap plus a displacement. Every
+   //    reader of FAKE_BREAKOUT also takes DISPLACEMENT, so nothing that saw the trap loses it.
+   if(intent == MB_CI_NONE && cdir != 0 && body >= MBDispBodyATR * atr && out.body_ratio >= MBDispBodyRatio &&
+      ((cdir > 0 && out.close_pos >= 0.75) || (cdir < 0 && out.close_pos <= 0.25)))
+   {
+      intent = MB_CI_DISPLACEMENT;
+      idir = cdir;
+      out.strong = (body >= MBStrongDispBodyATR * atr);
+   }
+
+   // 3. Fake breakout: the previous candle closed beyond its prior extreme, this one closes back
    //    inside with a real body against it.
    if(intent == MB_CI_NONE && have_prev && cdir != 0 && out.body_ratio >= 0.5)
    {
@@ -300,15 +316,6 @@ void MBReadCandle(const MqlRates &r[], const int n, const int s, const double at
          if(r[s + 1].close > ph2 && c < ph2 && cdir < 0) { intent = MB_CI_FAKE_BREAKOUT; idir = -1; }
          else if(r[s + 1].close < pl2 && c > pl2 && cdir > 0) { intent = MB_CI_FAKE_BREAKOUT; idir = 1; }
       }
-   }
-
-   // 3. Displacement: a big body that owns its range and closes at the far end.
-   if(intent == MB_CI_NONE && cdir != 0 && body >= MBDispBodyATR * atr && out.body_ratio >= MBDispBodyRatio &&
-      ((cdir > 0 && out.close_pos >= 0.75) || (cdir < 0 && out.close_pos <= 0.25)))
-   {
-      intent = MB_CI_DISPLACEMENT;
-      idir = cdir;
-      out.strong = (body >= MBStrongDispBodyATR * atr);
    }
 
    // 4. Absorption: a lot of range, little result. The side whose push failed is the larger wick,
@@ -614,7 +621,17 @@ bool MBCandleConfirms(const int tfi, const int dir)
    if(dir == 0 || G_MB_LAST[tfi].dir != dir)
       return false;
    int it = G_MB_LAST[tfi].intent;
-   if(!(it == MB_CI_DISPLACEMENT || it == MB_CI_REJECTION || it == MB_CI_LIQ_GRAB || it == MB_CI_FAKE_BREAKOUT))
+   // Package 6 (audit E-4): a wick candle the size of the spread is not "a strong turn" - a 0.1-ATR M1 bar
+   // released council 1e/1/1b/4, the judge's reversal candle, tired_block and V0. A wick-type turn needs
+   // MBTurnMinRangeATR of range. And a big hammer / shooting star (range >= MBAbsorptionRangeATR, small
+   // body) was ABSORPTION and never counted, though it is the clearest turn of all: it counts now when it
+   // closed on dir's side of its range.
+   bool wick_type = (it == MB_CI_REJECTION || it == MB_CI_LIQ_GRAB || it == MB_CI_FAKE_BREAKOUT);
+   bool big_turn  = (it == MB_CI_ABSORPTION &&
+                     ((dir > 0 && G_MB_LAST[tfi].close_pos >= 0.60) || (dir < 0 && G_MB_LAST[tfi].close_pos <= 0.40)));
+   if(!(it == MB_CI_DISPLACEMENT || wick_type || big_turn))
+      return false;
+   if(wick_type && G_MB_LAST[tfi].range_atr < MBTurnMinRangeATR)
       return false;
    // AUDIT FIX (A1): the candle was read once at its close and then "confirmed" for the whole next bar,
    // even after price broke the wick it rejected from - a BUY could go into the breakdown on a bullish

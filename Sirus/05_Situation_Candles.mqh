@@ -860,7 +860,11 @@ int ReadSituation(int &dir, double &weight, string &detail)
    }
 
    // No trend, price at an edge, rejection printing. The range case.
-   if(sw_dir == 0 && rejected_here && cs_dir != 0)
+   // Package 6 (audit E-6): the side comes from the EDGE, not from the wick alone. A long lower wick at
+   // the range TOP gave dir = +1 - a "range edge rejected" BUY into the ceiling worth +5..+8 score (and
+   // grid doubt / situation TP read it). Support fades up, resistance fades down; anything else is none.
+   int edge_dir = (level > 0.0) ? ((level <= mid) ? 1 : -1) : 0;
+   if(sw_dir == 0 && rejected_here && cs_dir != 0 && cs_dir == edge_dir)
    {
       dir = cs_dir;
       weight = MathMin(1.0, (0.3 + 0.7 * cs_conf) * (0.4 + 0.6 * level_factor));
@@ -1537,6 +1541,9 @@ void LiveSampleReset(const datetime bar_time)
    G_LIVE_PEAK_LOWER = 0.0;
    G_LIVE_PEAK_BODY = 0.0;
    G_LIVE_PEAK_BODY_DIR = 0;
+   G_LIVE_PEAK_UPPER_ABS = 0.0; G_LIVE_PEAK_UPPER_RNG = 0.0;
+   G_LIVE_PEAK_LOWER_ABS = 0.0; G_LIVE_PEAK_LOWER_RNG = 0.0;
+   G_LIVE_PEAK_BODY_ABS  = 0.0; G_LIVE_PEAK_BODY_RNG  = 0.0;
 }
 
 // Called every tick. Records the forming bar's shape at intervals, so the EA has a
@@ -1576,10 +1583,12 @@ void LiveSampleUpdate()
    double body  = MathAbs(c - o) / range;
    int    bdir  = (c > o) ? 1 : ((c < o) ? -1 : 0);
 
-   // Track the extremes seen at any point - this is what the current shape cannot show.
-   if(upper > G_LIVE_PEAK_UPPER) G_LIVE_PEAK_UPPER = upper;
-   if(lower > G_LIVE_PEAK_LOWER) G_LIVE_PEAK_LOWER = lower;
-   if(body > G_LIVE_PEAK_BODY)   { G_LIVE_PEAK_BODY = body; G_LIVE_PEAK_BODY_DIR = bdir; }
+   // Track the extremes seen at any point - this is what the current shape cannot show. Package 6 (E-1):
+   // the peak is the largest wick / body in price; the share kept is its share of the range at that moment.
+   double upper_abs = h - MathMax(o, c), lower_abs = MathMin(o, c) - l, body_abs = MathAbs(c - o);
+   if(upper_abs > G_LIVE_PEAK_UPPER_ABS) { G_LIVE_PEAK_UPPER_ABS = upper_abs; G_LIVE_PEAK_UPPER_RNG = range; G_LIVE_PEAK_UPPER = upper; }
+   if(lower_abs > G_LIVE_PEAK_LOWER_ABS) { G_LIVE_PEAK_LOWER_ABS = lower_abs; G_LIVE_PEAK_LOWER_RNG = range; G_LIVE_PEAK_LOWER = lower; }
+   if(body_abs > G_LIVE_PEAK_BODY_ABS)   { G_LIVE_PEAK_BODY_ABS = body_abs; G_LIVE_PEAK_BODY_RNG = range; G_LIVE_PEAK_BODY = body; G_LIVE_PEAK_BODY_DIR = bdir; }
 
    if(G_LIVE_S_COUNT >= LIVE_SAMPLE_SLOTS)
    {
@@ -1647,8 +1656,13 @@ int LiveBarEvolution(int &dir, double &weight, string &detail)
    // --- a wick that existed and is now gone ---------------------------------
    // The strongest of the three: someone defended that extreme and was overrun inside
    // the same bar. The current shape shows none of this.
-   double lost_lower = G_LIVE_PEAK_LOWER - lo_now;
-   double lost_upper = G_LIVE_PEAK_UPPER - up_now;
+   // Package 6 (E-1): measured in price against the range when the wick was largest - a lower wick is
+   // lost only when price comes back down through it, not when the bar rallies and the range grows.
+   double bo = CandleOpen(tf, 0), bc = CandleClose(tf, 0), bh = CandleHigh(tf, 0), bl = CandleLow(tf, 0);
+   if(bo <= 0.0 || bc <= 0.0 || bh <= 0.0 || bl <= 0.0)
+      return LIVE_EVO_NONE;
+   double lost_lower = (G_LIVE_PEAK_LOWER_RNG > 0.0) ? (G_LIVE_PEAK_LOWER_ABS - (MathMin(bo, bc) - bl)) / G_LIVE_PEAK_LOWER_RNG : 0.0;
+   double lost_upper = (G_LIVE_PEAK_UPPER_RNG > 0.0) ? (G_LIVE_PEAK_UPPER_ABS - (bh - MathMax(bo, bc))) / G_LIVE_PEAK_UPPER_RNG : 0.0;
 
    if(lost_lower >= LiveWickFailedDrop && G_LIVE_PEAK_LOWER >= LiveWickFailedMinPeak)
    {
@@ -1669,7 +1683,9 @@ int LiveBarEvolution(int &dir, double &weight, string &detail)
    }
 
    // --- body growing or giving back ------------------------------------------
-   double body_lost = G_LIVE_PEAK_BODY - body_now;
+   // Package 6 (E-1): the body handed back in price (signed the peak's way), not a share that a spike shrinks.
+   double body_lost = (G_LIVE_PEAK_BODY_RNG > 0.0 && G_LIVE_PEAK_BODY_DIR != 0)
+                      ? (G_LIVE_PEAK_BODY_ABS - (bc - bo) * G_LIVE_PEAK_BODY_DIR) / G_LIVE_PEAK_BODY_RNG : 0.0;
    if(body_lost >= LiveBodyAbsorbedDrop && G_LIVE_PEAK_BODY >= LiveBodyMinPeak &&
       G_LIVE_PEAK_BODY_DIR != 0)
    {
@@ -3306,6 +3322,7 @@ void UpdateMarketStateRouter(const string source)
 
    G_PREVIOUS_MARKET_STATE = G_MARKET_STATE;
    G_MARKET_STATE = new_state;
+   G_PULLBACK_TREND_DIR = (new_state == MARKET_PULLBACK) ? ((trend_state == MARKET_TREND_UP) ? 1 : -1) : 0;   // package 6 (F1)
    G_MARKET_REASON = main_reason;
    G_MARKET_STATUS = "MARKET: " + MarketStateToString(G_MARKET_STATE) + " | reason=" + G_MARKET_REASON;
 

@@ -1476,6 +1476,7 @@ void SetupArmClear()
    G_ARM_BAR = 0;
    G_ARM_TRIGGER = 0.0;
    G_ARM_IS_WALL = false;
+   G_ARM_PUSH_AGAINST = false;
    G_ARM_SETUP_SCORE = 0.0;
    G_ARM_TEXT = "";
    G_ARM_SESSION = -1;
@@ -1486,9 +1487,28 @@ void SetupArmClear()
 // score engine itself (and SetupArmConfirmed) may end that wait - the score up-graders that run after it
 // (legacy packs, missed-trade memory, expired-block boost, the signal queue) must not turn its WAIT
 // into a PASS on score alone.
+// V197: each objection resolves on its own timescale - the wait window of the current arm, bars.
+int SetupArmWindowBars()
+{
+   int window = SetupArmMaxWaitBars;
+   switch(G_ARM_REASON)
+   {
+      case ARM_REASON_ZONE:      window = SetupArmZoneWaitBars;      break;
+      case ARM_REASON_EXTENDED:  window = SetupArmPullbackWaitBars;  break;
+      case ARM_REASON_STRUCTURE: window = SetupArmStructureWaitBars; break;
+      case ARM_REASON_FILL:      window = SetupArmFillWaitBars;      break;
+      case ARM_REASON_LATE:      window = SetupArmLateWaitBars;      break;
+   }
+   return MathMax(3, window);
+}
+
+// Package 6 (audit F4): only while its window is open. An arm expires only inside the score engine, and
+// that runs only while the scanner has a setup - after the scanner went quiet a BUY arm from an hour ago
+// kept refusing the brain's fast BUY and every relief path, on the side the EA had judged right.
 bool ArmHoldsSide(const int dir)
 {
-   return (EnableSetupArming && dir != 0 && G_ARM_DIR == dir && G_ARM_REASON != ARM_REASON_NONE);
+   return (EnableSetupArming && dir != 0 && G_ARM_DIR == dir && G_ARM_REASON != ARM_REASON_NONE &&
+           (G_BARS_SEEN - G_ARM_BAR) <= SetupArmWindowBars());
 }
 
 int OppDirSign()
@@ -1497,7 +1517,8 @@ int OppDirSign()
 }
 
 // Hold a setup that is right in direction but early in timing.
-bool SetupArm(const int dir, const int reason_code, const double trigger_price, const string detail, const bool trigger_is_wall)
+bool SetupArm(const int dir, const int reason_code, const double trigger_price, const string detail, const bool trigger_is_wall,
+              const bool push_against = false)
 {
    // AUDIT FIX (B4): returns whether this direction is now held by an arm. The callers set WAIT only
    // then - a skipped arm (post-win, another side's objection) used to WAIT on nothing, for good.
@@ -1517,6 +1538,10 @@ bool SetupArm(const int dir, const int reason_code, const double trigger_price, 
                      (dir > 0 ? "BUY" : "SELL"), G_BARS_SEEN - G_LAST_WIN_BAR);
       return false;   // no wait - the setup goes straight to the score engine
    }
+
+   // Package 6 (F2): its wait was answered on this bar - the setup goes on to the score, not back to waiting.
+   if(G_ARM_RELEASED_DIR == dir && G_ARM_RELEASED_BAR == G_BARS_SEEN && G_ARM_DIR == 0)
+      return false;
 
    // Do not re-arm the same thing every bar - the wait should be measured from when
    // the objection first appeared.
@@ -1540,6 +1565,7 @@ bool SetupArm(const int dir, const int reason_code, const double trigger_price, 
    G_ARM_BAR = G_BARS_SEEN;
    G_ARM_TRIGGER = trigger_price;
    G_ARM_IS_WALL = trigger_is_wall;
+   G_ARM_PUSH_AGAINST = push_against;
    G_ARM_SETUP_SCORE = (double)G_SCORE_FINAL;
    G_ARM_TEXT = detail;
    G_ARM_START_SCORE = G_SCORE_FINAL;
@@ -1569,21 +1595,9 @@ bool SetupArmConfirmed(string &detail)
    // too short for the slow ones or too generous for the fast. A spread narrows within a few bars;
    // a pullback on an overextended move takes considerably longer. Using a single figure meant
    // dropping valid pullback waits and holding dead spread waits.
-   int window = SetupArmMaxWaitBars;
-   switch(G_ARM_REASON)
-   {
-      case ARM_REASON_ZONE:      window = SetupArmZoneWaitBars;      break;
-      case ARM_REASON_EXTENDED:  window = SetupArmPullbackWaitBars;  break;
-      case ARM_REASON_STRUCTURE: window = SetupArmStructureWaitBars; break;
-      // V275: a fill hold is short by design. The objection is a few points of price, not a
-      // condition that has to resolve - and a setup held too long for a better entry becomes a
-      // setup missed for a better entry.
-      case ARM_REASON_FILL:      window = SetupArmFillWaitBars;      break;
-      // V288: a pullback takes longer to arrive than a better tick does, and the setup behind it is
-      // structural rather than momentary - it does not go stale in three bars.
-      case ARM_REASON_LATE:      window = SetupArmLateWaitBars;      break;
-   }
-   window = MathMax(3, window);
+   // V275: a fill hold is short by design (a few points of price, not a condition to resolve).
+   // V288: a pullback takes longer to arrive than a better tick does. See SetupArmWindowBars().
+   int window = SetupArmWindowBars();
 
    // The window closed. A setup that never got its confirmation was never the trade
    // it appeared to be.
@@ -1849,6 +1863,26 @@ bool SetupArmConfirmed(string &detail)
 
       case ARM_REASON_EXTENDED:
       {
+         // Package 6 (audit E-2): three arm sites (impulse against, a single opposite candle, a run of
+         // pressure against) hold the entry because a push runs AGAINST it. For them "pulled back 600 pts"
+         // below meant the adverse push had gone another $0.60 against the entry, and one bar our way
+         // then confirmed it with +3. Their answer is the push STOPPING: the last bar closed our way,
+         // made no new extreme against us and closed past the bar before it.
+         if(G_ARM_PUSH_AGAINST)
+         {
+            double o2 = CandleOpen(SignalTF, 2), c2 = CandleClose(SignalTF, 2);
+            double h2 = CandleHigh(SignalTF, 2), l2 = CandleLow(SignalTF, 2);
+            if(o2 <= 0.0 || c2 <= 0.0 || h2 <= 0.0 || l2 <= 0.0)
+               return false;
+            bool stopped = (G_ARM_DIR > 0) ? (c > o && l >= l2 && c > c2)
+                                           : (c < o && h <= h2 && c < c2);
+            if(stopped)
+            {
+               detail = "the push against stopped and turned";
+               return true;
+            }
+            return false;
+         }
          // The objection was an overextended move. The answer is a pullback of real
          // depth followed by the move resuming in our direction.
          double pulled = (G_ARM_DIR > 0) ? (G_ARM_TRIGGER - l) / _Point
@@ -2325,6 +2359,22 @@ double SpreadCostRatio(string &detail)
    }
    if(spread_pts <= 0.0)
       return 0.0;
+
+   // Package 6 (audit F3): in cashback mode the target IS built from the spread (spread x 0.6 + 80), so
+   // spread / target was ~1.6 on every scan - far over the 0.26 caution - and the spread arm held the
+   // scanner's side in WAIT for good (and barred the brain's fast path on that side). The question this
+   // check exists for - "is the spread wider than it will be in a few bars?" - is answered here against
+   // the hour's normal spread instead: the ratio is how far above normal it stands (0.26 = 26% wider).
+   if(EnableRebateMode)
+   {
+      double normal = MBNormalSpread();
+      if(normal <= 0.0)
+         return 0.0;
+      double excess = MathMax(0.0, spread_pts / normal - 1.0);
+      detail = StringFormat("cashback: spread %.0f pts vs the hour's normal %.0f (+%.0f%%)",
+                            spread_pts, normal, excess * 100.0);
+      return excess;
+   }
 
    double target = BaseBasketTPPoints();
    if(target <= 0.0)

@@ -4216,7 +4216,7 @@ bool FirstEntryCanRun(string &reason)
          fe_found = false;
       // CHAIN FIX (W2): an armed setup of this side is waiting for the market to answer its objection
       // (a rejection at the zone, a retest) - the brain does not jump the queue on the same side.
-      if(fe_found && G_ARM_DIR == fe_dir)
+      if(fe_found && ArmHoldsSide(fe_dir))   // package 6 (F4): a live arm only, not a stale one
          fe_found = false;
       if(fe_found)
       {
@@ -4899,6 +4899,8 @@ void UpdateFirstEntryEngine(const string source)
                            ? SymbolInfoDouble(_Symbol, SYMBOL_ASK)
                            : SymbolInfoDouble(_Symbol, SYMBOL_BID);
 
+   int      pos_at_send = CountSirusPositions();   // package 6: to look, if the answer is lost
+   datetime sent_at     = TimeCurrent();
    bool sent = false;
    if(order_type == ORDER_TYPE_BUY)
       sent = G_TRADE.Buy(lot, _Symbol, 0.0, sl, tp, comment);
@@ -5004,6 +5006,7 @@ void UpdateFirstEntryEngine(const string source)
       }
       G_FIRST_LAST_FAIL_TIME = 0;
       G_FIRST_TRANSIENT_RETRY_COUNT = 0;
+      G_FIRST_FAIL_POS = -1;
 
       // V29 fix: lock the grid profile mode for this basket's whole lifetime.
       G_BASKET_FROZEN_MODE = G_ACTIVE_MODE;
@@ -5114,6 +5117,9 @@ void UpdateFirstEntryEngine(const string source)
             G_FIRST_TRANSIENT_RETRY_COUNT++;
          else
             G_FIRST_TRANSIENT_RETRY_COUNT = 0;
+         // Package 6 (plan X.4): no answer is not a refusal - the retry first looks at the account.
+         G_FIRST_FAIL_POS  = TradeSendMayHaveFilled(retcode) ? pos_at_send : -1;
+         G_FIRST_FAIL_SENT = sent_at;
 
          if((RetryPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v29 RETRY] first-entry fail ret=%d transient=%s attempt=%d/%d",
@@ -5123,6 +5129,7 @@ void UpdateFirstEntryEngine(const string source)
       PrintFormat("[SIRUS v31.6 PHASE 21.3 ENTRY FAILED] %s | %s",
                   G_ENTRY_STATUS,
                   G_ENTRY_DETAIL);
+      TraceSendFailed((order_type == ORDER_TYPE_BUY ? 1 : -1), "entry", lot, retcode, ret_desc, price);   // package 6
 
       SetStatus(G_ENTRY_STATUS, "FirstEntryEngine");
    }

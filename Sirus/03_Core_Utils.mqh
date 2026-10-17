@@ -64,6 +64,16 @@ string MarketStateToString(ENUM_MARKET_STATE state)
    return "UNKNOWN";
 }
 
+// Package 6 (F1): the trend side of the legacy market state: TREND_UP and an up-trend's PULLBACK are +1,
+// TREND_DOWN and a down-trend's PULLBACK -1, anything else 0.
+int MarketTrendSideNow()
+{
+   if(G_MARKET_STATE == MARKET_TREND_UP)   return 1;
+   if(G_MARKET_STATE == MARKET_TREND_DOWN) return -1;
+   if(G_MARKET_STATE == MARKET_PULLBACK)   return G_PULLBACK_TREND_DIR;
+   return 0;
+}
+
 string OpportunityDirToString(ENUM_OPPORTUNITY_DIR dir)
 {
    switch(dir)

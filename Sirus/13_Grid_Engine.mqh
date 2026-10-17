@@ -2830,6 +2830,8 @@ void UpdateGridRecoveryEngine(const string source)
 
       G_GRID_ATTEMPTS++;
 
+      int      pos_at_send = CountSirusPositions();   // package 6: to look, if the answer is lost
+      datetime sent_at     = TimeCurrent();
       bool sent = false;
       if(order_type == ORDER_TYPE_BUY)
          sent = G_TRADE.Buy(G_NEXT_GRID_LOT, _Symbol, 0.0, sl, tp, comment);
@@ -2869,6 +2871,7 @@ void UpdateGridRecoveryEngine(const string source)
          G_LAST_GRID_BAR = G_BARS_SEEN;
          G_GRID_LAST_FAIL_TIME = 0;
          G_GRID_TRANSIENT_RETRY_COUNT = 0;
+         G_GRID_FAIL_POS = -1;
 
          G_GRID_STATUS = StringFormat("GRID: SENT %s | lot=%.2f | order#=%d",
                                       (order_type == ORDER_TYPE_BUY ? "BUY" : "SELL"),
@@ -2911,6 +2914,9 @@ void UpdateGridRecoveryEngine(const string source)
                G_GRID_TRANSIENT_RETRY_COUNT++;
             else
                G_GRID_TRANSIENT_RETRY_COUNT = 0;
+            // Package 6 (plan X.4): no answer is not a refusal - the retry first looks at the account.
+            G_GRID_FAIL_POS  = TradeSendMayHaveFilled(retcode) ? pos_at_send : -1;
+            G_GRID_FAIL_SENT = sent_at;
 
             if((RetryPrintOnUse && G_VERBOSE))
                PrintFormat("[SIRUS v29 RETRY] grid fail ret=%d transient=%s attempt=%d/%d",
@@ -2920,6 +2926,7 @@ void UpdateGridRecoveryEngine(const string source)
          PrintFormat("[SIRUS v31.6 PHASE 21.3 GRID FAILED] %s | %s",
                      G_GRID_STATUS,
                      G_GRID_DETAIL);
+         TraceSendFailed((order_type == ORDER_TYPE_BUY ? 1 : -1), "grid", G_NEXT_GRID_LOT, retcode, ret_desc, price);   // package 6
       }
    }
 

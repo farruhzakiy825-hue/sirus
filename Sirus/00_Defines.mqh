@@ -164,6 +164,7 @@ int      G_ARM_DIR        = 0;      // direction of the armed setup
 int      G_ARM_REASON     = ARM_REASON_NONE;
 int      G_ARM_BAR        = 0;      // bar it was armed on
 double   G_ARM_TRIGGER    = 0.0;    // price the confirmation is measured against
+bool     G_ARM_PUSH_AGAINST = false; // package 6 (audit E-2): an EXTENDED arm held because a push runs AGAINST the entry (not our move overextended)
 bool     G_ARM_IS_WALL    = false;   // FIX(arm-wall-geometry): true when G_ARM_TRIGGER is a wall the trade must get PAST, false when it is a level the trade wants price to dip into. The two need opposite confirmations.
 bool     G_ENTRY_AGAINST_GLOBAL = false;   // FIX(counter-trend-needs-a-reason): this entry is fighting a confirmed global trend - ChooseLadderShape() caps its ladder
 int      G_ARM_ZONE_FAIL_BAR[2] = {-1, -1};   // FIX(counter-zone-rearm-loop): bar a counter-zone wait ended UNANSWERED, per direction ([0]=buy, [1]=sell). One shared slot let a SELL failure cancel a BUY cooldown.
@@ -171,6 +172,11 @@ double   G_ARM_SETUP_SCORE = 0.0;   // score the setup had when armed
 string   G_ARM_TEXT       = "";
 int      G_ARM_SESSION    = -1;     // V197: session the setup was armed in - a handover invalidates the reasoning
 int      G_ARM_START_SCORE = 0;     // V197: score at the moment of arming, to detect the setup decaying
+// Package 6 (audit F2): the side whose wait was just CONFIRMED, and the bar. Every arm site after the
+// confirmation re-tested its own objection and armed the side again in the same pass, so a confirmed
+// setup never left its wait (the +3 was thrown away). That side is not held again on this bar.
+int      G_ARM_RELEASED_DIR = 0;
+int      G_ARM_RELEASED_BAR = -1;
 
 // Measured local structure (V223). Declared here rather than beside its own module because the
 // break tracker below reads these, and MQL5 resolves functions ahead of use but not variables.
@@ -206,6 +212,12 @@ double   G_LIVE_PEAK_UPPER = 0.0;
 double   G_LIVE_PEAK_LOWER = 0.0;
 double   G_LIVE_PEAK_BODY  = 0.0;
 int      G_LIVE_PEAK_BODY_DIR = 0;
+// Package 6 (audit E-1): the same peaks in PRICE, with the bar's range at that moment. A share of the range
+// shrinks whenever the bar extends the other way - a dip-then-rally bar read as "lower wick failed" (a SELL
+// reason) although its low never broke. A wick or body is lost only when price takes it back.
+double   G_LIVE_PEAK_UPPER_ABS = 0.0, G_LIVE_PEAK_UPPER_RNG = 0.0;
+double   G_LIVE_PEAK_LOWER_ABS = 0.0, G_LIVE_PEAK_LOWER_RNG = 0.0;
+double   G_LIVE_PEAK_BODY_ABS  = 0.0, G_LIVE_PEAK_BODY_RNG  = 0.0;
 
 
 // Multi-candle pattern identifiers.
@@ -435,6 +447,8 @@ int  OppDirSign();
 int  MBLastStructureEvent(const int tfi);  // 20 - newest valid (not failed) BOS / MSS on a slot (read by 18)                        // 06 - the scanner's direction as +1 / -1 / 0
 void TraceDecision(const bool ready, const string reason);   // 26d - decision trace row (called by 14)
 void TraceSent(const int dir, const double price);            // 26d - decision trace: the order went out (14)
+void TraceSendFailed(const int dir, const string kind, const double lot, const int retcode, const string desc, const double price);   // 26d - refused order (13, 14)
+int  CountSirusPositions();                                   // 14 - own positions on this symbol (read by 11)
 void TraceFlush();                                            // 26d - write the buffered trace rows
 string TraceRule(const string reason);                        // 26d - the exact rule inside a refusal (read by 26)
 // EVIDENCE GATES (26c): the quality filters that prove their place on the robot's own numbers.

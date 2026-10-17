@@ -3443,14 +3443,22 @@ double ZoneMapNearestResistanceCalc(const double price)
       if(EnableZoneMapM1)
          ZoneMapScanTFResistance(PERIOD_M1, ZoneMapLookbackM1, price, best);
 
-      if(best == 0.0)
-         best = ZoneMapRawNearestResistance(price);
+      // Package 6 (audit G4): a swing just BEHIND price (the V243 tolerance, kept only when nothing is
+      // ahead) no longer masks the fallbacks - at a new high the raw, FVG and PDH levels ahead used to
+      // lose to it, because they are all tested against `best`.
+      if(best == 0.0 || best < price)
+      {
+         double raw = ZoneMapRawNearestResistance(price);
+         if(raw > 0.0 && (best == 0.0 || raw >= price))
+            best = raw;
+      }
    }
 
+   bool res_behind = (best > 0.0 && best < price);   // package 6 (G4): anything ahead outranks it
    if(EnableFVGZones)
    {
       double fvg = FVGNearestResistance(price);
-      if(fvg > 0.0 && (best == 0.0 || fvg < best))
+      if(fvg > 0.0 && (best == 0.0 || fvg < best || (res_behind && fvg >= price)))
       {
          if((FVGPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v29 FVG] unfilled bearish gap %.5f closer than swing zone %.5f", fvg, best);
@@ -3462,7 +3470,7 @@ double ZoneMapNearestResistanceCalc(const double price)
    // high entirely. PDH is one of the most-watched intraday resistance levels, so add it here
    // as an explicit candidate: if PDH sits above price and closer than anything found so far,
    // it becomes the nearest resistance. Its extra strength is applied later in ZoneMapStrength.
-   if(EnableDailyBias && EnableDailyLevelsAsZones && G_PDH > price && (best == 0.0 || G_PDH < best))
+   if(EnableDailyBias && EnableDailyLevelsAsZones && G_PDH > price && (best == 0.0 || G_PDH < best || best < price))
       best = G_PDH;
 
    // FEATURE(strong-zone-override): mirror of the support side - if a clearly stronger resistance
@@ -3659,14 +3667,20 @@ double ZoneMapNearestSupportCalc(const double price)
       if(EnableZoneMapM1)
          ZoneMapScanTFSupport(PERIOD_M1, ZoneMapLookbackM1, price, best);
 
-      if(best == 0.0)
-         best = ZoneMapRawNearestSupport(price);
+      // Package 6 (G4): mirror - a swing just ABOVE price does not mask the fallbacks underneath.
+      if(best == 0.0 || best > price)
+      {
+         double raw = ZoneMapRawNearestSupport(price);
+         if(raw > 0.0 && (best == 0.0 || raw <= price))
+            best = raw;
+      }
    }
 
+   bool sup_behind = (best > price);   // package 6 (G4): anything actually below outranks it
    if(EnableFVGZones)
    {
       double fvg = FVGNearestSupport(price);
-      if(fvg > 0.0 && (best == 0.0 || fvg > best))
+      if(fvg > 0.0 && (best == 0.0 || (fvg > best && !sup_behind) || (sup_behind && fvg <= price)))
       {
          if((FVGPrintOnUse && G_VERBOSE))
             PrintFormat("[SIRUS v29 FVG] unfilled bullish gap %.5f closer than swing zone %.5f", fvg, best);
@@ -3676,7 +3690,7 @@ double ZoneMapNearestSupportCalc(const double price)
 
    // FEATURE(daily-bias): add PDL (yesterday's low) as an explicit support candidate, mirror of
    // the PDH logic in ZoneMapNearestResistance - the D1 swing scan skipped yesterday entirely.
-   if(EnableDailyBias && EnableDailyLevelsAsZones && G_PDL > 0.0 && G_PDL < price && (best == 0.0 || G_PDL > best))
+   if(EnableDailyBias && EnableDailyLevelsAsZones && G_PDL > 0.0 && G_PDL < price && (best == 0.0 || G_PDL > best || best > price))
       best = G_PDL;
 
    // FEATURE(strong-zone-override): the scan above returned the CLOSEST support. If a clearly
@@ -4618,6 +4632,33 @@ bool IsTransientTradeRetcode(const int code)
            code == TRADE_RETCODE_PRICE_OFF);
 }
 
+// Package 6 (plan X.4): TIMEOUT and CONNECTION are not refusals - the server may have filled the order and
+// only the answer was lost. Sending again before looking would double the position.
+bool TradeSendMayHaveFilled(const int code)
+{
+   return (code == TRADE_RETCODE_TIMEOUT || code == TRADE_RETCODE_CONNECTION);
+}
+
+// After such a send: did a position of ours open after all? The open positions first, then the deal
+// history since the send (a fill that has already closed still counts).
+bool AmbiguousSendFilled(const int pos_at_send, const datetime sent_at)
+{
+   if(CountSirusPositions() > pos_at_send)
+      return true;
+   if(sent_at <= 0 || !HistorySelect(sent_at, TimeCurrent() + 60))
+      return false;
+   for(int i = HistoryDealsTotal() - 1; i >= 0; i--)
+   {
+      ulong d = HistoryDealGetTicket(i);
+      if(d == 0)
+         continue;
+      if(HistoryDealGetString(d, DEAL_SYMBOL) == _Symbol && HistoryDealGetInteger(d, DEAL_MAGIC) == MagicNumber &&
+         HistoryDealGetInteger(d, DEAL_ENTRY) == DEAL_ENTRY_IN)
+         return true;
+   }
+   return false;
+}
+
 bool RetryEngineAllowsFirstEntry(string &reason)
 {
    if(!EnableRealRetryEngine || G_FIRST_LAST_FAIL_TIME <= 0)
@@ -4627,6 +4668,26 @@ bool RetryEngineAllowsFirstEntry(string &reason)
    }
 
    int elapsed = (int)(TimeCurrent() - G_FIRST_LAST_FAIL_TIME);
+
+   // Package 6: the last send went unanswered - look before sending again.
+   if(G_FIRST_FAIL_POS >= 0)
+   {
+      if(AmbiguousSendFilled(G_FIRST_FAIL_POS, G_FIRST_FAIL_SENT))
+      {
+         PrintFormat("[SIRUS ORDER] the first entry that went unanswered did fill - no second send");
+         G_FIRST_FAIL_POS = -1;
+         G_FIRST_LAST_FAIL_TIME = 0;
+         G_FIRST_TRANSIENT_RETRY_COUNT = 0;
+         reason = "unanswered send filled after all - resync";
+         return false;
+      }
+      if(elapsed < MathMax(RetryDelaySeconds, 5))
+      {
+         reason = StringFormat("unanswered send: checking the account %d/%ds", elapsed, MathMax(RetryDelaySeconds, 5));
+         return false;
+      }
+      G_FIRST_FAIL_POS = -1;   // looked after the wait: nothing opened - a plain failure from here
+   }
 
    if(!G_FIRST_LAST_FAIL_TRANSIENT)
    {
@@ -4670,6 +4731,26 @@ bool RetryEngineAllowsGrid(string &reason)
    }
 
    int elapsed = (int)(TimeCurrent() - G_GRID_LAST_FAIL_TIME);
+
+   // Package 6: the last rung went unanswered - look before sending again.
+   if(G_GRID_FAIL_POS >= 0)
+   {
+      if(AmbiguousSendFilled(G_GRID_FAIL_POS, G_GRID_FAIL_SENT))
+      {
+         PrintFormat("[SIRUS ORDER] the grid rung that went unanswered did fill - no second send");
+         G_GRID_FAIL_POS = -1;
+         G_GRID_LAST_FAIL_TIME = 0;
+         G_GRID_TRANSIENT_RETRY_COUNT = 0;
+         reason = "unanswered grid send filled after all - resync";
+         return false;
+      }
+      if(elapsed < MathMax(RetryDelaySeconds, 5))
+      {
+         reason = StringFormat("unanswered grid send: checking the account %d/%ds", elapsed, MathMax(RetryDelaySeconds, 5));
+         return false;
+      }
+      G_GRID_FAIL_POS = -1;
+   }
 
    if(!G_GRID_LAST_FAIL_TRANSIENT)
    {

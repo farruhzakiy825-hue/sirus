@@ -863,21 +863,27 @@ bool DetectPullbackBuy(string &reason, int &score)
       return false;
    }
 
-   bool market_ok = (G_MARKET_STATE == MARKET_PULLBACK || G_MARKET_STATE == MARKET_TREND_UP);
+   // Package 6 (audit F1): an UP-trend only (TREND_UP, or the up-trend's PULLBACK). PULLBACK used to count
+   // for either side - and since it means falling closes, only the SELL could ever fire in it, so the
+   // "continuation" was always the counter-trend side. The dip is now read from the bars themselves: a
+   // close below the one before (c2 < c3) and then the turn back up (c1 > c2).
+   bool market_ok = (MarketTrendSideNow() > 0);
    double c1 = CandleClose(SignalTF, 1);
    double c2 = CandleClose(SignalTF, 2);
+   double c3 = CandleClose(SignalTF, 3);
    double body = CandleBodyPoints(SignalTF, 1);
 
-   if(!market_ok || c1 <= 0.0 || c2 <= 0.0)
+   if(!market_ok || c1 <= 0.0 || c2 <= 0.0 || c3 <= 0.0)
    {
-      reason = "not pullback/uptrend or data not ready";
+      reason = "not an up-trend or data not ready";
       return false;
    }
 
    bool continuation = (c1 > c2 && IsBullishCandle(SignalTF, 1));
+   bool dipped = (c2 < c3);
 
    score = 0;
-   if(G_MARKET_STATE == MARKET_PULLBACK) score += 2;
+   if(dipped) score += 2;
    if(continuation) score += 3;
    if(body >= MathMax(DeadATRThresholdPoints * 0.5, 200.0)) score += 1;
 
@@ -895,21 +901,24 @@ bool DetectPullbackSell(string &reason, int &score)
       return false;
    }
 
-   bool market_ok = (G_MARKET_STATE == MARKET_PULLBACK || G_MARKET_STATE == MARKET_TREND_DOWN);
+   // Package 6 (F1): a DOWN-trend only; the bounce (c2 > c3) and the turn back down (c1 < c2).
+   bool market_ok = (MarketTrendSideNow() < 0);
    double c1 = CandleClose(SignalTF, 1);
    double c2 = CandleClose(SignalTF, 2);
+   double c3 = CandleClose(SignalTF, 3);
    double body = CandleBodyPoints(SignalTF, 1);
 
-   if(!market_ok || c1 <= 0.0 || c2 <= 0.0)
+   if(!market_ok || c1 <= 0.0 || c2 <= 0.0 || c3 <= 0.0)
    {
-      reason = "not pullback/downtrend or data not ready";
+      reason = "not a down-trend or data not ready";
       return false;
    }
 
    bool continuation = (c1 < c2 && IsBearishCandle(SignalTF, 1));
+   bool bounced = (c2 > c3);
 
    score = 0;
-   if(G_MARKET_STATE == MARKET_PULLBACK) score += 2;
+   if(bounced) score += 2;
    if(continuation) score += 3;
    if(body >= MathMax(DeadATRThresholdPoints * 0.5, 200.0)) score += 1;
 

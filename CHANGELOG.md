@@ -1,5 +1,62 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 6-paket: 2-raund audit topilmalari (shamlar, score, zonalar, pul) + order xatolari (2026-10-17)
+
+Manba: `docs/audit_2026-10-17/` (E shamlar, F detektor/score, G zonalar, H pul). Har topilma kodda qayta
+tekshirildi, faqat tasdiqlanganlari tuzatildi. Kompilyatsiya qilinmagan - statik tekshiruvlar toza.
+
+**Noto'g'ri yo'nalish manbalari**
+- F1: MARKET_PULLBACK yo'nalishsiz edi - "pullback continuation" detektori faqat trendga QARSHI tomonda
+  ishlardi va ikkala tomon ham "+2 trend bilan" olardi. Endi PULLBACK o'z trendiga tegishli
+  (`G_PULLBACK_TREND_DIR`, `MarketTrendSideNow()`): detektor, anti-overfilter bonusi va redirect shu tomonni o'qiydi.
+- E-1: jonli sham "wick failed" ulush bilan o'lchanardi - pastga tushib keyin o'sgan shamda diapazon
+  kattalashgani uchun "lower wick failed" (SELL sababi) chiqardi. Endi wick va tana NARXDA o'lchanadi.
+- E-3: katta tuzoq shami FAKE_BREAKOUT bo'lib qolardi va V4, tezis tahdidi, grid to'xtashlari uni
+  "qarshi displacement" deb ko'rmasdi. Displacement endi oldin tekshiriladi.
+- E-4: `MBCandleConfirms` - wick shami uchun eng kichik diapazon (`MBTurnMinRangeATR` = 0.5 ATR); katta
+  hammer / shooting star (ABSORPTION) endi burilish hisoblanadi.
+- E-5: bitta yopilmagan M1 sham "joy", "trigger" va "reversal isboti" bo'lib uch marta sanalardi. Ikki
+  qism talab qilinadigan qoidalarda endi bittasi yopilgan bo'lishi shart.
+- E-6: "range edge rejected" yo'nalishni faqat wickdan olardi (tepada BUY). Endi chegara tomoni bilan bog'langan.
+- G1: V2 "SELL hali support bo'lgan zona ostida" holatini ko'rmasdi (resistance ro'yxatida faqat swing
+  high bor). Endi narx endigina teshgan o'z tomonidagi swing ham tekshiriladi (`MBPiercedOwnLevel`).
+- F10: ruxsat berilgan trendga qarshi kirish `CounterContextBlockNow` dan erta chiqib, range-breakout
+  fade va fresh-impulse tekshiruvlarini o'tkazib yuborardi. Endi trend bo'yicha kirish bilan bir xil.
+- F6: jarima ikki joyda 10 ga qirqilardi - "objection headroom" (V287) va Hunter termini hech qachon
+  ishlamasdi, ~9 bonusli har qanday setup o'tardi. Endi bitta shift: `ScorePenaltyCeiling()`.
+
+**Sukunat (savdo soni) manbalari**
+- F3: cashback rejimida spread/TP nisbati har doim ~1.6 (TP spreaddan quriladi) - skaner tomoni doim
+  "spread torayishini kutish" armida turardi. Cashback'da spread endi soatning normal spreadi bilan solishtiriladi.
+- F2: tasdiqlangan arm shu o'tishning o'zida qayta arm qilinardi - tasdiqlangan setup hech qachon chiqmasdi.
+  Endi tasdiqlangan tomon shu barda qayta ushlanmaydi.
+- F4: eskirgan arm (skaner jim bo'lganda) miyaning tez kirishini o'sha tomonda to'sardi. `ArmHoldsSide`
+  endi arm oynasini tekshiradi (`SetupArmWindowBars`).
+- F5: arm-WAIT redirectni ishga tushirib, qarama-qarshi tomonni simmetrik e'tirozlardan qochirardi. Arm
+  ushlagan tomonda redirect yo'q.
+- E-2: "qarshi itarish" armlari (impuls, bitta qarshi sham, qarshi bosim) EXTENDED tasdig'idan
+  foydalanardi - itarish yana 600 pt ketgandan keyin tasdiqlanardi. Endi: itarish TO'XTADI va burildi.
+- G2: V3 "joy yo'q" ikkala tomonni bir vaqtda to'sishi mumkin edi; 4+ marta tegilgan zona hali devor edi.
+  Endi: hech qachon ikkala tomon emas (kam joyli tomon to'siladi), eskirgan zona devor emas.
+- G4: narx orqasidagi swing FVG / PDH / PDL / raw zaxira darajalarini yashirardi va yangi cho'qqida V3
+  breakout BUY'ni to'sardi. Tuzatildi.
+
+**Pul va chiqish**
+- H-04: Recovery Judge bitta reversal'ni ikki marta sanardi (tezis o'limi + 3-o'qish) - DD >= 45% da
+  bitta fakt IMPOSSIBLE (zararda yopish) berardi. Endi 3-o'qish o'limdan yoki rescue'dan keyingi YANGI reversal'ni sanaydi.
+- H-03: grid chuqurlik limiti cashback'da 672 pt qadam bilan hisoblanardi (haqiqiysi ~5500) - limit
+  hech qachon ishlamasdi. Endi grid dvigateli bilan bir xil min/max qadam.
+
+**Order xatolari (reja X.4)**
+- Rad etilgan entry / grid order Trace CSV'ga `FAILED` qatori bo'lib yoziladi (retcode, tavsif, lot, narx).
+- TIMEOUT / CONNECTION javobidan keyin order to'lgan bo'lishi mumkin: qayta yuborishdan oldin pozitsiyalar
+  va deal tarixi tekshiriladi (`AmbiguousSendFilled`), to'lgan bo'lsa ikkinchi order yuborilmaydi.
+
+**Keyingi paketga qoldirildi (egasining qarori yoki katta o'zgarish kerak):** F7 legacy paketlar
+(cheksiz bonuslar), F9/F11 score'dagi ~25 yo'nalish termini hakamni o'qimaydi, G3 kuchli-zona almashtirish,
+G5 counter-zone 3500 pt, G6 HTF zona buzilishi, H-01 balansga qarab lot (hisob hajmi kerak), H-07 swap
+(hisob swap-free'mi?), E-7..E-18 va F13..F21 (P3/P4).
+
 ## 5-paket: struktura, zonalar, sham-yo'nalish izchilligi (2026-10-10)
 
 **Struktura (BOS / MSS)**

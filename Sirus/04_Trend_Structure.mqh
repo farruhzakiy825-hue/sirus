@@ -1991,7 +1991,14 @@ int GridEffectiveMaxOrders(string &reason)
 
    // Each remaining rung sits roughly a grid-distance further against us, so the
    // average adverse excursion for the set is about half the total span.
-   double span_pts = (double)(base - done) * MathMax(1.0, AutoGridBaseDistance()) * 0.5;
+   // Package 6 (audit H-03): the step the grid really uses - clamped to its min / max like the grid
+   // engine and the affordability checks do. Unclamped, cashback mode read 224 x 3 = 672 pts instead of
+   // ~5500 and projected ~$270 for rungs that cost ~$1,850, so this cap never bound there (and the
+   // Recovery Judge's "ladder used" and the reserve-rung rule read the same number).
+   double gstep = MathMax(1.0, AutoGridBaseDistance());
+   if(AutoGridMinDistance() > 0.0) gstep = MathMax(gstep, AutoGridMinDistance());
+   if(AutoGridMaxDistance() > 0.0) gstep = MathMin(gstep, AutoGridMaxDistance());
+   double span_pts = (double)(base - done) * gstep * 0.5;
    double tick_val = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
    double tick_sz  = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
    if(tick_val <= 0.0 || tick_sz <= 0.0)
@@ -2009,7 +2016,7 @@ int GridEffectiveMaxOrders(string &reason)
       int allowed = done;
       for(int k = done; k < base; k++)
       {
-         double rung_span = (double)(k - done + 1) * MathMax(1.0, AutoGridBaseDistance()) * 0.5;
+         double rung_span = (double)(k - done + 1) * gstep * 0.5;
          double rung_cost = lot_k * rung_span * per_point;
          if(running + rung_cost > budget)
             break;

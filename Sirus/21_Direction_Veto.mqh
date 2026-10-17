@@ -160,6 +160,61 @@ bool MBVetoReversalCheck(const int dir, string &why)
    return false;
 }
 
+// Package 6 (audit G1): the nearest swing of the entry's OWN side that price has just pierced - for a SELL
+// a swing low a little ABOVE price (a support it dipped under), for a BUY a swing high a little below.
+// The zone map hands V2 only resistance = swing highs and support = swing lows, so "SELL under a swept
+// support that still holds" was judged against some swing high instead and never refused. 0 = none.
+double MBPiercedOwnLevel(const int dir, const double price, const double window)
+{
+   if(dir == 0 || price <= 0.0 || window <= 0.0)
+      return 0.0;
+   ZoneMapRefreshSwingCache();
+   double best = 0.0;
+   for(int t = 0; t <= 5; t++)   // M5 .. D1 (the M1 swings are noise here)
+   {
+      int cnt = (dir < 0) ? G_ZMC_LOW_COUNT[t] : G_ZMC_HIGH_COUNT[t];
+      for(int k = 0; k < cnt; k++)
+      {
+         double lv = (dir < 0) ? G_ZMC_LOW_PRICE[t][k] : G_ZMC_HIGH_PRICE[t][k];
+         if(lv <= 0.0)
+            continue;
+         double d = (dir < 0) ? (lv - price) : (price - lv);
+         if(d <= 0.0 || d > window)
+            continue;
+         if(best == 0.0 || MathAbs(lv - price) < MathAbs(best - price))
+            best = lv;
+      }
+   }
+   return best;
+}
+
+// V3 measure: the holding zone of the other side ahead of dir and how much room it leaves (points).
+// Package 6 (audit G2): a zone touched four times or more is wearing out - breakout risk, not a wall
+// (council 3 and the net edge already read it so; V3 did not).
+bool MBV3Blocked(const int dir, const double price, double &room_pts, double &need_pts, string &ztxt)
+{
+   room_pts = 0.0;
+   need_pts = 0.0;
+   ztxt = "";
+   if(dir == 0 || price <= 0.0)
+      return false;
+   double other = (dir < 0) ? ZoneMapNearestSupport(price) : ZoneMapNearestResistance(price);
+   if(other <= 0.0)
+      return false;
+   SMBZone z;
+   if(!MBZoneRead(other, z) || z.pending_break || z.touches >= 4 || !((dir < 0 && z.role > 0) || (dir > 0 && z.role < 0)))
+      return false;
+   // Package 6 (audit G4): a level price already stands beyond (past the far edge of its band) is not
+   // ahead - with no swing ahead (a new high) the scan hands back the just-broken one behind price, and
+   // V3 read it as a wall with negative room and blocked the with-trend breakout.
+   if((dir > 0 && price > z.hi) || (dir < 0 && price < z.lo))
+      return false;
+   room_pts = (dir < 0) ? (price - z.hi) / _Point : (z.lo - price) / _Point;
+   need_pts = MathMax(1.0, BaseBasketTPPoints()) * MathMax(0.1, MBVetoRoomTPMult);
+   ztxt = StringFormat("%s %s (%s)", MBZoneRoleName(z.role), DoubleToString(other, _Digits), MBZoneStateName(z.state));
+   return (room_pts < need_pts);
+}
+
 // V2 + V3. The zone the entry leans on, and the one it is walking into.
 bool MBVetoZoneCheck(const int dir, const double price, string &why)
 {
@@ -185,25 +240,39 @@ bool MBVetoZoneCheck(const int dir, const double price, string &why)
             return true;
          }
       }
+      // Package 6 (G1): and the own-side level price has just pierced (the one that may have flipped).
+      double pierced = MBPiercedOwnLevel(dir, price, MBVetoZoneNearATR * atr5);
+      if(pierced > 0.0)
+      {
+         string pwhy = "";
+         if(MBZoneEntryVerdict(dir, pierced, pwhy) <= 0)
+         {
+            why = StringFormat("V2 zone role: %s", pwhy);
+            return true;
+         }
+      }
    }
 
    if(MBVetoNoRoom)
    {
-      double other = (dir < 0) ? sup : res;
-      if(other > 0.0)
+      double room_pts = 0.0, need_pts = 0.0;
+      string ztxt = "";
+      if(MBV3Blocked(dir, price, room_pts, need_pts, ztxt))
       {
-         SMBZone z;
-         if(MBZoneRead(other, z) && !z.pending_break && ((dir < 0 && z.role > 0) || (dir > 0 && z.role < 0)))
+         // Package 6 (audit G2): never both sides. Measured from the band edge, a holding support and a
+         // holding resistance ~$1.6-2 apart blocked BUY and SELL at once (council 3 and the net edge
+         // have this escape; V3 ran earlier in the chain without it). Price boxed in: only the side with
+         // LESS room is refused.
+         double px_o = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_BID : SYMBOL_ASK));
+         double room_o = 0.0, need_o = 0.0;
+         string ztxt_o = "";
+         bool boxed = MBV3Blocked(-dir, px_o, room_o, need_o, ztxt_o);
+         if(!boxed || room_pts < room_o)
          {
-            double room_pts = (dir < 0) ? (price - z.hi) / _Point : (z.lo - price) / _Point;
-            double need_pts = MathMax(1.0, BaseBasketTPPoints()) * MathMax(0.1, MBVetoRoomTPMult);
-            if(room_pts < need_pts)
-            {
-               why = StringFormat("V3 no room: %s %s holds %.0f pts away (target needs %.0f) - %s",
-                                  MBZoneRoleName(z.role), DoubleToString(other, _Digits), MathMax(0.0, room_pts), need_pts,
-                                  MBZoneStateName(z.state));
-               return true;
-            }
+            why = StringFormat("V3 no room: %s holds %.0f pts away (target needs %.0f)%s",
+                               ztxt, MathMax(0.0, room_pts), need_pts,
+                               (boxed ? StringFormat(" - boxed, the other side has %.0f", MathMax(0.0, room_o)) : ""));
+            return true;
          }
       }
    }

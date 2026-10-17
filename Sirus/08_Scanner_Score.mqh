@@ -628,19 +628,21 @@ void AddScorePenalty(int &penalty, string &detail, const int value, const string
 
 void ApplyAntiOverfilterScoring(int &bonus, int &penalty, string &detail)
 {
-   // Trend alignment: penalty, not a hard block
+   // Trend alignment: penalty, not a hard block. Package 6 (F1): a PULLBACK belongs to its trend - it is
+   // "aligned" only for the trend's side and "against" for the other (it used to be a bonus for both).
+   int trend_side = MarketTrendSideNow();
    if(IsBuyOpportunity())
    {
-      if(G_MARKET_STATE == MARKET_TREND_UP || G_MARKET_STATE == MARKET_PULLBACK)
+      if(trend_side > 0)
          AddScoreBonus(bonus, detail, ScoreBonusTrendAligned, "buy aligned with trend/pullback");
-      else if(G_MARKET_STATE == MARKET_TREND_DOWN)
+      else if(trend_side < 0)
          AddScorePenalty(penalty, detail, ScorePenaltyTrendAgainst, "buy against trend");
    }
    else if(IsSellOpportunity())
    {
-      if(G_MARKET_STATE == MARKET_TREND_DOWN || G_MARKET_STATE == MARKET_PULLBACK)
+      if(trend_side < 0)
          AddScoreBonus(bonus, detail, ScoreBonusTrendAligned, "sell aligned with trend/pullback");
-      else if(G_MARKET_STATE == MARKET_TREND_UP)
+      else if(trend_side > 0)
          AddScorePenalty(penalty, detail, ScorePenaltyTrendAgainst, "sell against trend");
    }
 
@@ -1530,7 +1532,10 @@ why = StringFormat("-%d %s against HTF trend (htf=%s, conf %.2f, reversal rc=%.2
                                   (dir > 0 ? "BUY" : "SELL"),
                                   (htf_dir > 0 ? "BUY" : "SELL"),
                                   gtc, rc, HTFAgainstReversalOverride);
-               return false;
+               // Package 6 (audit F10): no early `return false` here any more. It sent an ALLOWED
+               // counter-HTF entry out of the function, past sections 3-13 - so a counter-trend entry
+               // skipped the range-breakout counter-fade and the fresh-impulse wait that a with-trend
+               // entry in the same spot pays. It now meets the same checks.
             }
          }
       }
@@ -1685,7 +1690,7 @@ why = StringFormat("-%d %s against HTF trend (htf=%s, conf %.2f, reversal rc=%.2
                if(arm_px > 0.0 &&
                   SetupArm(dir, ARM_REASON_EXTENDED, arm_px,
                            StringFormat("%s impulse still running - waiting for it to spend itself",
-                                        (imp_dir > 0 ? "up" : "down")), false))
+                                        (imp_dir > 0 ? "up" : "down")), false, true))   // package 6 (E-2): a push against
                   return true;
             }
             if(CounterImpulseHardBlock)
@@ -1870,6 +1875,28 @@ why = StringFormat("-%d %s against HTF trend (htf=%s, conf %.2f, reversal rc=%.2
    return false;
 }
 
+// Package 6 (audit F6): ONE ceiling for the penalty, used by every clamp. The bar-relative cap (V249) and
+// the objection headroom (V287) were applied, and then two hard clamps to MaxTotalScorePenalty (V278, at
+// the sum and after the context pass) cut the penalty back to 10 before the V287 headroom ran - so the
+// headroom never applied, the Hunter term was overridden, and any setup with ~9 bonus passed whatever
+// objected (bonus ceiling 26-31 against a penalty frozen at 10).
+int ScorePenaltyCeiling()
+{
+   if(MaxTotalScorePenalty <= 0)
+      return 0;
+   int cap = MaxTotalScorePenalty +
+             MathMax(0, (G_SCORE_IS_MICRO ? MinScoreMicroBalanced : MinScoreBalanced) - MinScoreForContext(G_SCORE_IS_MICRO));
+   if(EnableObjectionHeadroom && G_PENALTY_RAW > MaxTotalScorePenalty)
+   {
+      double over = (double)(G_PENALTY_RAW - MaxTotalScorePenalty) /
+                    MathMax(1.0, (double)MaxTotalScorePenalty * ObjectionHeadroomSpan);
+      cap += (int)MathRound(MathMin(1.0, over) * (double)ObjectionHeadroomExtra);
+   }
+   if(G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER && HunterProtectionPenaltyScale > 1.0)
+      cap = (int)MathRound(cap * HunterProtectionPenaltyScale);
+   return cap;
+}
+
 void UpdateSignalScoreEngine(const string source)
 {
    // FIX(counter-trend-flag-stale): ResetScoreEngine() clears this, but it is only reached on the
@@ -2010,6 +2037,8 @@ void UpdateSignalScoreEngine(const string source)
             PrintFormat("[SIRUS ARMED] %s confirmed, but this scan's setup is the other side - no bonus | %s",
                         armed_text, arm_detail);
          SetupArmClear();
+         G_ARM_RELEASED_DIR = armed_dir;   // package 6 (F2): not re-armed by the next arm site on this bar
+         G_ARM_RELEASED_BAR = G_BARS_SEEN;
       }
    }
 
@@ -4722,7 +4751,7 @@ void UpdateSignalScoreEngine(const string source)
                                                 : SymbolInfoDouble(_Symbol, SYMBOL_BID);
                if(sc_px > 0.0 &&
                   SetupArm(entry_dir_i, ARM_REASON_EXTENDED, sc_px,
-                           StringFormat("%s - waiting for it to stop", sc_detail), false))
+                           StringFormat("%s - waiting for it to stop", sc_detail), false, true))   // package 6 (E-2)
                {
                   G_SCORE_DECISION = SCORE_DECISION_WAIT;
                   detail += StringFormat(" [armed: %s];", sc_detail);
@@ -4809,7 +4838,7 @@ void UpdateSignalScoreEngine(const string source)
                                                 : SymbolInfoDouble(_Symbol, SYMBOL_BID);
                if(cp_px > 0.0 &&
                   SetupArm(entry_dir_i, ARM_REASON_EXTENDED, cp_px,
-                           StringFormat("%s - waiting for the run to break", cp_detail), false))
+                           StringFormat("%s - waiting for the run to break", cp_detail), false, true))   // package 6 (E-2)
                {
                   G_SCORE_DECISION = SCORE_DECISION_WAIT;
                   detail += StringFormat(" [armed: %s];", cp_detail);
@@ -6535,10 +6564,13 @@ void UpdateSignalScoreEngine(const string source)
    //
    // Whatever path the penalty took to get here, this is the number that decides the trade, and it
    // is the right place to enforce the limit.
-   if(MaxTotalScorePenalty > 0 && G_SCORE_PENALTY > MaxTotalScorePenalty)
    {
-      detail += StringFormat(" [final penalty cap %d->%d];", G_SCORE_PENALTY, MaxTotalScorePenalty);
-      G_SCORE_PENALTY = MaxTotalScorePenalty;
+      int pen_ceiling = ScorePenaltyCeiling();   // package 6 (F6): the same ceiling as the decision clamp
+      if(pen_ceiling > 0 && G_SCORE_PENALTY > pen_ceiling)
+      {
+         detail += StringFormat(" [final penalty cap %d->%d];", G_SCORE_PENALTY, pen_ceiling);
+         G_SCORE_PENALTY = pen_ceiling;
+      }
    }
 
    G_SCORE_FINAL = G_SCORE_BASE + G_SCORE_BONUS - G_SCORE_PENALTY;
@@ -6783,9 +6815,7 @@ void UpdateSignalScoreEngine(const string source)
 
          // Must be the SAME ceiling the main clamp used, or adding a context penalty could re-clamp
          // the total DOWNWARD and paradoxically RAISE G_SCORE_FINAL. Mirrors the bar-relative term.
-         int ctx_cap = MaxTotalScorePenalty +
-                       MathMax(0, (G_SCORE_IS_MICRO ? MinScoreMicroBalanced : MinScoreBalanced)
-                                  - MinScoreForContext(G_SCORE_IS_MICRO));
+         int ctx_cap = ScorePenaltyCeiling();   // package 6 (F6): the one ceiling
 
          if(G_SCORE_PENALTY < 0)
             G_SCORE_PENALTY = 0;
@@ -6814,10 +6844,13 @@ void UpdateSignalScoreEngine(const string source)
    //
    // Whatever path the penalty took to get here, this is the number that decides the trade, and it
    // is the right place to enforce the limit.
-   if(MaxTotalScorePenalty > 0 && G_SCORE_PENALTY > MaxTotalScorePenalty)
    {
-      detail += StringFormat(" [final penalty cap %d->%d];", G_SCORE_PENALTY, MaxTotalScorePenalty);
-      G_SCORE_PENALTY = MaxTotalScorePenalty;
+      int pen_ceiling = ScorePenaltyCeiling();   // package 6 (F6): the same ceiling as the decision clamp
+      if(pen_ceiling > 0 && G_SCORE_PENALTY > pen_ceiling)
+      {
+         detail += StringFormat(" [final penalty cap %d->%d];", G_SCORE_PENALTY, pen_ceiling);
+         G_SCORE_PENALTY = pen_ceiling;
+      }
    }
 
    G_SCORE_FINAL = G_SCORE_BASE + G_SCORE_BONUS - G_SCORE_PENALTY;
@@ -6846,18 +6879,9 @@ void UpdateSignalScoreEngine(const string source)
    // carried it was not cut at all.
    //
    // Same mechanism, same reading, applied to the side that was left out.
-   int eff_final_pen_cap = MaxTotalScorePenalty;
-
-   if(EnableObjectionHeadroom && MaxTotalScorePenalty > 0 && G_PENALTY_RAW > 0)
-   {
-      // How far the raw objection ran past the ceiling. A setup drawing forty raw penalty has more
-      // against it than one drawing twelve, and until now they were charged the same.
-      double over = (double)(G_PENALTY_RAW - MaxTotalScorePenalty) /
-                    MathMax(1.0, (double)MaxTotalScorePenalty * ObjectionHeadroomSpan);
-      if(over > 0.0)
-         eff_final_pen_cap = MaxTotalScorePenalty +
-                             (int)MathRound(MathMin(1.0, over) * (double)ObjectionHeadroomExtra);
-   }
+   // How far the raw objection ran past the ceiling: a setup drawing forty raw penalty has more against
+   // it than one drawing twelve. Package 6 (F6): ScorePenaltyCeiling() - the earlier clamps use it too.
+   int eff_final_pen_cap = ScorePenaltyCeiling();
 
    if(eff_final_pen_cap > 0 && G_SCORE_PENALTY > eff_final_pen_cap)
    {
