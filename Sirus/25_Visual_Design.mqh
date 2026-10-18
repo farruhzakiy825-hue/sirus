@@ -759,6 +759,11 @@ void MBDrawPanel()
       else
          ObjectDelete(0, MB_VIS_PREFIX + "B_LQ");
       {
+         string ses = MBSessionPanelText();   // package 12: Asia / Frankfurt / London high-low and the midnight open
+         if(StringLen(ses) > 0) MBPanelLine("B_SES", ses, muted, false, x0, w, lh);
+         else ObjectDelete(0, MB_VIS_PREFIX + "B_SES");
+      }
+      {
          string ab = MBArbiterText();   // direction arbiter: what H4 / H1 / M15 / M5 say and the verdict per side
          if(StringLen(ab) > 0) MBPanelLine("B_ARB", ab, muted, false, x0, w, lh);
          else ObjectDelete(0, MB_VIS_PREFIX + "B_ARB");

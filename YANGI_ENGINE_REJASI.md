@@ -824,7 +824,7 @@ Har paketdan oldin dalil to'planadi (Trace CSV va 2-raund audit). Shundan keyin 
 | 3 | Grid Liability Score: bitta 0–100 son, entry'dan mustaqil. Faqat yangi pog'onani **sekinlashtiradi yoki tasdiq talab qiladi**, gridni muzlatmaydi — ✅ 9-paket | Grid — eng katta DD manbai | XII.3 |
 | 4 | Yagona zona hakami + RBR/DBR/RBD/DBD + 100 ballik baho + zona ID Autopsy'ga  — ✅ 10-paket: RBR/DBR/RBD/DBD, hayot bosqichi, 100 ball, ID, autopsy (`20i`). Qolgani: 19/20g/11 ni bitta hakamga birlashtirish - sinovdan keyin | Zonalar uch joyda uch xil o'qiladi | VII, 3-hujjat |
 | 5 | Entry Competition va EXECUTE FAST / WAIT-FOR-LOCATION natijalari  — ✅ 11-paket: raqobat (hakam sifati bo'yicha). EXECUTE FAST / WAIT-FOR-LOCATION - keyin | Kuniga 250–450 savdoni noto'g'ri yo'nalishsiz ushlab qoladi | IX.4, 15.5.1 |
-| 6 | Session Engine to'ldirish: Frankfurt, Midnight open, Asia/London H/L likvidlik xaritasiga | Nishon va sweep sifati oshadi | VI.3 |
+| 6 | Session Engine to'ldirish: Frankfurt, Midnight open, Asia/London H/L likvidlik xaritasiga  — ✅ 12-paket | Nishon va sweep sifati oshadi | VI.3 |
 | 7 | Cashback limit-order dvigateli (C3) | Eng katta yangi modul. Avval 2–6 tayyor bo'lishi kerak: pending order risk, eskirish, takrorlanish | 13.4 C3, X.3, XIII |
 | 8 | Input auditi: 3236 input, rejimlar farqi, zid va dublikat inputlar. Ma'nosi tasdiqlanmasdan hech biri o'zgartirilmaydi | Rejimlar orasidagi yashirin farq — "kamchilik tugamaydi" sabablaridan biri | XVIII |
 | 9 | Autopsy toifalari: Wrong market state, Execution error, Exit failure, Risk rule failure | Har xato ildiz sababga bog'lanadi | XVII.2 |

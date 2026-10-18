@@ -29,6 +29,10 @@ input group "BRAIN ▸ Liquidity map"
 input bool   EnableMBLiquidityMap       = true;   // Enable mb liquidity map
 // MBLiquidityPrintOnUse: MAJOR+ sweep va tuzoqlarni jurnalga yozish ([SIRUS LIQUIDITY])
 input bool   MBLiquidityPrintOnUse      = true;   // Brain liquidity print on use (on/off)
+// EnableSessionLiquidity: 12-PAKET: sessiya darajalari - Asia, Frankfurt, London high/low (oxirgi YAKUNLANGAN sessiya) likvidlik xaritasiga; New York midnight open panelda. Vaqt: UTC + yozgi/qishki vaqt, broker serveriga o'tkaziladi
+input bool   EnableSessionLiquidity     = true;   // Session liquidity: Asia / Frankfurt / London high-low, midnight open
+// SessionServerUTCOffset: Broker server vaqti UTC dan necha soat farq qiladi. 99 = jonli hisobda avtomatik (testerda 0). Exness = 0
+input int    SessionServerUTCOffset     = 99;   // Broker server offset from UTC, hours (99 = auto; tester 0)
 
 #define LQ_MAX        64
 #define LQ_FRESH      0
@@ -42,6 +46,7 @@ input bool   MBLiquidityPrintOnUse      = true;   // Brain liquidity print on us
 #define LQ_H1         4
 #define LQ_H4         8
 #define LQ_KEY        16
+#define LQ_SES        32   // package 12: a completed session's high / low (Asia, Frankfurt, London)
 
 struct SLqLevel
 {
@@ -78,7 +83,7 @@ int MBLqSideIdx(const int side) { return (side > 0) ? 1 : 0; }
 
 int MBLqClass(const int mask, const bool eq)
 {
-   bool m5 = (mask & LQ_M5) != 0, m15 = (mask & LQ_M15) != 0, h1 = (mask & LQ_H1) != 0;
+   bool m5 = (mask & LQ_M5) != 0, m15 = (mask & LQ_M15) != 0, h1 = (mask & (LQ_H1 | LQ_SES)) != 0;   // a session extreme ranks with H1
    bool big = (mask & (LQ_H4 | LQ_KEY)) != 0;
    int c = 1;
    if(big && h1 && (m15 || m5)) c = 5;
@@ -110,6 +115,7 @@ string MBLqMaskText(const int mask)
    if((mask & LQ_H1) != 0)  t += "H1+";
    if((mask & LQ_H4) != 0)  t += "H4+";
    if((mask & LQ_KEY) != 0) t += "PD+";
+   if((mask & LQ_SES) != 0) t += "SES+";
    if(StringLen(t) > 0) t = StringSubstr(t, 0, StringLen(t) - 1);
    return t;
 }
@@ -201,6 +207,137 @@ void MBLqHarvestTF(const ENUM_TIMEFRAMES tf, const int bit, const int bars, cons
          MBLqPut(L, side, bit, (sw >= 2 ? LQ_RESWEPT : (sw == 1 ? LQ_SWEPT : LQ_FRESH)), sw, r[k].time, tol);
       }
    }
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Package 12 (master plan VI.3, owner's plan: Asia / Frankfurt / London, midnight, DST, broker time):
+// SESSION LEVELS. The high and low of the last COMPLETED Asia, Frankfurt and London session are the stops
+// the next session hunts - they go into this map (class: like an H1 swing) with their history since the
+// session ended (taken -> left out, pierced and closed back -> SWEPT), so a sweep of the Asia low is a map
+// sweep like any other. Times are UTC with European / American summer time, then moved to broker time:
+//   Asia      00:00-06:00 UTC
+//   Frankfurt 07:00-08:00 UTC (06:00-07:00 in European summer) - Frankfurt open to London open
+//   London    08:00-16:00 UTC (07:00-15:00 in European summer)
+//   NY midnight open: 00:00 New York = 05:00 UTC (04:00 in American summer) - shown on the panel.
+double   G_SES_HI[3], G_SES_LO[3];   // 0 Asia, 1 Frankfurt, 2 London (0 = not known)
+int      G_SES_ST_HI[3], G_SES_ST_LO[3];
+double   G_SES_MIDNIGHT = 0.0;
+
+int MBServerUTCOffsetSec()
+{
+   if(SessionServerUTCOffset != 99)
+      return SessionServerUTCOffset * 3600;
+   if(MQLInfoInteger(MQL_TESTER))
+      return 0;
+   static int cached = 0;
+   static datetime at = 0;
+   if(at == 0 || TimeCurrent() - at > 3600)
+   {
+      datetime srv = TimeTradeServer(), gmt = TimeGMT();
+      if(srv > 0 && gmt > 0)
+      {
+         cached = (int)MathRound((double)(srv - gmt) / 1800.0) * 1800;   // to the half hour
+         at = TimeCurrent();
+      }
+   }
+   return cached;
+}
+
+// The last completed occurrence of a session [sh, eh) in UTC hours on a weekday; false if none in 4 days.
+bool MBSessionWindow(const int sid, datetime &from_srv, datetime &to_srv)
+{
+   int off = MBServerUTCOffsetSec();
+   datetime utc_now = TimeCurrent() - off;
+   datetime day0 = (datetime)((long)utc_now - ((long)utc_now % 86400));
+   for(int back = 0; back <= 4; back++)
+   {
+      datetime d = day0 - back * 86400;
+      MqlDateTime dt;
+      TimeToStruct(d, dt);
+      if(dt.day_of_week == 0 || dt.day_of_week == 6)
+         continue;
+      bool eu = EnableDSTAdjust && IsEuropeanDST(d + 12 * 3600);
+      int sh = 0, eh = 6;
+      if(sid == 1) { sh = eu ? 6 : 7; eh = sh + 1; }
+      else if(sid == 2) { sh = eu ? 7 : 8; eh = sh + 8; }
+      datetime s = d + sh * 3600, e = d + eh * 3600;
+      if(e > utc_now)
+         continue;   // not finished yet
+      from_srv = s + off;
+      to_srv = e + off;
+      return true;
+   }
+   return false;
+}
+
+void MBLqSessionLevels(const double px, const double window, const double tol, const double atr15)
+{
+   for(int sid = 0; sid < 3; sid++)
+   {
+      G_SES_HI[sid] = 0.0; G_SES_LO[sid] = 0.0;
+      datetime a = 0, b = 0;
+      if(!MBSessionWindow(sid, a, b))
+         continue;
+      MqlRates r[];
+      int n = CopyRates(_Symbol, PERIOD_M5, a, b - 1, r);
+      if(n <= 0)
+         continue;
+      double hi = -DBL_MAX, lo = DBL_MAX;
+      for(int i = 0; i < n; i++) { hi = MathMax(hi, r[i].high); lo = MathMin(lo, r[i].low); }
+      if(hi <= 0.0 || lo >= DBL_MAX)
+         continue;
+      G_SES_HI[sid] = hi; G_SES_LO[sid] = lo;
+      // Its history since the session ended: a close beyond = taken; a pierce closed back = swept.
+      MqlRates q[];
+      int m = CopyRates(_Symbol, PERIOD_M5, b, TimeCurrent(), q);
+      double pierce = MathMax(0.05 * atr15, 2.0 * _Point);
+      int sw_hi = 0, sw_lo = 0;
+      bool tk_hi = false, tk_lo = false;
+      for(int i = 0; i < m; i++)
+      {
+         bool closed = (i < m - 1);   // the last bar is still forming
+         if(closed && q[i].close - hi > pierce) tk_hi = true; else if(q[i].high - hi > pierce) sw_hi++;
+         if(closed && lo - q[i].close > pierce) tk_lo = true; else if(lo - q[i].low > pierce) sw_lo++;
+      }
+      G_SES_ST_HI[sid] = tk_hi ? LQ_TAKEN : (sw_hi >= 2 ? LQ_RESWEPT : (sw_hi == 1 ? LQ_SWEPT : LQ_FRESH));
+      G_SES_ST_LO[sid] = tk_lo ? LQ_TAKEN : (sw_lo >= 2 ? LQ_RESWEPT : (sw_lo == 1 ? LQ_SWEPT : LQ_FRESH));
+      if(!tk_hi && MathAbs(hi - px) <= window)
+         MBLqPut(hi, 1, LQ_SES, G_SES_ST_HI[sid], MathMin(2, sw_hi), b, tol);
+      if(!tk_lo && MathAbs(lo - px) <= window)
+         MBLqPut(lo, -1, LQ_SES, G_SES_ST_LO[sid], MathMin(2, sw_lo), b, tol);
+   }
+   // New York midnight open: the open of the M5 bar at 00:00 New York.
+   G_SES_MIDNIGHT = 0.0;
+   int off = MBServerUTCOffsetSec();
+   datetime utc_now = TimeCurrent() - off;
+   datetime day0 = (datetime)((long)utc_now - ((long)utc_now % 86400));
+   int mh = (EnableDSTAdjust && IsAmericanDST(day0 + 12 * 3600)) ? 4 : 5;
+   datetime mo = day0 + mh * 3600;
+   if(mo > utc_now) mo -= 86400;
+   int sh = iBarShift(_Symbol, PERIOD_M5, mo + off, false);
+   if(sh >= 0)
+      G_SES_MIDNIGHT = iOpen(_Symbol, PERIOD_M5, sh);
+}
+
+string MBSessionPanelText()
+{
+   if(!EnableSessionLiquidity || !EnableMBLiquidityMap)
+      return "";
+   string nm[3] = {"Asia", "FRA", "LDN"};
+   string t = "Sessiya:";
+   for(int sid = 0; sid < 3; sid++)
+   {
+      if(G_SES_HI[sid] <= 0.0)
+         continue;
+      t += StringFormat(" %s %s(%s)-%s(%s)", nm[sid], DoubleToString(G_SES_LO[sid], _Digits), MBLqStatusName(G_SES_ST_LO[sid]),
+                        DoubleToString(G_SES_HI[sid], _Digits), MBLqStatusName(G_SES_ST_HI[sid]));
+   }
+   if(G_SES_MIDNIGHT > 0.0)
+   {
+      double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      t += StringFormat(" · midnight %s (%s)", DoubleToString(G_SES_MIDNIGHT, _Digits), (px >= G_SES_MIDNIGHT ? "ustida" : "ostida"));
+   }
+   return t;
 }
 
 void MBLqRecordSweep(const int i, const double ext, const int q, const datetime t)
@@ -369,6 +506,9 @@ void MBLiquidityMapUpdate()
       MBLqPut(pdh, 1, LQ_KEY, (th > pdh ? (px > pdh ? LQ_TAKEN : LQ_SWEPT) : LQ_FRESH), (th > pdh ? 1 : 0), d1, tol);
    if(pdl > 0.0 && MathAbs(pdl - px) <= window)
       MBLqPut(pdl, -1, LQ_KEY, (tl > 0.0 && tl < pdl ? (px < pdl ? LQ_TAKEN : LQ_SWEPT) : LQ_FRESH), (tl > 0.0 && tl < pdl ? 1 : 0), d1, tol);
+   // Package 12: the last completed Asia / Frankfurt / London highs and lows, and the midnight open.
+   if(EnableSessionLiquidity)
+      MBLqSessionLevels(px, window, tol, atr15);
 
    // Drop what no longer matters: taken more than two hours ago, or out of the window.
    int keep = 0;

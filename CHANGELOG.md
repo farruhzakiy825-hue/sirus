@@ -1,5 +1,21 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 12-paket: sessiya darajalari likvidlik xaritasida (2026-10-18)
+
+Manba: master reja VI.3 (Session Engine) va egasining "Asia, Frankfurt, London, NY, Midnight, broker vaqti, yozgi/qishki
+vaqt" talabi. Kompilyatsiya qilinmagan - statik tekshiruvlar toza.
+
+- Oxirgi YAKUNLANGAN Asia (00-06 UTC), Frankfurt (Frankfurt ochilishidan London ochilishigacha: 07-08 UTC, Yevropa yozida
+  06-07) va London (08-16 UTC, yozda 07-15) sessiyalarining high/low'i likvidlik xaritasiga qo'shiladi (`LQ_SES`, sinfi
+  H1 swing bilan teng). Sessiya tugagandan keyingi tarixi bilan: yopilish ortida = olingan (xaritaga kirmaydi), teshib
+  qaytgan = sweep. Shunday qilib "Asia low sweep" - xaritaning oddiy sweep hodisasi: reversal, sweep kirishi, champion
+  nishon, grid likvidlik tekshiruvi - hammasi uni ko'radi.
+- New York midnight open (00:00 New York = 05:00 UTC, Amerika yozida 04:00) - panelda, narx ustida/ostida.
+- Vaqt: UTC + Yevropa/Amerika yozgi vaqti (`IsEuropeanDST` / `IsAmericanDST`), keyin broker serveriga o'tkaziladi.
+  `SessionServerUTCOffset` = 99: jonli hisobda server offseti avtomatik (TimeTradeServer - TimeGMT), testerda 0
+  (Exness serveri UTC+0). Dam olish kunlari o'tkazib yuboriladi.
+- Panel: "Sessiya: Asia 4120.50(toza)-4131.20(sweep) FRA ... LDN ... · midnight 4125.00 (ustida)".
+
 ## 11-paket: kirish nomzodlari raqobati (2026-10-17)
 
 Manba: egasining umumiy arxitekturasi ("Entry Priority": BUY #1 = 91, SELL #1 = 38 ... eng yaxshisi) va reja 15.5 #1.
