@@ -523,6 +523,9 @@ string                  G_CAL_EVENT_NAME         = "";
 int                     G_CAL_MINUTES_FROM_EVENT = 0;
 ulong                   G_CAL_EVENT_ID           = 0;       // FIX(calendar-window): calendar value id of the active event (unique per release)
 bool                    G_CAL_FETCH_FAILED       = false;
+datetime                G_CAL_LAST_OK            = 0;       // package 18: last successful calendar read
+datetime                G_CAL_FIRST_TRY          = 0;       // package 18: first read attempt of this run
+bool                    G_CAL_BLIND              = false;   // package 18: the calendar cannot be read - fail-safe slots
 bool                    G_CAL_PENDING_ACTUAL     = false;   // a cached release has happened but its actual figure is not in yet
 ulong                   G_CAL_LAST_SURPRISE_ID   = 0;
 #define CAL_CACHE_MAX 64
@@ -552,6 +555,7 @@ int                     G_M1_GATE_LAST_DIR      = 0;
 
 // --- V31.6k new: Duplicate instance detection (warning-only, avoids false-positives on restart) ---
 bool                    G_DUP_INSTANCE_WARNED   = false;
+bool                    G_DUP_ACTIVE            = false;   // package 18: another chart owns this Magic+Symbol
 
 // --- V31.6j new: Day-of-Week Bayes tracking (0=Sunday..6=Saturday) ---
 #define SIRUS_DOW_COUNT 7

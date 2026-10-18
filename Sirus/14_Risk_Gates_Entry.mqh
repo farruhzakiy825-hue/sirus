@@ -3928,6 +3928,13 @@ bool FirstEntryCanRun(string &reason)
       return false;
    }
 
+   string dup_entry_reason = "";
+   if(!DuplicateInstanceAllowsTrading(dup_entry_reason))
+   {
+      reason = dup_entry_reason;
+      return false;
+   }
+
    string safety_entry_reason = "";
    if(!SafetyAllowsEntry(safety_entry_reason))
    {

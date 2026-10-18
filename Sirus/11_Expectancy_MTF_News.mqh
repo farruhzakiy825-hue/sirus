@@ -4962,6 +4962,7 @@ void CalendarFetch(const datetime now)
    if(G_CAL_FETCH_FAILED)
       Print("[SIRUS CALENDAR] fetch recovered");
    G_CAL_FETCH_FAILED = false;
+   G_CAL_LAST_OK = now;
 
    G_CAL_EV_COUNT = 0;
    G_CAL_PENDING_ACTUAL = false;
@@ -5066,6 +5067,50 @@ bool CalendarSettleCheck(const int idx, const datetime now)
    return true;
 }
 
+// Package 18: the calendar fail-safe. When the MT5 calendar has not been readable for CalendarBlindMinutes
+// (never since start, or every refresh failing), the news guard would otherwise see no event at all and
+// let entries run straight into a release. The fixed US slots stand in: 08:30 and 10:00 New York on
+// weekdays and 14:00 New York on Wednesdays (FOMC day), with the configured pre / post window. Only the
+// entry window is opened - the cache stays empty, so news auto-flat never closes a basket on a guess.
+bool CalendarBlindNow(const datetime now)
+{
+   if(!EnableCalendarFailSafe)
+      return false;
+   if(G_CAL_FIRST_TRY <= 0)
+      return false;
+   long blind_sec = (long)MathMax(1, CalendarBlindMinutes) * 60;
+   if(G_CAL_LAST_OK <= 0)
+      return (now - G_CAL_FIRST_TRY >= blind_sec);
+   return (G_CAL_FETCH_FAILED && now - G_CAL_LAST_OK >= blind_sec);
+}
+
+// The fixed US slot whose window holds now, or -1. mins_from = minutes to it (+ ahead, - after).
+int CalendarFailSafeSlot(const datetime now, int &mins_from)
+{
+   mins_from = 0;
+   datetime utc = now - MBServerUTCOffsetSec();
+   datetime ny = utc + SessionCityUTCOffsetMin(3, now) * 60;
+   datetime ny_day0 = (datetime)((long)ny - ((long)ny % 86400));
+   MqlDateTime d;
+   TimeToStruct(ny, d);
+   if(d.day_of_week == 0 || d.day_of_week == 6)
+      return -1;
+   int slots[3] = {8 * 60 + 30, 10 * 60, 14 * 60};
+   long pre = (long)MathMax(0, EconomicCalendarPreMinutes) * 60, post = (long)MathMax(0, EconomicCalendarPostMinutes) * 60;
+   for(int i = 0; i < 3; i++)
+   {
+      if(i == 2 && d.day_of_week != 3)
+         continue;   // 14:00 only on Wednesdays
+      long diff = (long)(ny_day0 + slots[i] * 60) - (long)ny;
+      if(diff <= pre && -diff <= post)
+      {
+         mins_from = (int)(diff / 60);
+         return i;
+      }
+   }
+   return -1;
+}
+
 void UpdateEconomicCalendarGuard()
 {
    if(!EnableEconomicCalendarGuard)
@@ -5090,10 +5135,23 @@ void UpdateEconomicCalendarGuard()
       now = TimeCurrent();
 
    int refresh = MathMax(10, EconomicCalendarRefreshSeconds);
-   if(G_CAL_PENDING_ACTUAL)
-      refresh = MathMin(refresh, 30);
+   if(G_CAL_PENDING_ACTUAL || G_CAL_FETCH_FAILED)
+      refresh = MathMin(refresh, 30);   // package 18: a failing read is retried every 30 s
+   if(G_CAL_FIRST_TRY <= 0)
+      G_CAL_FIRST_TRY = now;
    if(G_CAL_LAST_SCAN <= 0 || (now - G_CAL_LAST_SCAN) >= refresh || now < G_CAL_LAST_SCAN)
       CalendarFetch(now);
+
+   bool blind = CalendarBlindNow(now);
+   if(blind != G_CAL_BLIND)
+   {
+      G_CAL_BLIND = blind;
+      if(blind)
+         PrintFormat("[SIRUS CALENDAR] BLIND - no successful calendar read for %d+ min. Fail-safe: no new entries around 08:30 / 10:00 New York (14:00 on Wednesdays), %d min before to %d min after",
+                     MathMax(1, CalendarBlindMinutes), EconomicCalendarPreMinutes, EconomicCalendarPostMinutes);
+      else
+         Print("[SIRUS CALENDAR] calendar readable again - fail-safe slots off");
+   }
 
    // Evaluate the window on every call against the live clock. Priority: an event still ahead (it is the
    // one auto-flat must see and the one about to move price), the nearest first; otherwise the most
@@ -5132,6 +5190,26 @@ void UpdateEconomicCalendarGuard()
    int pick = (best_pre >= 0) ? best_pre : best_post;
    ulong prev_id = G_CAL_EVENT_ID;
    bool prev_active = G_CAL_ACTIVE;
+
+   if(pick < 0 && G_CAL_BLIND)
+   {
+      int fs_min = 0;
+      int fs = CalendarFailSafeSlot(now, fs_min);
+      if(fs >= 0)
+      {
+         string slot_name[3] = {"08:30", "10:00", "14:00"};
+         bool was = G_CAL_ACTIVE;
+         G_CAL_ACTIVE = true;
+         G_CAL_EVENT_NAME = "CALENDAR BLIND - US " + slot_name[fs] + " New York slot (fail-safe)";
+         G_CAL_EVENT_ID = 0;
+         G_CAL_MINUTES_FROM_EVENT = fs_min;
+         G_CAL_BIG_SURPRISE = false;
+         G_CAL_SURPRISE_PERCENT = 0.0;
+         if(!was && (EconomicCalendarPrintOnUse && G_VERBOSE))
+            PrintFormat("[SIRUS CALENDAR] %s (%d min)", G_CAL_EVENT_NAME, fs_min);
+         return;
+      }
+   }
 
    if(pick < 0)
    {

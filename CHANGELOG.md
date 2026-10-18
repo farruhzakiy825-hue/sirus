@@ -1,5 +1,29 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 18-paket: news fail-safe va bir nechta EA nusxasi (2026-10-18)
+
+Manba: reja 15.6, 11-band (master reja XV va XVI.3). Kompilyatsiya qilinmagan - statik tekshiruvlar toza.
+
+**1. Kalendar ishlamasa - xavfsiz holat.**
+- Avval: MT5 kalendari o'qilmasa, EA jurnalga "ko'r bo'lishi mumkin" deb yozardi va savdo davom etardi - yangilik
+  oynasi umuman ishlamasdi.
+- Endi: `CalendarBlindMinutes` (30 daqiqa) davomida kalendar bir marta ham o'qilmasa (ishga tushgandan beri yoki har
+  yangilash xato bersa), **zaxira jadval** ishga tushadi: Nyu-York vaqti bilan ish kunlari 08:30 va 10:00, chorshanba
+  kunlari 14:00 (FOMC). Shu vaqtlar atrofida (`EconomicCalendarPreMinutes` oldin, `EconomicCalendarPostMinutes` keyin)
+  yangi kirish yo'q. Yozgi vaqt sessiya dvigatelidan olinadi.
+- Ochiq savat bu taxminiy jadval bo'yicha **yopilmaydi** (news auto-flat faqat haqiqiy kalendar hodisasini ko'radi).
+- Xato bo'lsa kalendar har 30 soniyada qayta o'qiladi. Jurnalda `[SIRUS CALENDAR] BLIND ...` va tiklanganda xabar.
+- Inputlar: `EnableCalendarFailSafe` (yoqiq), `CalendarBlindMinutes` 30. Testerda kalendar ishlamaydi - u yerda
+  o'zgarish yo'q.
+
+**2. Bir nechta EA nusxasi (bir xil Magic + simvol, ikki grafik).**
+- Avval: tekshiruv har tikda o'zining yurak urishini "boshqa nusxa" deb ko'rib, yolg'on ogohlantirardi; haqiqiy ikkinchi
+  nusxa esa to'xtatilmasdi - ikkalasi bitta savatni boshqarib, qarama-qarshi order yuborishi mumkin edi.
+- Endi yurak urishi egasining grafik ID'si bilan yoziladi. O'sha grafikda qayta ishga tushirish - o'sha ega (yolg'on
+  signal yo'q). Boshqa grafik tirik egani topsa - **ikkinchi nusxa yangi kirish va grid ochmaydi**
+  (`DuplicateInstanceBlockTrading`), chiqishlar ishlayveradi. Ega to'xtasa (OnDeinit kalitlarni bo'shatadi yoki yurak
+  urishi 30 soniya eskiradi) - ikkinchi grafik egalikni oladi.
+
 ## 17-paket: ssenariylar natijasini o'lchash (2026-10-18)
 
 Manba: reja 15.6, 10-band (Brain Architecture §5). Kompilyatsiya qilinmagan - statik tekshiruvlar toza.

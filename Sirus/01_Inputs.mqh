@@ -3819,6 +3819,10 @@ input bool   EconomicCalendarHardBlockFirst = true;   // Economic calendar hard 
 // EconomicCalendarLotFactor: Lot multiplier during caution window when not hard-blocking
 input double EconomicCalendarLotFactor      = 0.4;   // Economic calendar lot factor
 #define EconomicCalendarPrintOnUse           LogRiskEvents    // Package 14 log group (was input, default true)
+// EnableCalendarFailSafe: Package 18: if the MT5 calendar cannot be read for CalendarBlindMinutes, the news guard does not go blind - it holds new entries around the fixed US release slots (08:30 and 10:00 New York on weekdays, 14:00 New York on Wednesdays), New York summer time included. Open baskets are not closed by it.
+input bool   EnableCalendarFailSafe         = true;   // Calendar fail-safe: fixed US slots when the calendar is blind
+// CalendarBlindMinutes: how long without a successful calendar read before the fail-safe takes over
+input int    CalendarBlindMinutes           = 30;   // Calendar fail-safe: blind after N minutes
 // EnableNewsSettleRelease: after a release, the post-news pause ends as soon as the market has settled (calm M1 candles, normal spread, no anomaly) instead of always running the full post window. The pre-news pause never changes.
 input bool   EnableNewsSettleRelease        = true;   // End the post-news pause once the market settles
 // NewsSettleMinMinutes: the pause always holds at least this long after the release
@@ -5322,6 +5326,8 @@ input group "ADVANCED ▸ Duplicate instance protection"
 input bool              EnableDuplicateInstanceGuard = true;   // Enable duplicate instance guard
 input int               DuplicateInstanceHeartbeatSeconds = 5;   // Duplicate instance heartbeat seconds
 input int               DuplicateInstanceStaleSeconds = 30;   // Duplicate instance stale seconds
+// DuplicateInstanceBlockTrading: Package 18: the second chart that finds a live owner of the same Magic+Symbol opens nothing (no entry, no grid) until the owner's heartbeat goes stale. Exits keep running.
+input bool              DuplicateInstanceBlockTrading = true;   // Duplicate instance: second chart does not trade
 #define DuplicateInstancePrintOnUse          LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Grid intelligence (sixteen-sense, continuous)"

@@ -625,6 +625,8 @@ void MBLowerHighUpdate();     // 20g - called by CoreUpdate (16)
 void MBMarketStateTick();     // 20f - called by CoreUpdate (16), every tick
 void MBAutopsyOnEntry(const int dir);   // 26b - called by the first-entry engine (14)
 void MBAutopsyOnFill(const double requested, const double filled, const int dir);   // 26b - package 16
+bool DuplicateInstanceAllowsTrading(string &reason);   // 13 - package 18, read by the entry gates (14)
+void DuplicateInstanceRelease();
 void MBScenarioFeedbackBar();                    // 20f - package 16b, called by the state update above it
 void MBScenarioFeedbackClose(const string result);
 string MBScenarioFeedbackText();

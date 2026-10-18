@@ -741,6 +741,7 @@ int OnInit()
 
 void OnDeinit(const int reason)
 {
+   DuplicateInstanceRelease();   // package 18: the owner hands Magic+Symbol back
    // V217: last chance to keep what was learned this session.
    CandleLearningSave();
    PatternRecordSave();
@@ -1389,7 +1390,7 @@ void OnTick()
    // removing this direct call loses nothing: the health data is refreshed exactly when it's about
    // to be shown, whether that's from OnTick's own throttled DrawDashboard() call below or from
    // OnTimer's unconditional one (which is what keeps it live while the market is closed).
-   DuplicateInstanceCheck(); // V31.6k: same-terminal duplicate EA detection (warning-only)
+   DuplicateInstanceCheck(); // V31.6k / package 18: same-terminal duplicate EA - the second chart does not trade
    MBProfEnd(MB_PROF_PRE);
 
    CoreUpdate("TICK");

@@ -1139,40 +1139,86 @@ bool GridIntelligenceAllowsGrid(const long direction, const int current_orders, 
    return true;
 }
 
-// V31.6k new: Duplicate Instance detection. A completely different risk dimension - not
-// market risk, but the same EA (same Magic+Symbol) accidentally running twice on the same
-// terminal (two chart windows, or forgetting one is already attached). Both would think they
-// own the same basket and could send conflicting orders. WARNING-ONLY by design: a hard block
-// would false-positive on every normal restart (GlobalVariables persist across EA reloads),
-// which would be more disruptive than the rare real duplicate going unblocked for one cycle.
+// V31.6k new: Duplicate Instance detection - the same EA (same Magic+Symbol) running twice on one terminal
+// (two chart windows): both would think they own the same basket and send conflicting orders.
+// Package 18: the old check read the heartbeat without knowing whose it was, so from its second call it
+// found ITS OWN beat and warned about itself, and a real duplicate was never stopped. Now the heartbeat
+// carries the owner (the chart id, kept below 2^52 so a double holds it exactly). A restart on the same
+// chart is the same owner (no false alarm); another chart that finds a live owner is the duplicate and,
+// with DuplicateInstanceBlockTrading, opens nothing until the owner's heartbeat goes stale. The owner
+// releases the keys in OnDeinit, so a deliberate move to another chart is not held for the stale time.
+string DuplicateInstanceKey(const string what)
+{
+   return StringFormat("NAVIUS_%I64d_%s_%s", MagicNumber, _Symbol, what);
+}
+
+double DuplicateInstanceMe()
+{
+   return (double)(ChartID() % 4503599627370496);   // 2^52
+}
+
 void DuplicateInstanceCheck()
 {
-   if(!EnableDuplicateInstanceGuard)
-      return;
-
-   string key = StringFormat("NAVIUS_%I64d_%s_HEARTBEAT", MagicNumber, _Symbol);
-   datetime now = TimeCurrent();
-
-   if(!G_DUP_INSTANCE_WARNED && GlobalVariableCheck(key))
+   if(!EnableDuplicateInstanceGuard || MQLInfoInteger(MQL_TESTER))
    {
-      datetime last_beat = (datetime)GlobalVariableGet(key);
-      int age_sec = (int)(now - last_beat);
+      G_DUP_ACTIVE = false;
+      return;
+   }
 
-      if(age_sec >= 0 && age_sec < MathMax(1, DuplicateInstanceStaleSeconds))
+   string hb_key = DuplicateInstanceKey("HEARTBEAT"), own_key = DuplicateInstanceKey("OWNER");
+   datetime now = TimeLocal();   // the wall clock - TimeCurrent stands still on a closed market
+   double me = DuplicateInstanceMe();
+
+   if(GlobalVariableCheck(hb_key) && GlobalVariableCheck(own_key))
+   {
+      double owner = GlobalVariableGet(own_key);
+      int age_sec = (int)(now - (datetime)GlobalVariableGet(hb_key));
+      if(owner != me && age_sec >= 0 && age_sec < MathMax(1, DuplicateInstanceStaleSeconds))
       {
+         if(!G_DUP_ACTIVE && (DuplicateInstancePrintOnUse || DuplicateInstanceBlockTrading))
+            PrintFormat("[SIRUS DUPLICATE GUARD] another chart already runs Magic=%I64d Symbol=%s (heartbeat %d s old) - %s",
+                        MagicNumber, _Symbol, age_sec,
+                        (DuplicateInstanceBlockTrading ? "this chart opens no entry and no grid order until it stops" : "warning only"));
+         G_DUP_ACTIVE = true;
          G_DUP_INSTANCE_WARNED = true;
-         if((DuplicateInstancePrintOnUse && G_VERBOSE))
-            PrintFormat("[SIRUS v31.6k DUPLICATE GUARD] WARNING: another active instance's heartbeat is only %d sec old for Magic=%I64d Symbol=%s - check you don't have this EA attached twice (conflicting orders risk). This does NOT block trading.",
-                        age_sec, MagicNumber, _Symbol);
+         return;   // the owner keeps the heartbeat
       }
    }
+   if(G_DUP_ACTIVE)
+      Print("[SIRUS DUPLICATE GUARD] the other chart stopped - this chart owns Magic+Symbol now");
+   G_DUP_ACTIVE = false;
 
    static datetime last_beat_sent = 0;
    if(now - last_beat_sent >= MathMax(1, DuplicateInstanceHeartbeatSeconds))
    {
-      GlobalVariableSet(key, (double)now);
+      GlobalVariableSet(own_key, me);
+      GlobalVariableSet(hb_key, (double)now);
       last_beat_sent = now;
    }
+}
+
+// OnDeinit: the owner hands the keys back.
+void DuplicateInstanceRelease()
+{
+   if(!EnableDuplicateInstanceGuard || MQLInfoInteger(MQL_TESTER) || G_DUP_ACTIVE)
+      return;
+   string own_key = DuplicateInstanceKey("OWNER");
+   if(GlobalVariableCheck(own_key) && GlobalVariableGet(own_key) == DuplicateInstanceMe())
+   {
+      GlobalVariableDel(own_key);
+      GlobalVariableDel(DuplicateInstanceKey("HEARTBEAT"));
+   }
+}
+
+bool DuplicateInstanceAllowsTrading(string &reason)
+{
+   if(EnableDuplicateInstanceGuard && DuplicateInstanceBlockTrading && G_DUP_ACTIVE)
+   {
+      reason = StringFormat("duplicate instance: another chart runs Magic %I64d on %s", MagicNumber, _Symbol);
+      return false;
+   }
+   reason = "single instance";
+   return true;
 }
 
 bool BasketExposureAllowsGrid(const double next_lot, const ENUM_ORDER_TYPE order_type, string &reason)
@@ -1854,6 +1900,13 @@ bool GridCanOpen(string &reason)
    string pack3_reason = "";
    if(!Pack3AllowsGrid(pack3_reason) && GridSoftHold(reason, pack3_reason))
       return false;
+
+   string dup_grid_reason = "";
+   if(!DuplicateInstanceAllowsTrading(dup_grid_reason))
+   {
+      reason = dup_grid_reason;
+      return false;
+   }
 
    string safety_grid_reason = "";
    if(!SafetyAllowsGrid(safety_grid_reason) && GridSoftHold(reason, safety_grid_reason))
