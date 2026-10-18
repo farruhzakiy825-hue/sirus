@@ -828,7 +828,7 @@ Har paketdan oldin dalil to'planadi (Trace CSV va 2-raund audit). Shundan keyin 
 | 7 | ~~Cashback limit-order dvigateli (C3)~~ — ⛔ egasi voz kechdi (2026-10-18) | Eng katta yangi modul. Avval 2–6 tayyor bo'lishi kerak: pending order risk, eskirish, takrorlanish | 13.4 C3, X.3, XIII |
 | 8 | Input auditi: 3236 input, rejimlar farqi, zid va dublikat inputlar. Ma'nosi tasdiqlanmasdan hech biri o'zgartirilmaydi — ✅ 13-paket (`docs/INPUT_AUDIT.md`); ✅ 14-paket: egasi tasdiqlagan 5 taklif bajarildi - bitta xavfsizlik qatlami, bitta UTC+DST sessiya dvigateli, bitta spread chegarasi, litsenziya qoldiqlari olib tashlandi, log kalitlari 7 guruhda (3066 -> ~2760 input) | Rejimlar orasidagi yashirin farq — "kamchilik tugamaydi" sabablaridan biri | XVIII |
 | 9 | Autopsy toifalari: Wrong market state, Execution error, Exit failure, Risk rule failure — ✅ 16-paket (`Sirus_Autopsy3` CSV) | Har xato ildiz sababga bog'lanadi | XVII.2 |
-| 10 | Ssenariy feedback: 20f ssenariy ulushlari nishonga yetdimi yoki invalidatsiya bo'ldimi — CSV'da | "Oldindan sezish" sifatini o'lchash. Avval faqat qayd etiladi, qoida o'zgarmaydi | Brain Architecture §5 |
+| 10 | Ssenariy feedback: 20f ssenariy ulushlari nishonga yetdimi yoki invalidatsiya bo'ldimi — CSV'da — ✅ 17-paket (`Sirus_Scenario` CSV, panelda aniqlik) | "Oldindan sezish" sifatini o'lchash. Avval faqat qayd etiladi, qoida o'zgarmaydi | Brain Architecture §5 |
 | 11 | News fail-safe va multi-instance tekshiruvi | Kam uchraydi, lekin xavfli | XV, XVI.3 |
 
 **Egasidan kerak:**

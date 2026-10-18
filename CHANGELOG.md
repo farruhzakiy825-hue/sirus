@@ -1,5 +1,22 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 17-paket: ssenariylar natijasini o'lchash (2026-10-18)
+
+Manba: reja 15.6, 10-band (Brain Architecture §5). Kompilyatsiya qilinmagan - statik tekshiruvlar toza.
+**Faqat o'lchaydi** - hech bir qoida bu raqamlarni o'qimaydi (keyin, ma'lumot yig'ilgach qaror qilinadi).
+
+- 20f har M1 barda ▲ / ▼ / chop ulushini, har birining maqsadini (champion likvidlik) va bekor bo'lish darajasini
+  (himoyalangan daraja) hisoblaydi. Endi ustun ssenariy (ulush >= `ScenarioFeedbackMinShare` 55%, oldinda maqsad,
+  ortda bekor darajasi bor) kuzatiladi.
+- Har barda yopilgan M1 barning high/low'i bilan tekshiriladi: TARGET (maqsadga yetdi), INVALID (bekor darajasi
+  o'tildi), TIMEOUT (`ScenarioFeedbackHours` 4 soat), FLIP (ustun tomon almashdi), BOTH (bitta bar ikkalasini oldi -
+  tartib noma'lum, hisobga olinmaydi).
+- Yangi CSV: `Sirus_Scenario_<symbol>_<magic>.csv` - ochilish/yopilish vaqti, tomon, ulush, bozor holati, boshlang'ich
+  narx, maqsad, bekor darajasi, natija, daqiqalar, MFE / MAE, maqsadgacha va bekorgacha masofa.
+- Panelda: "Ssenariy aniqligi (bugun): <65% x/y 65-74% x/y 75%+ x/y" - ulush yuqori bo'lsa ssenariy rostdan ham
+  ko'proq to'g'ri chiqyaptimi, shu ko'rinadi. Jurnalda `[SIRUS SCENARIO] ...`.
+- Yangi inputlar: `EnableScenarioFeedback` (yoqiq), `ScenarioFeedbackMinShare` 55, `ScenarioFeedbackHours` 4.
+
 ## 16-paket: Autopsy'ning 4 yangi toifasi + 3 ta kompilyator ogohlantirishi (2026-10-18)
 
 Manba: master reja XVII.2. Kompilyatsiya: egasida 0 xato, 3 ogohlantirish edi - tuzatildi. Savdo mantiqi o'zgarmadi -

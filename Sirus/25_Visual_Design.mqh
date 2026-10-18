@@ -751,12 +751,18 @@ void MBDrawPanel()
          {
             MBPanelLine("B_MS", ms, (G_MST_STATE == MST_NEWS ? MBVisAmber() : ink), false, x0, w, lh);
             MBPanelLine("B_SCN", MBScenarioPanelText(), muted, false, x0, w, lh);
+            string scf = MBScenarioFeedbackText();   // package 16b: how often the dominant scenario was right
+            if(StringLen(scf) > 0)
+               MBPanelLine("B_SCF", scf, muted, false, x0, w, lh);
+            else
+               ObjectDelete(0, MB_VIS_PREFIX + "B_SCF");
             MBPanelLine("B_NAR", "Hikoya: " + G_MST_STORY, muted, false, x0, w, lh);
          }
          else
          {
             ObjectDelete(0, MB_VIS_PREFIX + "B_MS");
             ObjectDelete(0, MB_VIS_PREFIX + "B_SCN");
+            ObjectDelete(0, MB_VIS_PREFIX + "B_SCF");
             ObjectDelete(0, MB_VIS_PREFIX + "B_NAR");
          }
       }

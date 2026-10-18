@@ -24,6 +24,10 @@
 //  SCENARIOS    bull / bear / chop shares, each with its target (the champion liquidity) and its
 //               invalidation (the protected level).
 //  NARRATIVE    one line: what happened, where we are, what is awaited.
+//  FEEDBACK     package 16b (plan item 10): the dominant scenario (share >= ScenarioFeedbackMinShare, with a
+//               target and an invalidation) is followed bar by bar until price reaches the target, crosses
+//               the invalidation or ScenarioFeedbackHours pass - one CSV row each and a hit rate per share
+//               band on the panel. Recorded only: no rule reads it yet.
 //
 // Speed: once per M1 bar; the tick part is one price comparison.
 
@@ -36,6 +40,12 @@ input bool   EnableAnomalyGuard       = true;   // Enable anomaly guard
 input int    AnomalyCooldownMin       = 5;   // Anomaly cooldown min
 // StatePrintOnUse: Holat almashuvini jurnalga yozish ([SIRUS STATE])
 #define StatePrintOnUse                      LogBrainEvents   // Package 14 log group (was input, default true)
+// EnableScenarioFeedback: Ustun ssenariy maqsadga yetdimi yoki bekor bo'ldimi - CSV (Sirus_Scenario_*.csv) va panel. Faqat o'lchaydi
+input bool   EnableScenarioFeedback   = true;   // Scenario feedback: record target / invalidation outcomes
+// ScenarioFeedbackMinShare: Ssenariy shu ulushdan (%) boshlab kuzatiladi
+input int    ScenarioFeedbackMinShare = 55;   // Scenario feedback: follow from this share %
+// ScenarioFeedbackHours: Shuncha soatda hal bo'lmasa - TIMEOUT
+input int    ScenarioFeedbackHours    = 4;   // Scenario feedback: timeout hours
 
 #define MST_UNKNOWN        0
 #define MST_NEWS           1
@@ -73,6 +83,12 @@ double   G_MST_LAST_BID   = 0.0;
 datetime G_MST_BAR        = 0;
 int      G_SC_BULL = 33, G_SC_BEAR = 33, G_SC_CHOP = 34;
 double   G_SC_BULL_TGT = 0.0, G_SC_BEAR_TGT = 0.0, G_SC_BULL_INV = 0.0, G_SC_BEAR_INV = 0.0;
+// Package 16b: the scenario being followed, and today's hit rate per share band (0: <65, 1: 65-74, 2: 75+).
+int      G_SCF_DIR = 0, G_SCF_SHARE = 0, G_SCF_STATE = 0;
+double   G_SCF_PX = 0.0, G_SCF_TGT = 0.0, G_SCF_INV = 0.0, G_SCF_MFE = 0.0, G_SCF_MAE = 0.0;
+datetime G_SCF_OPEN = 0;
+int      G_SCF_HIT[3], G_SCF_N[3];
+int      G_SCF_DAY = -1;
 string   G_MST_STORY = "";
 
 string MBStateName(const int s)
@@ -269,6 +285,7 @@ void MBMarketStateUpdate()
    G_SC_BEAR_TGT = MBLqChampion(-1, px, wtmp);
    G_SC_BULL_INV = (G_ST_PROT_LO[2] > 0.0 && G_ST_PROT_LO[2] < px) ? G_ST_PROT_LO[2] : G_LX_ORIGIN[1];
    G_SC_BEAR_INV = (G_ST_PROT_HI[2] > 0.0 && G_ST_PROT_HI[2] > px) ? G_ST_PROT_HI[2] : G_LX_ORIGIN[0];
+   MBScenarioFeedbackBar();
 
    // Narrative: what happened, where we are, what is awaited.
    string s = "";
@@ -344,6 +361,113 @@ string MBStatePanelText()
    if(G_MST_PREV != G_MST_STATE || G_MST_PREV_DIR != G_MST_DIR)
       t += StringFormat(", oldin %s %s", MBStateName(G_MST_PREV), MBDirArrow(G_MST_PREV_DIR));
    t += StringFormat(") · tasma %s", MBSensName(G_MST_SENS));
+   return t;
+}
+
+// Package 16b: close the followed scenario - one CSV row, the band tally, a journal line.
+void MBScenarioFeedbackClose(const string result)
+{
+   if(G_SCF_DIR == 0)
+      return;
+   int band = (G_SCF_SHARE >= 75) ? 2 : ((G_SCF_SHARE >= 65) ? 1 : 0);
+   if(result == "TARGET" || result == "INVALID")
+   {
+      G_SCF_N[band]++;
+      if(result == "TARGET") G_SCF_HIT[band]++;
+   }
+   int mins = (int)((TimeCurrent() - G_SCF_OPEN) / 60);
+   if(StatePrintOnUse && G_VERBOSE)
+      PrintFormat("[SIRUS SCENARIO] %s %d%% %s after %d min | from %s target %s invalid %s | MFE %.0f MAE %.0f pts",
+                  (G_SCF_DIR > 0 ? "BULL" : "BEAR"), G_SCF_SHARE, result, mins, DoubleToString(G_SCF_PX, _Digits),
+                  DoubleToString(G_SCF_TGT, _Digits), DoubleToString(G_SCF_INV, _Digits), G_SCF_MFE, G_SCF_MAE);
+   if(!MQLInfoInteger(MQL_OPTIMIZATION))
+   {
+      string name = StringFormat("Sirus_Scenario_%s_%I64d.csv", _Symbol, MagicNumber);
+      int h = FileOpen(name, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_SHARE_READ);
+      if(h != INVALID_HANDLE)
+      {
+         if(FileSize(h) == 0)
+            FileWriteString(h, "open;close;side;share;state;start;target;invalid;result;minutes;mfe_pts;mae_pts;target_pts;invalid_pts\r\n");
+         FileSeek(h, 0, SEEK_END);
+         FileWriteString(h, StringFormat("%s;%s;%s;%d;%s;%s;%s;%s;%s;%d;%.0f;%.0f;%.0f;%.0f\r\n",
+                                         TimeToString(G_SCF_OPEN, TIME_DATE | TIME_MINUTES), TimeToString(TimeCurrent(), TIME_DATE | TIME_MINUTES),
+                                         (G_SCF_DIR > 0 ? "BULL" : "BEAR"), G_SCF_SHARE, MBStateName(G_SCF_STATE),
+                                         DoubleToString(G_SCF_PX, _Digits), DoubleToString(G_SCF_TGT, _Digits), DoubleToString(G_SCF_INV, _Digits),
+                                         result, mins, G_SCF_MFE, G_SCF_MAE,
+                                         MathAbs(G_SCF_TGT - G_SCF_PX) / _Point, MathAbs(G_SCF_PX - G_SCF_INV) / _Point));
+         FileClose(h);
+      }
+   }
+   G_SCF_DIR = 0;
+}
+
+// Package 16b: once per M1 bar - resolve the followed scenario on the closed bar's range, then follow the
+// dominant one if nothing is followed (or the dominant side flipped).
+void MBScenarioFeedbackBar()
+{
+   if(!EnableScenarioFeedback)
+      return;
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   if(dt.day_of_year != G_SCF_DAY)
+   {
+      G_SCF_DAY = dt.day_of_year;
+      ArrayInitialize(G_SCF_HIT, 0);
+      ArrayInitialize(G_SCF_N, 0);
+   }
+   if(G_SCF_DIR != 0)
+   {
+      double hi = iHigh(_Symbol, PERIOD_M1, 1), lo = iLow(_Symbol, PERIOD_M1, 1);
+      if(hi > 0.0 && lo > 0.0)
+      {
+         double fav = (G_SCF_DIR > 0) ? (hi - G_SCF_PX) : (G_SCF_PX - lo);
+         double adv = (G_SCF_DIR > 0) ? (lo - G_SCF_PX) : (G_SCF_PX - hi);
+         G_SCF_MFE = MathMax(G_SCF_MFE, fav / _Point);
+         G_SCF_MAE = MathMin(G_SCF_MAE, adv / _Point);
+         bool to_tgt = (G_SCF_DIR > 0) ? (hi >= G_SCF_TGT) : (lo <= G_SCF_TGT);
+         bool to_inv = (G_SCF_DIR > 0) ? (lo <= G_SCF_INV) : (hi >= G_SCF_INV);
+         if(to_tgt && to_inv)
+            MBScenarioFeedbackClose("BOTH");   // one bar took both - the order inside it is unknown, not counted
+         else if(to_tgt)
+            MBScenarioFeedbackClose("TARGET");
+         else if(to_inv)
+            MBScenarioFeedbackClose("INVALID");
+         else if(TimeCurrent() - G_SCF_OPEN >= MathMax(1, ScenarioFeedbackHours) * 3600)
+            MBScenarioFeedbackClose("TIMEOUT");
+      }
+   }
+   int side = (G_SC_BULL >= ScenarioFeedbackMinShare && G_SC_BULL > G_SC_BEAR) ? 1 :
+              ((G_SC_BEAR >= ScenarioFeedbackMinShare && G_SC_BEAR > G_SC_BULL) ? -1 : 0);
+   if(side != 0 && G_SCF_DIR == -side)
+      MBScenarioFeedbackClose("FLIP");
+   if(side == 0 || G_SCF_DIR != 0)
+      return;
+   double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double tgt = (side > 0) ? G_SC_BULL_TGT : G_SC_BEAR_TGT;
+   double inv = (side > 0) ? G_SC_BULL_INV : G_SC_BEAR_INV;
+   if(px <= 0.0 || tgt <= 0.0 || inv <= 0.0 || side * (tgt - px) <= 0.0 || side * (px - inv) <= 0.0)
+      return;   // a scenario without a target ahead and an invalidation behind cannot be scored
+   G_SCF_DIR = side;
+   G_SCF_SHARE = (side > 0) ? G_SC_BULL : G_SC_BEAR;
+   G_SCF_STATE = G_MST_STATE;
+   G_SCF_PX = px;
+   G_SCF_TGT = tgt;
+   G_SCF_INV = inv;
+   G_SCF_MFE = 0.0;
+   G_SCF_MAE = 0.0;
+   G_SCF_OPEN = TimeCurrent();
+}
+
+string MBScenarioFeedbackText()
+{
+   if(!EnableScenarioFeedback)
+      return "";
+   string t = "Ssenariy aniqligi (bugun):";
+   string band[3] = {"<65%", "65-74%", "75%+"};
+   for(int b = 0; b < 3; b++)
+      t += StringFormat(" %s %d/%d", band[b], G_SCF_HIT[b], G_SCF_N[b]);
+   if(G_SCF_DIR != 0)
+      t += StringFormat(" · kuzatilmoqda %s %d%% -> %s", MBDirArrow(G_SCF_DIR), G_SCF_SHARE, DoubleToString(G_SCF_TGT, _Digits));
    return t;
 }
 
