@@ -758,7 +758,7 @@ Bu qoidalar egasi bilan kelishilgan. Hujjatdagi har qanday band shu qoidalar ich
 | Cashback va sof natijani alohida hisoblash | ✅ | 20e sof foyda va spread xotirasi. 13-paket: bitta `CashbackUSDPerLot()` |
 | Sabablar jurnali | ✅ | Reason Code (90), Shadow ledger (26), Trace CSV (26d), Autopsy (26b) |
 | Order xatolari shabloni | ✅ | Retcode va tavsif logga yoziladi, vaqtinchalik xatoda qayta urinish bor. 6-paket: Trace'da FAILED qatori; 24-paket: panelda oxirgi 30 daqiqadagi rad etishlar |
-| Yoqish/o'chirish va restartdan tiklanish | 🟡 | GlobalVariable orqali tiklanadi. Cashback rejimini savdo paytida almashtirish tekshirilmagan |
+| Yoqish/o'chirish va restartdan tiklanish | ✅ | GlobalVariable orqali tiklanadi. 25-paket: savat ochilgan rejimida yopiladi, yangi rejim keyingi savatdan |
 
 ### 15.3. 2-hujjat: Master Plan — 19 bosqich bo'yicha
 
@@ -773,7 +773,7 @@ Bu qoidalar egasi bilan kelishilgan. Hujjatdagi har qanday band shu qoidalar ich
 | VI.3 Session Engine | ✅ | 12-paket: Asia / Frankfurt / London H/L likvidlik xaritasida, NY midnight open. 14-paket: bitta UTC + DST sessiya dvigateli |
 | VI.4 Trap / False Breakout | ✅ | 20a SOXTA SWEEP, 20f FAKE BREAKOUT. 2-paket: `MBBreakFailed` hamma tasdiqda |
 | VII. Zone Intelligence | 🟡 | Uchta alohida zona tizimi bor: 19 (holatlar UNTOUCHED…EXPIRED), 20g (HTF baza + displacement + tegishlar), 11 (zona ishonchliligi). 10-paket: 20i (RBR/DBR/RBD/DBD, 100 ball, ID, hayot bosqichi). **Uch tizimni bitta hakamga birlashtirish - sinovdan keyin** (15.5, 3-band) |
-| VIII. Unified Decision Engine | 🟡 | Yo'nalish uchun 20h hakam (1-paket) bor. Konflikt ustuvorligi (8.2) faqat yo'nalish uchun belgilangan. Zona, joy va ijro konfliktlari uchun belgilanmagan |
+| VIII. Unified Decision Engine | ✅ | 20h yo'nalish hakami (1-paket). 25-paket: zona, joy va ijro to'qnashuvlari tartibi kodda (risk -> veto -> sham -> zona -> oqim -> playbook -> quvish -> dalil -> sifat -> ijro), zona ALLOW/CAUTION/BLOCK |
 | IX.1 Direction Guard | ✅ | 21 veto V0–V11 + VH. 2-paket: qarshi klapan olib tashlandi |
 | IX.2 Fast Entry | ✅ | Fast path bor (hb_directional, 1-paket). 15-paket: har WAIT o'z qayta baholash shartini aytadi (`G_MB_ENTRY_RECHECK`) |
 | IX.3 Re-entry | ✅ | 20d mikro va re-entry, cashback re-entry. 4-paket: `OnTradeTransaction` TP'dan keyin darhol reaksiya beradi |
@@ -801,14 +801,14 @@ Bu qoidalar egasi bilan kelishilgan. Hujjatdagi har qanday band shu qoidalar ich
 | Impulse va displacement | ✅ | 17 Candle Engine (displacement), 18 (BOS/MSS), FVG/imbalance (11, 23) |
 | Zona chegaralari va unikal ID | ✅ (20i) / 🟡 (19, 20g) | Chegara bor. ID va "yaratilgandan keyin chegara o'zgarmaydi" qoidasi tizimlar orasida bir xil emas |
 | Lifecycle (Candidate → … → Expired) | ✅ (20i) / 🟡 | 19 da 9 ta holat bor. 20g faqat tegishlarni sanaydi. Ikkalasi bir-biriga bog'lanmagan |
-| Zone Conflict Resolver (ALLOW / CAUTION / BLOCK) | 🟡 | 10-paket: qarshi kuchli zona oldinda - hakam sifati (CAUTION); 20g H1/H4 qattiq qoida. To'liq hakam - birlashtirish bilan (15.5, 3-band) |
+| Zone Conflict Resolver (ALLOW / CAUTION / BLOCK) | ✅ | 25-paket: 20i zonalari bo'yicha ALLOW / CAUTION / BLOCK hakamda; 20g H1/H4 qattiq qoida. Uch tizimni birlashtirish - sinovdan keyin |
 | 100 ballik zona bahosi | ✅ | 10-paket: 20i |
 | Zone Failure Autopsy (model, ID, ball, testlar) | ✅ | 10-paket: Autopsy CSV'da zona ustuni (model, TF, ball, holat) |
 
 ### 15.5. Qo'shimcha 5 band (audit natijasidan, egasi ko'rib chiqishi uchun)
 
 1. **Entry Competition.** Bir vaqtda paydo bo'lgan barcha nomzodlar (BUY/SELL, har xil turdagi) bitta "opportunity score" bilan saralanadi. Faqat eng yaxshisi ijroga chiqadi. Hozir birinchi o'tgan nomzod yutadi.
-2. **Invalidatsiya masofasi va grid qadami.** Kirish tezisining invalidatsiya darajasi (himoyalangan swing) grid qadamidan (~1 H1 ATR) uzoq bo'lsa, birinchi kirish grid xavfi bilan belgilanadi. Bu hakamning (H1/H4) mantiqiy davomi.
+2. ✅ (25-paket) **Invalidatsiya masofasi va grid qadami.** Kirish tezisining invalidatsiya darajasi (himoyalangan swing) grid qadamidan (~1 H1 ATR) uzoq bo'lsa, birinchi kirish grid xavfi bilan belgilanadi. Bu hakamning (H1/H4) mantiqiy davomi.
 3. **Yagona zona hakami.** 19, 20g va 11 dagi zonalar bitta ro'yxatga yig'iladi. Har zonaga bitta ID, bitta holat va bitta ball beriladi, ALLOW/CAUTION/BLOCK chiqadi. RBR/DBR/RBD/DBD tasnifi va 100 ballik baho shu yerga kiradi.
 4. **Tester'da regression replay.** 4142, 4126, 4157.88 BUY, 4081.173 SELL va 08:33 holatlari Trace CSV bilan qayta o'ynatiladi. Har paketdan oldin va keyin taqqoslanadi (XIX.5).
 5. ✅ (20-paket) **Kontekst eskirishi va ishonch.** Har dalil (sweep, MSS, zona) yoshi bilan kuchsizlanadi. Bu kuchsizlanish judge ishonchiga ulanadi (hozir 3-paketda faqat hodisa yoshi bor).

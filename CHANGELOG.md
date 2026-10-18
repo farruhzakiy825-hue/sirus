@@ -1,5 +1,26 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 25-paket: qolgan kamchiliklar - grid xavfi, zona to'qnashuvi hakami, rejim almashtirish (2026-10-18)
+
+Bozor ochilishidan oldin, sinov ma'lumotisiz qilinadigan hamma band. Kompilyatsiya qilinmagan - statik tekshiruvlar toza.
+
+- **Cashback / oddiy rejimni savdo o'rtasida almashtirish (reja 15.2).** Avval: `EnableRebateMode` o'zgartirilsa EA
+  qayta ishga tushib, ochiq savat chiqishni yarim yo'lda almashtirardi (orderlarda cashback'ning kichik broker TP'si
+  qolar, EA esa oddiy rejim maqsadini kutardi yoki teskarisi). Endi savat qaysi rejimda ochilgan bo'lsa, o'sha
+  rejimda yopiladi (terminal o'zgaruvchisida saqlanadi, qayta ishga tushishda tiklanadi); yangi rejim keyingi
+  savatdan. Panelning HOLAT NAZORATI'da sariq qator bilan ko'rinadi.
+- **Bekor darajasi va grid (reja 15.5-2).** G'oyaning bekor darajasi birinchi grid pog'onasidan uzoq bo'lsa - hakam
+  matnida "grid risk" belgisi; butun zinapoyadan (MaxOrders pog'ona) ham uzoq bo'lsa - basket SL g'oya xato
+  ekani isbotlanishidan oldin keladi: sifat -8 (`InvalidationBeyondLadderPenalty`).
+- **Zona to'qnashuvi hakami - ALLOW / CAUTION / BLOCK (reja VIII, 15.4).** Kuchli yangi qarshi zona 1 ATR(M5) ichida
+  bo'lsa CAUTION (sifat -10, avvalgidek); u narxning qoq oldida (0.35 ATR ichida) yoki narx uning ichida, bahosi
+  >= 85, bu tomon zonasi undan kuchsiz va jonli yorib o'tish yo'q bo'lsa - BLOCK: kutish, "yaxshiroq joy" rejasi bilan
+  (qayta ochiladi: qarshi zona yorib o'tilsa yoki shu tomon zonasiga qaytilsa). Hakam matnida `zone CAUTION/BLOCK`.
+- **Qaror ustuvorligi (reja VIII)** kodda yozildi: risk va xavfsizlik -> yo'nalish veto -> shamlar -> zonadagi reaksiya
+  -> zona to'qnashuvi -> tick oqimi -> playbook -> quvish -> dalil -> sifat -> ijro (SmartFill, spread).
+- Yangi inputlar: `EnableInvalidationGridRisk`, `InvalidationBeyondLadderPenalty` 8, `EnableZoneConflictBlock`,
+  `ZoneConflictBlockATR` 0.35, `ZoneConflictBlockScore` 85.
+
 ## 24-paket: panelda HOLAT NAZORATI va bo'sh joyni to'ldirish (2026-10-18)
 
 Egasi maketni tasdiqladi. Savdo mantiqi o'zgarmadi - faqat ko'rsatish.

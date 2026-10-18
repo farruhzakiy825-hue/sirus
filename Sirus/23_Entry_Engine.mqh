@@ -69,6 +69,16 @@ input int    ContextHalfLifeMin       = 45;   // Judge: evidence half-life, minu
 input bool   EnableTargetPath         = true;   // Judge: obstacles on the way to the target
 // TargetPathObstaclePenalty: Har to'siq uchun sifat shuncha pasayadi (eng ko'pi 2 ta)
 input int    TargetPathObstaclePenalty = 4;   // Judge: quality cut per obstacle (max 2)
+// EnableInvalidationGridRisk: 25-PAKET (reja 15.5-2): g'oyaning bekor darajasi birinchi grid pog'onasidan uzoq bo'lsa kirish "grid xavfi" deb belgilanadi; butun zinapoyadan ham uzoq bo'lsa sifat pasayadi
+input bool   EnableInvalidationGridRisk = true;   // Judge: invalidation vs the grid ladder
+// InvalidationBeyondLadderPenalty: Bekor darajasi butun grid zinapoyasidan uzoq bo'lsa sifat shuncha pasayadi
+input int    InvalidationBeyondLadderPenalty = 8;   // Judge: quality cut, invalidation beyond the whole ladder
+// EnableZoneConflictBlock: 25-PAKET (reja VIII / zona hakami): kuchli YANGI qarshi zona narxning qoq oldida (yoki narx uning ichida) va bu tomonning zonasi undan kuchsiz bo'lsa - BLOCK (kutish); uzoqroq bo'lsa - CAUTION; yo'q bo'lsa - ALLOW
+input bool   EnableZoneConflictBlock  = true;   // Judge: zone conflict ALLOW / CAUTION / BLOCK
+// ZoneConflictBlockATR: Qarshi zona shu ATR(M5) ichida bo'lsa BLOCK
+input double ZoneConflictBlockATR     = 0.35;   // Judge: BLOCK when the opposing zone is this close (x ATR M5)
+// ZoneConflictBlockScore: BLOCK uchun qarshi zonaning eng kam bahosi
+input int    ZoneConflictBlockScore   = 85;   // Judge: BLOCK needs an opposing zone of at least this score
 // MBEntryDecayPerATR: Signal paydo bo'lgandan beri narx har 1 ATR(M1) qochganda sifat shuncha pasayadi
 input double MBEntryDecayPerATR       = 20.0;   // Brain entry decay per ATR
 // MBMaxInvalidationATR5: Invalidation darajasi ATR(M5) x shudan uzoq bo'lsa: sifat pasayadi
@@ -227,6 +237,8 @@ string MBWaitRecheck(const string missing, const int caution_q)
       return "a reaction candle at the zone (rejection / grab / displacement)";
    if(StringFind(missing, "tick flow") == 0)
       return "tick flow back from the other side";
+   if(StringFind(missing, "zone conflict") == 0)
+      return "a close beyond the opposing zone, or a pullback to a zone of this side";
    if(StringFind(missing, "playbook") == 0)
       return "a confirmed liquidity reversal (sweep + structure break)";
    if(StringFind(missing, "chasing") == 0)
@@ -670,6 +682,28 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    }
    q -= (chase == 2) ? 30.0 : ((chase == 1) ? 12.0 : 0.0);
    if(far) q -= 10.0;
+   // Package 25 (plan 15.5-2): the invalidation against the grid ladder. Further than the first rung = this
+   // entry will likely need the grid (marked); further than the whole ladder = the basket SL comes before the
+   // idea is proven wrong (quality cut).
+   string grid_txt = "";
+   if(EnableInvalidationGridRisk && inv > 0.0)
+   {
+      double inv_pts = MathAbs(price - inv) / _Point;
+      double step1 = AutoGridBaseDistance();
+      double ladder = 0.0, st = step1, gm = AutoGridMultiplier();
+      for(int r = 1; r < MathMax(2, MaxOrders); r++)
+      {
+         ladder += st;
+         if(gm > 0.0) st *= gm;
+      }
+      if(step1 > 0.0 && inv_pts > step1)
+      {
+         bool beyond = (ladder > 0.0 && inv_pts > ladder);
+         if(beyond) q -= MathMax(0, InvalidationBeyondLadderPenalty);
+         grid_txt = beyond ? StringFormat(" | grid risk: invalidation %.0f pt beyond the whole ladder (%.0f pt)", inv_pts, ladder)
+                           : StringFormat(" | grid risk: invalidation %.0f pt > first rung %.0f pt", inv_pts, step1);
+      }
+   }
    if(G_MB_TH_DIR == dir) q -= 8.0 * G_MB_TH_CONTRA;
    q -= decay;
    // STAGE 15: playbook, candles and FVG.
@@ -740,7 +774,28 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    q = MathMax(0.0, MathMin(100.0, q));
    G_MB_ENTRY_QUALITY = (int)MathRound(q);
 
+   // Package 25 (plan VIII + zone judge): the zone verdict. ALLOW - no strong fresh zone of the other side
+   // within one M5 ATR; CAUTION - there is one (quality -10 above); BLOCK - it is right in front (or price is in
+   // it), it is strong, this side's zone here is weaker, and no live break is happening.
+   string zone_verdict = "ALLOW";
+   bool zone_block = false;
+   if(zi_opp >= 0)
+   {
+      zone_verdict = "CAUTION";
+      double opp_gap = dir * (G_ZI_PROX[zi_opp] - price);   // <= 0: price is already inside it
+      bool own_stronger = (zi_own >= 0 && G_ZI_SCORE[zi_own] >= G_ZI_SCORE[zi_opp]);
+      if(EnableZoneConflictBlock && G_ZI_SCORE[zi_opp] >= ZoneConflictBlockScore && opp_gap <= ZoneConflictBlockATR * atr5 &&
+         !own_stronger && !rg_live_break && !trig_live)
+      {
+         zone_block = true;
+         zone_verdict = "BLOCK";
+      }
+   }
+
    // --- MINIMUM NECESSARY EVIDENCE ---
+   // Package 25 (plan VIII): the order below IS the conflict priority - risk and safety holds and the direction
+   // veto run before the judge; then the candles, the reaction at a zone, the zone conflict, the tick flow, the
+   // playbook, the chase, the missing evidence and last the quality. Execution (SmartFill, spread) comes after.
    string missing = "";
    // STAGE 15 (D1): the playbook's hard lines - never against an expansion, and never against a
    // trend regime the brain does not side with, without a confirmed liquidity reversal.
@@ -775,6 +830,9 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       missing = "the move against is still running on M1 and M5 - waiting for the M1 candle to turn";
    else if(zone_only && !reaction)
       missing = "at the zone - waiting for a reaction candle (rejection / grab / displacement)";
+   else if(zone_block)
+      missing = StringFormat("zone conflict: %s right ahead - waiting for it to break or for a pullback to a zone of this side",
+                             ZIDescribe(zi_opp));
    else if(flow_against)
       missing = StringFormat("tick flow against: imbalance %.0f%% the other way over %d ticks", -flow * 100.0, G_MB_FLOW_N);
    else if(rg == MB_RG_EXPANSION && dir == -G_MB_RG_DIR && !rev_ok)
@@ -890,7 +948,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       double wfl_px = MBBetterLocation(dir, price, atr5, wfl_what);
       // Running away (chase / low quality) - any better price helps. A missing PLACE - only a real level.
       bool about_price = (StringFind(missing, "chasing") == 0 || StringFind(missing, "quality") == 0 ||
-                          StringFind(missing, "trend entry quality") == 0);
+                          StringFind(missing, "trend entry quality") == 0 || StringFind(missing, "zone conflict") == 0);
       bool about_place = (StringFind(missing, "needs") >= 0 && !loc_ok && MBBetterLocationIsLevel(wfl_what));
       if(EnableMBWaitForLocation && (about_price || about_place) && place_missing && trig_ok && (dir_ok || loc_lv >= 1))
       {
@@ -936,13 +994,14 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    G_MB_DNA_PENDING_QUALITY = G_MB_ENTRY_QUALITY;
 
    string fresh_txt = (fr_ev < 0.99 || fr_rev < 0.99) ? StringFormat(" | evidence %.0f%% fresh", 100.0 * MathMin(fr_ev, fr_rev)) : "";
-   G_MB_ENTRY_TEXT = StringFormat("%s q%d | %s %s | bias %s | location: %s | trigger: %s%s | speed %s%s%s%s%s",
+   G_MB_ENTRY_TEXT = StringFormat("%s q%d | %s %s | bias %s | location: %s | trigger: %s%s | speed %s%s%s%s%s%s%s",
                                   MBEntryOutcomeName(outcome), G_MB_ENTRY_QUALITY, etype, (dir > 0 ? "BUY" : "SELL"),
                                   MBBiasName(G_MB_BIAS), loc, trig,
                                   (rev_ok ? " | reversal: " + rev_what : ""),
                                   (G_MB_IMP_DIR[0] == dir ? MBSpeedName(G_MB_SPEED[0]) : "-"),
                                   (inv > 0.0 ? StringFormat(" | invalid %.1f ATR5", inv_atr) : ""),
-                                  (decay > 0.0 ? StringFormat(" | late -%.0f", decay) : ""), fresh_txt, path_txt);
+                                  (decay > 0.0 ? StringFormat(" | late -%.0f", decay) : ""), fresh_txt, path_txt, grid_txt,
+                                  (zone_verdict != "ALLOW" ? " | zone " + zone_verdict : ""));
 
    G_MB_DNA_PENDING_TEXT = G_MB_ENTRY_TEXT;
 
