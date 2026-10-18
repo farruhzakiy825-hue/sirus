@@ -88,7 +88,7 @@ Tekshiriladigan holatlar:
 - ikki cashback $/lot inputi har xil qiymatda;
 - kichik dollar hisob (< $500) oddiy rejimda (qoida: kichik dollar hisob faqat cashback). Cent hisob (USC) bu
   tekshiruvga kirmaydi;
-- broker serveri UTC+0 emas, qat'iy sessiya soatlari esa UTC+0 ni nazarda tutadi.
+- ~~broker serveri UTC+0 emas~~ - 14-paketdan beri: qo'lda berilgan `SessionServerUTCOffset` broker soatiga mos emas.
 
 ## 7. Takliflar (egasining qarori kerak)
 
@@ -100,3 +100,16 @@ Tekshiriladigan holatlar:
 
 Hech biri savdo mantiqini o'zgartirmaydi, faqat sozlamalarni soddalashtiradi. Har biri alohida paket bo'lishi va
 oldin-keyin taqqoslanishi kerak.
+
+## 8. Natija: 14-paket (2026-10-18) - beshala taklif bajarildi
+
+| Taklif | Natija |
+|---|---|
+| 1. Preset qatlamlari | Bitta **Safety layer** (`EnableSafetyLayer`, `SafetySymbolKeyword`, `SafetyMaxFirstLot` 0.25, `SafetyMaxGridLot` 1.00, `SafetyWidenGridOnRisk`, `SafetyDDWarnPercent` 10, `SafetyDDDangerPercent` 16, `SafetyOrdersWarn` 4, `SafetyGridWidenFactor` 1.25, `SafetyGridDangerFactor` 1.65). Pog'ona lotini kesish olib tashlandi (egasining qoidasi) |
+| 2. Sessiya soatlari | Bitta UTC + DST dvigateli; 18 ta qat'iy soat inputi o'rniga `EnableDSTAdjust` va `SessionServerUTCOffset` (99 = avtomatik) |
+| 3. Maksimal spread | `UnifiedMaxSpreadPoints` x `HunterSpreadFactor` (Hunter rejimida), `CleanSpreadPoints`, `CriticalSpreadPoints` |
+| 4. Litsenziya qoldiqlari | Olib tashlandi (License*, P4Mini litsenziya, Release*, rental ogohlantirishlari) |
+| 5. Log kalitlari | 217 kalit -> 7 guruh: `LogEntryEvents`, `LogGridEvents`, `LogExitEvents`, `LogRiskEvents`, `LogBrainEvents`, `LogSystemEvents`, `LogDiagnostics` (o'chiq) |
+
+Inputlar soni: **3066 -> ~2760**. O'qilmaydigan input: 0. Ishga tushishdagi audit: "server UTC+0 emas" ogohlantirishi
+o'rniga endi faqat qo'lda berilgan `SessionServerUTCOffset` haqiqiy broker soatiga mos kelmasa ogohlantiradi.

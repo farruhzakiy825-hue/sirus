@@ -1,5 +1,43 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 14-paket: sozlamalarni birlashtirish - egasining 5 qarori (2026-10-18)
+
+Kompilyatsiya qilinmagan - statik tekshiruvlar toza (qavslar, ta'riflar, dublikatlar, o'zgaruvchilar, format).
+Inputlar: 3066 -> ~2760. Kodda o'qilmaydigan input yo'q.
+
+1. **Bitta xavfsizlik qatlami** (`SafetyLayerUpdate`, 10-fayl). P4Mini litsenziya/simvol/spread, P4Mini lot
+   chegaralari, RC settings balance va Smart Client Safety o'rniga bitta qatlam:
+   - simvol: faqat `SafetySymbolKeyword` ("XAU") bor simvolda savdo;
+   - spread `MaxSpreadAllowed()` dan yuqori - yangi kirish ham, yangi pog'ona ham kutadi;
+   - lot chegarasi: `SafetyMaxFirstLot` 0.25, `SafetyMaxGridLot` 1.00 (eski BALANCED profil qiymatlari, 0 = o'chiq);
+   - DD >= 10%, pog'ona >= 4 yoki yuqori spread - grid masofasi x1.25, DD >= 16% - x1.65.
+   - **O'zgarish:** eski ClientSafety DD'da pog'ona lotini x0.75 / x0.55 ga kesar edi (floor'dan KEYIN). Bu "pog'ona
+     oldingisidan kichik bo'lmaydi" qoidasiga zid edi - olib tashlandi. Grid xavfini GLS (9-paket) hal qiladi.
+   - RC faqat ogohlantirardi (strict o'chiq) va har skanda lotni qayta hisoblardi - olib tashlandi.
+   - PresetHardening (koeffitsientlari doim 1.0) va hech qachon yangilanmaydigan "Stable RC" globallari olib tashlandi.
+   - Panelda bitta `SAFE :` qatori.
+2. **Bitta sessiya dvigateli (UTC + DST)** (`SessionUTCMinute` / `SessionServerMinute`, 10-fayl). Har sessiya
+   chegarasi o'z shahri soatida bir marta yozilgan va avtomatik UTC'ga (Yevropa / Amerika yozgi vaqti), keyin broker
+   vaqtiga o'tkaziladi. Asia (Tokio 09:00 -> Frankfurt ochilishi), Frankfurt, London 08-16, New York 08-16, NY killzone
+   10-12 (NY), rollover 17:00 NY, NY midnight. 18 ta qat'iy soat inputi olib tashlandi (`Session*Hour`,
+   `Legacy*StartHour`, `AsiaSession*`, `LondonNYSession*`, `NYKillzone*Hour`, `MBAsia*`, `NYOpenHour`).
+   - Qishki qiymatlar UTC+0 serverdagi eski sukut qiymatlariga teng - qishda hech narsa siljimaydi.
+   - Yozda: London, NY, killzone, rollover bir soat oldin (avval ba'zilari siljimasdi). Server UTC+0 bo'lmasa ham to'g'ri.
+   - Transition guard va brain "ochilish oynasi" endi haqiqiy London ochilishini (08:00 London) oladi.
+   - 12-paket Asia darajasi endi Frankfurt ochilishigacha (qishda 00-07 UTC, avval 00-06).
+   - `SessionServerUTCOffset` 01-faylga ko'chdi (99 = avtomatik). Input auditi endi faqat noto'g'ri qo'lda offsetni aytadi.
+3. **Bitta spread chegarasi.** 14 ta chegara o'rniga `MaxSpreadAllowed()` = `UnifiedMaxSpreadPoints` (Hunter rejimida
+   x `HunterSpreadFactor`). `CleanSpreadPoints` - "toza spread" darajasi, `CriticalSpreadPoints` - score qattiq bloki.
+   Sukut qiymatlarida xulq o'zgarmaydi (unified chegara oldin ham modul chegaralarini bosib o'tardi).
+4. **Litsenziya qoldiqlari olib tashlandi:** V29 license guard, P4Mini litsenziya, `ReleaseBuildProfile`,
+   `ReleaseRequireLicenseForClient`, rental ogohlantirishlari va bo'sh "(inactive)" guruhlar.
+5. **Log kalitlari guruhlandi.** 217 ta `...PrintOnUse` / `Print...Events` endi 7 ta guruh inputining `#define`'i:
+   `LogEntryEvents`, `LogGridEvents`, `LogExitEvents`, `LogRiskEvents`, `LogBrainEvents`, `LogSystemEvents` (yoqiq) va
+   `LogDiagnostics` (o'chiq - sukut bo'yicha o'chiq bo'lgan 30 kalit shu yerda). Har kalitning sukut qiymati saqlandi.
+   `VerboseLogs` / `TesterQuietLogs` asosiy kalit bo'lib qoladi; Trace / CSV yozuvchilar o'zgarmadi.
+
+Eslatma: eski `.set` fayllaridagi olib tashlangan input nomlari terminal tomonidan e'tiborsiz qoldiriladi.
+
 ## 13-paket: input auditi (2026-10-18)
 
 Hisobot: `docs/INPUT_AUDIT.md`. Master reja XVIII - inputlarning ma'nosi o'zgartirilmadi.
