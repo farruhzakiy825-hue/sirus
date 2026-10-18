@@ -239,6 +239,23 @@ double   G_LIVE_PEAK_BODY_ABS  = 0.0, G_LIVE_PEAK_BODY_RNG  = 0.0;
 #define SESSION_OVERLAP  3   // London + New York, the day's real volume
 #define SESSION_NY       4   // continuation, then fading into the close
 
+// Package 14: session ids of the one session engine (SessionUTCMinute / SessionServerMinute).
+#define SES_ASIA         0   // Tokyo 09:00 -> Frankfurt open
+#define SES_FRANKFURT    1   // Frankfurt 08:00 -> London open
+#define SES_LONDON       2   // London 08:00-16:00
+#define SES_NY           3   // New York 08:00-16:00
+#define SES_NY_KILLZONE  4   // New York 10:00-12:00
+#define SES_ROLLOVER     5   // New York 17:00
+#define SES_NY_MIDNIGHT  6   // New York 00:00
+int SessionUTCMinute(const int sid, const bool at_end, const datetime t);
+int SessionServerMinute(const int sid, const bool at_end);
+int SessionServerMinuteNow();
+bool SessionMinuteIn(const int m, const int from, const int to);
+bool SessionActiveNow(const int sid);
+int SessionMinuteGap(const int a, const int b);
+int SessionWrapMinute(const int m);
+int MBServerUTCOffsetSec();
+
 
 
 

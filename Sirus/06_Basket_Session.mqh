@@ -2415,10 +2415,8 @@ bool SpreadWideningExpected(string &why)
    // the exit is priced under conditions the entry never accounted for.
    if(sc_mins <= SpreadForecastWarnMinutes)
    {
-      MqlDateTime dt;
-      TimeToStruct(TimeCurrent(), dt);
-      int now_m = dt.hour * 60 + dt.min;
-      int roll_at = MathMax(0, MathMin(23, SessionRolloverHour)) * 60;
+      int now_m = SessionServerMinuteNow();
+      int roll_at = SessionServerMinute(SES_ROLLOVER, false);
       int to_roll = roll_at - now_m;
       if(to_roll < 0) to_roll += 1440;
       if(to_roll <= SpreadForecastWarnMinutes)
@@ -2474,26 +2472,26 @@ int SessionContext(int &minutes_to_change, string &detail)
    int mins = dt.min;
    int now_m = hour * 60 + mins;
 
-   int asia_start    = MathMax(0, MathMin(23, SessionAsiaStartHour))    * 60;
-   int london_start  = MathMax(0, MathMin(23, SessionLondonStartHour))  * 60;
-   int ny_start      = MathMax(0, MathMin(23, SessionNYStartHour))      * 60;
-   int london_end    = MathMax(0, MathMin(23, SessionLondonEndHour))    * 60;
-   int ny_end        = MathMax(0, MathMin(23, SessionNYEndHour))        * 60;
-   int rollover_at   = MathMax(0, MathMin(23, SessionRolloverHour))     * 60;
+   // Package 14: boundaries from the one session engine - broker clock, summer time included.
+   int asia_start    = SessionServerMinute(SES_ASIA, false);
+   int london_start  = SessionServerMinute(SES_LONDON, false);
+   int ny_start      = SessionServerMinute(SES_NY, false);
+   int london_end    = SessionServerMinute(SES_LONDON, true);
+   int ny_end        = SessionServerMinute(SES_NY, true);
+   int rollover_at   = SessionServerMinute(SES_ROLLOVER, false);
 
    int sess = SESSION_ASIA;
 
    // Rollover window straddles the day boundary, so it is checked first.
    int roll_half = MathMax(5, SessionRolloverMinutes) / 2;
-   int roll_dist = MathAbs(now_m - rollover_at);
-   if(roll_dist > 720) roll_dist = 1440 - roll_dist;      // wrap around midnight
+   int roll_dist = SessionMinuteGap(now_m, rollover_at);   // wraps around midnight
    if(roll_dist <= roll_half)
       sess = SESSION_DEAD;
-   else if(now_m >= ny_start && now_m < london_end)
+   else if(SessionMinuteIn(now_m, ny_start, london_end))
       sess = SESSION_OVERLAP;
-   else if(now_m >= london_start && now_m < ny_start)
+   else if(SessionMinuteIn(now_m, london_start, ny_start))
       sess = SESSION_LONDON;
-   else if(now_m >= london_end && now_m < ny_end)
+   else if(SessionMinuteIn(now_m, london_end, ny_end))
       sess = SESSION_NY;
    else
       sess = SESSION_ASIA;

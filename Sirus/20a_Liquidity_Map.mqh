@@ -31,8 +31,6 @@ input bool   EnableMBLiquidityMap       = true;   // Enable mb liquidity map
 input bool   MBLiquidityPrintOnUse      = true;   // Brain liquidity print on use (on/off)
 // EnableSessionLiquidity: 12-PAKET: sessiya darajalari - Asia, Frankfurt, London high/low (oxirgi YAKUNLANGAN sessiya) likvidlik xaritasiga; New York midnight open panelda. Vaqt: UTC + yozgi/qishki vaqt, broker serveriga o'tkaziladi
 input bool   EnableSessionLiquidity     = true;   // Session liquidity: Asia / Frankfurt / London high-low, midnight open
-// SessionServerUTCOffset: Broker server vaqti UTC dan necha soat farq qiladi. 99 = jonli hisobda avtomatik (testerda 0). Exness = 0
-input int    SessionServerUTCOffset     = 99;   // Broker server offset from UTC, hours (99 = auto; tester 0)
 
 #define LQ_MAX        64
 #define LQ_FRESH      0
@@ -215,7 +213,7 @@ void MBLqHarvestTF(const ENUM_TIMEFRAMES tf, const int bit, const int bars, cons
 // the next session hunts - they go into this map (class: like an H1 swing) with their history since the
 // session ended (taken -> left out, pierced and closed back -> SWEPT), so a sweep of the Asia low is a map
 // sweep like any other. Times are UTC with European / American summer time, then moved to broker time:
-//   Asia      00:00-06:00 UTC
+//   Asia      00:00 UTC to the Frankfurt open (package 14 session engine, 10_Basket_Stats_Context)
 //   Frankfurt 07:00-08:00 UTC (06:00-07:00 in European summer) - Frankfurt open to London open
 //   London    08:00-16:00 UTC (07:00-15:00 in European summer)
 //   NY midnight open: 00:00 New York = 05:00 UTC (04:00 in American summer) - shown on the panel.
@@ -223,27 +221,7 @@ double   G_SES_HI[3], G_SES_LO[3];   // 0 Asia, 1 Frankfurt, 2 London (0 = not k
 int      G_SES_ST_HI[3], G_SES_ST_LO[3];
 double   G_SES_MIDNIGHT = 0.0;
 
-int MBServerUTCOffsetSec()
-{
-   if(SessionServerUTCOffset != 99)
-      return SessionServerUTCOffset * 3600;
-   if(MQLInfoInteger(MQL_TESTER))
-      return 0;
-   static int cached = 0;
-   static datetime at = 0;
-   if(at == 0 || TimeCurrent() - at > 3600)
-   {
-      datetime srv = TimeTradeServer(), gmt = TimeGMT();
-      if(srv > 0 && gmt > 0)
-      {
-         cached = (int)MathRound((double)(srv - gmt) / 1800.0) * 1800;   // to the half hour
-         at = TimeCurrent();
-      }
-   }
-   return cached;
-}
-
-// The last completed occurrence of a session [sh, eh) in UTC hours on a weekday; false if none in 4 days.
+// The last completed occurrence of a session on a weekday, in broker time; false if none in 4 days.
 bool MBSessionWindow(const int sid, datetime &from_srv, datetime &to_srv)
 {
    int off = MBServerUTCOffsetSec();
@@ -256,11 +234,12 @@ bool MBSessionWindow(const int sid, datetime &from_srv, datetime &to_srv)
       TimeToStruct(d, dt);
       if(dt.day_of_week == 0 || dt.day_of_week == 6)
          continue;
-      bool eu = EnableDSTAdjust && IsEuropeanDST(d + 12 * 3600);
-      int sh = 0, eh = 6;
-      if(sid == 1) { sh = eu ? 6 : 7; eh = sh + 1; }
-      else if(sid == 2) { sh = eu ? 7 : 8; eh = sh + 8; }
-      datetime s = d + sh * 3600, e = d + eh * 3600;
+      // Package 14: the boundaries come from the one session engine (sid 0/1/2 = SES_ASIA/FRANKFURT/LONDON).
+      int sm = SessionUTCMinute(sid, false, d + 12 * 3600);
+      int em = SessionUTCMinute(sid, true, d + 12 * 3600);
+      if(em <= sm)
+         em += 1440;
+      datetime s = d + sm * 60, e = d + em * 60;
       if(e > utc_now)
          continue;   // not finished yet
       from_srv = s + off;
@@ -311,8 +290,7 @@ void MBLqSessionLevels(const double px, const double window, const double tol, c
    int off = MBServerUTCOffsetSec();
    datetime utc_now = TimeCurrent() - off;
    datetime day0 = (datetime)((long)utc_now - ((long)utc_now % 86400));
-   int mh = (EnableDSTAdjust && IsAmericanDST(day0 + 12 * 3600)) ? 4 : 5;
-   datetime mo = day0 + mh * 3600;
+   datetime mo = day0 + SessionUTCMinute(SES_NY_MIDNIGHT, false, day0 + 12 * 3600) * 60;
    if(mo > utc_now) mo -= 86400;
    int sh = iBarShift(_Symbol, PERIOD_M5, mo + off, false);
    if(sh >= 0)

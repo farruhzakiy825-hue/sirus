@@ -56,10 +56,6 @@ input int    MBRelevantBarsM1         = 45;   // Brain relevant bars M1
 input int    MBFreshBarsHTF           = 3;   // Brain fresh bars HTF
 // MBRelevantBarsHTF: ... shuncha bargacha "dolzarb"
 input int    MBRelevantBarsHTF        = 12;   // Brain relevant bars HTF
-// MBAsiaStartHour: Osiyo sessiyasi (server vaqti) boshlanishi
-input int    MBAsiaStartHour          = 0;   // Brain asia start hour
-// MBAsiaEndHour: Osiyo sessiyasi tugashi
-input int    MBAsiaEndHour            = 7;   // Brain asia end hour
 // MBEventPrintOnUse: Har yangi hodisani jurnalga yozish ([SIRUS EVENT])
 input bool   MBEventPrintOnUse        = true;   // Brain event print on use (on/off)
 // EnableLiveSweep: 14-BOSQICH (C1): likvidlik yechilishini TIKDA ko'rish - bar yopilishini kutmasdan (M5 / M15 / H1 swing, PDH / PDL, Osiyo)
@@ -74,8 +70,6 @@ input int    LiveSweepValidSec        = 120;   // Live sweep valid sec
 input bool   EnableRoundLevels        = true;   // Enable round levels
 // RoundLevelStep: Yumaloq daraja qadami (narx birligida, oltin uchun $50)
 input double RoundLevelStep           = 50.0;   // Round level step
-// NYOpenHour: 17-BOSQICH (B2): Nyu-York ochilishi (server vaqti). London = MBAsiaEndHour
-input int    NYOpenHour               = 13;   // NY open hour
 // SessionOpenWindowH: Ochilishdan keyin shuncha soat - "sessiya ochilishi" oynasi
 input int    SessionOpenWindowH       = 2;   // Session open window h
 // EnableSweepStats: 17-BOSQICH (D3): har LIVE SWEEP natijasi (hovuz turi x sessiya) eslab qolinadi; >= 30 namunada yo'nalish ehtimoli sifatida ishlatiladi
@@ -408,10 +402,12 @@ void MBBuildKeyPools(const datetime t)
       MBPoolAdd(pdl, -1, 0, MB_POOL_PDL, day0 - 1);
    }
 
-   if(dt.hour >= MBAsiaEndHour && MBAsiaEndHour > MBAsiaStartHour)
+   // Package 14: today's Asia session from the one session engine (broker clock, summer time).
+   int asia_s = SessionServerMinute(SES_ASIA, false), asia_e = SessionServerMinute(SES_ASIA, true);
+   if(asia_e > asia_s && dt.hour * 60 + dt.min >= asia_e)
    {
-      datetime a_from = day0 + MBAsiaStartHour * 3600;
-      datetime a_to = day0 + MBAsiaEndHour * 3600 - 1;
+      datetime a_from = day0 + asia_s * 60;
+      datetime a_to = day0 + asia_e * 60 - 1;
       MqlRates a[];
       int na = CopyRates(_Symbol, PERIOD_M5, a_from, a_to, a);
       if(na > 6)
@@ -937,15 +933,16 @@ void MBLivePoolsRebuild(const double price)
 
 //---------------------------------------------------------------------
 // STAGE 17 (B2): sessions on the server clock. 0 Asia, 1 London, 2 New York, 3 late.
+// Package 14: boundaries from the one session engine - Asia until the Frankfurt open, London until the
+// New York open, New York for 4 hours after it.
 //---------------------------------------------------------------------
 int MBSessionNow()
 {
-   MqlDateTime dt;
-   TimeToStruct(TimeTradeServer(), dt);
-   int lon = MathMax(0, MBAsiaEndHour), ny = MathMax(lon + 1, NYOpenHour);
-   if(dt.hour < lon) return 0;
-   if(dt.hour < ny)  return 1;
-   if(dt.hour < ny + 4) return 2;
+   int m = SessionServerMinuteNow();
+   int lon = SessionServerMinute(SES_FRANKFURT, false), ny = SessionServerMinute(SES_NY, false);
+   if(SessionMinuteIn(m, SessionServerMinute(SES_ASIA, false), lon)) return 0;
+   if(SessionMinuteIn(m, lon, ny)) return 1;
+   if(SessionMinuteIn(m, ny, SessionWrapMinute(ny + 240))) return 2;
    return 3;
 }
 
@@ -963,11 +960,11 @@ string MBSessionUz(const int s)
 // In the first SessionOpenWindowH hours of London or New York.
 bool MBSessionOpenWindow()
 {
-   MqlDateTime dt;
-   TimeToStruct(TimeTradeServer(), dt);
-   int lon = MathMax(0, MBAsiaEndHour);
-   int w = MathMax(1, SessionOpenWindowH);
-   return ((dt.hour >= lon && dt.hour < lon + w) || (dt.hour >= NYOpenHour && dt.hour < NYOpenHour + w));
+   // Package 14: the real London (08:00 London) and New York (08:00 New York) opens from the session engine.
+   int m = SessionServerMinuteNow();
+   int w = MathMax(1, SessionOpenWindowH) * 60;
+   int lon = SessionServerMinute(SES_LONDON, false), ny = SessionServerMinute(SES_NY, false);
+   return (SessionMinuteIn(m, lon, SessionWrapMinute(lon + w)) || SessionMinuteIn(m, ny, SessionWrapMinute(ny + w)));
 }
 
 //---------------------------------------------------------------------

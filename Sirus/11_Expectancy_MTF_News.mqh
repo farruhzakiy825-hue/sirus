@@ -2090,14 +2090,8 @@ double NYKillzoneLotAdjust(const double lot)
    TimeToStruct(TimeCurrent(), dt);
    int hour = dt.hour;
 
-   // V261: New York shifts on its own dates - early March to early November, two weeks apart from
-   // Europe at each end. During those two weeks the two sessions overlap differently than they do
-   // for the rest of the year, which is exactly when a killzone measured in fixed hours is furthest
-   // from the thing it was drawn around.
-   int kz_start = AdjustedSessionHour(NYKillzoneStartHour, true);
-   int kz_end   = AdjustedSessionHour(NYKillzoneEndHour, true);
-
-   bool in_killzone = (kz_end > kz_start) && (hour >= kz_start && hour < kz_end);
+   // Package 14: 10:00-12:00 New York from the one session engine (American summer time, broker clock).
+   bool in_killzone = SessionActiveNow(SES_NY_KILLZONE);
 
    if(!in_killzone)
       return lot;

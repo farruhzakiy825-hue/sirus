@@ -3006,27 +3006,115 @@ bool IsAmericanDST(const datetime t)
    return (dt.day < first_sunday || (dt.day == first_sunday && dt.hour < 2));
 }
 
-// How many hours to shift a session boundary that was written for winter.
-int SessionDSTShift(const bool american)
+// ============================================================================
+// Package 14: ONE SESSION ENGINE (UTC + DST)
+// ----------------------------------------------------------------------------
+// Every session boundary is written once, on the clock of the city it belongs to, and converted:
+// city clock -> UTC (European / American summer time) -> broker server time (MBServerUTCOffsetSec:
+// measured live, SessionServerUTCOffset when set, 0 in the tester). It replaces five sets of fixed
+// broker hours (Session*Hour, Legacy*StartHour, AsiaSession* / LondonNYSession*, NYKillzone*,
+// MBAsia* / NYOpenHour) that disagreed with each other and were an hour late for half the year.
+//   ASIA         Tokyo 09:00 -> Frankfurt open   00:00-07:00 UTC winter | 00:00-06:00 summer
+//   FRANKFURT    Frankfurt 08:00 -> London open  07:00-08:00 UTC winter | 06:00-07:00 summer
+//   LONDON       London 08:00-16:00              08:00-16:00 UTC winter | 07:00-15:00 summer
+//   NEW YORK     New York 08:00-16:00            13:00-21:00 UTC winter | 12:00-20:00 summer
+//   NY KILLZONE  New York 10:00-12:00            15:00-17:00 UTC winter | 14:00-16:00 summer
+//   ROLLOVER     New York 17:00                  22:00 UTC winter       | 21:00 summer
+//   NY MIDNIGHT  New York 00:00                  05:00 UTC winter       | 04:00 summer
+// Winter values equal the old defaults on a UTC+0 server (Exness), so nothing moves in winter.
+// ============================================================================
+int MBServerUTCOffsetSec()
 {
-   if(!EnableDSTAdjust)
+   if(SessionServerUTCOffset != 99)
+      return SessionServerUTCOffset * 3600;
+   if(MQLInfoInteger(MQL_TESTER))
       return 0;
-
-   datetime now = TimeCurrent();
-   bool on = american ? IsAmericanDST(now) : IsEuropeanDST(now);
-
-   // In summer the market opens an hour EARLIER in broker terms, so a boundary written
-   // for winter has to move back by one.
-   return on ? -1 : 0;
+   static int cached = 0;
+   static datetime at = 0;
+   if(at == 0 || TimeCurrent() - at > 3600)
+   {
+      datetime srv = TimeTradeServer(), gmt = TimeGMT();
+      if(srv > 0 && gmt > 0)
+      {
+         cached = (int)MathRound((double)(srv - gmt) / 1800.0) * 1800;   // to the half hour
+         at = TimeCurrent();
+      }
+   }
+   return cached;
 }
 
-// A session hour corrected for the season.
-int AdjustedSessionHour(const int winter_hour, const bool american)
+int SessionWrapMinute(const int m)
 {
-   int h = winter_hour + SessionDSTShift(american);
-   if(h < 0)  h += 24;
-   if(h > 23) h -= 24;
-   return h;
+   int r = m % 1440;
+   if(r < 0)
+      r += 1440;
+   return r;
+}
+
+// A city's clock minus UTC, in minutes, at time t. 0 Tokyo, 1 London, 2 Frankfurt, 3 New York.
+int SessionCityUTCOffsetMin(const int city, const datetime t)
+{
+   bool eu = EnableDSTAdjust && IsEuropeanDST(t);
+   bool us = EnableDSTAdjust && IsAmericanDST(t);
+   switch(city)
+   {
+      case 0: return 9 * 60;
+      case 1: return (eu ? 60 : 0);
+      case 2: return (eu ? 120 : 60);
+   }
+   return (us ? -240 : -300);
+}
+
+// UTC minute of the day at which a session starts (at_end = false) or ends (true), seasons taken at t.
+int SessionUTCMinute(const int sid, const bool at_end, const datetime t)
+{
+   int city = 3, local = 0;
+   switch(sid)
+   {
+      case SES_ASIA:        city = (at_end ? 2 : 0); local = (at_end ? 8 : 9) * 60; break;
+      case SES_FRANKFURT:   city = (at_end ? 1 : 2); local = 8 * 60;                break;
+      case SES_LONDON:      city = 1;                local = (at_end ? 16 : 8) * 60; break;
+      case SES_NY:          city = 3;                local = (at_end ? 16 : 8) * 60; break;
+      case SES_NY_KILLZONE: city = 3;                local = (at_end ? 12 : 10) * 60; break;
+      case SES_ROLLOVER:    city = 3;                local = 17 * 60;               break;
+      default:              city = 3;                local = 0;                     break;   // SES_NY_MIDNIGHT
+   }
+   return SessionWrapMinute(local - SessionCityUTCOffsetMin(city, t));
+}
+
+// The same boundary on the broker's clock today, as a minute of the server day.
+int SessionServerMinute(const int sid, const bool at_end)
+{
+   return SessionWrapMinute(SessionUTCMinute(sid, at_end, TimeCurrent()) + MBServerUTCOffsetSec() / 60);
+}
+
+int SessionServerMinuteNow()
+{
+   MqlDateTime dt;
+   TimeToStruct(TimeCurrent(), dt);
+   return dt.hour * 60 + dt.min;
+}
+
+// Is minute m inside [from, to)? A window may cross midnight (a broker clock far from UTC).
+bool SessionMinuteIn(const int m, const int from, const int to)
+{
+   if(from == to)
+      return false;
+   if(from < to)
+      return (m >= from && m < to);
+   return (m >= from || m < to);
+}
+
+bool SessionActiveNow(const int sid)
+{
+   return SessionMinuteIn(SessionServerMinuteNow(), SessionServerMinute(sid, false), SessionServerMinute(sid, true));
+}
+
+// Minutes between two minutes of the day, the short way round.
+int SessionMinuteGap(const int a, const int b)
+{
+   int d = MathAbs(a - b);
+   return (d > 720 ? 1440 - d : d);
 }
 
 // Broker time and the operator's time, side by side.

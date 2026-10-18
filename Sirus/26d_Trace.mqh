@@ -174,11 +174,16 @@ string InputAuditWarnings()
    double bal = AccountInfoDouble(ACCOUNT_BALANCE);
    if(!EnableRebateMode && !cent && bal > 0.0 && bal < 500.0)
       w += StringFormat("balance %.2f %s in normal mode - the owner's rule: a small dollar account trades cashback mode\n", bal, ccy);
-   // The fixed session hours assume a UTC+0 server; the session liquidity map (package 12) converts by itself.
-   int off_h = MBServerUTCOffsetSec() / 3600;
-   if(off_h != 0)
-      w += StringFormat("broker server is UTC%+d - the fixed session-hour inputs (Session*Hour, NYKillzone*, AsiaSession*, LondonNYSession*) assume UTC+0; shift them by %d\n",
-                        off_h, off_h);
+   // Package 14: the session engine converts UTC + summer time to the broker clock by itself; only a
+   // wrong manual offset can mislead it.
+   if(SessionServerUTCOffset != 99 && !MQLInfoInteger(MQL_TESTER))
+   {
+      datetime srv = TimeTradeServer(), gmt = TimeGMT();
+      int live_h = (srv > 0 && gmt > 0) ? (int)MathRound((double)(srv - gmt) / 3600.0) : SessionServerUTCOffset;
+      if(live_h != SessionServerUTCOffset)
+         w += StringFormat("SessionServerUTCOffset %d but the broker clock is UTC%+d - every session boundary is off by %d h (99 = measure it)\n",
+                           SessionServerUTCOffset, live_h, live_h - SessionServerUTCOffset);
+   }
    return w;
 }
 

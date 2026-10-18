@@ -412,12 +412,15 @@ int LegacySessionScore()
    int score = 0;
    string name = "OFF";
 
-   if(h >= LegacyAsiaStartHour && h < LegacyLondonStartHour)
+   // Package 14: sessions from the one session engine - Asia until the Frankfurt open, London until
+   // the New York open, New York after.
+   int now_m = SessionServerMinuteNow();
+   if(SessionActiveNow(SES_ASIA))
    {
       name = "ASIA";
       score = (G_MARKET_STATE == MARKET_RANGE ? 1 : 0);
    }
-   else if(h >= LegacyLondonStartHour && h < LegacyNYStartHour)
+   else if(SessionMinuteIn(now_m, SessionServerMinute(SES_FRANKFURT, false), SessionServerMinute(SES_NY, false)))
    {
       name = "LONDON";
       score = (G_MARKET_STATE == MARKET_TREND_UP || G_MARKET_STATE == MARKET_TREND_DOWN || G_MARKET_STATE == MARKET_PULLBACK ? 1 : 0);
@@ -1077,14 +1080,14 @@ void PremiumVisualDrawSessionRectangle(const string suffix,
    ObjectSetInteger(0, label_name, OBJPROP_HIDDEN, true);
 }
 
-datetime PremiumVisualTodayAtHour(const int hour_value)
+datetime PremiumVisualTodayAtMinute(const int minute_value)
 {
    MqlDateTime dt;
    TimeToStruct(TimeCurrent(), dt);
-   dt.hour = hour_value;
+   dt.hour = 0;
    dt.min = 0;
    dt.sec = 0;
-   return StructToTime(dt);
+   return StructToTime(dt) + MathMax(0, MathMin(1440, minute_value)) * 60;
 }
 
 void PremiumVisualDrawSessionZones()
@@ -1092,14 +1095,11 @@ void PremiumVisualDrawSessionZones()
    if(!PremiumShowSessionZones)
       return;
 
-   int asia_h = SafeHourClamp(LegacyAsiaStartHour);
-   int london_h = SafeHourClamp(LegacyLondonStartHour);
-   int ny_h = SafeHourClamp(LegacyNYStartHour);
-
-   datetime asia_start = PremiumVisualTodayAtHour(asia_h);
-   datetime london_start = PremiumVisualTodayAtHour(london_h);
-   datetime ny_start = PremiumVisualTodayAtHour(ny_h);
-   datetime day_end = PremiumVisualTodayAtHour(23) + 3600;
+   // Package 14: the same session engine the strategy uses.
+   datetime asia_start = PremiumVisualTodayAtMinute(SessionServerMinute(SES_ASIA, false));
+   datetime london_start = PremiumVisualTodayAtMinute(SessionServerMinute(SES_FRANKFURT, false));
+   datetime ny_start = PremiumVisualTodayAtMinute(SessionServerMinute(SES_NY, false));
+   datetime day_end = PremiumVisualTodayAtMinute(1440);
 
    if(london_start > asia_start)
       PremiumVisualDrawSessionRectangle("ASIA", asia_start, london_start, PremiumAsiaSessionColor, "ASIA");

@@ -1933,21 +1933,12 @@ double SessionGridDistanceFactor()
    if(!EnableSessionGridDistance)
       return 1.0;
 
-   MqlDateTime dt;
-   TimeToStruct(TimeCurrent(), dt);
-   int hour = dt.hour;
-
-   // V261: the settings are written for winter, when broker time and London time agree. From late
-   // March to late October London runs an hour ahead and the broker's clock does not move with it,
-   // so an unadjusted boundary is an hour late for half the year.
-   int asia_end   = AdjustedSessionHour(AsiaSessionEndHour, false);
-   int ln_start   = AdjustedSessionHour(LondonNYSessionStartHour, false);
-   int ln_end     = AdjustedSessionHour(LondonNYSessionEndHour, false);
-
-   if(asia_end > AsiaSessionStartHour && hour >= AsiaSessionStartHour && hour < asia_end)
+   // Package 14: the one session engine - Asia until the Frankfurt open, then London/NY from the
+   // Frankfurt open to the New York close, on the broker clock with summer time.
+   if(SessionActiveNow(SES_ASIA))
       return AsiaGridDistanceFactor;
 
-   if(ln_end > ln_start && hour >= ln_start && hour < ln_end)
+   if(SessionMinuteIn(SessionServerMinuteNow(), SessionServerMinute(SES_FRANKFURT, false), SessionServerMinute(SES_NY, true)))
       return LondonNYGridDistanceFactor;
 
    return 1.0;
@@ -1965,13 +1956,12 @@ bool IsInSessionTransitionWindow(string &detail)
    if(!EnableSessionTransitionGuard)
       return false;
 
-   MqlDateTime dt;
-   TimeToStruct(TimeCurrent(), dt);
-   int minutes_now = dt.hour * 60 + dt.min;
+   int minutes_now = SessionServerMinuteNow();
    int window = MathMax(1, SessionTransitionWindowMinutes);
 
-   int london_open_minutes = LondonNYSessionStartHour * 60;
-   int diff_london = MathAbs(minutes_now - london_open_minutes);
+   // Package 14: the real London open (08:00 London) from the session engine, not a fixed broker hour.
+   int london_open_minutes = SessionServerMinute(SES_LONDON, false);
+   int diff_london = SessionMinuteGap(minutes_now, london_open_minutes);
    if(diff_london <= window)
    {
       detail = StringFormat("London/NY session open transition (%d min)", diff_london);
@@ -1980,8 +1970,8 @@ bool IsInSessionTransitionWindow(string &detail)
 
    if(EnableAsiaTransitionGuard)
    {
-      int asia_open_minutes = AsiaSessionStartHour * 60;
-      int diff_asia = MathAbs(minutes_now - asia_open_minutes);
+      int asia_open_minutes = SessionServerMinute(SES_ASIA, false);
+      int diff_asia = SessionMinuteGap(minutes_now, asia_open_minutes);
       if(diff_asia <= window)
       {
          detail = StringFormat("Asia session open transition (%d min)", diff_asia);

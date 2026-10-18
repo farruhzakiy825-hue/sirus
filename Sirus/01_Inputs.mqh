@@ -2925,6 +2925,8 @@ input bool   ArrivalPrintOnUse           = true;   // Arrival print on use (on/o
 // and for the fortnight between them the sessions overlap differently than they do all year.
 // EnableDSTAdjust: Shift session boundaries with the seasons
 input bool   EnableDSTAdjust             = true;   // Enable dst adjust
+// SessionServerUTCOffset: Package 14 session engine - broker server offset from UTC in hours. 99 = measured live (0 in the tester). Exness = 0.
+input int    SessionServerUTCOffset     = 99;   // Broker server offset from UTC, hours (99 = auto; tester 0)
 // LocalUTCOffsetHours: The operator's offset from broker time, for the dashboard only. A five-hour gap already produced one wrong conclusion about why the EA stopped on a Friday.
 input int    LocalUTCOffsetHours         = 5;   // Local UTC offset hours
 // ShowBothTimesOnDash: Show broker and local time together
@@ -3648,9 +3650,6 @@ input bool              LegacyUseTrendExhaustion = true;   // Legacy use trend e
 input bool              LegacyUseRoadblockGuard  = true;   // Legacy use roadblock guard (on/off)
 input int               LegacyRoadblockMinRoomPts= 900;   // Legacy roadblock min room points
 input bool              LegacyUseSessionDNA      = true;   // Legacy use session dna (on/off)
-input int               LegacyAsiaStartHour      = 0;   // Legacy asia start hour
-input int               LegacyLondonStartHour    = 7;   // Legacy london start hour
-input int               LegacyNYStartHour        = 13;   // Legacy NY start hour
 input bool              LegacyUseManualNewsGuard = false;   // Legacy use manual news guard (on/off)
 input int               LegacyNewsStartHour      = 0;   // Legacy news start hour
 input int               LegacyNewsEndHour        = 0;   // Legacy news end hour
@@ -4583,24 +4582,10 @@ input bool   ShowPressureOnDash         = true;   // Show pressure on dashboard
 // behind it), and PROXIMITY to a session change matters more than anything happening now, because
 // fifteen minutes before London the current move is about to be overwritten by participants who are
 // not in the market yet.
-// NOTE: all hours are BROKER server time. Defaults below are set for a UTC+0 server, which is what
-// this account uses. On a UTC+2/+3 server every hour would need shifting by that offset - the values
-// are not universal. Daylight saving moves London and New York by an hour twice a year; the defaults
-// follow winter time, which is close enough that only the session edges are affected.
+// Package 14: the session hours come from the one session engine (UTC + summer time, converted to the
+// broker clock) - see SessionUTCMinute in 10_Basket_Stats_Context. There are no hour inputs any more.
 // EnableSessionContext: V182: back ON. Turning these off restored the trade frequency but threw away the reasoning with it - which is the whole reason they were built. They stay active; what changed is what they DO, see below.
 input bool   EnableSessionContext       = true;   // Enable session context
-// SessionAsiaStartHour: 00:00 UTC - Tokyo session opens
-input int    SessionAsiaStartHour       = 0;   // Session asia start hour
-// SessionLondonStartHour: 08:00 UTC - London opens (07:00 UTC during British Summer Time; set to 7 from late March to late October if you want it exact)
-input int    SessionLondonStartHour     = 8;   // Session london start hour
-// SessionNYStartHour: 13:00 UTC - New York opens, and the London/NY overlap begins. This is the highest-volume window of the day for XAUUSD.
-input int    SessionNYStartHour         = 13;   // Session NY start hour
-// SessionLondonEndHour: 16:00 UTC - London closes, ending the overlap
-input int    SessionLondonEndHour       = 16;   // Session london end hour
-// SessionNYEndHour: 21:00 UTC - New York winds down
-input int    SessionNYEndHour           = 21;   // Session NY end hour
-// SessionRolloverHour: 22:00 UTC - the standard forex rollover (17:00 New York). Spreads widen sharply here and liquidity thins to almost nothing.
-input int    SessionRolloverHour        = 22;   // Session rollover hour
 // SessionRolloverMinutes: Width of the rollover window, centred on the hour above
 input int    SessionRolloverMinutes     = 40;   // Session rollover minutes
 // SessionAsiaTPFactor: Asia delivers less ground - a full-size target often is not reached
@@ -5087,13 +5072,8 @@ input bool   MaxBasketExposurePrintOnUse = true;   // Max basket exposure print 
 input group "ADVANCED ▸ Session-adaptive grid distance"
 // EnableSessionGridDistance: Grid steps tighter in quiet Asia hours, wider in London/NY
 input bool   EnableSessionGridDistance   = true;   // Enable session grid distance
-// AsiaSessionStartHour: Server time hours
-input int    AsiaSessionStartHour        = 0;   // Asia session start hour
-input int    AsiaSessionEndHour          = 7;   // Asia session end hour
 // AsiaGridDistanceFactor: Asia session grid distance multiplier (1.0 = normal)
 input double AsiaGridDistanceFactor      = 1.0;   // Asia grid distance factor
-input int    LondonNYSessionStartHour    = 7;   // London NY session start hour
-input int    LondonNYSessionEndHour      = 21;   // London NY session end hour
 input double LondonNYGridDistanceFactor  = 1.15;   // London NY grid distance factor
 input bool   SessionGridPrintOnUse       = false;   // Session grid print on use (on/off)
 // EnableSessionTransitionGuard: V31.6z24 NEW: caution during the volatile first minutes after a major session opens
@@ -5197,9 +5177,6 @@ input int    NearZoneReactionRangePoints = 1500;   // Near zone reaction range p
 input double NearZoneReactionMinStrength = 1.2;   // Near zone reaction min strength
 // EnableNYKillzoneCaution: Soft lot caution during typical NY-open volatility window - never blocks, any signal type
 input bool   EnableNYKillzoneCaution     = true;   // Enable NY killzone caution
-// NYKillzoneStartHour: Server time hours - adjust to match your broker's NY-open offset
-input int    NYKillzoneStartHour         = 15;   // NY killzone start hour
-input int    NYKillzoneEndHour           = 17;   // NY killzone end hour
 input double NYKillzoneLotFactor         = 0.7;   // NY killzone lot factor
 input bool   NYKillzonePrintOnUse        = false;   // NY killzone print on use (on/off)
 
