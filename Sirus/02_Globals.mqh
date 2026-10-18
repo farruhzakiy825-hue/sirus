@@ -613,7 +613,6 @@ bool                    G_SZR_ESCAPE_MODE       = false;  // V31.6b: armed after
 
 // --- V29 ported: Settings Sanity / License / Setup Doctor state ---
 string                  G_SANITY_LAST_STATE      = "";
-string                  G_LICENSE_LAST_STATE     = "";
 string                  G_SETUPDOC_LAST_STATE    = "";
 
 // --- V29 ported: Daily Profit Governor state ---
@@ -756,51 +755,20 @@ double                  G_DEALS_WINRATE         = 0.0;
 double                  G_BROKER_EFFECTIVE_STOP = 0.0;
 
 //==================================================================//
-//  GLOBAL PHASE 21.3 / STABLE RC BASELINE
+//  GLOBAL PACKAGE 14 / SAFETY LAYER
 //==================================================================//
-string                  G_RC_STATUS             = "RC: waiting";
-string                  G_RC_REASON             = "initializing";
-string                  G_RC_DETAIL             = "RC DETAIL: waiting";
-string                  G_RC_LAST_SIGNATURE     = "";
-bool                    G_RC_READY              = false;
-bool                    G_RC_CRITICAL_BLOCK     = false;
-bool                    G_RC_ENTRY_BLOCK        = false;
-bool                    G_RC_GRID_BLOCK         = false;
-int                     G_RC_EVENT_COUNT        = 0;
-
-//==================================================================//
-//  GLOBAL PHASE 22.1 / PACK4 MINI LICENSE
-//==================================================================//
-string                  G_P4M_STATUS            = "P4M: waiting";
-string                  G_P4M_REASON            = "initializing";
-string                  G_P4M_DETAIL            = "P4M DETAIL: waiting";
-string                  G_P4M_LAST_SIGNATURE    = "";
-bool                    G_P4M_VALID             = true;
-bool                    G_P4M_HARD_BLOCK        = false;
-bool                    G_P4M_ENTRY_BLOCK       = false;
-bool                    G_P4M_GRID_BLOCK        = false;
-bool                    G_P4M_LICENSE_OK        = true;
-bool                    G_P4M_SYMBOL_OK         = true;
-bool                    G_P4M_SPREAD_OK         = true;
-datetime                G_P4M_EXPIRE_TIME       = 0;
-int                     G_P4M_EVENT_COUNT       = 0;
-
-//==================================================================//
-//  GLOBAL PHASE 22.2 / CLIENT RISK PROFILE / LOT CAP
-//==================================================================//
-string                  G_P4L_STATUS            = "P4L: waiting";
-string                  G_P4L_REASON            = "initializing";
-string                  G_P4L_DETAIL            = "P4L DETAIL: waiting";
-string                  G_P4L_LAST_SIGNATURE    = "";
-bool                    G_P4L_VALID             = true;
-bool                    G_P4L_ENTRY_BLOCK       = false;
-bool                    G_P4L_GRID_BLOCK        = false;
-double                  G_P4L_FIRST_CAP         = 0.0;
-double                  G_P4L_GRID_CAP          = 0.0;
-int                     G_P4L_MAX_ORDERS        = 0;
-double                  G_P4L_MAX_DD            = 0.0;
-double                  G_P4L_LAST_ADJUSTED_LOT = 0.0;
-int                     G_P4L_EVENT_COUNT       = 0;
+string                  G_SAF_STATUS            = "SAFETY: waiting";
+string                  G_SAF_REASON            = "initializing";
+string                  G_SAF_DETAIL            = "SAFETY DETAIL: waiting";
+string                  G_SAF_LAST_SIGNATURE    = "";
+bool                    G_SAF_ENTRY_BLOCK       = false;
+bool                    G_SAF_GRID_BLOCK        = false;
+bool                    G_SAF_SYMBOL_OK         = true;
+bool                    G_SAF_SPREAD_RISK       = false;
+bool                    G_SAF_DD_RISK           = false;
+bool                    G_SAF_ORDER_RISK        = false;
+double                  G_SAF_GRID_FACTOR       = 1.0;
+int                     G_SAF_EVENT_COUNT       = 0;
 
 //==================================================================//
 //  GLOBAL PHASE 22.3 / PREMIUM VISUAL WATERMARK / ZONES
@@ -817,23 +785,6 @@ datetime                G_PV_LAST_CLEANUP       = 0;
 int                     G_PV_OBJECT_COUNT       = 0;
 int                     G_PV_CLEANED_OBJECTS    = 0;
 int                     G_PV_CLEAN_EVENT_COUNT  = 0;
-
-//==================================================================//
-//  GLOBAL PHASE 22.7 / RC SETTINGS BALANCE
-//==================================================================//
-string                  G_RCB_STATUS            = "RCB: waiting";
-string                  G_RCB_REASON            = "initializing";
-string                  G_RCB_DETAIL            = "RCB DETAIL: waiting";
-string                  G_RCB_LAST_SIGNATURE    = "";
-bool                    G_RCB_VALID             = true;
-bool                    G_RCB_ENTRY_BLOCK       = false;
-bool                    G_RCB_GRID_BLOCK        = false;
-double                  G_RCB_MAX_FIRST_LOT     = 0.0;
-int                     G_RCB_MAX_ORDERS        = 0;
-double                  G_RCB_MAX_BASKET_SL     = 0.0;
-int                     G_RCB_MAX_SPREAD        = 0;
-int                     G_RCB_WARNINGS          = 0;
-int                     G_RCB_EVENT_COUNT       = 0;
 
 //==================================================================//
 //  GLOBAL PHASE 22.8 / WARNING CLEANUP POLISH
@@ -1029,26 +980,6 @@ int                     G_DRT_PENALTY           = 0;
 double                  G_DRT_GRID_FACTOR       = 1.0;
 double                  G_DRT_LOT_FACTOR        = 1.0;
 int                     G_DRT_EVENT_COUNT       = 0;
-
-//==================================================================//
-//  GLOBAL PHASE 23.9 / SMART CLIENT SAFETY RENTAL PROTECTION
-//==================================================================//
-string                  G_DCS_STATUS            = "DCS: waiting";
-string                  G_DCS_REASON            = "initializing";
-string                  G_DCS_DETAIL            = "DCS DETAIL: waiting";
-string                  G_DCS_LAST_SIGNATURE    = "";
-bool                    G_DCS_APPLIED           = false;
-bool                    G_DCS_ENTRY_BLOCK       = false;
-bool                    G_DCS_GRID_BLOCK        = false;
-bool                    G_DCS_LICENSE_RISK      = false;
-bool                    G_DCS_SPREAD_RISK       = false;
-bool                    G_DCS_DD_RISK           = false;
-bool                    G_DCS_ORDER_RISK        = false;
-bool                    G_DCS_RENTAL_PROFILE    = false;
-double                  G_DCS_GRID_FACTOR       = 1.0;
-double                  G_DCS_LOT_FACTOR        = 1.0;
-int                     G_DCS_WARNINGS          = 0;
-int                     G_DCS_EVENT_COUNT       = 0;
 
 //==================================================================//
 //  GLOBAL PHASE 24.0 / FINAL INTELLIGENCE MERGE PRO

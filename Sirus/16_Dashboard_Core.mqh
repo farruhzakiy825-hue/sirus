@@ -51,7 +51,7 @@ string ClientDashRiskBanner()
    if(NIMScoreForDash() < ClientDashDefenseScore || G_RISK_HARD_BLOCK)
       return "RISK: DEFENSE — wait / protect capital";
 
-   if(G_DNV_NEWS_ACTIVE || G_DNV_SHOCK_ACTIVE || G_DRT_SHOCK_MODE || G_DCS_DD_RISK)
+   if(G_DNV_NEWS_ACTIVE || G_DNV_SHOCK_ACTIVE || G_DRT_SHOCK_MODE || G_SAF_DD_RISK)
       return "RISK: CAUTION — volatile / recovery defense";
 
    if(NIMScoreForDash() < ClientDashWarnScore || G_FPR_WARNINGS > 0 || G_SGV_WARNINGS > 0)
@@ -299,7 +299,7 @@ void UpdateLiveValidationProbe(const string source)
    if(G_FSA_SCORE < 85)
       score -= 8;
 
-   if(G_LAST_SPREAD_POINTS > ClientSafetySpreadLimit())
+   if(G_LAST_SPREAD_POINTS > MaxSpreadAllowed())
       score -= 5;
 
    if(score < 0)
@@ -507,23 +507,8 @@ string BuildNextAction()
    if(G_DXB_QUICK_PROFIT || G_DXB_PEAK_GIVEBACK || G_DXB_OPPOSITE_RISK || G_DXB_SHOCK_RISK)
       return "Smart exit protection: " + ShortText(G_DXB_DETAIL, 90);
 
-   if(G_RC_CRITICAL_BLOCK)
-      return "Stable RC block: " + ShortText(G_RC_REASON, 90);
-
-   if(G_P4M_HARD_BLOCK)
-      return "Pack4 Mini hard block: " + ShortText(G_P4M_REASON, 90);
-
-   if(G_P4M_ENTRY_BLOCK || G_P4M_GRID_BLOCK)
-      return "Pack4 Mini guard: " + ShortText(G_P4M_REASON, 90);
-
-   if(G_P4L_ENTRY_BLOCK || G_P4L_GRID_BLOCK)
-      return "Pack4 Lot guard: " + ShortText(G_P4L_REASON, 90);
-
-   if(G_RCB_ENTRY_BLOCK || G_RCB_GRID_BLOCK)
-      return "RC Settings strict block: " + ShortText(G_RCB_REASON, 90);
-
-   if(G_RCB_WARNINGS > 0)
-      return "RC Settings warning: " + ShortText(G_RCB_REASON, 90);
+   if(G_SAF_ENTRY_BLOCK || G_SAF_GRID_BLOCK)
+      return "Safety hold: " + ShortText(G_SAF_REASON, 90);
 
    if(G_FSA_ENTRY_BLOCK || G_FSA_GRID_BLOCK)
       return "Final audit strict block: " + ShortText(G_FSA_REASON, 90);
@@ -537,11 +522,8 @@ string BuildNextAction()
    if(!G_RLS_READY)
       return "Release warning: " + ShortText(G_RLS_DETAIL + " | " + G_RLS_REASON, 90);
 
-   if(G_DCS_ENTRY_BLOCK || G_DCS_GRID_BLOCK)
-      return "Client safety strict block: " + ShortText(G_DCS_REASON, 90);
-
-   if(G_DCS_APPLIED)
-      return "Client safety active: " + ShortText(G_DCS_DETAIL, 90);
+   if(G_SAF_GRID_FACTOR > 1.0)
+      return "Safety grid widening: " + ShortText(G_SAF_DETAIL, 90);
 
    if(G_NIM_ENTRY_BLOCK || G_NIM_GRID_BLOCK)
       return "Final intelligence block: " + ShortText(G_NIM_DETAIL + " | " + G_NIM_REASON, 90);
@@ -682,7 +664,7 @@ void UpdatePremiumLogEngine(const string source)
          important = true;
       if(G_BLOCK_JUST_EXPIRED)
          important = true;
-      if(G_REDIRECT_APPLIED || G_QUEUE_REPLAYED || G_MEMORY_APPLIED || G_LEGACY_APPLIED || G_PACK3_ENTRY_BLOCK || G_PACK3_GRID_BLOCK || G_PACK3_HARD_BLOCK || G_RC_CRITICAL_BLOCK)
+      if(G_REDIRECT_APPLIED || G_QUEUE_REPLAYED || G_MEMORY_APPLIED || G_LEGACY_APPLIED || G_PACK3_ENTRY_BLOCK || G_PACK3_GRID_BLOCK || G_PACK3_HARD_BLOCK || G_SAF_ENTRY_BLOCK)
          important = true;
 
       if(important)
@@ -963,11 +945,8 @@ void CoreUpdate(const string source)
    UpdateRiskEngine(source);
    UpdateVPSLiveValidation(source);
    UpdateLegacyPack3(source);
-   UpdatePack4MiniLicense(source);
-   UpdatePack4MiniLotCaps(source);
-   UpdateRCSettingsBalance(source);
+   SafetyLayerUpdate(source);
    UpdateWarningCleanupPolish(source);
-   UpdateSmartClientSafetyBrain(source);
    // UpdateClientDashboardPolish / UpdateLiveValidationProbe only build dashboard text (G_CDP_* / G_LVP_*,
    // read by nothing but DrawDashboard). They ran three times per tick; once, after the entry pass, is the
    // only result anyone ever saw.
@@ -996,11 +975,8 @@ void CoreUpdate(const string source)
    }
    MBProfBegin(MB_PROF_POST);
    UpdateLegacyPack3("POST_ENTRY");
-   UpdatePack4MiniLicense("POST_ENTRY");
-   UpdatePack4MiniLotCaps("POST_ENTRY");
-   UpdateRCSettingsBalance("POST_ENTRY");
+   SafetyLayerUpdate("POST_ENTRY");
    UpdateWarningCleanupPolish("POST_ENTRY");
-   UpdateSmartClientSafetyBrain("POST_ENTRY");
    UpdateClientDashboardPolish("POST_ENTRY");
    UpdateLiveValidationProbe("POST_ENTRY");
    UpdatePremiumVisualEngine(source);
@@ -1021,10 +997,10 @@ void PrintHeartbeat()
 
    G_LAST_HEARTBEAT = now;
 
-   PrintFormat("[SIRUS v31.6 PHASE 21.3 HEARTBEAT] summary=%s | next=%s | rc=%s | legacy=%s | pack2=%s | pack3=%s | vps=%s | noTrade=%s | memory=%s | status=%s | env=%s | risk=%s | grid=%s | entry=%s | symbol=%s | chartTF=%s | coreTF=%s | ticks=%I64u | timers=%I64u | bars_seen=%d | tick_age=%d | spread=%d",
+   PrintFormat("[SIRUS v31.6 PHASE 21.3 HEARTBEAT] summary=%s | next=%s | safety=%s | legacy=%s | pack2=%s | pack3=%s | vps=%s | noTrade=%s | memory=%s | status=%s | env=%s | risk=%s | grid=%s | entry=%s | symbol=%s | chartTF=%s | coreTF=%s | ticks=%I64u | timers=%I64u | bars_seen=%d | tick_age=%d | spread=%d",
                G_PREMIUM_SUMMARY,
                G_NEXT_ACTION,
-               G_RC_STATUS,
+               G_SAF_STATUS,
                G_LEGACY_STATUS,
                G_PACK2_STATUS,
                G_PACK3_STATUS,
@@ -1211,17 +1187,10 @@ void DrawDashboard()
       DrawDashLine(row++, "PACK2: " + ShortText(G_PACK2_STATUS, 115), (G_BASKET_TRAIL_ACTIVE ? clrLime : clrSilver));
       if(DashboardFullDetail)
          DrawDashLine(row++, "PACK3: " + ShortText(G_PACK3_STATUS, 115), (G_PACK3_HARD_BLOCK ? clrOrangeRed : (G_PACK3_ENTRY_BLOCK || G_PACK3_GRID_BLOCK ? clrOrange : clrSilver)));
-      DrawDashLine(row++, "RC   : " + ShortText(G_RC_STATUS + " | " + G_RC_REASON, 115), (G_RC_READY ? clrLime : clrOrangeRed));
-      if(DashboardFullDetail)
-         DrawDashLine(row++, "P4M  : " + ShortText(G_P4M_STATUS, 115), (G_P4M_VALID ? clrLime : clrOrangeRed));
-      DrawDashLine(row++, "P4L  : " + ShortText(G_P4L_STATUS, 115), (G_P4L_VALID ? clrLime : clrOrangeRed));
-      if(DashboardFullDetail)
-         DrawDashLine(row++, "RCB  : " + ShortText(G_RCB_STATUS + " | " + G_RCB_REASON, 115), (G_RCB_WARNINGS > 0 ? clrOrange : clrLime));
+      DrawDashLine(row++, "SAFE : " + ShortText(G_SAF_STATUS + " | " + G_SAF_REASON, 115), (G_SAF_ENTRY_BLOCK ? clrOrangeRed : (G_SAF_GRID_FACTOR > 1.0 ? clrGold : clrLime)));
       DrawDashLine(row++, "FSA  : " + ShortText(G_FSA_STATUS + " | " + G_FSA_DETAIL, 115), (G_FSA_READY ? clrLime : clrOrange));
       if(ShowLegacyModuleLines)
          DrawDashLine(row++, "RLS  : " + ShortText(G_RLS_STATUS + " | " + G_RLS_DETAIL, 115), (G_RLS_READY ? clrLime : clrGold));
-      if(DashboardFullDetail)
-         DrawDashLine(row++, "DCS  : " + ShortText(G_DCS_STATUS + " | " + G_DCS_REASON, 115), (G_DCS_ENTRY_BLOCK || G_DCS_GRID_BLOCK ? clrOrangeRed : (G_DCS_APPLIED ? clrGold : clrSilver)));
       if(ShowLegacyModuleLines)
          DrawDashLine(row++, "NIM  : " + ShortText(G_NIM_STATUS + " | " + G_NIM_DETAIL, 115), (G_NIM_ENTRY_BLOCK || G_NIM_GRID_BLOCK ? clrOrangeRed : (G_NIM_PRO_READY ? clrLime : (G_NIM_SCORE < FinalMergeWarnScore ? clrOrange : clrDeepSkyBlue))));
       if(DashboardFullDetail)
@@ -1253,21 +1222,13 @@ void DrawDashboard()
          if(ShowLegacyModuleLines)
             DrawDashLine(row++, ShortText(G_PACK3_DETAIL, 130), clrSilver);
          if(DashboardFullDetail)
-            DrawDashLine(row++, ShortText(G_RC_DETAIL, 130), clrSilver);
-         if(ShowLegacyModuleLines)
-            DrawDashLine(row++, ShortText(G_P4M_DETAIL, 130), clrSilver);
-         if(DashboardFullDetail)
-            DrawDashLine(row++, ShortText(G_P4L_DETAIL, 130), clrSilver);
-         if(ShowLegacyModuleLines)
-            DrawDashLine(row++, ShortText(G_RCB_DETAIL, 130), clrSilver);
+            DrawDashLine(row++, ShortText(G_SAF_DETAIL, 130), clrSilver);
          if(DashboardFullDetail)
             DrawDashLine(row++, ShortText(G_FSA_LEGACY_DETAIL, 130), clrSilver);
          DrawDashLine(row++, ShortText("FSA MISSING: " + G_FSA_REASON, 130), (G_FSA_READY ? clrSilver : clrOrange));
          if(DashboardFullDetail)
             DrawDashLine(row++, ShortText(G_RLS_PRESET_DETAIL, 130), clrGold);
          DrawDashLine(row++, ShortText("RLS REASON: " + G_RLS_REASON, 130), (G_RLS_READY ? clrSilver : clrGold));
-         if(ShowLegacyModuleLines)
-            DrawDashLine(row++, ShortText(G_DCS_DETAIL, 130), clrSilver);
          if(DashboardFullDetail)
             DrawDashLine(row++, ShortText(G_NIM_RECOMMENDATION, 130), clrGold);
          DrawDashLine(row++, ShortText(G_NIM_DEEP_SUMMARY, 130), clrSilver);

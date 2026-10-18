@@ -1316,11 +1316,10 @@ double GridDistanceForNextOrder(const int current_orders)
    // the same unified 16-sense brain that governs lot and the block decision.
    dist = GridIntelligenceDistanceAdjust(dist, G_BASKET_DIRECTION, current_orders);
 
-   dist = ClientSafetyAdjustGridDistance(dist);
-   dist = PresetHardeningAdjustGridDistance(dist);
+   dist = SafetyAdjustGridDistance(dist);
 
    // V31.6z27 fix: a real architectural gap found via deeper audit - the min/max safety clamp
-   // above ran BEFORE several later adjustments (Pack2/3, ClientSafety, PresetHardening), so
+   // above ran BEFORE several later adjustments (Pack2/3, the safety layer), so
    // those could push distance beyond the intended bounds with zero final check. Re-applying
    // the clamp here guarantees the bounds actually hold no matter what ran in between.
    if(min_dist > 0.0)
@@ -1393,8 +1392,7 @@ double NextGridLot(const double last_lot, const int current_orders)
 
    // FIX(martingale-floor-override): the lot adjustments are two different kinds of thing, and the
    // floor below used to override both:
-   //   HARD limits - the client lot cap (Pack4Mini), the client-safety throttle, preset hardening and
-   //                 the margin-level guard. These are account protection; nothing may undo them.
+   //   HARD limits - the safety layer lot cap (SafetyMaxGridLot) and the margin-level guard. These are account protection; nothing may undo them.
    //   SOFT opinions - impulse/correction, spread vs ATR, grid intelligence, addition quality. These
    //                 are the market read; they may trim an addition, down to the floor.
    // Before, all of them ran first and the floor then lifted the result back to >= 80% of the
@@ -1495,9 +1493,7 @@ double NextGridLot(const double last_lot, const int current_orders)
    }
 
    // Hard limits last - the floor cannot undo account protection.
-   lot = Pack4MiniAdjustLot(lot, true);
-   lot = ClientSafetyAdjustGridLot(lot);
-   lot = PresetHardeningAdjustGridLot(lot);
+   lot = SafetyAdjustLot(lot, true);
    lot = MarginLevelLotAdjust(lot);
 
    if(MaxLot > 0.0 && lot > MaxLot)
@@ -1826,13 +1822,6 @@ bool GridCanOpen(string &reason)
       return false;
    }
 
-   string license_grid_reason = "";
-   if(!LicenseGuardAllowsEntry(license_grid_reason))
-   {
-      reason = license_grid_reason;
-      return false;
-   }
-
    string setupdoc_grid_reason = "";
    if(!SetupDoctorAllowsEntry(setupdoc_grid_reason))
    {
@@ -1866,20 +1855,8 @@ bool GridCanOpen(string &reason)
    if(!Pack3AllowsGrid(pack3_reason) && GridSoftHold(reason, pack3_reason))
       return false;
 
-   string p4m_grid_reason = "";
-   if(!Pack4MiniAllowsGrid(p4m_grid_reason) && GridSoftHold(reason, p4m_grid_reason))
-      return false;
-
-   string p4l_grid_reason = "";
-   if(!Pack4MiniLotAllowsGrid(p4l_grid_reason) && GridSoftHold(reason, p4l_grid_reason))
-      return false;
-
-   string rcb_grid_reason = "";
-   if(!RCSettingsAllowsGrid(rcb_grid_reason) && GridSoftHold(reason, rcb_grid_reason))
-      return false;
-
-   string dcs_grid_reason = "";
-   if(!SmartClientSafetyAllowsGrid(dcs_grid_reason) && GridSoftHold(reason, dcs_grid_reason))
+   string safety_grid_reason = "";
+   if(!SafetyAllowsGrid(safety_grid_reason) && GridSoftHold(reason, safety_grid_reason))
       return false;
 
    string dlp_grid_reason = "";

@@ -384,42 +384,20 @@ int OnInit()
    G_DEALS_GROSS_LOSS = 0.0;
    G_DEALS_WINRATE = 0.0;
    G_BROKER_EFFECTIVE_STOP = 0.0;
-   G_RC_STATUS = "RC: initializing";
-   G_RC_REASON = "initial RC";
-   G_RC_DETAIL = "RC DETAIL: initializing";
-   G_RC_LAST_SIGNATURE = "";
-   G_RC_READY = false;
-   G_RC_CRITICAL_BLOCK = false;
-   G_RC_ENTRY_BLOCK = false;
-   G_RC_GRID_BLOCK = false;
-   G_RC_EVENT_COUNT = 0;
 
-   G_P4M_STATUS = "P4M: initializing";
-   G_P4M_REASON = "initial P4M";
-   G_P4M_DETAIL = "P4M DETAIL: initializing";
-   G_P4M_LAST_SIGNATURE = "";
-   G_P4M_VALID = true;
-   G_P4M_HARD_BLOCK = false;
-   G_P4M_ENTRY_BLOCK = false;
-   G_P4M_GRID_BLOCK = false;
-   G_P4M_LICENSE_OK = true;
-   G_P4M_SYMBOL_OK = true;
-   G_P4M_SPREAD_OK = true;
-   G_P4M_EXPIRE_TIME = 0;
-   G_P4M_EVENT_COUNT = 0;
-   G_P4L_STATUS = "P4L: initializing";
-   G_P4L_REASON = "initial P4L";
-   G_P4L_DETAIL = "P4L DETAIL: initializing";
-   G_P4L_LAST_SIGNATURE = "";
-   G_P4L_VALID = true;
-   G_P4L_ENTRY_BLOCK = false;
-   G_P4L_GRID_BLOCK = false;
-   G_P4L_FIRST_CAP = 0.0;
-   G_P4L_GRID_CAP = 0.0;
-   G_P4L_MAX_ORDERS = 0;
-   G_P4L_MAX_DD = 0.0;
-   G_P4L_LAST_ADJUSTED_LOT = 0.0;
-   G_P4L_EVENT_COUNT = 0;
+   G_SAF_STATUS = "SAFETY: initializing";
+   G_SAF_REASON = "initializing";
+   G_SAF_DETAIL = "SAFETY DETAIL: initializing";
+   G_SAF_LAST_SIGNATURE = "";
+   G_SAF_ENTRY_BLOCK = false;
+   G_SAF_GRID_BLOCK = false;
+   G_SAF_SYMBOL_OK = true;
+   G_SAF_SPREAD_RISK = false;
+   G_SAF_DD_RISK = false;
+   G_SAF_ORDER_RISK = false;
+   G_SAF_GRID_FACTOR = 1.0;
+   G_SAF_EVENT_COUNT = 0;
+
    G_PV_STATUS = "PV: initializing";
    G_PV_DETAIL = "PV DETAIL: initializing";
    G_PV_LAST_SIGNATURE = "";
@@ -431,19 +409,6 @@ int OnInit()
    G_PV_OBJECT_COUNT = 0;
    G_PV_CLEANED_OBJECTS = 0;
    G_PV_CLEAN_EVENT_COUNT = 0;
-   G_RCB_STATUS = "RCB: initializing";
-   G_RCB_REASON = "initial RCB";
-   G_RCB_DETAIL = "RCB DETAIL: initializing";
-   G_RCB_LAST_SIGNATURE = "";
-   G_RCB_VALID = true;
-   G_RCB_ENTRY_BLOCK = false;
-   G_RCB_GRID_BLOCK = false;
-   G_RCB_MAX_FIRST_LOT = 0.0;
-   G_RCB_MAX_ORDERS = 0;
-   G_RCB_MAX_BASKET_SL = 0.0;
-   G_RCB_MAX_SPREAD = 0;
-   G_RCB_WARNINGS = 0;
-   G_RCB_EVENT_COUNT = 0;
    G_WCP_STATUS = "WCP: initializing";
    G_WCP_DETAIL = "WCP DETAIL: initializing";
    G_WCP_LAST_SIGNATURE = "";
@@ -593,22 +558,6 @@ int OnInit()
    G_DRT_GRID_FACTOR = 1.0;
    G_DRT_LOT_FACTOR = 1.0;
    G_DRT_EVENT_COUNT = 0;
-   G_DCS_STATUS = "DCS: initializing";
-   G_DCS_REASON = "initial DCS";
-   G_DCS_DETAIL = "DCS DETAIL: initializing";
-   G_DCS_LAST_SIGNATURE = "";
-   G_DCS_APPLIED = false;
-   G_DCS_ENTRY_BLOCK = false;
-   G_DCS_GRID_BLOCK = false;
-   G_DCS_LICENSE_RISK = false;
-   G_DCS_SPREAD_RISK = false;
-   G_DCS_DD_RISK = false;
-   G_DCS_ORDER_RISK = false;
-   G_DCS_RENTAL_PROFILE = false;
-   G_DCS_GRID_FACTOR = 1.0;
-   G_DCS_LOT_FACTOR = 1.0;
-   G_DCS_WARNINGS = 0;
-   G_DCS_EVENT_COUNT = 0;
    G_NIM_STATUS = "NIM: initializing";
    G_NIM_REASON = "initial NIM";
    G_NIM_DETAIL = "NIM DETAIL: initializing";
@@ -817,7 +766,7 @@ void OnDeinit(const int reason)
    ObjectDelete(0, G_PREFIX + "LINE_SL");
    ObjectDelete(0, G_PREFIX + "LINE_SL_LBL");
 
-   PrintFormat("[SIRUS v31.6 PHASE 22.9] DEINIT | reason=%d | summary=%s | next=%s | memoryMissed=%d boosts=%d repeat=%d | ticks=%I64u | timers=%I64u | bars_seen=%d | env=%s | risk=%s | dailyLoss=%.2f/%.2f%% | equityDD=%.2f%% | grid_attempts=%d success=%d fails=%d | basketOrders=%d profit=%.2f | riskBlocks=%d riskCloses=%d | entry_attempts=%d success=%d fails=%d | logSnapshots=%d events=%d | legacyEvents=%d pack2Events=%d pack3Events=%d rcEvents=%d pvEvents=%d pvClean=%d rcbEvents=%d wcpEvents=%d fsaEvents=%d rlsEvents=%d dlpEvents=%d dbosEvents=%d dtzEvents=%d dnvEvents=%d detEvents=%d driEvents=%d dxbEvents=%d drtEvents=%d dcsEvents=%d nimEvents=%d fprEvents=%d sgvEvents=%d cdpEvents=%d dphEvents=%d fblEvents=%d lvpEvents=%d | last_status=%s",
+   PrintFormat("[SIRUS v31.6 PHASE 22.9] DEINIT | reason=%d | summary=%s | next=%s | memoryMissed=%d boosts=%d repeat=%d | ticks=%I64u | timers=%I64u | bars_seen=%d | env=%s | risk=%s | dailyLoss=%.2f/%.2f%% | equityDD=%.2f%% | grid_attempts=%d success=%d fails=%d | basketOrders=%d profit=%.2f | riskBlocks=%d riskCloses=%d | entry_attempts=%d success=%d fails=%d | logSnapshots=%d events=%d | legacyEvents=%d pack2Events=%d pack3Events=%d safetyEvents=%d pvEvents=%d pvClean=%d wcpEvents=%d fsaEvents=%d rlsEvents=%d dlpEvents=%d dbosEvents=%d dtzEvents=%d dnvEvents=%d detEvents=%d driEvents=%d dxbEvents=%d drtEvents=%d nimEvents=%d fprEvents=%d sgvEvents=%d cdpEvents=%d dphEvents=%d fblEvents=%d lvpEvents=%d | last_status=%s",
                reason,
                G_PREMIUM_SUMMARY,
                G_NEXT_ACTION,
@@ -847,10 +796,9 @@ void OnDeinit(const int reason)
                G_LEGACY_EVENT_COUNT,
                G_PACK2_EVENT_COUNT,
                G_PACK3_EVENT_COUNT,
-               G_RC_EVENT_COUNT,
+               G_SAF_EVENT_COUNT,
                G_PV_EVENT_COUNT,
                G_PV_CLEAN_EVENT_COUNT,
-               G_RCB_EVENT_COUNT,
                G_WCP_EVENT_COUNT,
                G_FSA_EVENT_COUNT,
                G_RLS_EVENT_COUNT,
@@ -862,7 +810,6 @@ void OnDeinit(const int reason)
                G_DRI_EVENT_COUNT,
                G_DXB_EVENT_COUNT,
                G_DRT_EVENT_COUNT,
-               G_DCS_EVENT_COUNT,
                G_NIM_EVENT_COUNT,
                G_FPR_EVENT_COUNT,
                G_SGV_EVENT_COUNT,

@@ -231,64 +231,6 @@ bool SettingsSanityAllowsEntry(string &reason)
    return true;
 }
 
-// --- V29 ported: License / Account Guard ---
-bool LicenseAccountInList(const long login, const string allowed)
-{
-   if(StringLen(allowed) == 0)
-      return true;
-
-   string parts[];
-   int n = StringSplit(allowed, ',', parts);
-   for(int i = 0; i < n; i++)
-   {
-      string trimmed = parts[i];
-      StringTrimLeft(trimmed);
-      StringTrimRight(trimmed);
-      if(trimmed == IntegerToString(login))
-         return true;
-   }
-   return false;
-}
-
-bool LicenseGuardAllowsEntry(string &reason)
-{
-   if(!EnableLicenseAccountGuard)
-   {
-      reason = "license guard disabled";
-      return true;
-   }
-
-   long login = AccountInfoInteger(ACCOUNT_LOGIN);
-   bool account_ok = LicenseAccountInList(login, LicenseAllowedAccounts);
-
-   bool expiry_ok = true;
-   if(StringLen(LicenseExpiryDate) > 0)
-   {
-      datetime expiry = StringToTime(LicenseExpiryDate);
-      if(expiry > 0 && TimeCurrent() > expiry)
-         expiry_ok = false;
-   }
-
-   bool valid = (account_ok && expiry_ok);
-   string state = StringFormat("client=%s account=%s expiry=%s valid=%s",
-                                LicenseClientName, YesNoV29(account_ok), YesNoV29(expiry_ok), YesNoV29(valid));
-
-   if(state != G_LICENSE_LAST_STATE)
-   {
-      PrintFormat("[SIRUS v29 LICENSE] %s", state);
-      G_LICENSE_LAST_STATE = state;
-   }
-
-   if(!valid && LicenseGuardBlockLiveInvalid)
-   {
-      reason = StringFormat("license guard invalid | account_ok=%s expiry_ok=%s", YesNoV29(account_ok), YesNoV29(expiry_ok));
-      return false;
-   }
-
-   reason = "license guard pass";
-   return true;
-}
-
 // --- V29 ported: Setup Doctor ---
 bool SetupDoctorAllowsEntry(string &reason)
 {
@@ -858,7 +800,7 @@ double LotForCurrentEntry(const bool apply_side_effects)
 
 
    // FIX(rc-check-side-effects): apply_side_effects=false is for callers that only want the
-   // NUMBER (e.g. UpdateRCSettingsBalance comparing it against a cap) without mutating diagnostic
+   // NUMBER (e.g. a settings check comparing it against a cap) without mutating diagnostic
    // globals (G_LOT_TRACE, the AutoLotPrintOnUse dedup) or - more importantly - G_SCALEIN_PENDING_LOT,
    // which used to get overwritten by every "just checking" call made while G_BASKET_ORDERS <= 0,
    // corrupting the real scale-in completion armed by an actual entry moments earlier in the same tick.
@@ -920,7 +862,7 @@ double LotForCurrentEntry(const bool apply_side_effects)
    if(eff_trace) G_LOT_TRACE = StringFormat("base=%.2f", lot);
 #define LT_STEP(name) if(eff_trace && MathAbs(lot - lt_prev) > 0.0001) { G_LOT_TRACE += StringFormat(" -> %s=%.2f", name, lot); lt_prev = lot; }
 
-   lot = Pack4MiniAdjustLot(lot, false);              LT_STEP("p4mini")
+   lot = SafetyAdjustLot(lot, false);                 LT_STEP("safetyCap")
    lot = ZoneMapMomentumLotAdjust(lot);               LT_STEP("zoneMom")
 
 
@@ -3986,31 +3928,10 @@ bool FirstEntryCanRun(string &reason)
       return false;
    }
 
-   string p4m_entry_reason = "";
-   if(!Pack4MiniAllowsEntry(p4m_entry_reason))
+   string safety_entry_reason = "";
+   if(!SafetyAllowsEntry(safety_entry_reason))
    {
-      reason = p4m_entry_reason;
-      return false;
-   }
-
-   string p4l_entry_reason = "";
-   if(!Pack4MiniLotAllowsEntry(p4l_entry_reason))
-   {
-      reason = p4l_entry_reason;
-      return false;
-   }
-
-   string rcb_entry_reason = "";
-   if(!RCSettingsAllowsEntry(rcb_entry_reason))
-   {
-      reason = rcb_entry_reason;
-      return false;
-   }
-
-   string dcs_entry_reason = "";
-   if(!SmartClientSafetyAllowsEntry(dcs_entry_reason))
-   {
-      reason = dcs_entry_reason;
+      reason = safety_entry_reason;
       return false;
    }
 
@@ -4365,13 +4286,6 @@ bool FirstEntryCanRun(string &reason)
    if(!SettingsSanityAllowsEntry(sanity_entry_reason))
    {
       reason = sanity_entry_reason;
-      return false;
-   }
-
-   string license_entry_reason = "";
-   if(!LicenseGuardAllowsEntry(license_entry_reason))
-   {
-      reason = license_entry_reason;
       return false;
    }
 

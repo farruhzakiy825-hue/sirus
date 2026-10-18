@@ -1918,7 +1918,7 @@ bool GridSafetyDangerNow(string &reason)
       return true;
    }
 
-   if(GridSafetyBlockSpreadRisk && G_DCS_SPREAD_RISK)
+   if(GridSafetyBlockSpreadRisk && G_SAF_SPREAD_RISK)
    {
       reason = "auto grid safety: spread risk";
       return true;

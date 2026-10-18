@@ -179,9 +179,6 @@ input group "ADVANCED ▸ Margin guard"
 input double            MarginGuardMinLevelPct   = 200.0;   // Margin guard min level %
 input bool              MarginGuardPrintOnUse    = true;   // Margin guard print on use (on/off)
 
-input group "ADVANCED ▸ Spread limit"
-// One master spread cap used by every module (or each module's own individual limit if off).
-
 input group "ADVANCED ▸ Weekend guard"
 // WeekendBlockEntryFriHour: Friday (server time): block NEW first entries from this hour
 input int               WeekendBlockEntryFriHour = 20;   // Weekend block entry Friday hour
@@ -570,18 +567,12 @@ input double            RecoveryMaxDDForNewGrid  = 50.0;   // Recovery max DD fo
 input bool              UseServerDisasterSL      = false;   // Use server disaster SL
 // ServerDisasterDDPercent: If UseServerDisasterSL is ON: its trigger DD %.
 input double            ServerDisasterDDPercent  = 35.0;   // Server disaster DD %
-// P4MiniBlockGridAboveProfileDD: OFF = grid stays distance-only. (P4-mini profile-specific DD grid block.)
-input bool              P4MiniBlockGridAboveProfileDD = false;   // P4 mini block grid above profile DD (on/off)
-// P4MiniConservativeMaxDD: Only used if P4MiniBlockGridAboveProfileDD is ON (it's OFF by default): grid-stop DD % for the Conservative profile.
-input double            P4MiniConservativeMaxDD  = 10.0;   // P4 mini conservative max DD
-// P4MiniBalancedMaxDD: Only used if P4MiniBlockGridAboveProfileDD is ON: grid-stop DD % for the Balanced profile.
-input double            P4MiniBalancedMaxDD      = 18.0;   // P4 mini balanced max DD
-// P4MiniAggressiveMaxDD: Only used if P4MiniBlockGridAboveProfileDD is ON: grid-stop DD % for the Aggressive profile.
-input double            P4MiniAggressiveMaxDD    = 25.0;   // P4 mini aggressive max DD
 
-// --- Soft caution only (lot/distance trim, never blocks or closes) ---
-input double            ClientSafetyDDWarnPercent = 10.0;   // Client safety DD warn %
-input double            ClientSafetyDDDangerPercent = 16.0;   // Client safety DD danger %
+// --- Safety layer: DD only WIDENS the grid distance (never trims a rung, never blocks or closes) ---
+// SafetyDDWarnPercent: basket/equity DD at which the next rung waits SafetyGridWidenFactor x further.
+input double            SafetyDDWarnPercent      = 10.0;   // Safety: DD warn % (grid distance x widen factor)
+// SafetyDDDangerPercent: DD at which the next rung waits SafetyGridDangerFactor x further.
+input double            SafetyDDDangerPercent    = 16.0;   // Safety: DD danger % (grid distance x danger factor)
 
 input group "ADVANCED ▸ TP / profit settings"
 // UseFixedTP: Use FixedTPPoints as the base TP instead of UseBasketTP below
@@ -1273,58 +1264,23 @@ input bool              UseClientAuditSummary    = true;   // Use client audit s
 input int               ClientAuditPrintSeconds  = 600;   // Client audit print seconds
 input bool              PrintLegacyPack3Events   = true;   // Print legacy pack 3 events
 
-input group "ADVANCED ▸ (inactive) Stable baseline"
-
-// ---------------------------------------------------------------------------------------------
-// [NOT WIRED] The settings in this group are declared but nothing in the EA reads them, so
-// changing any of them has NO effect on trading. They belong to the release / client-preset
-// control layer (preset locking, input-range guards, licence and build checks) that was written
-// out as settings but never connected to the runtime.
-//
-// They are kept rather than deleted for two reasons: this EA is rented out, so this layer is
-// likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
-// no trading benefit. They cost nothing at runtime - they simply do nothing.
-// ---------------------------------------------------------------------------------------------
-
-input group "ADVANCED ▸ Mini license"
-input bool              UsePack4MiniLicense      = true;   // Use pack 4 mini license
-// P4MiniUseLicenseControl: keep false while internal testing
-input bool              P4MiniUseLicenseControl  = false;   // P4 mini use license control (on/off)
-// P4MiniAccountWhitelist: example: 253530129,123456789
-input string            P4MiniAccountWhitelist   = "";   // P4 mini account whitelist
-input string            P4MiniExpireDate         = "2099.12.31";   // P4 mini expire date
-input int               P4MiniGraceDays          = 0;   // P4 mini grace days
-input bool              P4MiniAllowDemo          = true;   // P4 mini allow demo (on/off)
-input bool              P4MiniAllowReal          = true;   // P4 mini allow real (on/off)
-input bool              P4MiniCloseBasketInvalid = false;   // P4 mini close basket invalid (on/off)
-input bool              P4MiniUseSymbolGuard     = true;   // P4 mini use symbol guard (on/off)
-input bool              P4MiniRequireXAU         = true;   // P4 mini require xau (on/off)
-input string            P4MiniSymbolKeyword      = "XAU";   // P4 mini symbol keyword
-input int               P4MiniMaxSpread          = 300;   // P4 mini max spread
-input bool              PrintPack4MiniEvents     = true;   // Print pack 4 mini events
-
-input group "ADVANCED ▸ Client risk profile / lot cap"
-input bool              UsePack4MiniLotCaps      = true;   // Use pack 4 mini lot caps
-// P4MiniClientRiskProfile: CONSERVATIVE / BALANCED / AGGRESSIVE
-input string            P4MiniClientRiskProfile  = "BALANCED";   // P4 mini client risk profile
-input bool              P4MiniUseProfileCaps     = true;   // P4 mini use profile caps (on/off)
-input double            P4MiniConservativeFirstLot = 0.10;   // P4 mini conservative first lot
-input double            P4MiniConservativeGridLot  = 0.50;   // P4 mini conservative grid lot
-input int               P4MiniConservativeMaxOrders = 5;   // P4 mini conservative max orders
-// (moved to group "00 - MASTER SL / DD LIMITS" at the top) P4MiniConservativeMaxDD
-input double            P4MiniBalancedFirstLot   = 0.25;   // P4 mini balanced first lot
-input double            P4MiniBalancedGridLot    = 1.00;   // P4 mini balanced grid lot
-input int               P4MiniBalancedMaxOrders  = 7;   // P4 mini balanced max orders
-// (moved to group "00 - MASTER SL / DD LIMITS" at the top) P4MiniBalancedMaxDD
-input double            P4MiniAggressiveFirstLot = 0.50;   // P4 mini aggressive first lot
-input double            P4MiniAggressiveGridLot  = 2.00;   // P4 mini aggressive grid lot
-input int               P4MiniAggressiveMaxOrders = 9;   // P4 mini aggressive max orders
-// (moved to group "00 - MASTER SL / DD LIMITS" at the top) P4MiniAggressiveMaxDD
-input double            P4MiniHardCapFirstLot    = 1.00;   // P4 mini hard cap first lot
-input double            P4MiniHardCapGridLot     = 3.00;   // P4 mini hard cap grid lot
-// (moved to group "00 - MASTER SL / DD LIMITS" at the top) P4MiniBlockGridAboveProfileDD
-input bool              P4MiniBlockGridAboveMaxOrders = true;   // P4 mini block grid above max orders (on/off)
-input bool              PrintPack4MiniLotEvents  = true;   // Print pack 4 mini lot events
+input group "ADVANCED ▸ Safety layer"
+// Package 14: one layer instead of four (P4Mini license/lot caps, RC settings balance, Client safety).
+// EnableSafetyLayer: symbol guard + spread hold + lot caps + grid widening on DD / order pressure / spread.
+input bool              EnableSafetyLayer        = true;   // Enable safety layer
+// SafetySymbolKeyword: the EA trades only a symbol containing this text. Empty = any symbol.
+input string            SafetySymbolKeyword      = "XAU";   // Safety: symbol keyword
+// SafetyMaxFirstLot: first-entry lot cap, applied after sizing. 0 = no cap.
+input double            SafetyMaxFirstLot        = 0.25;   // Safety: max first lot (0 = off)
+// SafetyMaxGridLot: grid rung lot cap, applied after the rung floor. 0 = no cap.
+input double            SafetyMaxGridLot         = 1.00;   // Safety: max grid lot (0 = off)
+// SafetyWidenGridOnRisk: widen the next rung's distance on high spread, DD or order pressure (lot is never cut).
+input bool              SafetyWidenGridOnRisk    = true;   // Safety: widen grid on risk (on/off)
+// SafetyOrdersWarn: basket orders from which the grid distance is widened.
+input int               SafetyOrdersWarn         = 4;   // Safety: order pressure from N orders
+input double            SafetyGridWidenFactor    = 1.25;   // Safety: grid widen factor (spread / DD warn / orders)
+input double            SafetyGridDangerFactor   = 1.65;   // Safety: grid widen factor at DD danger
+input bool              PrintSafetyEvents        = true;   // Print safety events
 
 input group "ADVANCED ▸ Premium visual watermark / zones"
 input bool              UsePremiumVisualEngine   = true;   // Use premium visual engine
@@ -1393,33 +1349,6 @@ input bool              PremiumCleanZonesIfOff    = true;   // Premium clean zon
 input bool              PremiumCleanSignalIfOff   = true;   // Premium clean signal if off (on/off)
 input bool              PremiumPrintCleanupEvents = true;   // Premium print cleanup events (on/off)
 
-input group "ADVANCED ▸ Settings balance / safe defaults"
-input bool              UseRCSettingsBalance     = true;   // Use RC settings balance
-// RCSettingsPreset: SAFE / BALANCED / HIGH_HUNTER
-input string            RCSettingsPreset         = "BALANCED";   // RC settings preset
-// RCSettingsStrictEnforce: false = audit only, true = block risky entry/grid
-input bool              RCSettingsStrictEnforce  = false;   // RC settings strict enforce (on/off)
-input bool              RCWarnIfLicenseOff       = true;   // RC warn if license off (on/off)
-input bool              RCWarnIfBasketSLHigh     = true;   // RC warn if basket SL high (on/off)
-input bool              RCWarnIfMaxOrdersHigh    = true;   // RC warn if max orders high (on/off)
-input bool              RCWarnIfLotTooHigh       = true;   // RC warn if lot too high (on/off)
-input bool              RCWarnIfSpreadCapHigh    = true;   // RC warn if spread cap high (on/off)
-input double            RCSafeMaxFirstLot        = 0.10;   // RC safe max first lot
-input double            RCBalancedMaxFirstLot    = 0.25;   // RC balanced max first lot
-input double            RCHighHunterMaxFirstLot  = 0.50;   // RC high hunter max first lot
-input int               RCSafeMaxOrders          = 5;   // RC safe max orders
-input int               RCBalancedMaxOrders      = 7;   // RC balanced max orders
-input int               RCHighHunterMaxOrders    = 9;   // RC high hunter max orders
-input double            RCSafeMaxBasketSL        = 10.0;   // RC safe max basket SL
-// RCBalancedMaxBasketSL: V249fix(auto-mode): 18 -> 50, tracking BasketSLPercent. At 18 against a configured BasketSLPercent of 50 this governor raised a warning on EVERY scan, forever - noise that hides a real one, and a live landmine: the moment RCSettingsStrictEnforce is set true it becomes a permanent entry AND grid block. A governor must cap overreach, not disagree with the configuration it is governing. Keep this equal to BasketSLPercent.
-input double            RCBalancedMaxBasketSL    = 50.0;   // RC balanced max basket SL
-// RCHighHunterMaxBasketSL: V249fix(auto-mode): 25 -> 50, same reason - keep equal to BasketSLPercent.
-input double            RCHighHunterMaxBasketSL  = 50.0;   // RC high hunter max basket SL
-input int               RCSafeMaxSpread          = 300;   // RC safe max spread
-input int               RCBalancedMaxSpread      = 300;   // RC balanced max spread
-input int               RCHighHunterMaxSpread    = 300;   // RC high hunter max spread
-input bool              PrintRCSettingsEvents    = true;   // Print RC settings events
-
 input group "ADVANCED ▸ Warning cleanup / zero-warning polish"
 input bool              UseWarningCleanupPolish  = true;   // Use warning cleanup polish
 input bool              PrintWarningCleanupEvents = true;   // Print warning cleanup events
@@ -1437,23 +1366,6 @@ input group "ADVANCED ▸ (inactive) Final self-audit checklist"
 // no trading benefit. They cost nothing at runtime - they simply do nothing.
 // ---------------------------------------------------------------------------------------------
 // V31.6e cleanup: removed FinalAuditWarnIfSessionFilterOff - the check it gated is gone too.
-
-input group "ADVANCED ▸ (inactive) Release build / client preset export"
-
-// ---------------------------------------------------------------------------------------------
-// [NOT WIRED] The settings in this group are declared but nothing in the EA reads them, so
-// changing any of them has NO effect on trading. They belong to the release / client-preset
-// control layer (preset locking, input-range guards, licence and build checks) that was written
-// out as settings but never connected to the runtime.
-//
-// They are kept rather than deleted for two reasons: this EA is rented out, so this layer is
-// likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
-// no trading benefit. They cost nothing at runtime - they simply do nothing.
-// ---------------------------------------------------------------------------------------------
-// ReleaseBuildProfile: INTERNAL_TEST / CLIENT_SAFE / CLIENT_BALANCED / HIGH_HUNTER / RENTAL_DEMO
-input string            ReleaseBuildProfile      = "CLIENT_BALANCED";   // Release build profile
-// ReleaseRequireLicenseForClient: set true before real client rental
-input bool              ReleaseRequireLicenseForClient = false;   // Release require license for client (on/off)
 
 input group "ADVANCED ▸ Legacy deep parity / HTF commander"
 input bool              UseLegacyDeepParityPack  = true;   // Use legacy deep parity pack
@@ -1603,28 +1515,6 @@ input double            RegimeLotShockFactor     = 0.75;   // Regime lot shock f
 input double            RegimeLotChaosFactor     = 0.60;   // Regime lot chaos factor
 input bool              PrintRegimeTuneEvents    = true;   // Print regime tune events
 
-input group "ADVANCED ▸ Smart client safety / rental protection"
-input bool              UseSmartClientSafetyBrain = true;   // Use smart client safety brain
-// ClientSafetyStrictEnforce: false = warn/tune, true = block entry/grid
-input bool              ClientSafetyStrictEnforce = false;   // Client safety strict enforce (on/off)
-input bool              ClientSafetyRequireLicenseWhenRental = true;   // Client safety require license when rental (on/off)
-input bool              ClientSafetyWarnEmptyWhitelist = true;   // Client safety warn empty whitelist (on/off)
-input bool              ClientSafetyBlockHighSpread = false;   // Client safety block high spread (on/off)
-input bool              ClientSafetyUseLotThrottle = true;   // Client safety use lot throttle (on/off)
-input bool              ClientSafetyUseGridDistance = true;   // Client safety use grid distance (on/off)
-input int               ClientSafetyMaxSpreadBalanced = 300;   // Client safety max spread balanced
-input int               ClientSafetyMaxSpreadSafe = 300;   // Client safety max spread safe
-input int               ClientSafetyMaxSpreadHighHunter = 300;   // Client safety max spread high hunter
-// (moved to group "00 - MASTER SL / DD LIMITS" at the top) ClientSafetyDDWarnPercent
-// (moved to group "00 - MASTER SL / DD LIMITS" at the top) ClientSafetyDDDangerPercent
-// ClientSafetyMaxOrdersWarn: V249fix: 6 -> 4. With MaxOrders 5 a basket can never hold 6 orders, so this "order pressure" warning was dead code. 4 makes it fire on the second-to-last rung, which is where the warning is actually useful.
-input int               ClientSafetyMaxOrdersWarn = 4;   // Client safety max orders warn
-input double            ClientSafetyGridDistanceFactor = 1.25;   // Client safety grid distance factor
-input double            ClientSafetyDangerDistanceFactor = 1.65;   // Client safety danger distance factor
-input double            ClientSafetyLotThrottleFactor = 0.75;   // Client safety lot throttle factor
-input double            ClientSafetyDangerLotFactor = 0.55;   // Client safety danger lot factor
-input bool              PrintClientSafetyEvents  = true;   // Print client safety events
-
 input group "ADVANCED ▸ (inactive) Final intelligence merge"
 
 // ---------------------------------------------------------------------------------------------
@@ -1680,21 +1570,6 @@ input int               ClientDashDefenseScore   = 58;   // Client dashboard def
 input int               ClientDashWarnScore      = 72;   // Client dashboard warn score
 input int               ClientDashProScore       = 86;   // Client dashboard pro score
 input bool              PrintClientDashboardPolishEvents = true;   // Print client dashboard polish events
-
-input group "ADVANCED ▸ (inactive) Final preset hardening / safe client defaults"
-
-// ---------------------------------------------------------------------------------------------
-// [NOT WIRED] The settings in this group are declared but nothing in the EA reads them, so
-// changing any of them has NO effect on trading. They belong to the release / client-preset
-// control layer (preset locking, input-range guards, licence and build checks) that was written
-// out as settings but never connected to the runtime.
-//
-// They are kept rather than deleted for two reasons: this EA is rented out, so this layer is
-// likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
-// no trading benefit. They cost nothing at runtime - they simply do nothing.
-// ---------------------------------------------------------------------------------------------
-input bool              PresetHardeningUseGridDistance = true;   // Preset hardening use grid distance (on/off)
-input bool              PresetHardeningUseLotThrottle = true;   // Preset hardening use lot throttle (on/off)
 
 input group "ADVANCED ▸ (inactive) Final audit report / build lock"
 
@@ -3891,17 +3766,6 @@ input int    SettingsSanityMinGridPoints       = 1500;   // Settings sanity min 
 input int    SettingsSanityMinTPPoints         = 300;   // Settings sanity min TP points
 // SettingsSanityPrintOnChange: Print only when sanity state changes
 input bool   SettingsSanityPrintOnChange       = true;   // Settings sanity print on change (on/off)
-
-input group "ADVANCED ▸ License / account guard"
-// EnableLicenseAccountGuard: Optional client/account access guard; default OFF for owner tests
-input bool   EnableLicenseAccountGuard   = false;   // Enable license account guard
-// LicenseGuardBlockLiveInvalid: If guard enabled and invalid, block live orders
-input bool   LicenseGuardBlockLiveInvalid = true;   // License guard block live invalid (on/off)
-// LicenseAllowedAccounts: Comma list: 12345,67890. Empty = any account allowed
-input string LicenseAllowedAccounts      = "";   // License allowed accounts
-// LicenseExpiryDate: Format YYYY.MM.DD. Empty = no expiry
-input string LicenseExpiryDate           = "";   // License expiry date
-input string LicenseClientName           = "SIRUS CLIENT";   // License client name
 
 input group "ADVANCED ▸ Setup doctor"
 // EnableSetupDoctor: Diagnose common client/VPS setup mistakes

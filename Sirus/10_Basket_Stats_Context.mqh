@@ -1,148 +1,157 @@
 ﻿//+------------------------------------------------------------------+
 //| Sirus_Brain_V8 - 10_Basket_Stats_Context                         |
-//| Lot caps, basket stats, market context readers                   |
+//| Safety layer, basket stats, market context readers               |
 //| Part of Sirus_Brain_V8.mq5. Include ORDER matters - do not       |
 //| compile this file on its own; compile Sirus_Brain_V8.mq5.        |
 //+------------------------------------------------------------------+
 
-void UpdatePack4MiniLotCaps(const string source)
+//==================================================================//
+//  PACKAGE 14: ONE SAFETY LAYER
+//  Replaces four overlapping preset layers (P4Mini license/symbol/spread, P4Mini lot caps,
+//  RC settings balance, Smart Client Safety) and the inert PresetHardening hooks. It answers:
+//  - symbol: only a symbol containing SafetySymbolKeyword is traded (entry and grid held);
+//  - spread: above MaxSpreadAllowed() no new entry and no new rung (the grid waits);
+//  - lot caps: SafetyMaxFirstLot / SafetyMaxGridLot (0 = off), applied after the floors;
+//  - DD, order pressure and high spread only WIDEN the grid distance. The rung lot is never
+//    throttled here - owner rule: a rung is never smaller than the previous one (GLS decides).
+//==================================================================//
+void SafetyLayerUpdate(const string source)
 {
-   G_P4L_ENTRY_BLOCK = false;
-   G_P4L_GRID_BLOCK = false;
-   G_P4L_VALID = true;
+   G_SAF_ENTRY_BLOCK = false;
+   G_SAF_GRID_BLOCK = false;
+   G_SAF_SYMBOL_OK = true;
+   G_SAF_SPREAD_RISK = false;
+   G_SAF_DD_RISK = false;
+   G_SAF_ORDER_RISK = false;
+   G_SAF_GRID_FACTOR = 1.0;
 
-   if(!UsePack4MiniLotCaps)
+   if(!EnableSafetyLayer)
    {
-      G_P4L_STATUS = "P4L: OFF";
-      G_P4L_REASON = "disabled";
-      G_P4L_DETAIL = "P4L DETAIL: disabled";
+      G_SAF_STATUS = "SAFETY: OFF";
+      G_SAF_REASON = "disabled";
+      G_SAF_DETAIL = "SAFETY DETAIL: disabled";
       return;
    }
 
-   string profile = "";
-   double first_cap = 0.0;
-   double grid_cap = 0.0;
-   int max_orders = 0;
-   double max_dd = 0.0;
+   RefreshGridDashboardStats();
 
-   if(P4MiniUseProfileCaps)
-      P4LotProfileValues(profile, first_cap, grid_cap, max_orders, max_dd);
+   string reason = "";
+
+   if(StringLen(SafetySymbolKeyword) > 0 && StringFind(_Symbol, SafetySymbolKeyword) < 0)
+   {
+      G_SAF_SYMBOL_OK = false;
+      G_SAF_ENTRY_BLOCK = true;
+      G_SAF_GRID_BLOCK = true;
+      reason = reason + StringFormat("symbol %s is not %s; ", _Symbol, SafetySymbolKeyword);
+   }
+
+   int spread_cap = MaxSpreadAllowed();
+   if(spread_cap > 0 && G_LAST_SPREAD_POINTS > spread_cap)
+   {
+      G_SAF_SPREAD_RISK = true;
+      G_SAF_ENTRY_BLOCK = true;
+      G_SAF_GRID_BLOCK = true;
+      reason = reason + StringFormat("spread %d>%d; ", G_LAST_SPREAD_POINTS, spread_cap);
+   }
+
+   double dd = MathMax(G_BASKET_DD_PERCENT, G_RISK_EQUITY_DD_PCT);
+   if(SafetyDDWarnPercent > 0.0 && dd >= SafetyDDWarnPercent)
+   {
+      G_SAF_DD_RISK = true;
+      reason = reason + StringFormat("DD %.2f%%; ", dd);
+   }
+
+   if(SafetyOrdersWarn > 0 && G_BASKET_ORDERS >= SafetyOrdersWarn)
+   {
+      G_SAF_ORDER_RISK = true;
+      reason = reason + StringFormat("orders %d/%d; ", G_BASKET_ORDERS, SafetyOrdersWarn);
+   }
+
+   if(SafetyWidenGridOnRisk)
+   {
+      if(G_SAF_SPREAD_RISK || G_SAF_DD_RISK || G_SAF_ORDER_RISK)
+         G_SAF_GRID_FACTOR = MathMax(1.0, SafetyGridWidenFactor);
+      if(SafetyDDDangerPercent > 0.0 && dd >= SafetyDDDangerPercent)
+         G_SAF_GRID_FACTOR = MathMax(G_SAF_GRID_FACTOR, SafetyGridDangerFactor);
+   }
+
+   if(reason == "")
+      reason = "normal";
+   G_SAF_REASON = reason;
+
+   if(!G_SAF_SYMBOL_OK)
+      G_SAF_STATUS = "SAFETY: SYMBOL BLOCK";
+   else if(G_SAF_SPREAD_RISK)
+      G_SAF_STATUS = "SAFETY: SPREAD HOLD";
+   else if(G_SAF_GRID_FACTOR > 1.0)
+      G_SAF_STATUS = StringFormat("SAFETY: GRID x%.2f", G_SAF_GRID_FACTOR);
    else
-   {
-      profile = "CUSTOM";
-      first_cap = P4MiniHardCapFirstLot;
-      grid_cap = P4MiniHardCapGridLot;
-      max_orders = MaxOrders;
-      max_dd = RecoveryMaxDDForNewGrid;
-   }
+      G_SAF_STATUS = "SAFETY: OK";
 
-   if(P4MiniHardCapFirstLot > 0.0)
-      first_cap = MathMin(first_cap, P4MiniHardCapFirstLot);
-   if(P4MiniHardCapGridLot > 0.0)
-      grid_cap = MathMin(grid_cap, P4MiniHardCapGridLot);
-
-   G_P4L_FIRST_CAP = first_cap;
-   G_P4L_GRID_CAP = grid_cap;
-   G_P4L_MAX_ORDERS = max_orders;
-   G_P4L_MAX_DD = max_dd;
-
-   if(P4MiniBlockGridAboveMaxOrders && max_orders > 0 && G_BASKET_ORDERS >= max_orders)
-   {
-      G_P4L_GRID_BLOCK = true;
-      G_P4L_REASON = StringFormat("max orders %d/%d", G_BASKET_ORDERS, max_orders);
-   }
-   else if(P4MiniBlockGridAboveProfileDD && max_dd > 0.0 && G_BASKET_DD_PERCENT >= max_dd)
-   {
-      G_P4L_GRID_BLOCK = true;
-      G_P4L_REASON = StringFormat("profile DD %.2f/%.2f%%", G_BASKET_DD_PERCENT, max_dd);
-   }
-   else
-   {
-      G_P4L_REASON = "valid";
-   }
-
-   G_P4L_VALID = (!G_P4L_ENTRY_BLOCK && !G_P4L_GRID_BLOCK);
-
-   G_P4L_STATUS = StringFormat("P4L: profile=%s valid=%s firstCap=%.2f gridCap=%.2f maxOrders=%d maxDD=%.2f",
-                               profile,
-                               BoolText(G_P4L_VALID),
-                               G_P4L_FIRST_CAP,
-                               G_P4L_GRID_CAP,
-                               G_P4L_MAX_ORDERS,
-                               G_P4L_MAX_DD);
-
-   G_P4L_DETAIL = StringFormat("P4L DETAIL: reason=%s basketOrders=%d basketDD=%.2f lastLot=%.2f",
-                               G_P4L_REASON,
+   G_SAF_DETAIL = StringFormat("SAFETY DETAIL: spread=%d/%d DD=%.2f orders=%d gridX=%.2f firstCap=%.2f gridCap=%.2f | %s",
+                               G_LAST_SPREAD_POINTS,
+                               spread_cap,
+                               dd,
                                G_BASKET_ORDERS,
-                               G_BASKET_DD_PERCENT,
-                               G_P4L_LAST_ADJUSTED_LOT);
+                               G_SAF_GRID_FACTOR,
+                               SafetyMaxFirstLot,
+                               SafetyMaxGridLot,
+                               G_SAF_REASON);
 
-   string signature = G_P4L_STATUS + "|" + G_P4L_DETAIL + "|" + IntegerToString(G_BARS_SEEN);
-
-   if(PrintPack4MiniLotEvents && signature != G_P4L_LAST_SIGNATURE)
+   // State changes only - a spread spike that lasts ten minutes prints twice, not every bar.
+   string signature = G_SAF_STATUS + "|" + G_SAF_REASON;
+   if(signature != G_SAF_LAST_SIGNATURE)
    {
-      if(!G_P4L_VALID || G_P4L_LAST_SIGNATURE == "")
+      if(PrintSafetyEvents && (G_SAF_LAST_SIGNATURE == "" || G_SAF_ENTRY_BLOCK || G_SAF_GRID_FACTOR > 1.0))
       {
-         G_P4L_EVENT_COUNT++;
-         PrintFormat("[SIRUS v31.6 PHASE 22.2 P4L] %s | %s | source=%s",
-                     G_P4L_STATUS,
-                     G_P4L_DETAIL,
-                     source);
+         G_SAF_EVENT_COUNT++;
+         PrintFormat("[SIRUS SAFETY] %s | %s | source=%s", G_SAF_STATUS, G_SAF_DETAIL, source);
       }
-
-      G_P4L_LAST_SIGNATURE = signature;
+      G_SAF_LAST_SIGNATURE = signature;
    }
 }
 
-double Pack4MiniAdjustLot(const double lot, const bool grid_lot)
+double SafetyAdjustLot(const double lot, const bool grid_lot)
 {
-   if(!UsePack4MiniLotCaps)
+   if(!EnableSafetyLayer)
       return lot;
 
-   double cap = (grid_lot ? G_P4L_GRID_CAP : G_P4L_FIRST_CAP);
-
-   if(cap <= 0.0)
+   double cap = (grid_lot ? SafetyMaxGridLot : SafetyMaxFirstLot);
+   if(cap <= 0.0 || lot <= cap)
       return lot;
 
-   double adjusted = MathMin(lot, cap);
-   G_P4L_LAST_ADJUSTED_LOT = adjusted;
-
-   return adjusted;
+   return cap;
 }
 
-bool Pack4MiniLotAllowsEntry(string &reason)
+double SafetyAdjustGridDistance(const double base_distance)
 {
-   if(!UsePack4MiniLotCaps)
-   {
-      reason = "P4L entry pass";
-      return true;
-   }
+   if(!EnableSafetyLayer || G_SAF_GRID_FACTOR <= 1.0)
+      return base_distance;
 
-   if(G_P4L_ENTRY_BLOCK)
+   return base_distance * G_SAF_GRID_FACTOR;
+}
+
+bool SafetyAllowsEntry(string &reason)
+{
+   if(EnableSafetyLayer && G_SAF_ENTRY_BLOCK)
    {
-      reason = "P4L entry block: " + G_P4L_REASON;
+      reason = "SAFETY entry hold: " + G_SAF_REASON;
       return false;
    }
 
-   reason = "P4L entry pass";
+   reason = "SAFETY entry pass";
    return true;
 }
 
-bool Pack4MiniLotAllowsGrid(string &reason)
+bool SafetyAllowsGrid(string &reason)
 {
-   if(!UsePack4MiniLotCaps)
+   if(EnableSafetyLayer && G_SAF_GRID_BLOCK)
    {
-      reason = "P4L grid pass";
-      return true;
-   }
-
-   if(G_P4L_GRID_BLOCK)
-   {
-      reason = "P4L grid block: " + G_P4L_REASON;
+      reason = "SAFETY grid hold: " + G_SAF_REASON;
       return false;
    }
 
-   reason = "P4L grid pass";
+   reason = "SAFETY grid pass";
    return true;
 }
 
