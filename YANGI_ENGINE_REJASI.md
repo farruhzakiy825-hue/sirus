@@ -769,7 +769,7 @@ Bu qoidalar egasi bilan kelishilgan. Hujjatdagi har qanday band shu qoidalar ich
 | IV. Candle Sequence | ✅ / 🟡 | 17 Candle Engine. 2-raund E auditi natijasi kutilmoqda |
 | V. Market Structure | ✅ | 18 Event Engine va 20b Structure Lock. 5-paket: MSS turi, himoyalangan daraja, failed break tiklanishi |
 | VI.1 Liquidity | ✅ | 20a: M5/M15/H1/H4 swing, PDH/PDL, EQH/EQL, sweep holati va yoshi. 2-paket: sweep'da maksimal teshish |
-| VI.2 Target Engine (nishonga to'siqlar, olingan/faol) | 🟡 | Champion likvidlik bor. 1-paket: kech nishon olingan chegaralarni o'tkazib yuboradi. **Nishongacha qarshi to'siqlar bo'yicha baho yo'q** |
+| VI.2 Target Engine (nishonga to'siqlar, olingan/faol) | ✅ | Champion likvidlik bor. 1-paket: kech nishon olingan chegaralarni o'tkazib yuboradi. 20-paket: nishongacha to'siqlar (qarshi kuchli zona, ushlab turgan daraja) hakam sifatida |
 | VI.3 Session Engine | 🟡 | Asia/London/NY soatlari va DST bor (10, 01). **Frankfurt, Midnight open, Asia/London high-low likvidlik xaritasida yo'q** |
 | VI.4 Trap / False Breakout | ✅ | 20a SOXTA SWEEP, 20f FAKE BREAKOUT. 2-paket: `MBBreakFailed` hamma tasdiqda |
 | VII. Zone Intelligence | 🟡 | Uchta alohida zona tizimi bor: 19 (holatlar UNTOUCHED…EXPIRED), 20g (HTF baza + displacement + tegishlar), 11 (zona ishonchliligi). **Yagona zona hakami yo'q** (15.5, 3-band) |
@@ -811,7 +811,7 @@ Bu qoidalar egasi bilan kelishilgan. Hujjatdagi har qanday band shu qoidalar ich
 2. **Invalidatsiya masofasi va grid qadami.** Kirish tezisining invalidatsiya darajasi (himoyalangan swing) grid qadamidan (~1 H1 ATR) uzoq bo'lsa, birinchi kirish grid xavfi bilan belgilanadi. Bu hakamning (H1/H4) mantiqiy davomi.
 3. **Yagona zona hakami.** 19, 20g va 11 dagi zonalar bitta ro'yxatga yig'iladi. Har zonaga bitta ID, bitta holat va bitta ball beriladi, ALLOW/CAUTION/BLOCK chiqadi. RBR/DBR/RBD/DBD tasnifi va 100 ballik baho shu yerga kiradi.
 4. **Tester'da regression replay.** 4142, 4126, 4157.88 BUY, 4081.173 SELL va 08:33 holatlari Trace CSV bilan qayta o'ynatiladi. Har paketdan oldin va keyin taqqoslanadi (XIX.5).
-5. **Kontekst eskirishi va ishonch.** Har dalil (sweep, MSS, zona) yoshi bilan kuchsizlanadi. Bu kuchsizlanish judge ishonchiga ulanadi (hozir 3-paketda faqat hodisa yoshi bor).
+5. ✅ (20-paket) **Kontekst eskirishi va ishonch.** Har dalil (sweep, MSS, zona) yoshi bilan kuchsizlanadi. Bu kuchsizlanish judge ishonchiga ulanadi (hozir 3-paketda faqat hodisa yoshi bor).
 
 ### 15.6. Qolgan ishlar — ustuvorlik bo'yicha (6-paketdan boshlab)
 

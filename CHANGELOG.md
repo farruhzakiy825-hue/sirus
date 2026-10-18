@@ -1,5 +1,21 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 20-paket: kontekst eskirishi va nishongacha yo'l (2026-10-18)
+
+Manba: reja 15.5-5 (kontekst eskirishi va ishonch) va master reja VI.2 (Target Engine: nishongacha to'siqlar).
+Kompilyatsiya qilinmagan - statik tekshiruvlar toza. Yo'nalish qoidalari o'zgarmadi - faqat hakam SIFATI.
+
+- **Kontekst eskirishi.** Dalil hali "dolzarb" oynada bo'lsa ham, yoshi bilan kuchsizlanadi: tasdiqlangan likvidlik
+  burilishi bonusi (10) va yangi hodisa bonusi (5) har `ContextHalfLifeMin` (45) daqiqada yarmiga tushadi, eng kami
+  35% qoladi. 5 daqiqalik sweep deyarli to'liq, 2 soatlik sweep ~35% kuch bilan hisoblanadi. Asosiy trigger krediti
+  o'zgarmadi. Hakam matnida: `evidence 62% fresh`.
+- **Nishongacha yo'l.** Nishon - shu tomonga g'oya nishoni, bo'lmasa champion likvidlik. Narxdan 1 ATR(M5) narida va
+  nishondan oldin turgan to'siqlar sanaladi: kuchli (>= `ZIOpposeScore`) yangi qarshi zona yoki rolini ushlab turgan
+  qarshi daraja. Har to'siq sifatni `TargetPathObstaclePenalty` (4) ga kamaytiradi, eng ko'pi 2 ta. 1 ATR ichidagi
+  to'siqni avvalgidek "ahead" qoidasi (-10) va veto (joy yo'q) ko'radi - ikki marta sanalmaydi. Hakam matnida:
+  `path to 4172.58 clear` yoki `path to ...: 1 obstacle(s), first 4168.20`.
+- Yangi inputlar: `EnableContextDecay`, `ContextHalfLifeMin` 45, `EnableTargetPath`, `TargetPathObstaclePenalty` 4.
+
 ## 19-paket: panel - ekranga sig'adi, matn chegaradan chiqmaydi (2026-10-18)
 
 Egasining skrinshoti bo'yicha. Kompilyatsiya (18-paket) egasida toza edi. Savdo mantiqi o'zgarmadi.

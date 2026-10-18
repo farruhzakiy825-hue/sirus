@@ -61,6 +61,14 @@ input bool   EnableMBWaitForLocation  = true;   // Judge: WAIT-FOR-BETTER-LOCATI
 input int    MBWaitLocationMinutes    = 15;   // Judge: better-location plan lives N minutes
 // MBWaitLocationMaxATR5: Rejalashtirilgan joy narxdan ATR(M5) x shudan uzoq bo'lmaydi
 input double MBWaitLocationMaxATR5    = 2.0;   // Judge: better location at most N x ATR(M5) away
+// EnableContextDecay: 20-PAKET (reja 15.5-5): dalil (burilish sweep'i, yangi hodisa) yoshi bilan kuchsizlanadi - hakam bonusi yarim yemirilish bilan kamayadi (eng kami 35%)
+input bool   EnableContextDecay       = true;   // Judge: evidence weakens with age
+// ContextHalfLifeMin: Dalil kuchi shuncha daqiqada yarmiga tushadi
+input int    ContextHalfLifeMin       = 45;   // Judge: evidence half-life, minutes
+// EnableTargetPath: 20-PAKET (reja VI.2): nishongacha yo'l - 1 ATR(M5) dan narida, nishondan oldin turgan qarshi kuchli zona yoki ushlab turgan daraja to'siq sanaladi
+input bool   EnableTargetPath         = true;   // Judge: obstacles on the way to the target
+// TargetPathObstaclePenalty: Har to'siq uchun sifat shuncha pasayadi (eng ko'pi 2 ta)
+input int    TargetPathObstaclePenalty = 4;   // Judge: quality cut per obstacle (max 2)
 // MBEntryDecayPerATR: Signal paydo bo'lgandan beri narx har 1 ATR(M1) qochganda sifat shuncha pasayadi
 input double MBEntryDecayPerATR       = 20.0;   // Brain entry decay per ATR
 // MBMaxInvalidationATR5: Invalidation darajasi ATR(M5) x shudan uzoq bo'lsa: sifat pasayadi
@@ -124,6 +132,54 @@ int      G_MB_ENTRY_QUALITY    = 0;
 string   G_MB_ENTRY_TEXT       = "";
 string   G_MB_ENTRY_LAST_PRINT = "";
 datetime G_MB_ENTRY_PRINT_TIME = 0;
+
+datetime G_MB_FTE_TIME = 0;   // package 20: time of the event MBFreshTriggerEvent found
+
+// Package 20 (plan 15.5-5): how much of an evidence's weight is left at its age - halves every
+// ContextHalfLifeMin minutes, never below 35% (an evidence still inside its relevance window counts).
+double MBEvidenceFresh(const datetime t)
+{
+   if(!EnableContextDecay || t <= 0)
+      return 1.0;
+   double age_min = (double)(TimeCurrent() - t) / 60.0;
+   if(age_min <= 0.0)
+      return 1.0;
+   return MathMax(0.35, MathPow(0.5, age_min / MathMax(1, ContextHalfLifeMin)));
+}
+
+// Package 20 (plan VI.2): obstacles between price and the target - a strong fresh zone of the other side or
+// a level whose role holds against dir, further than one M5 ATR (closer ones are the judge's "ahead" rule
+// and the veto's room) and before the target. Returns the count (0..2) and the first one's price.
+int MBTargetPathObstacles(const int dir, const double price, const double target, const double atr5, double &first)
+{
+   first = 0.0;
+   if(!EnableTargetPath || dir == 0 || target <= 0.0 || dir * (target - price) <= atr5)
+      return 0;
+   int n = 0;
+   double near_px = price + dir * atr5;
+   for(int k = 0; k < G_ZI_N && n < 2; k++)
+   {
+      if(G_ZI_DIR[k] != -dir || G_ZI_STATE[k] != ZI_FRESH || G_ZI_SCORE[k] < ZIOpposeScore)
+         continue;
+      double p = G_ZI_PROX[k];
+      if(dir * (p - near_px) > 0.0 && dir * (target - p) > 0.0)
+      {
+         n++;
+         if(first <= 0.0 || dir * (first - p) > 0.0) first = p;
+      }
+   }
+   if(n < 2 && EnableZoneRoleEngine)
+   {
+      double lvl = (dir > 0) ? ZoneMapNearestResistance(near_px) : ZoneMapNearestSupport(near_px);
+      SMBZone z;
+      if(lvl > 0.0 && dir * (lvl - near_px) > 0.0 && dir * (target - lvl) > 0.0 && MBZoneRead(lvl, z) && z.role == -dir && !z.pending_break)
+      {
+         n++;
+         if(first <= 0.0 || dir * (first - lvl) > 0.0) first = lvl;
+      }
+   }
+   return n;
+}
 
 // Where and when the current signal first appeared (for the entry-quality decay).
 int      G_MB_SIG_DIR   = 0;
@@ -327,8 +383,12 @@ bool MBCandleTriggerNow(const int tfi, const int dir, const double price_in)
 // A fresh M1 / M5 event in direction dir that can serve as the trigger.
 bool MBFreshTriggerEvent(const int dir, string &what)
 {
+   G_MB_FTE_TIME = 0;
    if(MBLiveSweepFresh(dir, what))   // stage 14 (C1): the sweep seen on the tick, before any bar closes
+   {
+      G_MB_FTE_TIME = G_MB_LSW_TIME;
       return true;
+   }
    for(int tfi = 0; tfi <= 1; tfi++)
    {
       int base = tfi * MB_EV_PER_TF;
@@ -342,6 +402,7 @@ bool MBFreshTriggerEvent(const int dir, string &what)
             continue;
          if(MBEventAgeBars(G_MB_EV[idx]) > MBFreshLimit(tfi)) continue;
          what = StringFormat("%s %s", MBTFName(tfi), MBEventName(ty));
+         G_MB_FTE_TIME = G_MB_EV[idx].time;
          return true;
       }
    }
@@ -586,8 +647,27 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    double q = 40.0;
    q += f_dir * ((a >= 3) ? 25.0 : ((a == 2) ? 18.0 : ((a == 1) ? 12.0 : ((a == 0) ? 5.0 : 0.0))));
    if(loc_ok) q += f_loc * (15.0 + ((loc_n >= 2) ? 5.0 : 0.0));
-   if(trig_ok) q += f_trig * (15.0 + (trig_event ? 5.0 : 0.0));
-   if(rev_ok && a <= 1) q += f_rev * 10.0;
+   // Package 20: the event bonus and the reversal bonus weaken with the evidence's age (the base trigger
+   // credit does not - a trigger is judged fresh or not by its own rules).
+   double fr_ev = trig_event ? MBEvidenceFresh(G_MB_FTE_TIME) : 1.0;
+   double fr_rev = (rev_ok && rev_t > 0) ? MBEvidenceFresh(rev_t) : 1.0;
+   if(trig_ok) q += f_trig * (15.0 + (trig_event ? 5.0 * fr_ev : 0.0));
+   if(rev_ok && a <= 1) q += f_rev * 10.0 * fr_rev;
+   // Package 20 (VI.2): the way to the target - the thesis target this way, else the champion liquidity.
+   string path_txt = "";
+   {
+      string cw = "";
+      double tgt = (G_MB_TH_DIR == dir && G_MB_TH_TARGET > 0.0) ? G_MB_TH_TARGET : MBLqChampion(dir, price, cw);
+      double ob_first = 0.0;
+      int ob_n = MBTargetPathObstacles(dir, price, tgt, atr5, ob_first);
+      if(ob_n > 0)
+      {
+         q -= MathMax(0, TargetPathObstaclePenalty) * ob_n;
+         path_txt = StringFormat(" | path to %s: %d obstacle(s), first %s", DoubleToString(tgt, _Digits), ob_n, DoubleToString(ob_first, _Digits));
+      }
+      else if(EnableTargetPath && tgt > 0.0 && dir * (tgt - price) > 0.0)
+         path_txt = StringFormat(" | path to %s clear", DoubleToString(tgt, _Digits));
+   }
    q -= (chase == 2) ? 30.0 : ((chase == 1) ? 12.0 : 0.0);
    if(far) q -= 10.0;
    if(G_MB_TH_DIR == dir) q -= 8.0 * G_MB_TH_CONTRA;
@@ -855,13 +935,14 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    G_MB_DNA_PENDING[MB_DNA_TYPE_REVERSAL] = IsReversalOpportunityType(G_OPP_TYPE);
    G_MB_DNA_PENDING_QUALITY = G_MB_ENTRY_QUALITY;
 
-   G_MB_ENTRY_TEXT = StringFormat("%s q%d | %s %s | bias %s | location: %s | trigger: %s%s | speed %s%s%s",
+   string fresh_txt = (fr_ev < 0.99 || fr_rev < 0.99) ? StringFormat(" | evidence %.0f%% fresh", 100.0 * MathMin(fr_ev, fr_rev)) : "";
+   G_MB_ENTRY_TEXT = StringFormat("%s q%d | %s %s | bias %s | location: %s | trigger: %s%s | speed %s%s%s%s%s",
                                   MBEntryOutcomeName(outcome), G_MB_ENTRY_QUALITY, etype, (dir > 0 ? "BUY" : "SELL"),
                                   MBBiasName(G_MB_BIAS), loc, trig,
                                   (rev_ok ? " | reversal: " + rev_what : ""),
                                   (G_MB_IMP_DIR[0] == dir ? MBSpeedName(G_MB_SPEED[0]) : "-"),
                                   (inv > 0.0 ? StringFormat(" | invalid %.1f ATR5", inv_atr) : ""),
-                                  (decay > 0.0 ? StringFormat(" | late -%.0f", decay) : ""));
+                                  (decay > 0.0 ? StringFormat(" | late -%.0f", decay) : ""), fresh_txt, path_txt);
 
    G_MB_DNA_PENDING_TEXT = G_MB_ENTRY_TEXT;
 
