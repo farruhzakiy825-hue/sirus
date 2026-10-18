@@ -750,45 +750,45 @@ Bu qoidalar egasi bilan kelishilgan. Hujjatdagi har qanday band shu qoidalar ich
 | Band | Holat | Kodda |
 |---|---|---|
 | Market order bilan tezkor ijro | ✅ | 14 `UpdateFirstEntryEngine`, retcode tekshiruvi ("sent-is-not-filled") |
-| **TP'li limit (pending) orderlar dvigateli** | ❌ | Kodda bitta ham `ORDER_TYPE_*_LIMIT` / `TRADE_ACTION_PENDING` yo'q. Bu 13.4 dagi C3 bandi |
+| **TP'li limit (pending) orderlar dvigateli** | ⛔ | Egasi voz kechdi (2026-10-18) |
 | Har pog'onada qat'iy TP (broker tomonida) | ✅ | 4-paket: `EnableBrokerBasketTP`, `BrokerBackupSync` |
 | Direction Guard ≠ kirish ruxsati (ikki alohida mas'uliyat) | 🟡 | Yo'nalishni 20h hakam va 21 veto hal qiladi, joyni 23 judge hal qiladi. Lekin 08/09/15 ichida qarorni qayta yozadigan eski yo'llar hali bor. Trace CSV ularni ko'rsatadi |
 | 6 ta "noto'g'ri yo'nalish" gipotezasi | 🟡 | Statik audit qilindi (`AUDIT_2026-10-09.md`, A/B). Runtime isbot `Sirus_Trace_*.csv` kelgandan keyin bo'ladi |
-| Grid Liability Intelligence | 🟡 | 24 `EnableGridLiability`: BE HTF likvidlik ortida qolsa pog'ona qo'yilmaydi. 2-paket: `GridSafetyDangerNow` qattiq to'xtashlari. **Yagona javobgarlik bahosi yo'q**: orderlar, lot, DD, margin, masofa va bozor holati bitta sonda yig'ilmagan |
-| Cashback va sof natijani alohida hisoblash | 🟡 | 20e sof foyda va spread xotirasi bor. Lekin ikki input bir xil ishni qiladi: `RebateUSDPerLot` (20e) va `CashbackPerLot` (25). Bittaga birlashtirish kerak |
+| Grid Liability Intelligence | ✅ | 24 `EnableGridLiability`: BE HTF likvidlik ortida qolsa pog'ona qo'yilmaydi. 2-paket: `GridSafetyDangerNow` qattiq to'xtashlari. 9-paket: yagona Grid Liability Score 0–100 (GLS) |
+| Cashback va sof natijani alohida hisoblash | ✅ | 20e sof foyda va spread xotirasi. 13-paket: bitta `CashbackUSDPerLot()` |
 | Sabablar jurnali | ✅ | Reason Code (90), Shadow ledger (26), Trace CSV (26d), Autopsy (26b) |
-| Order xatolari shabloni | 🟡 | Retcode va tavsif logga yoziladi, vaqtinchalik xatoda qayta urinish bor. Lekin Trace'ga faqat muvaffaqiyatli `SENT` qatori yoziladi. **Rad etilgan order (retcode, narx, spread, lot) CSV'ga tushmaydi** |
+| Order xatolari shabloni | ✅ | Retcode va tavsif logga yoziladi, vaqtinchalik xatoda qayta urinish bor. 6-paket: Trace'da FAILED qatori; 24-paket: panelda oxirgi 30 daqiqadagi rad etishlar |
 | Yoqish/o'chirish va restartdan tiklanish | 🟡 | GlobalVariable orqali tiklanadi. Cashback rejimini savdo paytida almashtirish tekshirilmagan |
 
 ### 15.3. 2-hujjat: Master Plan — 19 bosqich bo'yicha
 
 | Bosqich | Holat | Izoh (qayerda yoki nima yetishmaydi) |
 |---|---|---|
-| I–II. Maqsad va to'liq kod auditi | ✅ / 🟡 | 1-raund: `AUDIT_2026-10-09.md`, `docs/audit_2026-10-09/` (A–E, T). 2-raund (E sham, F detektor/score, G zona, H pul) ishlayapti |
+| I–II. Maqsad va to'liq kod auditi | ✅ | 1-raund: `AUDIT_2026-10-09.md`, `docs/audit_2026-10-09/` (A–E, T). 2-raund (E, F, G, H) - 6/7/8-paketlarda tuzatildi; F12/F13/F15/F16 - score qayta qurish, sinovdan keyin |
 | III. Market Intelligence (holat, trend, range, reversal, transition) | ✅ | 20f: 15 ta holat, o'zgarish vaqti va oldingi holat. 5-paket: EXPANSION/TREND tomoni bias bilan bog'landi |
-| IV. Candle Sequence | ✅ / 🟡 | 17 Candle Engine. 2-raund E auditi natijasi kutilmoqda |
+| IV. Candle Sequence | ✅ | 17 Candle Engine. E auditi topilmalari 6/7-paketlarda tuzatildi |
 | V. Market Structure | ✅ | 18 Event Engine va 20b Structure Lock. 5-paket: MSS turi, himoyalangan daraja, failed break tiklanishi |
 | VI.1 Liquidity | ✅ | 20a: M5/M15/H1/H4 swing, PDH/PDL, EQH/EQL, sweep holati va yoshi. 2-paket: sweep'da maksimal teshish |
 | VI.2 Target Engine (nishonga to'siqlar, olingan/faol) | ✅ | Champion likvidlik bor. 1-paket: kech nishon olingan chegaralarni o'tkazib yuboradi. 20-paket: nishongacha to'siqlar (qarshi kuchli zona, ushlab turgan daraja) hakam sifatida |
-| VI.3 Session Engine | 🟡 | Asia/London/NY soatlari va DST bor (10, 01). **Frankfurt, Midnight open, Asia/London high-low likvidlik xaritasida yo'q** |
+| VI.3 Session Engine | ✅ | 12-paket: Asia / Frankfurt / London H/L likvidlik xaritasida, NY midnight open. 14-paket: bitta UTC + DST sessiya dvigateli |
 | VI.4 Trap / False Breakout | ✅ | 20a SOXTA SWEEP, 20f FAKE BREAKOUT. 2-paket: `MBBreakFailed` hamma tasdiqda |
-| VII. Zone Intelligence | 🟡 | Uchta alohida zona tizimi bor: 19 (holatlar UNTOUCHED…EXPIRED), 20g (HTF baza + displacement + tegishlar), 11 (zona ishonchliligi). **Yagona zona hakami yo'q** (15.5, 3-band) |
+| VII. Zone Intelligence | 🟡 | Uchta alohida zona tizimi bor: 19 (holatlar UNTOUCHED…EXPIRED), 20g (HTF baza + displacement + tegishlar), 11 (zona ishonchliligi). 10-paket: 20i (RBR/DBR/RBD/DBD, 100 ball, ID, hayot bosqichi). **Uch tizimni bitta hakamga birlashtirish - sinovdan keyin** (15.5, 3-band) |
 | VIII. Unified Decision Engine | 🟡 | Yo'nalish uchun 20h hakam (1-paket) bor. Konflikt ustuvorligi (8.2) faqat yo'nalish uchun belgilangan. Zona, joy va ijro konfliktlari uchun belgilanmagan |
 | IX.1 Direction Guard | ✅ | 21 veto V0–V11 + VH. 2-paket: qarshi klapan olib tashlandi |
 | IX.2 Fast Entry | ✅ | Fast path bor (hb_directional, 1-paket). 15-paket: har WAIT o'z qayta baholash shartini aytadi (`G_MB_ENTRY_RECHECK`) |
 | IX.3 Re-entry | ✅ | 20d mikro va re-entry, cashback re-entry. 4-paket: `OnTradeTransaction` TP'dan keyin darhol reaksiya beradi |
 | IX.4 Entry Priority Judge | ✅ | 23 judge: EXECUTE, EXECUTE FAST, CAUTION, WAIT, WAIT-FOR-LOCATION (15-paket). Nomzodlar raqobati - 11-paket |
 | X.1–2 Order yuborish va holati | ✅ | Lot qadami, margin (`OrderCalcMargin`), stop/freeze level, filling, retcode, partial fill |
-| X.3 Pending orderlar | ❌ | 15.2 dagi limit order bilan bitta ish |
-| X.4 Order xatolari | 🟡 | 15.2 ga qarang: CSV'da FAILED qatori yo'q |
-| XI. Position, Exit, TP/SL yaxlitligi | ✅ / 🟡 | 12 exits, 24 Position Brain. 4-paket: broker disaster SL va basket TP. 2-raund H auditi kutilmoqda |
-| XII. Grid, Basket, Recovery | 🟡 | 13 grid, 24 liability, 2-paket: kunlik grid hisoblagichlari. Yagona Grid Liability Score yo'q |
-| XIII. Cashback Mode | 🟡 | 15.2 ga qarang |
-| XIV. Risk va hisob himoyasi | ✅ / 🟡 | Daily loss, basket SL, `EmergencyForceClose`, disaster SL. 2-paket: `G_RISK_SCOPE`. "Himoya boshqa modul tomonidan bekor qilinmasin" talabi uchun statik tekshiruv kerak (H auditi) |
-| XV. News, Spread, Session risk | ✅ / 🟡 | MT5 kalendari, tester rejimi, spread anomaliyasi. 18-paket: kalendar 30 daqiqa o'qilmasa - zaxira jadval (08:30 / 10:00 NY, chorshanba 14:00) |
-| XVI. Texnik arxitektura (event, state, multi-instance, resurs) | 🟡 | Hisob har yangi barda bo'ladi, ATR keshi bor. 3-paket: symbol almashtirilsa INIT_FAILED. 18-paket: ikkinchi nusxa (boshqa grafik, bir xil Magic+simvol) savdo ochmaydi; GlobalVariable kalitlarida Magic bor |
+| X.3 Pending orderlar | ⛔ | Egasi voz kechdi |
+| X.4 Order xatolari | ✅ | 6-paket: Trace FAILED qatori, noaniq javobda hisob tekshiruvi |
+| XI. Position, Exit, TP/SL yaxlitligi | ✅ | 12 exits, 24 Position Brain. 4-paket: broker disaster SL va basket TP. H auditi 6/7/8-paketlarda |
+| XII. Grid, Basket, Recovery | ✅ | 13 grid, 24 liability, 9-paket: Grid Liability Score; pog'ona oldingisidan kichik emas (8-paket) |
+| XIII. Cashback Mode | ✅ | 15.2 ga qarang (limit order - egasi voz kechdi) |
+| XIV. Risk va hisob himoyasi | ✅ | Daily loss, basket SL, `EmergencyForceClose`, disaster SL. 2-paket: `G_RISK_SCOPE`. "Himoya boshqa modul tomonidan bekor qilinmasin" talabi uchun statik tekshiruv kerak (H auditi) |
+| XV. News, Spread, Session risk | ✅ | MT5 kalendari, tester rejimi, spread anomaliyasi. 18-paket: kalendar 30 daqiqa o'qilmasa - zaxira jadval (08:30 / 10:00 NY, chorshanba 14:00) |
+| XVI. Texnik arxitektura (event, state, multi-instance, resurs) | ✅ / 🟡 | Hisob har yangi barda bo'ladi, ATR keshi bor. 3-paket: symbol almashtirilsa INIT_FAILED. 18-paket: ikkinchi nusxa (boshqa grafik, bir xil Magic+simvol) savdo ochmaydi; GlobalVariable kalitlarida Magic bor |
 | XVII. Logging, Dashboard, Bad Entry Autopsy | ✅ | 26b 17 ta teg. 16-paket: Wrong market state, Execution error, Exit failure, Risk rule failure qo'shildi |
-| XVIII. Input va Mode integration | ❌ | **3236 ta input** bor. Hunter/Fox/Balanced farqlari, zid inputlar va dublikatlar (masalan cashback/lot) audit qilinmagan |
+| XVIII. Input va Mode integration | ✅ | 13-paket audit, 14-paket birlashtirish: 3066 -> ~2760 input |
 | XIX. Testing va Validation | 🟡 | `REGRESSION_TEST.md`, Trace va Shadow CSV bor, tester ham mos (91ec859). Tester'da regression replay hali bajarilmagan |
 | XX. Deployment | ✅ | Git, har paket alohida commit, CHANGELOG. Kompilyatsiya egasida |
 
@@ -796,14 +796,14 @@ Bu qoidalar egasi bilan kelishilgan. Hujjatdagi har qanday band shu qoidalar ich
 
 | Band | Holat | Izoh |
 |---|---|---|
-| 4 ta model (RBR, DBR, RBD, DBD) nomi bilan | ❌ | 20g bazani "asos shami + 3 bar ichida ≥1.5 ATR displacement" deb oladi. Modelni (oldingi impuls yo'nalishi) ajratmaydi |
-| Base Detection (shamlar soni, diapazon/ATR, tana/wick) | 🟡 | Faqat 20g (H1/H4) ichida bor. M5/M1 uchun yo'q |
+| 4 ta model (RBR, DBR, RBD, DBD) nomi bilan | ✅ | 10-paket: 20i |
+| Base Detection (shamlar soni, diapazon/ATR, tana/wick) | ✅ | 20i: M5, M15, H1, H4 |
 | Impulse va displacement | ✅ | 17 Candle Engine (displacement), 18 (BOS/MSS), FVG/imbalance (11, 23) |
-| Zona chegaralari va unikal ID | 🟡 | Chegara bor. ID va "yaratilgandan keyin chegara o'zgarmaydi" qoidasi tizimlar orasida bir xil emas |
-| Lifecycle (Candidate → … → Expired) | ✅ / 🟡 | 19 da 9 ta holat bor. 20g faqat tegishlarni sanaydi. Ikkalasi bir-biriga bog'lanmagan |
-| Zone Conflict Resolver (ALLOW / CAUTION / BLOCK) | ❌ | Yagona zona hakami bilan bitta ish (15.5, 3-band) |
-| 100 ballik zona bahosi | ❌ | Zona sifati turli joylarda turlicha ball oladi |
-| Zone Failure Autopsy (model, ID, ball, testlar) | 🟡 | 26b'da "QARSHI ZONA" tegi bor. Zona ID va modeli CSV'ga yozilmaydi |
+| Zona chegaralari va unikal ID | ✅ (20i) / 🟡 (19, 20g) | Chegara bor. ID va "yaratilgandan keyin chegara o'zgarmaydi" qoidasi tizimlar orasida bir xil emas |
+| Lifecycle (Candidate → … → Expired) | ✅ (20i) / 🟡 | 19 da 9 ta holat bor. 20g faqat tegishlarni sanaydi. Ikkalasi bir-biriga bog'lanmagan |
+| Zone Conflict Resolver (ALLOW / CAUTION / BLOCK) | 🟡 | 10-paket: qarshi kuchli zona oldinda - hakam sifati (CAUTION); 20g H1/H4 qattiq qoida. To'liq hakam - birlashtirish bilan (15.5, 3-band) |
+| 100 ballik zona bahosi | ✅ | 10-paket: 20i |
+| Zone Failure Autopsy (model, ID, ball, testlar) | ✅ | 10-paket: Autopsy CSV'da zona ustuni (model, TF, ball, holat) |
 
 ### 15.5. Qo'shimcha 5 band (audit natijasidan, egasi ko'rib chiqishi uchun)
 
