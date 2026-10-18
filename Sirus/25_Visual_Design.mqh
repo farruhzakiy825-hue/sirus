@@ -31,7 +31,7 @@ input string WatermarkSubFont         = "Bahnschrift Light";   // Watermark sub 
 // WatermarkTitleSize: Sarlavha o'lchami (pt). Panel yonidagi bo'sh joyga sig'masa o'zi kichrayadi
 input int    WatermarkTitleSize       = 64;   // Watermark title size
 // WatermarkOpacity: Ko'rinish kuchi: fon rangiga qancha aralashadi (%, 5-40)
-input int    WatermarkOpacity         = 14;   // Watermark opacity
+input int    WatermarkOpacity         = 20;   // Watermark opacity
 // EnableNewDashboard: Yangi "karta" dashboard (false = eski batafsil matnli dashboard)
 input bool   EnableNewDashboard       = true;   // Enable new dashboard
 // PanelWidth: Panel kengligi (px)
@@ -44,6 +44,8 @@ input int    PanelFontSize            = 9;   // Panel font size
 input int    PanelLayout              = 0;   // Panel layout: 0 auto, 1 one column, 2 compact, 3 two columns
 // PanelBrandFont: Panel sarlavhasi (SIRUS) va katta raqamlar shrifti
 input string PanelBrandFont           = "Bahnschrift SemiBold";   // Panel brand / figures font
+// PanelMaxWidthPct: Ikki ustunli panel grafik kengligining ko'pi bilan shuncha foizini egallaydi
+input int    PanelMaxWidthPct         = 50;   // Two-column panel: at most this % of the chart width
 // CashbackPerLot: CASHBACK bo'limi: 1 lot uchun qaytadigan $ (0 = taxminiy cashback ko'rsatilmaydi). Bo'lim faqat cashback rejimida chiqadi
 input double CashbackPerLot           = 0.0;   // Cashback per lot
 
@@ -212,6 +214,7 @@ string MBVisSpaced(const string text)
 }
 
 // --- watermark --------------------------------------------------------------------------------
+int G_MB_PANEL_FS = 9;           // package 22: the panel's font size of this draw (two columns: one point smaller)
 int G_MB_PANEL_RIGHT_EDGE = 0;   // package 21: where the panel ends - the watermark sits in the free part of the chart
 
 // Package 21: a premium watermark - the title letter-spaced in a modern face, gold-tinted, with a gold rule
@@ -234,7 +237,7 @@ void MBDrawWatermark()
    int size = MathMax(16, WatermarkTitleSize);
    int tw = MBVisTextW(title, WatermarkFont, size);
    if(tw > free_w - 60 && tw > 0)
-      size = MathMax(24, (int)(size * (double)(free_w - 60) / tw));
+      size = MathMax(36, (int)(size * (double)(free_w - 60) / tw));
    tw = MBVisTextW(title, WatermarkFont, size);
    int px = (int)(size * 1.33 * MBVisScale());
    int cx = left + free_w / 2;
@@ -272,6 +275,8 @@ int  G_MB_PANEL_W = 430;         // package 19: card width of this draw (scaled)
 bool G_MB_PANEL_COMPACT = false; // package 19: only the main lines
 int  G_MB_PANEL_FULL_H = 0;      // height of the last full one-column draw (for the automatic layout)
 bool G_MB_PANEL_TWO = false;     // package 21: two columns
+int  G_MB_PANEL_COL = 0;         // package 22: the column being drawn (0 left / single, 1 right)
+int  G_MB_PANEL_HID[2];          // package 22: lines a compact draw left out, per column (to know the full height)
 int  G_MB_PANEL_TWO_H = 0;       // height of the last full two-column draw
 
 // Package 19: the lines a compact panel leaves out (the detail - still in the journal and the CSVs).
@@ -283,14 +288,14 @@ bool MBPanelIsDetail(const string id)
 
 int MBPanelPillW(const string text)
 {
-   return MBVisTextW(text, PanelFontBold, PanelFontSize - 1) + (int)(18 * MBVisScale());
+   return MBVisTextW(text, PanelFontBold, G_MB_PANEL_FS - 1) + (int)(18 * MBVisScale());
 }
 
 void MBPanelPill(const string id, const string text, const int x, const int y, const int h, const color tone)
 {
    int w = MBPanelPillW(text);
    MBVisRect(id + "_BG", x, y, w, h, MBVisBlend(MBVisCard(), tone, 0.22), tone, false);
-   MBVisText(id + "_TX", text, x + w / 2, y + h / 2, tone, PanelFontSize - 1, PanelFontBold, ANCHOR_CENTER, false);
+   MBVisText(id + "_TX", text, x + w / 2, y + h / 2, tone, G_MB_PANEL_FS - 1, PanelFontBold, ANCHOR_CENTER, false);
 }
 
 void MBPanelBar(const string id, const int x, const int y, const int w, const double value, const color tone)
@@ -307,8 +312,8 @@ void MBPanelSection(const string id, const string title, const int x0, const int
    string t = "◆  " + title;
    color rule = MBVisBlend(MBVisCard(), MBVisGold(), 0.28);
    MBVisRect(id + "_RULE", x0 + 12, G_MB_PANEL_Y + lh / 2, w - 24, 1, rule, rule, false);
-   MBVisRect(id + "_MASK", x0 + 12, G_MB_PANEL_Y, MBVisTextW(t, PanelFontBold, PanelFontSize - 1) + 10, lh, MBVisCard(), MBVisCard(), false);
-   MBVisText(id + "_T", t, x0 + 12, G_MB_PANEL_Y + 2, MBVisGold(), PanelFontSize - 1, PanelFontBold, ANCHOR_LEFT_UPPER, false);
+   MBVisRect(id + "_MASK", x0 + 12, G_MB_PANEL_Y, MBVisTextW(t, PanelFontBold, G_MB_PANEL_FS - 1) + 10, lh, MBVisCard(), MBVisCard(), false);
+   MBVisText(id + "_T", t, x0 + 12, G_MB_PANEL_Y + 2, MBVisGold(), G_MB_PANEL_FS - 1, PanelFontBold, ANCHOR_LEFT_UPPER, false);
    G_MB_PANEL_Y += lh;
 }
 
@@ -319,11 +324,11 @@ void MBPanelTile(const string id, const int x, const int y, const int w, const i
    double sc = MBVisScale();
    MBVisRect(id + "_BG", x, y, w, h, MBVisBlend(MBVisCard(), MBVisInk(), 0.045), MBVisBlend(MBVisCard(), MBVisGold(), 0.30), false);
    MBVisRect(id + "_TOP", x, y, w, 2, MBVisBlend(MBVisCard(), vclr, 0.70), MBVisBlend(MBVisCard(), vclr, 0.70), false);
-   MBVisText(id + "_L", label, x + (int)(10 * sc), y + (int)(6 * sc), MBVisMuted(), PanelFontSize - 2, PanelFontBold, ANCHOR_LEFT_UPPER, false);
-   MBVisText(id + "_V", MBVisFitPx(value, PanelBrandFont, PanelFontSize + 4, w - (int)(20 * sc)), x + (int)(10 * sc), y + h / 2 + (int)(2 * sc),
-             vclr, PanelFontSize + 4, PanelBrandFont, ANCHOR_LEFT, false);
-   MBVisText(id + "_S", MBVisFitPx(sub, PanelFont, PanelFontSize - 2, w - (int)(20 * sc)), x + (int)(10 * sc), y + h - (int)(5 * sc),
-             MBVisMuted(), PanelFontSize - 2, PanelFont, ANCHOR_LEFT_LOWER, false);
+   MBVisText(id + "_L", label, x + (int)(10 * sc), y + (int)(6 * sc), MBVisMuted(), G_MB_PANEL_FS - 2, PanelFontBold, ANCHOR_LEFT_UPPER, false);
+   MBVisText(id + "_V", MBVisFitPx(value, PanelBrandFont, G_MB_PANEL_FS + 4, w - (int)(20 * sc)), x + (int)(10 * sc), y + h / 2 + (int)(2 * sc),
+             vclr, G_MB_PANEL_FS + 4, PanelBrandFont, ANCHOR_LEFT, false);
+   MBVisText(id + "_S", MBVisFitPx(sub, PanelFont, G_MB_PANEL_FS - 2, w - (int)(20 * sc)), x + (int)(10 * sc), y + h - (int)(5 * sc),
+             MBVisMuted(), G_MB_PANEL_FS - 2, PanelFont, ANCHOR_LEFT_LOWER, false);
 }
 
 void MBPanelLine(const string id, const string text, const color clr, const bool mono, const int x0, const int w, const int lh)
@@ -331,10 +336,11 @@ void MBPanelLine(const string id, const string text, const color clr, const bool
    if(G_MB_PANEL_COMPACT && MBPanelIsDetail(id))
    {
       ObjectDelete(0, MB_VIS_PREFIX + id);
+      G_MB_PANEL_HID[G_MB_PANEL_COL]++;
       return;
    }
    string font = (mono ? PanelFontMono : PanelFont);
-   MBVisText(id, MBVisFitPx(text, font, PanelFontSize, w - 24), x0 + 12, G_MB_PANEL_Y, clr, PanelFontSize, font, ANCHOR_LEFT_UPPER, false);
+   MBVisText(id, MBVisFitPx(text, font, G_MB_PANEL_FS, w - 24), x0 + 12, G_MB_PANEL_Y, clr, G_MB_PANEL_FS, font, ANCHOR_LEFT_UPPER, false);
    G_MB_PANEL_Y += lh;
 }
 
@@ -690,25 +696,37 @@ void MBDrawPanel()
    int y0 = MathMax(0, DashboardY);
    double sc = MBVisScale();
    int w = (int)MathRound(MathMax(320, PanelWidth) * sc);   // package 19: the card grows with the Windows scale like the fonts do
-   int lh = (int)MathRound(PanelFontSize * 1.95 * sc);
    color ink = MBVisInk(), muted = MBVisMuted();
-   // Package 21: the layout. Two columns when the chart is wide enough (automatic) or always (3); one column
-   // otherwise. In either, the compact line set when the full one does not fit the chart's height.
+   // Package 21/22: the layout. Two columns when the chart is wide enough (automatic) or always (3), the card
+   // at most PanelMaxWidthPct of the chart (package 22: at a 125% Windows scale it took 70%); one column
+   // otherwise. In either, the compact line set only when the full one does not fit the chart's height.
    int chart_w = (int)ChartGetInteger(0, CHART_WIDTH_IN_PIXELS, 0);
    int chart_h = (int)ChartGetInteger(0, CHART_HEIGHT_IN_PIXELS, 0);
    int gap = (int)MathRound(26 * sc);
    int w2 = 2 * w - 24 + gap;   // pad 12 + column + gap + column + pad 12
-   bool two = (PanelLayout == 3) || (PanelLayout == 0 && chart_w > 0 && chart_w >= x0 + w2 + (int)(300 * sc));
-   int full_h = two ? ((G_MB_PANEL_TWO_H > 0) ? G_MB_PANEL_TWO_H : 36 * lh) : ((G_MB_PANEL_FULL_H > 0) ? G_MB_PANEL_FULL_H : 60 * lh);
-   bool compact_now = (PanelLayout == 2) || (PanelLayout != 1 && chart_h > 0 && y0 + full_h > chart_h - 8);
+   if(chart_w > 0)
+      w2 = MathMin(w2, (int)(chart_w * MathMax(30, MathMin(90, PanelMaxWidthPct)) / 100.0));
+   int wcol = (w2 + 24 - gap) / 2;   // one column's width, its 12 px pads included
+   bool two = (PanelLayout == 3) || (PanelLayout == 0 && chart_w > 0 && wcol - 24 >= (int)(250 * sc));
+   G_MB_PANEL_FS = two ? MathMax(7, PanelFontSize - 1) : PanelFontSize;
+   int lh = (int)MathRound(G_MB_PANEL_FS * 1.95 * sc);
+   int full_h = two ? ((G_MB_PANEL_TWO_H > 0) ? G_MB_PANEL_TWO_H : 0) : ((G_MB_PANEL_FULL_H > 0) ? G_MB_PANEL_FULL_H : 0);
+   // Not measured yet: try the full panel first (a compact one now measures the full height too).
+   int room = chart_h - 8 - (G_MB_PANEL_COMPACT ? lh / 2 : 0);   // a little hysteresis: no flapping at the edge
+   bool compact_now = (PanelLayout == 2) || (PanelLayout != 1 && chart_h > 0 && full_h > 0 && y0 + full_h > room);
    if(two != G_MB_PANEL_TWO || compact_now != G_MB_PANEL_COMPACT)
    {
       MBDeletePanel();   // a different layout - nothing of the old one may stay behind
       G_MB_PANEL_TWO = two;
       G_MB_PANEL_COMPACT = compact_now;
    }
+   if(two)
+      w = wcol;   // every column call below takes w as its column width
    int card_x = x0, card_w = (two ? w2 : w);
    int col_xr = x0 + w - 24 + gap;   // the right column's x (its text starts 12 px in, like the left one)
+   G_MB_PANEL_COL = 0;
+   G_MB_PANEL_HID[0] = 0;
+   G_MB_PANEL_HID[1] = 0;
    G_MB_PANEL_W = card_w;
    G_MB_PANEL_RIGHT_EDGE = card_x + card_w;
 
@@ -722,9 +740,9 @@ void MBDrawPanel()
    MBVisRect("P_BANDLINE", card_x + 12, y0 + band_h, card_w - 24, 1, band_rule, band_rule, false);
    int band_cy = y0 + 2 + band_h / 2;
    string brand = MBVisSpaced("SIRUS");
-   MBVisText("P_BRAND", brand, card_x + 14, band_cy, MBVisGold(), PanelFontSize + 7, PanelBrandFont, ANCHOR_LEFT, false);
-   MBVisText("P_BRAND2", "BY ZAKIY  ·  oltin ovchisi", card_x + 14 + MBVisTextW(brand, PanelBrandFont, PanelFontSize + 7) + (int)(12 * sc),
-             band_cy + (int)(2 * sc), muted, PanelFontSize - 1, PanelFont, ANCHOR_LEFT, false);
+   MBVisText("P_BRAND", brand, card_x + 14, band_cy, MBVisGold(), G_MB_PANEL_FS + 7, PanelBrandFont, ANCHOR_LEFT, false);
+   MBVisText("P_BRAND2", "BY ZAKIY  ·  oltin ovchisi", card_x + 14 + MBVisTextW(brand, PanelBrandFont, G_MB_PANEL_FS + 7) + (int)(12 * sc),
+             band_cy + (int)(2 * sc), muted, G_MB_PANEL_FS - 1, PanelFont, ANCHOR_LEFT, false);
 
    string status = "OVDA";
    color status_tone = muted;
@@ -804,9 +822,9 @@ void MBDrawPanel()
       string bias = MBBiasUz(G_MB_BIAS);
       MBPanelPill("B_BIAS", bias, x0 + 12, G_MB_PANEL_Y, lh - 2, tone);
       int bar_x = x0 + 12 + MBPanelPillW(bias) + (int)(12 * sc);
-      int bar_w = MathMax(40, w - (bar_x - x0) - MBVisTextW("ishonch 100%", PanelFont, PanelFontSize - 1) - (int)(22 * sc));
+      int bar_w = MathMax(40, w - (bar_x - x0) - MBVisTextW("ishonch 100%", PanelFont, G_MB_PANEL_FS - 1) - (int)(22 * sc));
       MBPanelBar("B_CONF", bar_x, G_MB_PANEL_Y + lh / 2 - 3, bar_w, G_MB_BIAS_CONF, tone);
-      MBVisText("B_CONF_TX", StringFormat("ishonch %d%%", G_MB_BIAS_CONF), x0 + w - 12, G_MB_PANEL_Y + 1, muted, PanelFontSize - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
+      MBVisText("B_CONF_TX", StringFormat("ishonch %d%%", G_MB_BIAS_CONF), x0 + w - 12, G_MB_PANEL_Y + 1, muted, G_MB_PANEL_FS - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
       G_MB_PANEL_Y += lh + 2;
       MBPanelLine("B_WHY", "Sabab: " + MBWhyUz(G_MB_BIAS_WHY), ink, false, x0, w, lh);
       // Stage 18 (B5): the evidence board - the biggest liquidity event and the latest M15+ structure.
@@ -939,6 +957,7 @@ void MBDrawPanel()
       {
          G_MB_PANEL_Y = col_top;
          x0 = col_xr;
+         G_MB_PANEL_COL = 1;
          MBPanelSection("S_DET", "HAKAM · ZONALAR · JOY", x0, w, lh);
       }
       {
@@ -981,6 +1000,7 @@ void MBDrawPanel()
       {
          G_MB_PANEL_Y = col_top;
          x0 = col_xr;
+         G_MB_PANEL_COL = 1;
       }
    }
 
@@ -996,9 +1016,9 @@ void MBDrawPanel()
    else if(G_ENTRY_READY)                                { dec = "ZARBA";            dec_tone = MBVisGreen(); }
    MBPanelPill("E_DEC", dec, x0 + 12, G_MB_PANEL_Y, lh - 2, dec_tone);
    int qx = x0 + 12 + MBPanelPillW(dec) + (int)(12 * sc);
-   int qw = MathMax(40, w - (qx - x0) - MBVisTextW("sifat 100", PanelFont, PanelFontSize - 1) - (int)(22 * sc));
+   int qw = MathMax(40, w - (qx - x0) - MBVisTextW("sifat 100", PanelFont, G_MB_PANEL_FS - 1) - (int)(22 * sc));
    MBPanelBar("E_Q", qx, G_MB_PANEL_Y + lh / 2 - 3, qw, G_MB_ENTRY_QUALITY, dec_tone);
-   MBVisText("E_Q_TX", StringFormat("sifat %d", G_MB_ENTRY_QUALITY), x0 + w - 12, G_MB_PANEL_Y + 1, muted, PanelFontSize - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
+   MBVisText("E_Q_TX", StringFormat("sifat %d", G_MB_ENTRY_QUALITY), x0 + w - 12, G_MB_PANEL_Y + 1, muted, G_MB_PANEL_FS - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
    G_MB_PANEL_Y += lh + 2;
    string why_txt = MBReasonUz(G_ENTRY_REASON);
    if(G_BASKET_ORDERS > 0)
@@ -1143,7 +1163,11 @@ void MBDrawPanel()
    }
 
    // --- column divider (two columns) ---
-   int cols_end = MathMax(left_end, G_MB_PANEL_Y);
+   int right_end = G_MB_PANEL_Y;
+   int cols_end = two ? MathMax(left_end, right_end) : G_MB_PANEL_Y;
+   // Package 22: the height the full panel would need - drawn now, or this draw plus the lines it left out.
+   int full_cols_end = two ? MathMax(left_end + G_MB_PANEL_HID[0] * lh, right_end + G_MB_PANEL_HID[1] * lh)
+                           : cols_end + (G_MB_PANEL_HID[0] + G_MB_PANEL_HID[1]) * lh;
    if(two)
    {
       color div = MBVisBlend(MBVisCard(), MBVisGold(), 0.22);
@@ -1157,22 +1181,20 @@ void MBDrawPanel()
    MBVisRect("P_FOOT", card_x + 1, G_MB_PANEL_Y, card_w - 2, lh + (int)(4 * sc), foot, foot, false);
    string f1 = StringFormat("spread %d  ·  server %s%s", G_LAST_SPREAD_POINTS, TimeToString(TimeTradeServer(), TIME_MINUTES),
                             (G_MB_PANEL_COMPACT ? "  ·  ixcham" : ""));
-   MBVisText("F1", f1, card_x + 12, G_MB_PANEL_Y + (int)(3 * sc), muted, PanelFontSize - 1, PanelFont, ANCHOR_LEFT_UPPER, false);
+   MBVisText("F1", f1, card_x + 12, G_MB_PANEL_Y + (int)(3 * sc), muted, G_MB_PANEL_FS - 1, PanelFont, ANCHOR_LEFT_UPPER, false);
    string prof = MBProfText();
-   int f2_w = card_w - 24 - MBVisTextW(f1, PanelFont, PanelFontSize - 1) - (int)(16 * sc);
+   int f2_w = card_w - 24 - MBVisTextW(f1, PanelFont, G_MB_PANEL_FS - 1) - (int)(16 * sc);
    if(StringLen(prof) > 0 && f2_w > 40)   // performance contract: amber above 30 ms
-      MBVisText("F2", MBVisFitPx(prof, PanelFont, PanelFontSize - 1, f2_w), card_x + card_w - 12, G_MB_PANEL_Y + (int)(3 * sc),
-                (MBProfSlow() ? MBVisAmber() : muted), PanelFontSize - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
+      MBVisText("F2", MBVisFitPx(prof, PanelFont, G_MB_PANEL_FS - 1, f2_w), card_x + card_w - 12, G_MB_PANEL_Y + (int)(3 * sc),
+                (MBProfSlow() ? MBVisAmber() : muted), G_MB_PANEL_FS - 1, PanelFont, ANCHOR_RIGHT_UPPER, false);
    else
       ObjectDelete(0, MB_VIS_PREFIX + "F2");
    G_MB_PANEL_Y += lh + (int)(4 * sc);
 
-   // Size the card to what was drawn; a full draw remembers its height for the automatic layout.
-   if(!G_MB_PANEL_COMPACT)
-   {
-      if(two) G_MB_PANEL_TWO_H = G_MB_PANEL_Y - y0 + 4;
-      else    G_MB_PANEL_FULL_H = G_MB_PANEL_Y - y0 + 4;
-   }
+   // Size the card to what was drawn; every draw remembers the full height for the automatic layout.
+   int full_now = (G_MB_PANEL_Y - y0 + 4) + (full_cols_end - cols_end);
+   if(two) G_MB_PANEL_TWO_H = full_now;
+   else    G_MB_PANEL_FULL_H = full_now;
    ObjectSetInteger(0, MB_VIS_PREFIX + "P_CARD", OBJPROP_YSIZE, G_MB_PANEL_Y - y0 + 4);
    ChartRedraw(0);   // timer redraws otherwise wait for the next tick to show
 }

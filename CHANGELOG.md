@@ -1,5 +1,18 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 22-paket: panel - egasining ekranida tuzatish (2026-10-18)
+
+Egasining skrinshoti (1566 px grafik, Windows 125%) va tasdiqlangan maketi bo'yicha. Savdo mantiqi o'zgarmadi.
+
+- **Kenglik:** ikki ustunli panel grafik kengligining ko'pi bilan `PanelMaxWidthPct` (50%) qismini egallaydi. Avval
+  Windows 125% masshtabida kenglik ham 1.25 baravar oshib, ekranning 70% ini olardi.
+- **Shrift:** ikki ustunda `PanelFontSize` - 1 (sukut 9 -> 8) - tor ustunga ko'proq matn sig'adi.
+- **"Ixcham"da qolib ketish xatosi:** to'liq balandlik faqat to'liq chizilganda o'lchanardi; ixcham holatda hech qachon
+  o'lchanmagani uchun panel ixchamdan chiqmasdi. Endi har chizishda yashirilgan qatorlar sanaladi va to'liq balandlik
+  hisoblanadi: sig'sa - to'liq, sig'masa - ixcham (chegarada "sakrash" bo'lmasligi uchun kichik zaxira).
+- **Watermark:** ko'rinish kuchi 14% -> 20%, eng kichik o'lcham 24 -> 36 pt; panelning o'ng tomonidagi (endi kengroq)
+  bo'sh joy o'rtasida.
+
 ## 21-paket: premium ikki ustunli panel va yangi watermark (2026-10-18)
 
 Egasi maketni tanladi (ikki ustun). Savdo mantiqi o'zgarmadi. Kompilyatsiya qilinmagan - statik tekshiruvlar toza.
