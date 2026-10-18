@@ -592,9 +592,7 @@ bool ScoreHardBlockCheck(string &reason)
       return true;
    }
 
-   int hard_spread = ScoreHardBlockExtremeSpread;
-   if(hard_spread <= 0)
-      hard_spread = CriticalSpreadPoints;
+   int hard_spread = CriticalSpreadPoints;   // package 14: ScoreHardBlockExtremeSpread was the same 800
 
    if(G_LAST_SPREAD_POINTS >= hard_spread)
    {
@@ -670,9 +668,9 @@ void ApplyAntiOverfilterScoring(int &bonus, int &penalty, string &detail)
    // argument while UseUnifiedMaxSpread is on, so "clean spread" meant <=500 here while mode
    // selection now means <=AutoHighHunterMaxSpread. Two contradictory definitions of clean - a
    // 450-point spread was "not clean enough for hunter" yet still collected the clean-spread bonus.
-   if(G_LAST_SPREAD_POINTS >= 0 && G_LAST_SPREAD_POINTS <= MathMax(1, AutoHighHunterMaxSpread))
+   if(G_LAST_SPREAD_POINTS >= 0 && G_LAST_SPREAD_POINTS <= MathMax(1, CleanSpreadPoints))
       AddScoreBonus(bonus, detail, ScoreBonusCleanSpread, "clean spread");
-   else if(G_LAST_SPREAD_POINTS > EffSpread(MaxSpreadPoints) * 0.80)
+   else if(G_LAST_SPREAD_POINTS > MaxSpreadAllowed() * 0.80)
       AddScorePenalty(penalty, detail, ScorePenaltySoftSpread, "soft spread pressure");
 
    double min_room = G_SCORE_TP_TARGET * (double)ScoreMinRoomPercentOfTP / 100.0;

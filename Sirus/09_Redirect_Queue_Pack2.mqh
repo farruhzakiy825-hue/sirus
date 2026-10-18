@@ -760,9 +760,9 @@ ENUM_TEMP_BLOCK_TYPE DetectCurrentTempBlock(string &reason)
       return TEMP_BLOCK_IMPULSE;
    }
 
-   if(G_LAST_SPREAD_POINTS > EffSpread(MaxSpreadPoints) && G_LAST_SPREAD_POINTS < CriticalSpreadPoints)
+   if(G_LAST_SPREAD_POINTS > MaxSpreadAllowed() && G_LAST_SPREAD_POINTS < CriticalSpreadPoints)
    {
-      reason = StringFormat("soft spread %d/%d", G_LAST_SPREAD_POINTS, EffSpread(MaxSpreadPoints));
+      reason = StringFormat("soft spread %d/%d", G_LAST_SPREAD_POINTS, MaxSpreadAllowed());
       return TEMP_BLOCK_SOFT_SPREAD;
    }
 
@@ -1105,9 +1105,9 @@ bool QueueCanReplay(string &reason)
       return false;
    }
 
-   if(G_LAST_SPREAD_POINTS > EffSpread(SignalQueueMaxSpreadPoints))
+   if(G_LAST_SPREAD_POINTS > MaxSpreadAllowed())
    {
-      reason = StringFormat("queue spread high %d/%d", G_LAST_SPREAD_POINTS, EffSpread(SignalQueueMaxSpreadPoints));
+      reason = StringFormat("queue spread high %d/%d", G_LAST_SPREAD_POINTS, MaxSpreadAllowed());
       return false;
    }
 
@@ -1912,9 +1912,9 @@ bool MicroScalpCanRun(string &reason)
       return false;
    }
 
-   if(G_LAST_SPREAD_POINTS > EffSpread(MicroMaxSpreadPoints))
+   if(G_LAST_SPREAD_POINTS > MaxSpreadAllowed())
    {
-      reason = StringFormat("micro spread high %d/%d", G_LAST_SPREAD_POINTS, EffSpread(MicroMaxSpreadPoints));
+      reason = StringFormat("micro spread high %d/%d", G_LAST_SPREAD_POINTS, MaxSpreadAllowed());
       return false;
    }
 
@@ -2157,14 +2157,14 @@ void Pack3BrokerSync()
 
    G_BROKER_EFFECTIVE_STOP = effective_stop;
 
-   bool spread_ok = (G_LAST_SPREAD_POINTS >= 0 && G_LAST_SPREAD_POINTS <= EffSpread(BrokerSyncMaxSpread));
+   bool spread_ok = (G_LAST_SPREAD_POINTS >= 0 && G_LAST_SPREAD_POINTS <= MaxSpreadAllowed());
    bool stop_ok = (effective_stop <= MathMax((double)GridMinDistancePoints, (double)FixedTPPoints));
 
    if(!spread_ok)
    {
       G_PACK3_BROKER_STATUS = StringFormat("BROKER_SYNC: spread high %d/%d | stop=%.0f",
                                            G_LAST_SPREAD_POINTS,
-                                           EffSpread(BrokerSyncMaxSpread),
+                                           MaxSpreadAllowed(),
                                            effective_stop);
    }
    else
@@ -2713,9 +2713,9 @@ bool Pack2RecoveryAllowsGrid(string &reason)
       return false;
    }
 
-   if(G_LAST_SPREAD_POINTS > EffSpread(AftershockMaxSpread) && UseAftershockGuard)
+   if(G_LAST_SPREAD_POINTS > MaxSpreadAllowed() && UseAftershockGuard)
    {
-      reason = StringFormat("aftershock/spread guard %d/%d", G_LAST_SPREAD_POINTS, EffSpread(AftershockMaxSpread));
+      reason = StringFormat("aftershock/spread guard %d/%d", G_LAST_SPREAD_POINTS, MaxSpreadAllowed());
       return false;
    }
 

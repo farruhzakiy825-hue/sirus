@@ -281,11 +281,17 @@ int GetSpreadPoints()
 }
 
 // V30.3: effective max-spread resolver (unified master or per-module fallback).
-int EffSpread(const int module_value)
+// Package 14 (owner: one spread limit and a mode factor): THE spread ceiling for "may we trade at all".
+// There were 14 module limits; with UseUnifiedMaxSpread on (the default) every one of them already returned
+// UnifiedMaxSpreadPoints - the module values were dead. Now there is one number, times the Hunter factor in
+// Hunter mode. (CleanSpreadPoints - "is the spread tight enough for Hunter" - and CriticalSpreadPoints - the
+// absolute stop - are different questions and stay.)
+int MaxSpreadAllowed()
 {
-   if(UseUnifiedMaxSpread && UnifiedMaxSpreadPoints > 0)
-      return UnifiedMaxSpreadPoints;
-   return module_value;
+   int cap = (UnifiedMaxSpreadPoints > 0) ? UnifiedMaxSpreadPoints : 500;
+   if(G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER)
+      cap = (int)MathRound(cap * MathMax(0.1, HunterSpreadFactor));
+   return cap;
 }
 
 int TickAgeSeconds()
@@ -516,7 +522,7 @@ bool CheckSpreadEnvironment()
 
    G_ENV_SPREAD_STATUS = StringFormat("SPREAD: %d | max=%d | critical=%d",
                                       spread,
-                                      EffSpread(MaxSpreadPoints),
+                                      MaxSpreadAllowed(),
                                       CriticalSpreadPoints);
 
    if(spread < 0)
@@ -531,9 +537,9 @@ bool CheckSpreadEnvironment()
       return false;
    }
 
-   if(spread > EffSpread(MaxSpreadPoints))
+   if(spread > MaxSpreadAllowed())
    {
-      G_ENV_BLOCK_REASON = StringFormat("spread high %d/%d", spread, EffSpread(MaxSpreadPoints));
+      G_ENV_BLOCK_REASON = StringFormat("spread high %d/%d", spread, MaxSpreadAllowed());
       return false;
    }
 

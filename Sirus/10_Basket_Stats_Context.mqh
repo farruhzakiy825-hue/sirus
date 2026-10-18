@@ -4797,9 +4797,9 @@ double NewsInProgress(string &detail)
    // The spread widening is the broker's own reading of the same thing.
    // Against the normal spread for this symbol, which is the setting the risk engine
    // already uses as its baseline.
-   if(G_LAST_SPREAD_POINTS > 0 && RiskMaxSpreadPoints > 0)
+   if(G_LAST_SPREAD_POINTS > 0 && CleanSpreadPoints > 0)
    {
-      double sp_ratio = (double)G_LAST_SPREAD_POINTS / ((double)RiskMaxSpreadPoints * 0.5);
+      double sp_ratio = (double)G_LAST_SPREAD_POINTS / ((double)CleanSpreadPoints * 0.5);   // package 14: was RiskMaxSpreadPoints (300)
       if(sp_ratio >= LiveNewsSpreadMultiple)
       {
          score += LiveNewsSpreadWeight;

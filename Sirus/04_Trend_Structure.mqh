@@ -1281,12 +1281,11 @@ ENUM_SIRUS_MODE EvaluateAutoModeCandidate(string &reason)
    // to BALANCED here first, silently capping the EA below the hunter threshold it was configured
    // with. Gate here on whichever limit is LOOSER, so a spread the hunter check would still accept
    // gets the chance to be evaluated by it; the hunter-specific check below remains the real gate.
-   int auto_mode_spread_ceiling = (int)MathMax(AutoBalancedSpreadLimit, AutoHighHunterMaxSpread);
-   if(G_LAST_SPREAD_POINTS > EffSpread(auto_mode_spread_ceiling))
+   if(G_LAST_SPREAD_POINTS > MaxSpreadAllowed())   // package 14: the one ceiling
    {
       reason = StringFormat("spread above auto-mode ceiling %d/%d -> BALANCED",
                             G_LAST_SPREAD_POINTS,
-                            EffSpread(auto_mode_spread_ceiling));
+                            MaxSpreadAllowed());
       return SIRUS_MODE_BALANCED;
    }
 
@@ -1304,7 +1303,7 @@ ENUM_SIRUS_MODE EvaluateAutoModeCandidate(string &reason)
       return SIRUS_MODE_BALANCED;
    }
 
-   // FIX(hunter-spread-discriminator-dead): this test used EffSpread(AutoHighHunterMaxSpread), and
+   // FIX(hunter-spread-discriminator-dead): this test used MaxSpreadAllowed(), and
    // EffSpread() IGNORES its argument entirely while UseUnifiedMaxSpread is on - it returns
    // UnifiedMaxSpreadPoints (500) for everything. So this line and the auto-mode ceiling gate above
    // resolved to the SAME number, spread stopped discriminating between the two profiles, and
@@ -1317,7 +1316,7 @@ ENUM_SIRUS_MODE EvaluateAutoModeCandidate(string &reason)
    // selection therefore uses the raw hunter limit, so AutoHighHunterMaxSpread means what it says
    // again: hunter only on a genuinely tight spread, balanced for everything wider. This makes AUTO
    // more selective, never looser - the unified ceiling above still caps trading overall.
-   int hunter_spread_limit = MathMax(1, AutoHighHunterMaxSpread);
+   int hunter_spread_limit = MathMax(1, CleanSpreadPoints);   // package 14: was AutoHighHunterMaxSpread
    if(G_LAST_SPREAD_POINTS <= hunter_spread_limit)
    {
       string market_reason = "";

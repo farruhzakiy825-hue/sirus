@@ -88,6 +88,10 @@ input double            EmergencyDDPercent       = 50.0;   // Emergency close (%
 input bool              EnableSmartEarlyExit     = false;   // Smart early exit
 // UnifiedMaxSpreadPoints: V90b: 300 -> 500 ($0.50). The user's Exness Cent XAUUSD spread runs $0.25-0.40 normally, so 300 ($0.30) was rejecting ordinary fills. $0.50 lets normal spreads through while still blocking the widened spreads around news/session-open. Paired with CriticalSpreadPoints ($0.80) as a two-stage guard.
 input int               UnifiedMaxSpreadPoints   = 500;   // Max spread (points)
+// CleanSpreadPoints: 14-PAKET: "toza" spread - AUTO rejimda Hunter faqat shundan past spreadda tanlanadi; yangilik spread nisbati ham shundan o'lchanadi (AutoHighHunterMaxSpread / AutoBalancedSpreadLimit / RiskMaxSpreadPoints o'rniga)
+input int               CleanSpreadPoints        = 300;   // Clean spread (Hunter selection, news spread baseline)
+// HunterSpreadFactor: 14-PAKET: Hunter rejimida umumiy spread chegarasi x shu (1.0 = bir xil)
+input double            HunterSpreadFactor       = 1.0;   // Hunter mode: max spread x this
 input bool   EnableEconomicCalendarGuard    = true;   // News filter (economic calendar)
 input bool              EnableWeekendGuard       = true;   // Weekend protection
 // EnableMarginGuard: pre-check free margin before any order
@@ -110,9 +114,7 @@ input group "ADVANCED ▸ SIRUS core / mode"
 input bool              AllowAutoHighHunter      = true;   // Allow auto high hunter
 input int               ModeSwitchCooldownBars   = 10;   // Mode switch cooldown bars
 input bool              ModeEvaluateOnNewBarOnly = false;   // Mode evaluate on new bar only (on/off)
-input int               AutoHighHunterMaxSpread  = 300;   // Auto high hunter max spread
 input int               AutoHighHunterMaxTickAge = 60;   // Auto high hunter max tick age
-input int               AutoBalancedSpreadLimit  = 300;   // Auto balanced spread limit
 // EnableAutoHunterMarketFilter: V31.6z13: AUTO's switch to HIGH_HUNTER previously checked ONLY spread/tick-age - zero market-risk awareness
 input bool              EnableAutoHunterMarketFilter = true;   // Enable auto hunter market filter
 // AutoHunterMinVolatilityRegime: Blocks the switch to Hunter during extreme volatility storms (VolatilityRegimeScore -1.0=storm, +1.0=normal)
@@ -179,7 +181,6 @@ input bool              MarginGuardPrintOnUse    = true;   // Margin guard print
 
 input group "ADVANCED ▸ Spread limit"
 // One master spread cap used by every module (or each module's own individual limit if off).
-input bool              UseUnifiedMaxSpread      = true;   // Use unified max spread
 
 input group "ADVANCED ▸ Weekend guard"
 // WeekendBlockEntryFriHour: Friday (server time): block NEW first entries from this hour
@@ -548,8 +549,6 @@ input int               PostLossCooldownMinutes  = 5;   // Post loss cooldown mi
 input int               MaxDailyEntryAttempts    = 600;   // Max daily entry attempts
 // MaxDailyGridAttempts: Safety cap: max grid-add attempts per day.
 input int               MaxDailyGridAttempts     = 200;   // Max daily grid attempts
-// RiskMaxSpreadPoints: Risk-engine spread ceiling (points). Note: with UseUnifiedMaxSpread ON, the unified spread value overrides this everywhere.
-input int               RiskMaxSpreadPoints      = 300;   // Risk max spread points
 // RiskBlockNewEntry: When any risk limit is hit, block NEW first entries.
 input bool              RiskBlockNewEntry        = true;   // Risk block new entry (on/off)
 // RiskBlockGrid: When any risk limit is hit, block GRID additions too.
@@ -1246,7 +1245,6 @@ input double            RecoveryDDStretchMult    = 1.35;   // Recovery DD stretc
 input bool              RecoveryBlockAgainstHTF  = true;   // Recovery block against HTF (on/off)
 input bool              UseAftershockGuard       = true;   // Use aftershock guard
 input int               AftershockMinutes        = 20;   // Aftershock minutes
-input int               AftershockMaxSpread      = 300;   // Aftershock max spread
 input bool              PrintLegacyPack2Events   = true;   // Print legacy pack 2 events
 
 input group "ADVANCED ▸ News / broker / analytics"
@@ -1261,7 +1259,6 @@ input bool              NewsGuardCloseBasket     = false;   // News guard close 
 input bool              NewsGuardBlockGrid       = true;   // News guard block grid (on/off)
 input bool              NewsGuardBlockEntry      = true;   // News guard block entry (on/off)
 input bool              UseBrokerSyncV2          = true;   // Use broker sync
-input int               BrokerSyncMaxSpread      = 300;   // Broker sync max spread
 input int               BrokerSyncMinStopLevel   = 0;   // Broker sync min stop level
 input bool              BrokerSyncAdaptTPToStop  = true;   // Broker sync adapt TP to stop (on/off)
 input bool              BrokerSyncAdaptGridToStop= true;   // Broker sync adapt grid to stop (on/off)
@@ -1744,7 +1741,6 @@ input bool              MicroOnlyCGrade          = true;   // Micro only c grade
 input bool              MicroAllowBGradeIfPreferred = false;   // Micro allow b grade if preferred (on/off)
 input bool              MicroRequireSweepOrRejection = true;   // Micro require sweep or rejection (on/off)
 input bool              MicroAllowNearZoneEntry  = true;   // Micro allow near zone entry (on/off)
-input int               MicroMaxSpreadPoints     = 300;   // Micro max spread points
 input int               MicroMinRoomPercentOfTP  = 70;   // Micro min room % of TP
 input bool              MicroBlockFreshImpulse   = true;   // Micro block fresh impulse (on/off)
 input bool              PrintMicroDecisions      = true;   // Print micro decisions
@@ -2312,7 +2308,6 @@ input bool              EnableQueueReplayRevalidation = true;   // Enable queue 
 input double            QueueReplayExhaustionBlockThreshold = 0.30;   // Queue replay exhaustion block threshold
 input double            QueueReplayGlobalLocalBlockThreshold = 0.30;   // Queue replay global local block threshold
 input int               SignalQueueMaxAgeSeconds = 300;   // Signal queue max age seconds
-input int               SignalQueueMaxSpreadPoints = 300;   // Signal queue max spread points
 input bool              SignalQueueRefreshBetter = true;   // Signal queue refresh better (on/off)
 input bool              SignalQueueExpireOnOppositePass = true;   // Signal queue expire on opposite pass (on/off)
 input bool              SignalQueueReplayWhenCurrentWait = true;   // Signal queue replay when current wait (on/off)
@@ -2426,8 +2421,6 @@ input int               ScorePenaltySoftSpread   = 1;   // Score penalty soft sp
 input int               ScorePenaltyNoRoomToTP   = 2;   // Score penalty no room to TP
 input int               ScoreBonusRoomToTP       = 1;   // Score bonus room to TP
 input int               ScorePenaltyImpulseRisk  = 1;   // Score penalty impulse risk
-// ScoreHardBlockExtremeSpread: FIX(hard-spread-preempts-unified): was 300, the ONLY spread gate in the EA not routed through EffSpread(). Every other one (env 6140, queue, micro, risk) resolves to UnifiedMaxSpreadPoints = 500, so a 300 hard block fired FIRST and made the 500 setting unreachable - the softer stage was dead, exactly the mistake V90b fixed for MaxSpread/CriticalSpread. This is the ABSOLUTE stop tier, so it now matches CriticalSpreadPoints ($0.80). Set to 0 to follow CriticalSpreadPoints automatically.
-input int               ScoreHardBlockExtremeSpread = 800;   // Score hard block extreme spread
 input int               ScoreMinRoomPercentOfTP  = 55;   // Score min room % of TP
 
 input group "ADVANCED ▸ Market brain settings"
@@ -3801,8 +3794,6 @@ input ENUM_TIMEFRAMES   CoreBarTF                = PERIOD_M1;   // Core bar TF
 input int               CoreTimerSeconds         = 1;   // Core timer seconds
 input bool              StrictGoldSymbolCheck    = true;   // Strict gold symbol check (on/off)
 input string            RequiredSymbolKeyword    = "XAUUSD";   // Required symbol keyword
-// MaxSpreadPoints: V90b: 300 -> 500 ($0.50) to match UnifiedMaxSpreadPoints; normal-spread gate.
-input int               MaxSpreadPoints          = 500;   // Max spread points
 // CriticalSpreadPoints: V90b: 300 -> 800 ($0.80). This is the ABSOLUTE hard stop; it must sit ABOVE MaxSpread so the two form a real two-stage guard (was equal to it, making the softer stage dead). $0.80 only trips on genuine spread blowouts (news, thin liquidity).
 input int               CriticalSpreadPoints     = 800;   // Critical spread points
 input int               MaxTickAgeSeconds        = 180;   // Max tick age seconds

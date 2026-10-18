@@ -490,9 +490,9 @@ bool RiskHardBlockCheck(string &reason, bool &close_request)
       return true;
    }
 
-   if(G_LAST_SPREAD_POINTS >= EffSpread(RiskMaxSpreadPoints))
+   if(G_LAST_SPREAD_POINTS >= MaxSpreadAllowed())
    {
-      reason = StringFormat("risk spread high %d/%d", G_LAST_SPREAD_POINTS, EffSpread(RiskMaxSpreadPoints));
+      reason = StringFormat("risk spread high %d/%d", G_LAST_SPREAD_POINTS, MaxSpreadAllowed());
       return true;
    }
 

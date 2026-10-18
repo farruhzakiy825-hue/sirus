@@ -969,8 +969,8 @@ void UpdatePack4MiniLicense(const string source)
    else
       G_P4M_SYMBOL_OK = true;
 
-   if(EffSpread(P4MiniMaxSpread) > 0)
-      G_P4M_SPREAD_OK = (G_LAST_SPREAD_POINTS <= EffSpread(P4MiniMaxSpread));
+   if(MaxSpreadAllowed() > 0)
+      G_P4M_SPREAD_OK = (G_LAST_SPREAD_POINTS <= MaxSpreadAllowed());
    else
       G_P4M_SPREAD_OK = true;
 
@@ -1014,7 +1014,7 @@ void UpdatePack4MiniLicense(const string source)
                                detail,
                                _Symbol,
                                G_LAST_SPREAD_POINTS,
-                               EffSpread(P4MiniMaxSpread));
+                               MaxSpreadAllowed());
 
    string signature = G_P4M_STATUS + "|" + G_P4M_DETAIL + "|" + IntegerToString(G_BARS_SEEN);
 
@@ -2004,7 +2004,7 @@ void RCBPresetLimits(string &preset, double &first_lot, int &max_orders, double 
       first_lot = RCSafeMaxFirstLot;
       max_orders = RCSafeMaxOrders;
       basket_sl = RCSafeMaxBasketSL;
-      spread_cap = EffSpread(RCSafeMaxSpread);
+      spread_cap = MaxSpreadAllowed();
       return;
    }
 
@@ -2013,14 +2013,14 @@ void RCBPresetLimits(string &preset, double &first_lot, int &max_orders, double 
       first_lot = RCHighHunterMaxFirstLot;
       max_orders = RCHighHunterMaxOrders;
       basket_sl = RCHighHunterMaxBasketSL;
-      spread_cap = EffSpread(RCHighHunterMaxSpread);
+      spread_cap = MaxSpreadAllowed();
       return;
    }
 
    first_lot = RCBalancedMaxFirstLot;
    max_orders = RCBalancedMaxOrders;
    basket_sl = RCBalancedMaxBasketSL;
-   spread_cap = EffSpread(RCBalancedMaxSpread);
+   spread_cap = MaxSpreadAllowed();
 }
 
 void UpdateRCSettingsBalance(const string source)
@@ -2085,10 +2085,10 @@ void UpdateRCSettingsBalance(const string source)
       }
    }
 
-   if(RCWarnIfSpreadCapHigh && max_spread > 0 && EffSpread(P4MiniMaxSpread) > max_spread)
+   if(RCWarnIfSpreadCapHigh && max_spread > 0 && MaxSpreadAllowed() > max_spread)
    {
       G_RCB_WARNINGS++;
-      warnings = warnings + StringFormat("P4Spread %d>%d; ", EffSpread(P4MiniMaxSpread), max_spread);
+      warnings = warnings + StringFormat("P4Spread %d>%d; ", MaxSpreadAllowed(), max_spread);
    }
 
    if(RCWarnIfLicenseOff && P4MiniUseLicenseControl == false)
@@ -4529,12 +4529,12 @@ int ClientSafetySpreadLimit()
    string p = ClientSafetyProfile();
 
    if(p == "SAFE")
-      return EffSpread(ClientSafetyMaxSpreadSafe);
+      return MaxSpreadAllowed();
 
    if(p == "HIGH_HUNTER")
-      return EffSpread(ClientSafetyMaxSpreadHighHunter);
+      return MaxSpreadAllowed();
 
-   return EffSpread(ClientSafetyMaxSpreadBalanced);
+   return MaxSpreadAllowed();
 }
 
 void ClientSafetyAddWarning(const string text, string &reason)
