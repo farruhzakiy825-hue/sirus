@@ -441,6 +441,7 @@ bool CloseSirusBasket(const string reason);
 void MBLiveSweepUpdate();   // stage 14 live sweep - called by the event engine above its definition
 bool MBLiveSweepFresh(const int dir, string &what);
 bool MBMomentumNow(const int dir);
+bool MBEntryFastFor(const int dir);
 void MBProfBegin(const int seg);
 void MBProfEnd(const int seg);
 string MBProfText();

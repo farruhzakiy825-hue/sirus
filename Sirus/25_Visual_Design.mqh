@@ -509,7 +509,9 @@ string MBReasonUz(const string reason)
    string t = reason;
    if(StringFind(t, "hard block: ") == 0) t = "Qattiq to'siq: " + StringSubstr(t, 12);
    if(StringFind(t, "market brain veto: ") == 0) t = "Taqiq: " + StringSubstr(t, 19);
-   if(StringFind(t, "entry judge: wait - ") == 0) t = "Poylamoqda: " + StringSubstr(t, 20);
+   if(StringFind(t, "entry judge: wait - better location: ") == 0) t = "Yaxshiroq joy poylanmoqda: " + StringSubstr(t, 37);
+   else if(StringFind(t, "entry judge: wait - ") == 0) t = "Poylamoqda: " + StringSubstr(t, 20);
+   StringReplace(t, " | recheck: ", " | qayta ochiladi: ");
    if(StringFind(t, "waiting for a better place: ") == 0) t = "Yaxshiroq joy poylanmoqda: " + StringSubstr(t, 28);
    return t;
 }
@@ -821,8 +823,10 @@ void MBDrawPanel()
    string dec = "NISHON YO'Q";
    color dec_tone = muted;
    if(StringFind(G_ENTRY_REASON, "veto") >= 0)           { dec = "TAQIQ";            dec_tone = MBVisRed(); }
+   else if(StringFind(G_ENTRY_REASON, "judge") >= 0 && G_MB_ENTRY_OUTCOME == MB_EO_WAIT_LOCATION) { dec = "JOY POYLANMOQDA"; dec_tone = MBVisAmber(); }
    else if(StringFind(G_ENTRY_REASON, "judge") >= 0)     { dec = "POYLAMOQDA";       dec_tone = MBVisAmber(); }
    else if(G_ENTRY_READY && G_MB_ENTRY_DECISION == MB_ED_CAUTION) { dec = "EHTIYOTKOR ZARBA"; dec_tone = MBVisAmber(); }
+   else if(G_ENTRY_READY && G_MB_ENTRY_OUTCOME == MB_EO_EXECUTE_FAST) { dec = "TEZKOR ZARBA"; dec_tone = MBVisGreen(); }
    else if(G_ENTRY_READY)                                { dec = "ZARBA";            dec_tone = MBVisGreen(); }
    MBPanelPill("E_DEC", dec, x0 + 12, G_MB_PANEL_Y, lh - 2, dec_tone);
    int qx = x0 + 12 + StringLen(dec) * (PanelFontSize - 1) + 30;

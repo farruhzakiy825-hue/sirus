@@ -775,9 +775,9 @@ Bu qoidalar egasi bilan kelishilgan. Hujjatdagi har qanday band shu qoidalar ich
 | VII. Zone Intelligence | 🟡 | Uchta alohida zona tizimi bor: 19 (holatlar UNTOUCHED…EXPIRED), 20g (HTF baza + displacement + tegishlar), 11 (zona ishonchliligi). **Yagona zona hakami yo'q** (15.5, 3-band) |
 | VIII. Unified Decision Engine | 🟡 | Yo'nalish uchun 20h hakam (1-paket) bor. Konflikt ustuvorligi (8.2) faqat yo'nalish uchun belgilangan. Zona, joy va ijro konfliktlari uchun belgilanmagan |
 | IX.1 Direction Guard | ✅ | 21 veto V0–V11 + VH. 2-paket: qarshi klapan olib tashlandi |
-| IX.2 Fast Entry | 🟡 | Fast path bor (hb_directional, 1-paket). WAIT holatining "qayta baholash sharti" har WAIT uchun yozilmagan |
+| IX.2 Fast Entry | ✅ | Fast path bor (hb_directional, 1-paket). 15-paket: har WAIT o'z qayta baholash shartini aytadi (`G_MB_ENTRY_RECHECK`) |
 | IX.3 Re-entry | ✅ | 20d mikro va re-entry, cashback re-entry. 4-paket: `OnTradeTransaction` TP'dan keyin darhol reaksiya beradi |
-| IX.4 Entry Priority Judge | 🟡 | 23 judge: EXECUTE, CAUTION, WAIT. **EXECUTE FAST va WAIT-FOR-BETTER-LOCATION alohida natija emas.** Nomzodlar bir-biri bilan solishtirilmaydi (15.5, 1-band) |
+| IX.4 Entry Priority Judge | ✅ | 23 judge: EXECUTE, EXECUTE FAST, CAUTION, WAIT, WAIT-FOR-LOCATION (15-paket). Nomzodlar raqobati - 11-paket |
 | X.1–2 Order yuborish va holati | ✅ | Lot qadami, margin (`OrderCalcMargin`), stop/freeze level, filling, retcode, partial fill |
 | X.3 Pending orderlar | ❌ | 15.2 dagi limit order bilan bitta ish |
 | X.4 Order xatolari | 🟡 | 15.2 ga qarang: CSV'da FAILED qatori yo'q |
@@ -823,7 +823,7 @@ Har paketdan oldin dalil to'planadi (Trace CSV va 2-raund audit). Shundan keyin 
 | 2 | Order xatolari: Trace'ga FAILED qatori (retcode, narx, spread, lot, urinish). Xatodan keyin holat qayta tekshiriladi — ✅ 6-paket | Arzon ish, ijro xatolarini ko'rinadigan qiladi | X.4, 15.2 |
 | 3 | Grid Liability Score: bitta 0–100 son, entry'dan mustaqil. Faqat yangi pog'onani **sekinlashtiradi yoki tasdiq talab qiladi**, gridni muzlatmaydi — ✅ 9-paket | Grid — eng katta DD manbai | XII.3 |
 | 4 | Yagona zona hakami + RBR/DBR/RBD/DBD + 100 ballik baho + zona ID Autopsy'ga  — ✅ 10-paket: RBR/DBR/RBD/DBD, hayot bosqichi, 100 ball, ID, autopsy (`20i`). Qolgani: 19/20g/11 ni bitta hakamga birlashtirish - sinovdan keyin | Zonalar uch joyda uch xil o'qiladi | VII, 3-hujjat |
-| 5 | Entry Competition va EXECUTE FAST / WAIT-FOR-LOCATION natijalari  — ✅ 11-paket: raqobat (hakam sifati bo'yicha). EXECUTE FAST / WAIT-FOR-LOCATION - keyin | Kuniga 250–450 savdoni noto'g'ri yo'nalishsiz ushlab qoladi | IX.4, 15.5.1 |
+| 5 | Entry Competition va EXECUTE FAST / WAIT-FOR-LOCATION natijalari  — ✅ 11-paket: raqobat (hakam sifati bo'yicha). ✅ 15-paket: EXECUTE FAST va WAIT-FOR-BETTER-LOCATION alohida natija, har WAIT uchun qayta baholash sharti | Kuniga 250–450 savdoni noto'g'ri yo'nalishsiz ushlab qoladi | IX.4, 15.5.1 |
 | 6 | Session Engine to'ldirish: Frankfurt, Midnight open, Asia/London H/L likvidlik xaritasiga  — ✅ 12-paket | Nishon va sweep sifati oshadi | VI.3 |
 | 7 | ~~Cashback limit-order dvigateli (C3)~~ — ⛔ egasi voz kechdi (2026-10-18) | Eng katta yangi modul. Avval 2–6 tayyor bo'lishi kerak: pending order risk, eskirish, takrorlanish | 13.4 C3, X.3, XIII |
 | 8 | Input auditi: 3236 input, rejimlar farqi, zid va dublikat inputlar. Ma'nosi tasdiqlanmasdan hech biri o'zgartirilmaydi — ✅ 13-paket (`docs/INPUT_AUDIT.md`); ✅ 14-paket: egasi tasdiqlagan 5 taklif bajarildi - bitta xavfsizlik qatlami, bitta UTC+DST sessiya dvigateli, bitta spread chegarasi, litsenziya qoldiqlari olib tashlandi, log kalitlari 7 guruhda (3066 -> ~2760 input) | Rejimlar orasidagi yashirin farq — "kamchilik tugamaydi" sabablaridan biri | XVIII |

@@ -35,6 +35,15 @@
 //   EXECUTE  open normally
 //   CAUTION  open with the lot cut by MBCautionLotFactor
 //   WAIT     not now - the setup stays alive and is re-judged on the next tick
+// Package 15 (master plan IX.2 / IX.4) refines two of them into their own outcomes:
+//   EXECUTE FAST           EXECUTE while the move is leaving NOW (live displacement, a live sweep, an M1
+//                          displacement that just closed) and not a chase - sent this tick, SmartFill
+//                          does not wait for a pullback the momentum will not give.
+//   WAIT-FOR-LOCATION      direction and trigger are there, the PLACE is not (chasing, the signal ran
+//                          away, range middle, the top of every range): a better price is planned (signal
+//                          origin, the nearest level behind price, the dealing-range middle, or half an M5
+//                          ATR) with an expiry; reaching it is a location by itself.
+// And every WAIT now says what re-opens it (G_MB_ENTRY_RECHECK) - panel, journal and the refusal text.
 //=====================================================================
 
 input group "BRAIN ▸ Entry engine & judge"
@@ -46,6 +55,12 @@ input int    MBEntryExecuteQuality    = 65;   // Brain entry execute quality
 input int    MBEntryCautionQuality    = 45;   // Brain entry caution quality
 // MBCautionLotFactor: CAUTION bo'lganda lot x shu
 input double MBCautionLotFactor       = 0.75;   // Brain caution lot factor
+// EnableMBWaitForLocation: 15-PAKET: yo'nalish va trigger bor, joy yomon (quvish, signal qochgan, range o'rtasi) - yaxshiroq narx rejalashtiriladi; narx yetsa bu joy hisoblanadi
+input bool   EnableMBWaitForLocation  = true;   // Judge: WAIT-FOR-BETTER-LOCATION plan (on/off)
+// MBWaitLocationMinutes: Rejalashtirilgan joy shuncha daqiqa kutiladi
+input int    MBWaitLocationMinutes    = 15;   // Judge: better-location plan lives N minutes
+// MBWaitLocationMaxATR5: Rejalashtirilgan joy narxdan ATR(M5) x shudan uzoq bo'lmaydi
+input double MBWaitLocationMaxATR5    = 2.0;   // Judge: better location at most N x ATR(M5) away
 // MBEntryDecayPerATR: Signal paydo bo'lgandan beri narx har 1 ATR(M1) qochganda sifat shuncha pasayadi
 input double MBEntryDecayPerATR       = 20.0;   // Brain entry decay per ATR
 // MBMaxInvalidationATR5: Invalidation darajasi ATR(M5) x shudan uzoq bo'lsa: sifat pasayadi
@@ -89,6 +104,21 @@ input bool   SmartFillMomentumSkip    = true;   // Smart fill momentum skip (on/
 #define MB_ED_CAUTION   1
 #define MB_ED_WAIT      2
 
+// Package 15: the judge's outcome - the decision above, with the two refinements of master plan IX.4.
+#define MB_EO_EXECUTE        0
+#define MB_EO_EXECUTE_FAST   1
+#define MB_EO_CAUTION        2
+#define MB_EO_WAIT           3
+#define MB_EO_WAIT_LOCATION  4
+int      G_MB_ENTRY_OUTCOME     = MB_EO_EXECUTE;
+int      G_MB_ENTRY_OUTCOME_DIR = 0;
+string   G_MB_ENTRY_RECHECK     = "";   // what re-opens a WAIT (IX.2)
+// The better-location plan (WAIT-FOR-LOCATION): side, price, expiry and what the price is.
+int      G_MB_WFL_DIR   = 0;
+double   G_MB_WFL_PRICE = 0.0;
+datetime G_MB_WFL_UNTIL = 0;
+string   G_MB_WFL_WHAT  = "";
+
 int      G_MB_ENTRY_DECISION   = MB_ED_EXECUTE;
 int      G_MB_ENTRY_QUALITY    = 0;
 string   G_MB_ENTRY_TEXT       = "";
@@ -110,6 +140,84 @@ string MBEntryDecisionName(const int d)
       case MB_ED_WAIT:    return "WAIT";
    }
    return "?";
+}
+
+string MBEntryOutcomeName(const int o)
+{
+   switch(o)
+   {
+      case MB_EO_EXECUTE:       return "EXECUTE";
+      case MB_EO_EXECUTE_FAST:  return "EXECUTE FAST";
+      case MB_EO_CAUTION:       return "CAUTION";
+      case MB_EO_WAIT:          return "WAIT";
+      case MB_EO_WAIT_LOCATION: return "WAIT-FOR-LOCATION";
+   }
+   return "?";
+}
+
+// Package 15: the last final judgement was EXECUTE FAST this way (SmartFill reads it).
+bool MBEntryFastFor(const int dir)
+{
+   return (dir != 0 && G_MB_ENTRY_OUTCOME == MB_EO_EXECUTE_FAST && G_MB_ENTRY_OUTCOME_DIR == dir);
+}
+
+// Package 15 (IX.2): what a WAIT is waiting for, from the judge's own reason.
+string MBWaitRecheck(const string missing, const int caution_q)
+{
+   if(StringFind(missing, "a local leg") == 0 || StringFind(missing, "the last candles") == 0 ||
+      StringFind(missing, "M5 and M15") == 0 || StringFind(missing, "the move against") == 0)
+      return "a closed M1 / M5 candle this way";
+   if(StringFind(missing, "at the zone") == 0)
+      return "a reaction candle at the zone (rejection / grab / displacement)";
+   if(StringFind(missing, "tick flow") == 0)
+      return "tick flow back from the other side";
+   if(StringFind(missing, "playbook") == 0)
+      return "a confirmed liquidity reversal (sweep + structure break)";
+   if(StringFind(missing, "chasing") == 0)
+      return "a pullback - the M1 impulse no longer EXPIRED";
+   if(StringFind(missing, "quality") == 0 || StringFind(missing, "trend entry quality") == 0)
+      return StringFormat("quality %d or more", caution_q);
+   if(StringFind(missing, "market data") == 0)
+      return "the brain warmed up";
+   return "the missing piece above";
+}
+
+// Package 15: a better price for dir behind the current one - the nearest of: where the signal first
+// appeared, the nearest level behind price, the dealing-range middle; else half an M5 ATR. At least a
+// quarter of an M5 ATR away (closer is not a different place) and at most MBWaitLocationMaxATR5.
+double MBBetterLocation(const int dir, const double price, const double atr5, string &what)
+{
+   what = "";
+   double best = 0.0, best_d = DBL_MAX;
+   double lo_d = 0.25 * atr5, hi_d = MathMax(0.5, MBWaitLocationMaxATR5) * atr5;
+   double c[3];
+   string w[3];
+   c[0] = (G_MB_SIG_DIR == dir) ? G_MB_SIG_PRICE : 0.0;                          w[0] = "signal origin";
+   c[1] = (dir > 0) ? ZoneMapNearestSupport(price) : ZoneMapNearestResistance(price); w[1] = (dir > 0 ? "support" : "resistance");
+   c[2] = (G_MB_DR_HI > G_MB_DR_LO) ? 0.5 * (G_MB_DR_HI + G_MB_DR_LO) : 0.0;      w[2] = "dealing-range middle";
+   for(int k = 0; k < 3; k++)
+   {
+      if(c[k] <= 0.0)
+         continue;
+      double d = dir * (price - c[k]);   // > 0: behind price (lower for a BUY)
+      if(d >= lo_d && d <= hi_d && d < best_d)
+      {
+         best = c[k];
+         best_d = d;
+         what = w[k];
+      }
+   }
+   if(best <= 0.0)
+   {
+      best = price - dir * 0.5 * atr5;
+      what = "half an M5 ATR pullback";
+   }
+   return NormalizeDouble(best, _Digits);
+}
+
+bool MBBetterLocationIsLevel(const string what)
+{
+   return (what == "support" || what == "resistance" || what == "dealing-range middle");
 }
 
 string MBEntryTypeName(const int dir, const int a)
@@ -245,6 +353,12 @@ bool MBEntryJudgeAllows(const int dir, string &why)
 {
    why = "";
    G_MB_ENTRY_DECISION = MB_ED_EXECUTE;
+   if(!G_MB_JUDGE_PROBE)
+   {
+      G_MB_ENTRY_OUTCOME = MB_EO_EXECUTE;
+      G_MB_ENTRY_OUTCOME_DIR = dir;
+      G_MB_ENTRY_RECHECK = "";
+   }
    if(!EnableMBEntryJudge || !EnableMarketBrain || !EnableMarketBrainEngines || dir == 0)
       return true;
 
@@ -255,6 +369,11 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(price <= 0.0 || atr1 <= 0.0 || atr5 <= 0.0 || !G_MB_BRAIN_PRIMED)
    {
       G_MB_ENTRY_DECISION = MB_ED_WAIT;
+      if(!G_MB_JUDGE_PROBE)
+      {
+         G_MB_ENTRY_OUTCOME = MB_EO_WAIT;
+         G_MB_ENTRY_RECHECK = "the brain warmed up";
+      }
       why = "entry judge: market data not ready (brain warming up)";
       return false;
    }
@@ -356,10 +475,19 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    bool early_loc = (G_MB_LIVE_DIR == dir && !(G_MB_IMP_DIR[0] == dir && G_MB_SPEED[0] >= MB_SPEED_NORMAL));
    if(swept_loc) loc += StringFormat("%sswept pool", (StringLen(loc) > 0 ? ", " : ""));
    if(early_loc) loc += StringFormat("%searly live impulse", (StringLen(loc) > 0 ? ", " : ""));
+   // Package 15: the better-location plan of an earlier WAIT-FOR-LOCATION - its price reached, before it
+   // expired, is a location by itself (and a fresh signal: the decay starts again from here).
+   if(!G_MB_JUDGE_PROBE && G_MB_WFL_DIR != 0 && (TimeCurrent() > G_MB_WFL_UNTIL || !EnableMBWaitForLocation))
+      G_MB_WFL_DIR = 0;
+   // Only a level (support / resistance / range middle) is a PLACE; a return to the signal origin or a plain
+   // pullback only takes the chase and the decay away.
+   bool plan_loc = (EnableMBWaitForLocation && G_MB_WFL_DIR == dir && G_MB_WFL_PRICE > 0.0 && dir * (price - G_MB_WFL_PRICE) <= 0.0);
+   bool plan_real = plan_loc && MBBetterLocationIsLevel(G_MB_WFL_WHAT);
+   if(plan_loc) loc += StringFormat("%splanned %s reached %s", (StringLen(loc) > 0 ? ", " : ""), G_MB_WFL_WHAT, DoubleToString(G_MB_WFL_PRICE, _Digits));
    int loc_n = (disc_ok ? 1 : 0) + (zone_ok ? 1 : 0) + (pullback_ok ? 1 : 0) + (fvg_ok ? 1 : 0) + (range_edge ? 1 : 0) +
-               (swept_loc ? 1 : 0) + (early_loc ? 1 : 0) + (retest_loc ? 1 : 0);
+               (swept_loc ? 1 : 0) + (early_loc ? 1 : 0) + (retest_loc ? 1 : 0) + (plan_real ? 1 : 0);
    bool loc_ok = (loc_n > 0);
-   if(!loc_ok) loc = "none";
+   if(!loc_ok) loc = (plan_loc ? loc : "none");
 
    // --- TRIGGER ---
    string trig = "";
@@ -408,6 +536,8 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       chase--;
    // Off a pullback the trend is resuming from a better price - one step less of a chase.
    bool pb_resume = (a >= 2 && MBPullbackResume(dir));
+   if(plan_loc && chase > 0)
+      chase--;   // the pullback the plan waited for has happened
    if(pb_resume && chase > 0)
    {
       chase--;
@@ -421,7 +551,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    // LOCK FIX: the anchor used to live 15 minutes, so a running trend decayed every entry into WAIT
    // and then re-anchored at the extended price. Now: 3 minutes, and a live trigger (live
    // displacement / live sweep / pullback resume) is a new signal from here.
-   bool fresh_sig = trig_live || (trig_event && StringFind(ev_what, "LIVE") == 0) || (a >= 2 && MBPullbackResume(dir));
+   bool fresh_sig = trig_live || (trig_event && StringFind(ev_what, "LIVE") == 0) || (a >= 2 && MBPullbackResume(dir)) || plan_loc;
    // AUDIT FIX: the judge-bypass probe (the scanner's side) and the final call (a fast entry's side /
    // type) re-anchored each other every tick, so the decay never built up - only the final call anchors.
    if(!G_MB_JUDGE_PROBE &&
@@ -664,6 +794,48 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       decision = MB_ED_CAUTION;
    G_MB_ENTRY_DECISION = decision;
 
+   // Package 15 (IX.4): the outcome. EXECUTE FAST - full conviction while the move leaves now, not a chase.
+   // WAIT-FOR-LOCATION - a WAIT whose missing piece is the place (or the price that ran away), with the
+   // direction and a trigger there: a better price is planned instead of a blind re-judge.
+   int outcome = (decision == MB_ED_EXECUTE) ? MB_EO_EXECUTE : ((decision == MB_ED_CAUTION) ? MB_EO_CAUTION : MB_EO_WAIT);
+   bool momentum_now = trig_live || (trig_event && StringFind(ev_what, "LIVE") == 0) || MBMomentumNow(dir);
+   if(decision == MB_ED_EXECUTE && momentum_now && chase == 0 && !press_tired)
+      outcome = MB_EO_EXECUTE_FAST;
+   string recheck = "";
+   if(decision == MB_ED_WAIT)
+   {
+      recheck = MBWaitRecheck(missing, caution_q);
+      bool place_missing = (!loc_ok || chase >= 1 || decay > 0.0 || range_mid || all_dear || zi_opp >= 0);
+      string wfl_what = "";
+      double wfl_px = MBBetterLocation(dir, price, atr5, wfl_what);
+      // Running away (chase / low quality) - any better price helps. A missing PLACE - only a real level.
+      bool about_price = (StringFind(missing, "chasing") == 0 || StringFind(missing, "quality") == 0 ||
+                          StringFind(missing, "trend entry quality") == 0);
+      bool about_place = (StringFind(missing, "needs") >= 0 && !loc_ok && MBBetterLocationIsLevel(wfl_what));
+      if(EnableMBWaitForLocation && (about_price || about_place) && place_missing && trig_ok && (dir_ok || loc_lv >= 1))
+      {
+         outcome = MB_EO_WAIT_LOCATION;
+         if(!G_MB_JUDGE_PROBE && (G_MB_WFL_DIR != dir || TimeCurrent() > G_MB_WFL_UNTIL))
+         {
+            G_MB_WFL_DIR = dir;
+            G_MB_WFL_PRICE = wfl_px;
+            G_MB_WFL_WHAT = wfl_what;
+            G_MB_WFL_UNTIL = TimeCurrent() + MathMax(1, MBWaitLocationMinutes) * 60;
+         }
+         if(G_MB_WFL_DIR == dir)
+            recheck = StringFormat("price %s %s (%s) until %s, then re-judged", (dir > 0 ? "<=" : ">="),
+                                   DoubleToString(G_MB_WFL_PRICE, _Digits), G_MB_WFL_WHAT, TimeToString(G_MB_WFL_UNTIL, TIME_MINUTES));
+      }
+   }
+   else if(!G_MB_JUDGE_PROBE && G_MB_WFL_DIR == dir)
+      G_MB_WFL_DIR = 0;   // the entry may go - the plan is spent
+   if(!G_MB_JUDGE_PROBE)
+   {
+      G_MB_ENTRY_OUTCOME = outcome;
+      G_MB_ENTRY_OUTCOME_DIR = dir;
+      G_MB_ENTRY_RECHECK = recheck;
+   }
+
    // Entry DNA of this judgement - kept by Memory if the entry fills.
    for(int k = 0; k < MB_DNA_COUNT; k++)
       G_MB_DNA_PENDING[k] = false;
@@ -684,7 +856,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    G_MB_DNA_PENDING_QUALITY = G_MB_ENTRY_QUALITY;
 
    G_MB_ENTRY_TEXT = StringFormat("%s q%d | %s %s | bias %s | location: %s | trigger: %s%s | speed %s%s%s",
-                                  MBEntryDecisionName(decision), G_MB_ENTRY_QUALITY, etype, (dir > 0 ? "BUY" : "SELL"),
+                                  MBEntryOutcomeName(outcome), G_MB_ENTRY_QUALITY, etype, (dir > 0 ? "BUY" : "SELL"),
                                   MBBiasName(G_MB_BIAS), loc, trig,
                                   (rev_ok ? " | reversal: " + rev_what : ""),
                                   (G_MB_IMP_DIR[0] == dir ? MBSpeedName(G_MB_SPEED[0]) : "-"),
@@ -695,10 +867,11 @@ bool MBEntryJudgeAllows(const int dir, string &why)
 
    if((MBEntryPrintOnUse && G_VERBOSE) && !G_MB_JUDGE_PROBE)   // package 11: probes (the competition) do not print
    {
-      string key = MBEntryDecisionName(decision) + "|" + missing + "|" + etype;
+      string key = MBEntryOutcomeName(outcome) + "|" + missing + "|" + etype;
       if(key != G_MB_ENTRY_LAST_PRINT || (TimeCurrent() - G_MB_ENTRY_PRINT_TIME) >= 60)
       {
-         PrintFormat("[SIRUS JUDGE] %s%s", G_MB_ENTRY_TEXT, (StringLen(missing) > 0 ? " | WAIT: " + missing : ""));
+         PrintFormat("[SIRUS JUDGE] %s%s%s", G_MB_ENTRY_TEXT, (StringLen(missing) > 0 ? " | WAIT: " + missing : ""),
+                     (StringLen(recheck) > 0 ? " | recheck: " + recheck : ""));
          G_MB_ENTRY_LAST_PRINT = key;
          G_MB_ENTRY_PRINT_TIME = TimeCurrent();
       }
@@ -706,7 +879,8 @@ bool MBEntryJudgeAllows(const int dir, string &why)
 
    if(decision == MB_ED_WAIT)
    {
-      why = missing;
+      why = (outcome == MB_EO_WAIT_LOCATION ? "better location: " : "") + missing +
+            (StringLen(recheck) > 0 ? " | recheck: " + recheck : "");
       return false;
    }
    return true;

@@ -4753,7 +4753,8 @@ void UpdateFirstEntryEngine(const string source)
          G_SF_ACTIVE = false; // yo'nalish o'zgardi yoki eskirib qoldi - qayta qurollanadi
 
       // Stage 14 (C4): a momentum moment does not wait for a pullback it will not get.
-      bool sf_momentum = MBMomentumNow(sf_dir_now);
+      // Package 15: neither does the judge's EXECUTE FAST.
+      bool sf_momentum = MBMomentumNow(sf_dir_now) || MBEntryFastFor(sf_dir_now);
       if(sf_momentum)
       {
          G_SF_ACTIVE = false;

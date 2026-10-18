@@ -1,5 +1,29 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 15-paket: hakamning EXECUTE FAST va WAIT-FOR-LOCATION natijalari (2026-10-18)
+
+Manba: master reja IX.4 (Entry Priority Judge) va IX.2 (har WAIT uchun qayta baholash sharti). Kompilyatsiya
+qilinmagan - statik tekshiruvlar toza. Yo'nalish qoidalari o'zgarmadi: yangi natijalar faqat hakam allaqachon
+yo'nalish va trigger topgan holatda ishlaydi.
+
+- **EXECUTE FAST** (`MB_EO_EXECUTE_FAST`): hakam EXECUTE deydi va harakat HOZIR ketyapti (jonli displacement, LIVE
+  sweep, hozirgina yopilgan M1 displacement), quvish yo'q, M5/M15 bosimi charchamagan. Order shu tikda ketadi:
+  SmartFill pullback kutmaydi (`MBEntryFastFor`). Panelda "TEZKOR ZARBA".
+- **WAIT-FOR-BETTER-LOCATION** (`MB_EO_WAIT_LOCATION`): yo'nalish va trigger bor, lekin JOY yo'q yoki narx qochgan
+  (quvish, signal qochishi, range o'rtasi, hamma range'ning tepasi, oldinda qarshi zona). Yaxshiroq narx
+  rejalashtiriladi - eng yaqini: signal paydo bo'lgan joy, narx ortidagi eng yaqin support / resistance, dealing range
+  o'rtasi, aks holda yarim ATR(M5) pullback (0.25-2 ATR(M5) oralig'ida). Reja `MBWaitLocationMinutes` (15) daqiqa
+  yashaydi.
+  - Narx rejadagi DARAJAGA (support / resistance / range o'rtasi) yetsa - bu joy hisoblanadi.
+  - Signal joyiga qaytish yoki oddiy pullback faqat quvish va qochish jarimasini olib tashlaydi (joy emas).
+  - "Joy yo'q" holatida reja faqat haqiqiy daraja bo'lsa tuziladi - ko'r-ko'rona pullback joy hisoblanmaydi.
+  - Panelda "JOY POYLANMOQDA" va narx-nishon.
+- **Har WAIT qayta baholash sharti** (`G_MB_ENTRY_RECHECK`): "yopilgan M1/M5 sham shu tomonga", "zonada reaksiya
+  shami", "tick oqimi qaytadi", "tasdiqlangan likvidlik burilishi", "pullback", "sifat N dan yuqori", "narx <= X
+  (support) hh:mm gacha". Jurnalda `| recheck: ...`, panelda "qayta ochiladi: ...", rad etish sababida ham.
+- Yangi inputlar: `EnableMBWaitForLocation` (yoqiq), `MBWaitLocationMinutes` 15, `MBWaitLocationMaxATR5` 2.0.
+- Trace CSV ustunlari o'zgarmadi: `rule` ustunida endi `judge:better location: ...` ko'rinadi.
+
 ## 14-paket: sozlamalarni birlashtirish - egasining 5 qarori (2026-10-18)
 
 Kompilyatsiya qilinmagan - statik tekshiruvlar toza (qavslar, ta'riflar, dublikatlar, o'zgaruvchilar, format).
