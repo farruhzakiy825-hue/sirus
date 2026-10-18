@@ -645,6 +645,7 @@ void MBMemoryOnEntry(const int dir, const double price);   // 22_Memory
 void MBDrawWatermark();          // 25_Visual_Design
 void MBDeleteWatermark();
 void MBDrawPanel();
+bool MBNewPanelOn();   // 25 - package 19, read by the premium header (15)
 void MBDeletePanel();
 void MBDeleteAllVisuals();
 bool MBFastEntryCandidate(int &dir, string &why);

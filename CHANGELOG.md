@@ -1,5 +1,25 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 19-paket: panel - ekranga sig'adi, matn chegaradan chiqmaydi (2026-10-18)
+
+Egasining skrinshoti bo'yicha. Kompilyatsiya (18-paket) egasida toza edi. Savdo mantiqi o'zgarmadi.
+
+- **Matn panel chegarasidan chiqmaydi.** Satr kengligi endi harf soni bo'yicha taxmin qilinmaydi - MT5'ning o'zi
+  (`TextGetSize`) piksel bilan o'lchaydi va panelga sig'magan qism "…" bilan qisqartiriladi. Pill (holat belgisi),
+  ishonch va sifat chiziqlari ham o'lchov bilan joylashadi.
+- **Windows masshtabi (125% / 150%)** hisobga olinadi: shrift kattalashsa, panel kengligi va qator balandligi ham shu
+  nisbatda kattalashadi.
+- **Ekranga sig'maslik:** yangi `PanelLayout` - 0 avtomatik (sukut), 1 to'liq, 2 ixcham. Avtomatik rejimda to'liq panel
+  grafik balandligiga sig'masa, **ixcham ko'rinish** chiqadi: kapital, cashback, bozor nafasining asosiy qatorlari
+  (sabab, qatlamlar, maydon, rejim, holat, ssenariy, hakam, likvidlik, nishon), zarba lahzasi, savat, eng so'nggi iz va
+  yaqin xabar. Batafsil qatorlar (dalillar, TF, hikoya, tuzilma, zonalar, xarajat, joy va h.k.) jurnal va CSV'da qoladi.
+  Grafik kattalashsa - o'zi to'liq ko'rinishga qaytadi.
+- **Bo'sh qator** tuzatildi: sessiya darajalari va "Sessiya:" qatori bir xil nomli ob'ekt edi - biri ikkinchisini
+  o'chirib, joy bo'sh qolardi.
+- **O'ng yuqoridagi "SAF…" yozuvi va sariq chiziq** - eski sarlavha ramkasi o'ng burchakka noto'g'ri bog'langan edi va
+  ekrandan chiqib kesilardi. Yangi panel yoqiq bo'lsa u chizilmaydi (bir xil ma'lumot); eski panelda to'g'ri joylashadi.
+- **Max DD** 50% dan oshgan bo'lsa qator qizil rangda (avval faqat joriy DD rangni belgilardi).
+
 ## 18-paket: news fail-safe va bir nechta EA nusxasi (2026-10-18)
 
 Manba: reja 15.6, 11-band (master reja XV va XVI.3). Kompilyatsiya qilinmagan - statik tekshiruvlar toza.

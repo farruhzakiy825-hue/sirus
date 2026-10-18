@@ -1160,8 +1160,14 @@ void PremiumVisualDrawSignalHistoryMarker()
 
 void PremiumVisualDrawHeaderFrame()
 {
-   if(!PremiumShowHeaderFrame)
+   // Package 19: the new panel already shows the safety state and the mode - the old frame is not drawn with
+   // it (it also hung half off the chart: a right-corner object grows to the right of its anchor).
+   if(!PremiumShowHeaderFrame || MBNewPanelOn())
+   {
+      PremiumVisualDeleteExact("HEADER_FRAME");
+      PremiumVisualDeleteExact("HEADER_STATUS");
       return;
+   }
 
    string name = PremiumVisualName("HEADER_FRAME");
 
@@ -1169,7 +1175,7 @@ void PremiumVisualDrawHeaderFrame()
       ObjectCreate(0, name, OBJ_RECTANGLE_LABEL, 0, 0, 0);
 
    ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_RIGHT_UPPER);
-   ObjectSetInteger(0, name, OBJPROP_XDISTANCE, PremiumHeaderFrameX);
+   ObjectSetInteger(0, name, OBJPROP_XDISTANCE, PremiumHeaderFrameX + PremiumHeaderFrameW);   // the frame's left edge
    ObjectSetInteger(0, name, OBJPROP_YDISTANCE, PremiumHeaderFrameY);
    ObjectSetInteger(0, name, OBJPROP_XSIZE, PremiumHeaderFrameW);
    ObjectSetInteger(0, name, OBJPROP_YSIZE, PremiumHeaderFrameH);
@@ -1185,7 +1191,7 @@ void PremiumVisualDrawHeaderFrame()
    PremiumVisualDrawLabel("HEADER_STATUS",
                           G_SAF_STATUS + " | " + ModeToString(G_ACTIVE_MODE),
                           CORNER_RIGHT_UPPER,
-                          PremiumHeaderFrameX + 12,
+                          PremiumHeaderFrameX + PremiumHeaderFrameW - 12,
                           PremiumHeaderFrameY + PremiumHeaderFrameH - 20,
                           PremiumAccentColor,
                           MathMax(PremiumZoneLabelFontSize, 8),
