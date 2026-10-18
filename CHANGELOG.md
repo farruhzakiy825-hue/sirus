@@ -1,5 +1,17 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 23-paket: panel yana bitta ustunli, watermark shamlar ortida va markazda (2026-10-18)
+
+Egasining qarori: ikki ustun to'g'ri kelmadi - bitta ustunli holat yaxshi; watermark shrifti qolsin.
+
+- **Panel:** `PanelLayout` = 0 endi bitta ustun (sig'sa to'liq, sig'masa ixcham). Ikki ustun faqat `PanelLayout` = 3
+  bo'lganda. Bitta ustunda shrift avvalgidek 9.
+- **Watermark doim shamlar ortida:** ob'ektning "orqa fon" belgisi endi har chizishda qo'yiladi (avval faqat yaratilganda -
+  oldin oldinda yaratilgan ob'ekt oldinda qolib ketishi mumkin edi). Shamlar va zonalar watermark ustidan ko'rinadi.
+- **Watermark panel ostida qolmaydi:** u panel chizilishidan oldin chizilib, grafik o'rtasida - panel ostida - qolib
+  ketardi. Endi panel chegarasi aniqlangan (yoki o'zgargan) zahoti watermark qayta chiziladi: gorizontal - panel
+  yonidagi bo'sh joy o'rtasida, vertikal - grafik markazida (siljimaydi). Shrift o'zgarmadi (Bahnschrift).
+
 ## 22-paket: panel - egasining ekranida tuzatish (2026-10-18)
 
 Egasining skrinshoti (1566 px grafik, Windows 125%) va tasdiqlangan maketi bo'yicha. Savdo mantiqi o'zgarmadi.

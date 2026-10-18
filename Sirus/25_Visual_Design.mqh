@@ -40,8 +40,8 @@ input string PanelFont                = "Segoe UI";   // Panel font
 input string PanelFontBold            = "Segoe UI Semibold";   // Panel font bold
 input string PanelFontMono            = "Consolas";   // Panel font mono
 input int    PanelFontSize            = 9;   // Panel font size
-// PanelLayout: 0 = avtomatik (ekran keng bo'lsa IKKI USTUN, sig'masa ixcham), 1 = bitta ustun to'liq, 2 = bitta ustun ixcham, 3 = har doim ikki ustun
-input int    PanelLayout              = 0;   // Panel layout: 0 auto, 1 one column, 2 compact, 3 two columns
+// PanelLayout: 0 = avtomatik bitta ustun (sig'sa to'liq, sig'masa ixcham), 1 = bitta ustun doim to'liq, 2 = bitta ustun doim ixcham, 3 = ikki ustun
+input int    PanelLayout              = 0;   // Panel layout: 0 auto (one column), 1 full, 2 compact, 3 two columns
 // PanelBrandFont: Panel sarlavhasi (SIRUS) va katta raqamlar shrifti
 input string PanelBrandFont           = "Bahnschrift SemiBold";   // Panel brand / figures font
 // PanelMaxWidthPct: Ikki ustunli panel grafik kengligining ko'pi bilan shuncha foizini egallaydi
@@ -121,12 +121,12 @@ void MBVisRect(const string id, const int x, const int y, const int w, const int
       ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
       ObjectSetInteger(0, name, OBJPROP_BORDER_TYPE, BORDER_FLAT);
       ObjectSetInteger(0, name, OBJPROP_WIDTH, 1);
-      ObjectSetInteger(0, name, OBJPROP_BACK, back);
       ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
    }
    ObjectSetInteger(0, name, OBJPROP_XDISTANCE, x);
    ObjectSetInteger(0, name, OBJPROP_YDISTANCE, y);
+   ObjectSetInteger(0, name, OBJPROP_BACK, back);   // package 23: every call - a watermark is always behind the candles
    ObjectSetInteger(0, name, OBJPROP_XSIZE, MathMax(1, w));
    ObjectSetInteger(0, name, OBJPROP_YSIZE, MathMax(1, h));
    ObjectSetInteger(0, name, OBJPROP_BGCOLOR, fill);
@@ -142,10 +142,10 @@ void MBVisText(const string id, const string text, const int x, const int y, con
       // SPEED: fixed properties only once, at creation.
       ObjectCreate(0, name, OBJ_LABEL, 0, 0, 0);
       ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
-      ObjectSetInteger(0, name, OBJPROP_BACK, back);
       ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
    }
+   ObjectSetInteger(0, name, OBJPROP_BACK, back);   // package 23: every call - a watermark is always behind the candles
    ObjectSetInteger(0, name, OBJPROP_ANCHOR, anchor);
    ObjectSetInteger(0, name, OBJPROP_XDISTANCE, x);
    ObjectSetInteger(0, name, OBJPROP_YDISTANCE, y);
@@ -241,7 +241,7 @@ void MBDrawWatermark()
    tw = MBVisTextW(title, WatermarkFont, size);
    int px = (int)(size * 1.33 * MBVisScale());
    int cx = left + free_w / 2;
-   int cy = h / 2;
+   int cy = h / 2;   // owner: always the vertical centre of the chart
 
    MBVisText("WM_TITLE", title, cx, cy - px / 4, MBVisBlend(bg, tint, t), size, WatermarkFont, ANCHOR_CENTER, true);
 
@@ -707,7 +707,8 @@ void MBDrawPanel()
    if(chart_w > 0)
       w2 = MathMin(w2, (int)(chart_w * MathMax(30, MathMin(90, PanelMaxWidthPct)) / 100.0));
    int wcol = (w2 + 24 - gap) / 2;   // one column's width, its 12 px pads included
-   bool two = (PanelLayout == 3) || (PanelLayout == 0 && chart_w > 0 && wcol - 24 >= (int)(250 * sc));
+   // Package 23: the owner prefers one column - two columns only when asked for (3).
+   bool two = (PanelLayout == 3 && chart_w > 0 && wcol - 24 >= (int)(250 * sc));
    G_MB_PANEL_FS = two ? MathMax(7, PanelFontSize - 1) : PanelFontSize;
    int lh = (int)MathRound(G_MB_PANEL_FS * 1.95 * sc);
    int full_h = two ? ((G_MB_PANEL_TWO_H > 0) ? G_MB_PANEL_TWO_H : 0) : ((G_MB_PANEL_FULL_H > 0) ? G_MB_PANEL_FULL_H : 0);
@@ -728,7 +729,12 @@ void MBDrawPanel()
    G_MB_PANEL_HID[0] = 0;
    G_MB_PANEL_HID[1] = 0;
    G_MB_PANEL_W = card_w;
+   int prev_edge = G_MB_PANEL_RIGHT_EDGE;
    G_MB_PANEL_RIGHT_EDGE = card_x + card_w;
+   // Package 23: the watermark is placed beside the panel - redraw it the moment the panel's edge is known or
+   // moves (it used to be drawn before the first panel and stayed centred under it).
+   if(prev_edge != G_MB_PANEL_RIGHT_EDGE && EnableNewWatermark && PremiumShowWatermark)
+      MBDrawWatermark();
 
    // --- card and header band ---
    int band_h = (int)MathRound(lh * 2.1);
