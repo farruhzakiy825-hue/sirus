@@ -1464,6 +1464,7 @@ void OnTimer()
    if(TesterHeadless())
       return;
 
+   DuplicateInstanceCheck();   // package 26: the heartbeat runs on the clock - a market pause must not re-race the ownership
    CoreUpdate("TIMER");   // clock-driven protection only - see FIX(timer-trades) in CoreUpdate
 
    // Same rule as OnTick: no chart to draw on in a non-visual test or optimization run.

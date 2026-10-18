@@ -528,6 +528,8 @@ bool                    G_CAL_FETCH_FAILED       = false;
 datetime                G_CAL_LAST_OK            = 0;       // package 18: last successful calendar read
 datetime                G_CAL_FIRST_TRY          = 0;       // package 18: first read attempt of this run
 bool                    G_CAL_BLIND              = false;   // package 18: the calendar cannot be read - fail-safe slots
+datetime                G_CAL_WEEK_CHECK         = 0;       // package 26: last "is the week empty" read
+bool                    G_CAL_WEEK_EMPTY         = false;   // package 26: no row at all in the next 7 days
 bool                    G_CAL_PENDING_ACTUAL     = false;   // a cached release has happened but its actual figure is not in yet
 ulong                   G_CAL_LAST_SURPRISE_ID   = 0;
 #define CAL_CACHE_MAX 64

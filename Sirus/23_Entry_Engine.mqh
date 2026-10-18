@@ -554,8 +554,24 @@ bool MBEntryJudgeAllows(const int dir, string &why)
       G_MB_WFL_DIR = 0;
    // Only a level (support / resistance / range middle) is a PLACE; a return to the signal origin or a plain
    // pullback only takes the chase and the decay away.
+   // Package 26: reached, but not run through - a price more than half an M5 ATR beyond the planned level is a
+   // broken level (a falling knife), not a location; the plan is dropped. And the side must still be allowed.
    bool plan_loc = (EnableMBWaitForLocation && G_MB_WFL_DIR == dir && G_MB_WFL_PRICE > 0.0 && dir * (price - G_MB_WFL_PRICE) <= 0.0);
+   if(plan_loc && dir * (G_MB_WFL_PRICE - price) > 0.5 * atr5)
+   {
+      plan_loc = false;
+      if(!G_MB_JUDGE_PROBE)
+         G_MB_WFL_DIR = 0;
+   }
+   if(plan_loc && !(dir_ok || loc_lv >= 1))
+      plan_loc = false;
    bool plan_real = plan_loc && MBBetterLocationIsLevel(G_MB_WFL_WHAT);
+   if(plan_real && EnableZoneRoleEngine && (G_MB_WFL_WHAT == "support" || G_MB_WFL_WHAT == "resistance"))
+   {
+      SMBZone pz;
+      if(MBZoneRead(G_MB_WFL_PRICE, pz) && (pz.role != dir || pz.pending_break))
+         plan_real = false;   // the level no longer holds this way - the pullback still counts, the place does not
+   }
    if(plan_loc) loc += StringFormat("%splanned %s reached %s", (StringLen(loc) > 0 ? ", " : ""), G_MB_WFL_WHAT, DoubleToString(G_MB_WFL_PRICE, _Digits));
    int loc_n = (disc_ok ? 1 : 0) + (zone_ok ? 1 : 0) + (pullback_ok ? 1 : 0) + (fvg_ok ? 1 : 0) + (range_edge ? 1 : 0) +
                (swept_loc ? 1 : 0) + (early_loc ? 1 : 0) + (retest_loc ? 1 : 0) + (plan_real ? 1 : 0);
@@ -689,12 +705,20 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(EnableInvalidationGridRisk && inv > 0.0)
    {
       double inv_pts = MathAbs(price - inv) / _Point;
-      double step1 = AutoGridBaseDistance();
-      double ladder = 0.0, st = step1, gm = AutoGridMultiplier();
+      // Package 26: the rung core of GridDistanceForNextOrder (base x multiplier, the ATR floor, the min / max
+      // clamp) - the raw base alone is far tighter than the real grid in cashback mode.
+      double gm = AutoGridMultiplier();
+      double atr_floor = AdaptiveGridDistance ? ATRPointsManual(SignalTF, ATRPeriod, 1) * AutoGridATRMult() : 0.0;
+      double gmin = AutoGridMinDistance(), gmax = AutoGridMaxDistance();
+      double step1 = 0.0, ladder = 0.0;
       for(int r = 1; r < MathMax(2, MaxOrders); r++)
       {
-         ladder += st;
-         if(gm > 0.0) st *= gm;
+         double d = AutoGridBaseDistance() * ((gm > 0.0 && r > 1) ? MathPow(gm, r - 1) : 1.0);
+         d = MathMax(d, atr_floor);
+         if(gmin > 0.0) d = MathMax(d, gmin);
+         if(gmax > 0.0) d = MathMin(d, gmax);
+         if(r == 1) step1 = d;
+         ladder += d;
       }
       if(step1 > 0.0 && inv_pts > step1)
       {
@@ -850,7 +874,8 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    {
       // Cashback tempo: the target is a few points of spread, so a neutral market needs only a
       // location OR a trigger - the turnover is the income.
-      bool neutral_ok = MBCashbackTempo() ? (loc_ok || trig_ok) : (loc_ok && trig_ok && !one_live_candle);
+      // Package 26: in cashback tempo a location OR a trigger is enough - but one forming M1 candle never is.
+      bool neutral_ok = MBCashbackTempo() ? ((loc_ok || trig_ok) && (trig_closed || loc_closed)) : (loc_ok && trig_ok && !one_live_candle);
       if(!neutral_ok)
          missing = StringFormat("neutral market needs location AND trigger (location %s, trigger %s)",
                                 (loc_ok ? "ok" : "none"), (trig_ok ? "ok" : "none"));
@@ -870,7 +895,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    else if(a >= -2 && MBRangeRules())
    {
       // A range trade against a weak global bias: what a range trade needs - a place and a trigger.
-      bool range_ok = MBCashbackTempo() ? (loc_ok || trig_ok) && trig_ok : (loc_ok && trig_ok && !one_live_candle);
+      bool range_ok = MBCashbackTempo() ? (trig_ok && (trig_closed || loc_closed)) : (loc_ok && trig_ok && !one_live_candle);
       if(!range_ok)
          missing = StringFormat("range trade needs location AND trigger (location %s, trigger %s)",
                                 (loc_ok ? "ok" : "none"), (trig_ok ? "ok" : "none"));
@@ -891,7 +916,9 @@ bool MBEntryJudgeAllows(const int dir, string &why)
 
    int exec_q = MBEntryExecuteQuality - (MBCashbackTempo() ? MathMax(0, CashbackTempoQualityCut) : 0);
    int caution_q = MBEntryCautionQuality - (MBCashbackTempo() ? MathMax(0, CashbackTempoQualityCut) : 0);
-   if(MBShadowValveOn(GATE_MBJUDGE)) { exec_q -= 10; caution_q -= 10; }   // shadow valve on the judge
+   // Package 26: the shadow valve may relax the judge's bars - never for an entry against a strong bias (owner:
+   // direction gates do not relax by themselves; it used to cancel the counter-trend tax below exactly).
+   if(MBShadowValveOn(GATE_MBJUDGE) && a > -2) { exec_q -= 10; caution_q -= 10; }   // shadow valve on the judge
    // Plan stage 2: COUNTER-TREND TAX - against a strong bias without a mature reversal, more quality.
    if(a <= -2 && st_stage < MathMax(1, LockUnlockStage) && CounterTrendTax > 0)
    {
@@ -965,8 +992,8 @@ bool MBEntryJudgeAllows(const int dir, string &why)
                                    DoubleToString(G_MB_WFL_PRICE, _Digits), G_MB_WFL_WHAT, TimeToString(G_MB_WFL_UNTIL, TIME_MINUTES));
       }
    }
-   else if(!G_MB_JUDGE_PROBE && G_MB_WFL_DIR == dir)
-      G_MB_WFL_DIR = 0;   // the entry may go - the plan is spent
+   // Package 26: the plan stays until the entry FILLS (MBFastEntryFilled clears it) or it expires - SmartFill may
+   // still hold the order a few ticks, and the next judgement must see the same planned place.
    if(!G_MB_JUDGE_PROBE)
    {
       G_MB_ENTRY_OUTCOME = outcome;
@@ -1540,6 +1567,7 @@ int MBFastEntryScore(const int min_required)
 // Called by the first-entry engine after a fill: counts fast entries for the panel.
 void MBFastEntryFilled()
 {
+   G_MB_WFL_DIR = 0;   // package 26: a first entry filled - any better-location plan is spent
    // AUDIT FIX: any first-entry fill ends the second-chance memory - its reference price belongs to
    // the market before this basket.
    if(G_BASKET_ORDERS <= 1)

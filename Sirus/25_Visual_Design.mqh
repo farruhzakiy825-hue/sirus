@@ -342,7 +342,7 @@ string MBEnvReasonUz(const string r)
    if(r == "account trading disabled" || r == "expert trading disabled on account") return "hisob EA savdosiga ruxsat bermaydi";
    if(r == "symbol trade mode not FULL")         return "simvolda hozir savdo yopiq (sessiya tashqarisi)";
    if(StringFind(r, "spread high") >= 0)          return "spread juda yuqori " + StringSubstr(r, StringFind(r, "high") + 5);
-   if(StringFind(r, "history not ready") >= 0)    return "grafik tarixi yuklanmoqda (" + StringSubstr(r, 0, 3) + ")";
+   if(StringFind(r, "history not ready") >= 0)    return "grafik tarixi yuklanmoqda (" + StringSubstr(r, 0, StringFind(r, " ")) + ")";
    if(StringFind(r, "symbol") == 0)               return "simvol muammosi: " + r;
    return "savdo muhiti tayyor emas: " + r;
 }
@@ -374,8 +374,16 @@ void MBHealthCollect()
       MBHealthAdd(2, "EA sozlamasida 'Algo Trading ga ruxsat' belgilanmagan");
    if(G_DUP_ACTIVE)
       MBHealthAdd(2, "Boshqa grafikda shu EA (shu Magic) ishlayapti - bu grafik savdo ochmaydi");
+   // Package 26: no tick for minutes = the market is paused / closed; the risk state is only re-read on a tick,
+   // so a stale reason (e.g. Friday's last wide spread) is not shown as the cause.
+   int tick_age = TickAgeSeconds();
+   bool no_ticks = (!tester && tick_age > 180);
+   datetime last_tick = (datetime)SymbolInfoInteger(_Symbol, SYMBOL_TIME);
+   string paused = (last_tick > 0) ? StringFormat("bozor tanaffusda yoki yopiq - so'nggi tik %s (%s)", TimeToString(last_tick, TIME_DATE | TIME_MINUTES),
+                                                 MBAgoUz((long)(TimeTradeServer() - last_tick)))
+                                   : "bozor tanaffusda yoki yopiq";
    if(G_RISK_HARD_BLOCK)
-      MBHealthAdd(2, "HIMOYA: " + MBRiskReasonUz(G_RISK_REASON));
+      MBHealthAdd(2, "HIMOYA: " + (no_ticks ? paused : MBRiskReasonUz(G_RISK_REASON)));
    double ml = AccountInfoDouble(ACCOUNT_MARGIN_LEVEL);
    if(G_BASKET_ORDERS > 0 && ml > 0.0 && ml < 150.0)
       MBHealthAdd(2, StringFormat("Margin darajasi %.0f%% - stop-out xavfi", ml));
@@ -397,9 +405,8 @@ void MBHealthCollect()
       MBHealthAdd(1, "Kalendar o'qilmayapti - zaxira jadval yoqilgan (08:30 / 10:00 NY)");
    else if(G_CAL_ACTIVE && EconomicCalendarHardBlockFirst)
       MBHealthAdd(1, StringFormat("Yangilik oynasi: %s - yangi kirish yo'q", G_CAL_EVENT_NAME));
-   int ta = TickAgeSeconds();
-   if(!G_RISK_HARD_BLOCK && !tester && ta > 180)
-      MBHealthAdd(1, StringFormat("Tik kelmayapti: %d daqiqa", ta / 60));
+   if(!G_RISK_HARD_BLOCK && no_ticks)
+      MBHealthAdd(1, "Tik kelmayapti: " + paused);
    string ia = "";
    int nia = MBInputAuditCount(ia);
    if(nia > 0)
@@ -810,9 +817,12 @@ void MBNewsRadarUpdate()
    }
 
    MqlCalendarValue values[];
-   int total = CalendarValueHistory(values, now, now + 24 * 3600, "", EconomicCalendarCurrency);
+   ResetLastError();
+   long rc = (long)CalendarValueHistory(values, now, now + 24 * 3600, "", EconomicCalendarCurrency);   // package 26: true / false
+   int read_err = GetLastError();
+   int total = ArraySize(values);
    G_MB_NEWS_N = 0;
-   G_MB_NEWS_EMPTY = (total < 0) ? "Kalendar yuklanmadi" : "Yaqin 24 soatda muhim xabar yo'q";
+   G_MB_NEWS_EMPTY = (rc <= 0 && read_err != 0) ? "Kalendar yuklanmadi" : "Yaqin 24 soatda muhim xabar yo'q";
    for(int i = 0; i < total && G_MB_NEWS_N < 2; i++)
    {
       MqlCalendarEvent ev;

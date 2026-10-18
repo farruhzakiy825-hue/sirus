@@ -143,7 +143,7 @@ int MBSendFailsRecent(const int sec, string &last)
    datetime newest = 0;
    for(int i = 0; i < SENDFAIL_KEEP; i++)
    {
-      if(G_SENDFAIL_T[i] <= 0 || TimeCurrent() - G_SENDFAIL_T[i] > sec)
+      if(G_SENDFAIL_T[i] <= 0 || TimeLocal() - G_SENDFAIL_T[i] > sec)   // the wall clock: TimeCurrent stops on a closed market
          continue;
       n++;
       if(G_SENDFAIL_T[i] > newest) { newest = G_SENDFAIL_T[i]; last = G_SENDFAIL_W[i]; }
@@ -154,7 +154,7 @@ int MBSendFailsRecent(const int sec, string &last)
 void TraceSendFailed(const int dir, const string kind, const double lot, const int retcode, const string desc,
                      const double price)
 {
-   G_SENDFAIL_T[G_SENDFAIL_POS] = TimeCurrent();
+   G_SENDFAIL_T[G_SENDFAIL_POS] = TimeLocal();
    G_SENDFAIL_W[G_SENDFAIL_POS] = StringFormat("%s %s %.2f lot: %d %s", kind, (dir > 0 ? "BUY" : "SELL"), lot, retcode, desc);
    G_SENDFAIL_POS = (G_SENDFAIL_POS + 1) % SENDFAIL_KEEP;
    if(!EnableDecisionTrace || MQLInfoInteger(MQL_OPTIMIZATION))

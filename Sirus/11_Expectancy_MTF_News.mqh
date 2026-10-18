@@ -4699,6 +4699,8 @@ bool RetryEngineAllowsFirstEntry(string &reason)
       if(AmbiguousSendFilled(G_FIRST_FAIL_POS, G_FIRST_FAIL_SENT))
       {
          PrintFormat("[SIRUS ORDER] the first entry that went unanswered did fill - no second send");
+         if(!G_RB_FROZEN)
+            RebateModeFreeze();   // package 26: this basket too finishes in the mode it opened in
          G_FIRST_FAIL_POS = -1;
          G_FIRST_LAST_FAIL_TIME = 0;
          G_FIRST_TRANSIENT_RETRY_COUNT = 0;
@@ -4947,10 +4949,17 @@ void CalendarFetch(const datetime now)
 
    MqlCalendarValue values[];
    ResetLastError();
-   int total = CalendarValueHistory(values, from_time, to_time, "", EconomicCalendarCurrency);
+   // Package 26: CalendarValueHistory answers true / false - the number of rows is ArraySize(values). It used to
+   // be read as the count, so a successful read looked at ONE row (the news guard missed most releases) and a
+   // failed read (false = 0) was never seen as a failure. Written to be right whichever way the call answers.
+   long rc = (long)CalendarValueHistory(values, from_time, to_time, "", EconomicCalendarCurrency);
+   int read_err = GetLastError();
+   int total = ArraySize(values);
+   if(rc <= 0 && read_err != 0)
+      total = -1;
    if(total < 0)
    {
-      int err = GetLastError();
+      int err = read_err;
       // Keep the previous cache: a failed refresh must not silently open a window that was closed by
       // dropping an event we already knew about.
       if(!G_CAL_FETCH_FAILED || (EconomicCalendarPrintOnUse && G_VERBOSE))
@@ -4963,6 +4972,18 @@ void CalendarFetch(const datetime now)
       Print("[SIRUS CALENDAR] fetch recovered");
    G_CAL_FETCH_FAILED = false;
    G_CAL_LAST_OK = now;
+   // Package 26: a calendar that never finished loading answers "no rows" without an error. Once an hour the
+   // whole next week is read: no USD row at all in seven days means the calendar is not there (fail-safe on).
+   if(G_CAL_WEEK_CHECK <= 0 || now - G_CAL_WEEK_CHECK >= 3600)
+   {
+      G_CAL_WEEK_CHECK = now;
+      MqlCalendarValue week[];
+      ResetLastError();
+      CalendarValueHistory(week, now, now + 7 * 86400, "", EconomicCalendarCurrency);
+      G_CAL_WEEK_EMPTY = (ArraySize(week) == 0);
+      if(G_CAL_WEEK_EMPTY)
+         Print("[SIRUS CALENDAR] the calendar has no rows for the next 7 days - treated as not loaded (fail-safe slots)");
+   }
 
    G_CAL_EV_COUNT = 0;
    G_CAL_PENDING_ACTUAL = false;
@@ -5079,6 +5100,8 @@ bool CalendarBlindNow(const datetime now)
    if(G_CAL_FIRST_TRY <= 0)
       return false;
    long blind_sec = (long)MathMax(1, CalendarBlindMinutes) * 60;
+   if(G_CAL_WEEK_EMPTY)
+      return (now - G_CAL_FIRST_TRY >= blind_sec);   // package 26: readable but empty for a week = not loaded
    if(G_CAL_LAST_OK <= 0)
       return (now - G_CAL_FIRST_TRY >= blind_sec);
    return (G_CAL_FETCH_FAILED && now - G_CAL_LAST_OK >= blind_sec);

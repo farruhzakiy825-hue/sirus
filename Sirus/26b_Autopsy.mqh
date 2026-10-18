@@ -67,6 +67,7 @@ int      G_AU_MST_DIR = 0;
 double   G_AU_SLIP    = 0.0;   // slippage against us at the entry fill, points (set by MBAutopsyOnFill)
 int      G_AU_RETRY   = 0;     // transient retries before the entry filled
 int      G_AU_GFAIL0  = 0;     // G_GRID_FAILS when the basket opened
+double   G_AU_RES     = 0.0;   // package 26: the closing result, for the labels
 
 void MBAutopsyDayRoll()
 {
@@ -130,6 +131,12 @@ void MBAutopsyOnFill(const double requested, const double filled, const int dir)
    G_AU_SLIP = MathMax(0.0, dir * (filled - requested) / _Point);   // only what went against us
 }
 
+// Package 26: grid send failures during this basket (the daily counter resets at midnight).
+int MBAutopsyGridFails()
+{
+   return (G_GRID_FAILS >= G_AU_GFAIL0) ? (G_GRID_FAILS - G_AU_GFAIL0) : G_GRID_FAILS;
+}
+
 // Package 16: a risk rule ended the basket (the close reason the re-entry record kept).
 bool MBAutopsyRiskClose(const string why)
 {
@@ -161,9 +168,9 @@ string MBAutopsyTags(const int dir, const double mfe, const double tp, const int
       // Package 16: the four categories of master plan XVII.2.
       hit[9] = (G_AU_MST_DIR == dir && (G_MST_DIR == -dir || G_MST_STATE == MST_FAKE_BREAKOUT));
       hit[10] = ((tp > 0.0 && G_AU_SLIP >= 0.33 * tp) || (G_AU_NORM > 0.0 && G_AU_SLIP >= 2.0 * G_AU_NORM) ||
-                 G_AU_RETRY > 0 || G_GRID_FAILS > G_AU_GFAIL0);
+                 G_AU_RETRY > 0 || MBAutopsyGridFails() > 0);
    }
-   hit[11] = (tp > 0.0 && mfe >= tp);   // a full TP was there to take
+   hit[11] = (tp > 0.0 && mfe >= tp && (exit_kind != RE_PROFIT || G_AU_RES <= 0.0));   // a full TP was there to take - and was not taken
    hit[12] = MBAutopsyRiskClose(G_RE_REASON);
    hit[13] = (tp > 0.0 && mfe >= 0.5 * tp);
    hit[14] = !hit[13] && (exit_kind == RE_INVALID || exit_kind == RE_LOSS) && (tp > 0.0 && mfe < 0.2 * tp);
@@ -193,6 +200,7 @@ void MBAutopsyOnClose(const int dir, const double res, const double mfe, const d
    bool deep = (tp > 0.0 && mae <= -1.0 * tp);
    G_AU_BASKETS++;
    if(bad) G_AU_BAD++;
+   G_AU_RES = res;
    int mins = (int)((TimeCurrent() - opened) / 60);
    int show = (t_show > 0) ? (int)((t_show - opened) / 60) : -1;
    string tags = "";
@@ -228,7 +236,7 @@ void MBAutopsyOnClose(const int dir, const double res, const double mfe, const d
                                          (G_AU_HAVE ? G_AU_ZONE : "-"),
                                          (G_AU_HAVE ? MBStateName(G_AU_MST) : "-"), MBStateName(G_MST_STATE),
                                          (G_AU_HAVE ? G_AU_SLIP : 0.0), (G_AU_HAVE ? G_AU_RETRY : 0),
-                                         (G_AU_HAVE ? MathMax(0, G_GRID_FAILS - G_AU_GFAIL0) : 0), why_csv));
+                                         (G_AU_HAVE ? MBAutopsyGridFails() : 0), why_csv));
          FileClose(h);
       }
    }

@@ -1701,6 +1701,10 @@ bool NewsOwnerBlocksEntry(string &why)
 bool NewsOwnerBlocksGrid(string &why)
 {
    int st = NewsOwnerState(why);
+   // Package 26: the calendar fail-safe slot is a guess, not a release - it holds new entries, not the rescue
+   // grid (a real release on the calendar still does). Price behaving like news still holds the grid.
+   if(st == 2 && G_CAL_BLIND && G_CAL_EVENT_ID == 0)
+      st = NewsLiveReadState(why);
 
    // Adding to a basket during a release is how a recoverable position becomes one that
    // is not, so this is stricter than the entry side.
