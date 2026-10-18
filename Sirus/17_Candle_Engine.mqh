@@ -60,7 +60,7 @@ input double MBSpeedNormalATR         = 2.5;   // Brain speed normal ATR
 // MBSpeedLateATR: < shu = LATE, undan ko'p = EXPIRED
 input double MBSpeedLateATR           = 4.0;   // Brain speed late ATR
 // MBCandlePrintOnUse: Har yangi M5 / M15 / H1 / H4 sham o'qilishini jurnalga yozish
-input bool   MBCandlePrintOnUse       = false;   // Brain candle print on use (on/off)
+#define MBCandlePrintOnUse                   LogDiagnostics   // Package 14 log group (was input, default false)
 // EnableCandleDirectionLink: 13-BOSQICH: yo'nalish va sham bog'lanadi - almashuvni sham tasdiqlaydi (A1), M1/M5/M15 bosimi hakamga (A2)
 input bool   EnableCandleDirectionLink = true;   // Enable candle direction link
 // EnableCandleReadingGate: Shamni o'qish: M5+M15 qarshi bo'lsa yoki qarshi harakat M1+M5 da davom etsa - burilish shamini kutadi (bullishda SELL / bearishda BUY yo'q)

@@ -35,7 +35,7 @@ input bool   EnableAnomalyGuard       = true;   // Enable anomaly guard
 // AnomalyCooldownMin: G'ayritabiiy hodisadan keyin shuncha daqiqa kutiladi
 input int    AnomalyCooldownMin       = 5;   // Anomaly cooldown min
 // StatePrintOnUse: Holat almashuvini jurnalga yozish ([SIRUS STATE])
-input bool   StatePrintOnUse          = true;   // State print on use (on/off)
+#define StatePrintOnUse                      LogBrainEvents   // Package 14 log group (was input, default true)
 
 #define MST_UNKNOWN        0
 #define MST_NEWS           1

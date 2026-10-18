@@ -31,7 +31,7 @@ input int    MBLearnMinSamples        = 30;   // Brain learn min samples
 // MBLearnMaxShift: Og'irlik o'zgarishi chegarasi (0.30 = ±30%)
 input double MBLearnMaxShift          = 0.30;   // Brain learn max shift
 // MBMemoryPrintOnUse: Savat natijasi va DNA'ni jurnalga yozish ([SIRUS MEMORY])
-input bool   MBMemoryPrintOnUse       = true;   // Brain memory print on use (on/off)
+#define MBMemoryPrintOnUse                   LogBrainEvents   // Package 14 log group (was input, default true)
 
 #define MB_DNA_ALIGN_STRONG   0
 #define MB_DNA_ALIGN_WEAK     1

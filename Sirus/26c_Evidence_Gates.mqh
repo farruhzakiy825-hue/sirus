@@ -43,7 +43,7 @@ input int    EGBreakerGridBaskets    = 2;   // Breaker: grid baskets of the last
 input int    EGBreakerMinutes        = 60;   // ... stop every relaxation for (min)
 // EGSeedFromOwnerFiles: Birinchi ishga tushishda egasining soya fayllaridan (06-09 Oct) boshlang'ich dalil - kichraytirilgan, yangi natijalar tez almashtiradi
 input bool   EGSeedFromOwnerFiles    = true;   // Start from the owner's measured shadow files (first run)
-input bool   EGPrintOnUse            = true;   // Evidence gates print on use (on/off)
+#define EGPrintOnUse                         LogSystemEvents  // Package 14 log group (was input, default true)
 
 int      G_EG_N[EG_COUNT][2];          // refused results per key and side (0 with / neutral, 1 against)
 int      G_EG_BAD[EG_COUNT][2];        // ... of them that needed the grid (or timed out)

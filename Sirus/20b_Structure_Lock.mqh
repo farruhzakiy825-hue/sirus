@@ -44,7 +44,7 @@ input int    LockUnlockStage          = 4;   // Lock unlock stage
 // EnableReversalEntry: Burilish LockUnlockStage+ bosqichda: miya yangi tomonga kiradi (BRAIN REVERSAL)
 input bool   EnableReversalEntry      = true;   // Enable reversal entry
 // StructurePrintOnUse: Lock / burilish bosqichlari / soxta buzilishlarni jurnalga yozish ([SIRUS STRUCTURE])
-input bool   StructurePrintOnUse      = true;   // Structure print on use (on/off)
+#define StructurePrintOnUse                  LogBrainEvents   // Package 14 log group (was input, default true)
 
 #define ST_Q_FAILED     0
 #define ST_Q_WEAK       1

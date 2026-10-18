@@ -57,7 +57,7 @@ input int    MBFreshBarsHTF           = 3;   // Brain fresh bars HTF
 // MBRelevantBarsHTF: ... shuncha bargacha "dolzarb"
 input int    MBRelevantBarsHTF        = 12;   // Brain relevant bars HTF
 // MBEventPrintOnUse: Har yangi hodisani jurnalga yozish ([SIRUS EVENT])
-input bool   MBEventPrintOnUse        = true;   // Brain event print on use (on/off)
+#define MBEventPrintOnUse                    LogBrainEvents   // Package 14 log group (was input, default true)
 // EnableLiveSweep: 14-BOSQICH (C1): likvidlik yechilishini TIKDA ko'rish - bar yopilishini kutmasdan (M5 / M15 / H1 swing, PDH / PDL, Osiyo)
 input bool   EnableLiveSweep          = true;   // Enable live sweep
 // LiveSweepPierceATR: Darajadan kamida ATR(M1) x shu (va 1 spread) o'tishi kerak

@@ -41,7 +41,7 @@ input int    MBGridResponseMaxBars    = 15;   // Brain grid response max bars
 // MBBreakEvenCoverPoints: Thesis o'lganda savat shu punkt foyda bilan yopiladi (break-even + qoplama)
 input int    MBBreakEvenCoverPoints   = 30;   // Brain break even cover points
 // MBPositionPrintOnUse: Thesis o'limi / qutqaruv / grid kutishini jurnalga yozish ([SIRUS POSITION])
-input bool   MBPositionPrintOnUse     = true;   // Brain position print on use (on/off)
+#define MBPositionPrintOnUse                 LogBrainEvents   // Package 14 log group (was input, default true)
 // EnableRecoveryJudge: 16-BOSQICH: AQLLI CHIQISH. DD shu % dan oshganda "savat qutqarilishi mumkinmi?" baholanadi: IMKON BOR - 50% gacha ushlanadi, SHUBHALI - grid yo'q + BE da chiqish, IMKONSIZ - savat yopiladi
 input bool   EnableRecoveryJudge      = true;   // Enable recovery judge
 // RecoveryStartDD: Baholash shu DD % (balansdan) dan boshlanadi

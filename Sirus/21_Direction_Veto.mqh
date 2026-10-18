@@ -51,7 +51,7 @@ input double MBVetoRoomTPMult         = 1.0;   // Brain veto room TP multiplier
 // MBVetoAcceleration: V4: harakat hozir qarama-qarshi tomonga tezlashmoqda
 input bool   MBVetoAcceleration       = true;   // Brain veto acceleration (on/off)
 // MBVetoPrintOnUse: Veto'ni jurnalga yozish ([SIRUS VETO])
-input bool   MBVetoPrintOnUse         = true;   // Brain veto print on use (on/off)
+#define MBVetoPrintOnUse                     LogEntryEvents   // Package 14 log group (was input, default true)
 // EnableMBPermission: V0: Market Brain yo'nalish ruxsati (BEARISH da BUY yo'q, TRANSITION da faqat reversal turi ...)
 input bool   EnableMBPermission       = true;   // Enable mb permission
 // EnableEntryCouncil: KENGASH: lokal + M5/M15 shamlari + zona birga hal qiladi. Uchalasi qarshi bo'lsa sweep ham kirgizmaydi; zaif global lokalni bosmaydi; qarshi zonaga kirmaydi. Bir tomon yopilsa - boshqa tomon (LOCAL / MOMENTUM) kirishi mumkin

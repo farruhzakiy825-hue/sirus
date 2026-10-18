@@ -51,7 +51,7 @@ input double MBEntryDecayPerATR       = 20.0;   // Brain entry decay per ATR
 // MBMaxInvalidationATR5: Invalidation darajasi ATR(M5) x shudan uzoq bo'lsa: sifat pasayadi
 input double MBMaxInvalidationATR5    = 3.0;   // Brain max invalidation ATR 5
 // MBEntryPrintOnUse: Qarorlarni jurnalga yozish ([SIRUS JUDGE])
-input bool   MBEntryPrintOnUse        = true;   // Brain entry print on use (on/off)
+#define MBEntryPrintOnUse                    LogEntryEvents   // Package 14 log group (was input, default true)
 // EnableMBFastEntry: TEZKOR KIRISH: detektor signali kutilmaydi - Market Brain thesis + hozirgi trigger yetarli (veto va judge baribir tekshiradi)
 input bool   EnableMBFastEntry        = true;   // Enable mb fast entry
 // MBReentryWindowBars: Yutgan savat yopilgandan keyin shuncha M1 bar ichida o'sha yo'nalishda tezkor re-entry

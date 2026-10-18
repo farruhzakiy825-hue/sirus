@@ -103,6 +103,15 @@ input bool              EnablePushNotifications  = false;   // Push notification
 input bool              VerboseLogs              = true;   // Detailed journal logs
 // TesterQuietLogs: Testerda (vizual bo'lmagan) batafsil loglar o'chadi - jurnal toshqini testni soatlab sekinlashtiradi. Ma'lumot Sirus_Trace CSV da qoladi.
 input bool              TesterQuietLogs          = true;   // Tester: quiet journal (non-visual runs)
+// Package 14: the ~200 per-module print switches (...PrintOnUse, Print...Events) are now seven groups. Each old
+// name is a #define of its group, so the code reads the same; VerboseLogs above is still the master switch.
+input bool              LogEntryEvents           = true;   // Log: entry decisions, gates, lots
+input bool              LogGridEvents            = true;   // Log: grid / basket / recovery
+input bool              LogExitEvents            = true;   // Log: exits, TP, trailing
+input bool              LogRiskEvents            = true;   // Log: risk, spread, news, session, safety guards
+input bool              LogBrainEvents           = true;   // Log: market brain - structure, zones, candles, liquidity
+input bool              LogSystemEvents          = true;   // Log: status modules, heartbeat, environment, learning
+input bool              LogDiagnostics           = false;  // Log: extra diagnostics (the switches that were off)
 // TesterUseDXYProxy: Testerda DXY proxy (EURUSD/GBPUSD/USDJPY) - yoqilsa tester 3 ta qo'shimcha symbolni ham modellaydi (sekin)
 input bool              TesterUseDXYProxy        = false;  // Tester: use the DXY proxy (loads 3 more symbols)
 input group "ADVANCED ▸ Diagnostics & reason code"
@@ -172,12 +181,12 @@ input int               ConfidenceLotFullScore   = 12;   // Confidence lot full 
 // ConfidenceLotMinFactor: Floor as a fraction of the normal lot (0.80 = StartLot 0.25 never goes below 0.20). Raise toward 1.0 to disable the effect gradually.
 input double            ConfidenceLotMinFactor   = 0.80;   // Confidence lot min factor
 // ConfidenceLotPrintOnUse: Log every trimmed entry so the sizing can be checked
-input bool              ConfidenceLotPrintOnUse  = true;   // Confidence lot print on use (on/off)
+#define ConfidenceLotPrintOnUse              LogEntryEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Margin guard"
 // MarginGuardMinLevelPct: block if projected margin level % would fall below this
 input double            MarginGuardMinLevelPct   = 200.0;   // Margin guard min level %
-input bool              MarginGuardPrintOnUse    = true;   // Margin guard print on use (on/off)
+#define MarginGuardPrintOnUse                LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Weekend guard"
 // WeekendBlockEntryFriHour: Friday (server time): block NEW first entries from this hour
@@ -190,7 +199,7 @@ input bool              WeekendCloseBasketFri    = false;   // Weekend close bas
 input int               WeekendCloseFriHour      = 22;   // Weekend close Friday hour
 // WeekendBlockSunEntries: Block entries on Sat/Sun (set false to allow weekend-open trading)
 input bool              WeekendBlockSunEntries   = true;   // Weekend block sun entries (on/off)
-input bool              WeekendGuardPrintOnUse   = true;   // Weekend guard print on use (on/off)
+#define WeekendGuardPrintOnUse               LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Push notifications"
 // Requires MetaQuotes ID set up in MT5 mobile.
@@ -232,7 +241,7 @@ input group "ADVANCED ▸ Fresh-bar entry confirmation"
 input bool              EnableFreshBarEntry      = true;   // Enable fresh bar entry
 // FreshBarMaxPercentOfBar: V34b: set to 0 (OFF) on user request - entry allowed at ANY point in the signal bar, not just the first 75%. Removes the "entry deferred to next bar" delay. (Set to e.g. 75 to re-enable the first-N%-of-bar restriction.)
 input double            FreshBarMaxPercentOfBar  = 0.0;   // Fresh bar max % of bar
-input bool              FreshBarPrintOnUse       = false;   // Fresh bar print on use (on/off)
+#define FreshBarPrintOnUse                   LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Bayes score learning"
 // Learns from its own trade history and nudges the score accordingly.
@@ -253,7 +262,7 @@ input bool              AutoLotUseEquity         = false;   // Auto lot use equi
 input double            AutoLotPer1000           = 0.01;   // Auto lot per 1000
 // AutoLotRiskMode: true: RiskPercent + FirstEntrySLPoints dan hisoblash (SL yoqilgan bo'lishi shart)
 input bool              AutoLotRiskMode          = false;   // Auto lot risk mode
-input bool              AutoLotPrintOnUse        = true;   // Auto lot print on use
+#define AutoLotPrintOnUse                    LogEntryEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Self-defense throttle"
 // After a losing streak, trims lot and raises the score bar. Never increases lot; recovers gradually on wins.
@@ -266,7 +275,7 @@ input double            SelfDefenseLotFactor     = 0.50;   // Self defense lot f
 input int               SelfDefenseMinScoreAdd   = 1;   // Self defense min score add
 // SelfDefenseRecoverWins: shuncha foydali basket -> normal rejim
 input int               SelfDefenseRecoverWins   = 2;   // Self defense recover wins
-input bool              SelfDefensePrintOnUse    = true;   // Self defense print on use (on/off)
+#define SelfDefensePrintOnUse                LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ ATR adaptive TP"
 input bool              EnableATRAdaptiveTP      = true;   // Enable ATR adaptive TP
@@ -274,7 +283,7 @@ input bool              EnableATRAdaptiveTP      = true;   // Enable ATR adaptiv
 input double            ATRTPFactor              = 3.00;   // Atrtp factor
 // ATRTPMaxPoints: TP ceiling
 input int               ATRTPMaxPoints           = 6000;   // Atrtp max points
-input bool              ATRTPPrintOnUse          = false;   // Atrtp print on use (on/off)
+#define ATRTPPrintOnUse                      LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ ADR (average daily range) filter"
 // Penalizes continuation entries once today's range is mostly used up.
@@ -319,7 +328,7 @@ input bool   EnableBayesAutoDisable       = false;   // Enable bayes auto disabl
 input double BayesAutoDisableWinrate      = 0.38;   // Bayes auto disable winrate
 // BayesAutoDisableMinSamples: ...but only after at least this many closed trades of that type. Higher than BayesMinSamples: disabling is a stronger action than a lot trim, so it demands more evidence.
 input int    BayesAutoDisableMinSamples   = 20;   // Bayes auto disable min samples
-input bool   BayesAutoDisablePrintOnUse   = true;   // Bayes auto disable print on use (on/off)
+#define BayesAutoDisablePrintOnUse           LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Smart: time-of-day / day-of-week filter"
 // Blocks NEW first entries during hours or weekdays this account has a proven-bad record in.
@@ -338,7 +347,7 @@ input bool   TimeFilterUseDayOfWeek       = true;   // Time filter use day of we
 input double TimeFilterDowBadWinrate      = 0.40;   // Time filter day-of-week bad winrate
 // TimeFilterDowMinSamples: ...once it has at least this many closed trades
 input int    TimeFilterDowMinSamples      = 15;   // Time filter day-of-week min samples
-input bool   SmartTimeFilterPrintOnUse    = true;   // Smart time filter print on use (on/off)
+#define SmartTimeFilterPrintOnUse            LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Brain penalty cap"
 // Caps how much the learning modules together can penalize a signal, so they can't stack up and choke trade frequency.
@@ -360,7 +369,7 @@ input bool              EnableEntryDriftGuard    = true;   // Enable entry drift
 input double            DriftMaxATRFraction      = 0.60;   // Drift max ATR fraction
 // DriftMinPointsFloor: Minimum allowed drift even when ATR is very small
 input int               DriftMinPointsFloor      = 300;   // Drift min points floor
-input bool              DriftPrintOnUse          = false;   // Drift print on use (on/off)
+#define DriftPrintOnUse                      LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Smart fill"
 // Briefly waits for a small pullback or tighter spread before sending; always fires by the timeout either way.
@@ -371,7 +380,7 @@ input int               SmartFillTimeoutSec      = 8;   // Smart fill timeout se
 input int               SmartFillPullbackPoints  = 120;   // Smart fill pullback points
 // SmartFillSpreadDipPoints: V168: 20 -> 80 ($0.08). Kutishni oqlaydigan spread torayishi. Signal ko\'pincha spread vaqtincha kengaygan paytda keladi, va o\'shanda kirish kengayishni savdoning IKKALA tomonida to\'laydi.
 input int               SmartFillSpreadDipPoints = 80;   // Smart fill spread dip points
-input bool              SmartFillPrintOnUse      = true;   // Smart fill print on use (on/off)
+#define SmartFillPrintOnUse                  LogEntryEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Lot trace (diagnostic log)"
 input bool              EnableLotTrace           = true;   // Enable lot trace
@@ -390,7 +399,7 @@ input int               VelocityHoldSec          = 30;   // Velocity hold sec
 input double            VelocityMoveATRMult      = 1.5;   // Spike move vs ATR(M1) (x, 0 = fixed points only)
 // VelocityMaxHoldPer5Min: the spike pause may hold entries for at most this many seconds in any 5 minutes (0 = no cap) - a real spike is caught, a busy market is not choked
 input int               VelocityMaxHoldPer5Min   = 60;   // Max spike pause per 5 min (sec, 0 = no cap)
-input bool              VelocityPrintOnUse       = true;   // Velocity print on use (on/off)
+#define VelocityPrintOnUse                   LogEntryEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ ATR regime grid distance"
 // Scales grid distance by current-vs-baseline volatility - both wider and tighter.
@@ -402,7 +411,7 @@ input int               ATRRegimeBasePeriod      = 100;   // ATR regime base per
 input double            ATRRegimeMinScale        = 0.70;   // ATR regime min scale
 // ATRRegimeMaxScale: wild market: distance can grow to 200%
 input double            ATRRegimeMaxScale        = 2.00;   // ATR regime max scale
-input bool              ATRRegimePrintOnUse      = false;   // ATR regime print on use (on/off)
+#define ATRRegimePrintOnUse                  LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Multi-timeframe confirm"
 // Bonus when aligned with the higher-TF trend, penalty when against it - never a hard block.
@@ -418,7 +427,7 @@ input int               MTFConfirmBonus          = 2;   // MTF confirm bonus
 input int               MTFConfirmPenalty        = 2;   // MTF confirm penalty
 // MTFNeutralBandATR: price within +-(this x HTF ATR) of SMA = neutral, no adjust
 input double            MTFNeutralBandATR        = 0.40;   // MTF neutral band ATR
-input bool              MTFConfirmPrintOnUse     = false;   // MTF confirm print on use (on/off)
+#define MTFConfirmPrintOnUse                 LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Persistent state / mode-specific lot"
 // EnablePersistentState: save Bayes learning + post-loss cooldown in terminal GlobalVariables
@@ -516,7 +525,7 @@ input int               GridZoneWaitMaxBars      = 20;   // Grid zone wait max b
 // GridZoneWaitMaxBasketDD: Above this basket drawdown %% the wait is skipped entirely and the grid adds immediately. Waiting for a better fill is worthwhile early; once a basket is deep, delaying its averaging is the freeze that margin rescue exists to prevent.
 input double            GridZoneWaitMaxBasketDD  = 12.0;   // Grid zone wait max basket DD
 // GridZoneWaitPrintOnUse: Log the wait and its expiry
-input bool              GridZoneWaitPrintOnUse   = true;   // Grid zone wait print on use (on/off)
+#define GridZoneWaitPrintOnUse               LogGridEvents    // Package 14 log group (was input, default true)
 
 // V137: structure-based grid placement. A grid order stepped a fixed distance lands wherever the
 // arithmetic points - possibly into empty space, possibly onto the very level that will push price
@@ -532,9 +541,9 @@ input double            GridZoneStrongLevel      = 2.5;   // Grid zone strong le
 // GridZoneStrongSnapFactor: Reach allowance for those strong levels (2.0 = may wait up to twice the computed distance to land on it). Ordinary levels keep GridZoneSnapMaxFactor.
 input double            GridZoneStrongSnapFactor = 2.0;   // Grid zone strong snap factor
 // GridZoneReachPrintOnUse: Log every reach so the placement can be checked against the chart
-input bool              GridZoneReachPrintOnUse  = true;   // Grid zone reach print on use (on/off)
+#define GridZoneReachPrintOnUse              LogGridEvents    // Package 14 log group (was input, default true)
 // GridMarginRescuePrintOnUse: Log rescues AND frozen-grid blocks - this is the diagnostic that shows an account/lot-size mismatch
-input bool              GridMarginRescuePrintOnUse = true;   // Grid margin rescue print on use (on/off)
+#define GridMarginRescuePrintOnUse           LogRiskEvents    // Package 14 log group (was input, default true)
 
 // UsePostLossCooldown: After a LOSING basket closes, wait before opening a new one (stops revenge-trading straight back in).
 input bool              UsePostLossCooldown      = true;   // Use post loss cooldown
@@ -597,7 +606,7 @@ input bool              UseBasketTP              = true;   // Use basket TP
 // RebateTPMaxSpreadPoints: S-FIX: spread above which the target stops growing. A target built from the spread moves furthest away exactly when it is hardest to reach - during a release the spread can run six times normal and the basket is asked for a move it was never sized for. The spread is an entry cost, not a measure of how far price will travel.
 input int    RebateTPMaxSpreadPoints     = 350;   // Cashback TP max spread points
 // RebateTPCapPrintOnUse: Log when the target is held
-input bool   RebateTPCapPrintOnUse       = true;   // Cashback TP cap print on use (on/off)
+#define RebateTPCapPrintOnUse                LogExitEvents    // Package 14 log group (was input, default true)
 input double RebateGridSpacingMultiple   = 3.0;   // Cashback grid spacing multiple
 // ---- BOSQICH 17: CASHBACK REJIMINI KUCHAYTIRISH ----
 // EnableRebateTrailingMode: OFF (egasi qarori): cashback rejimida trailing YO'Q - savat eski qat'iy TP da yopiladi. Trailing faqat oddiy rejimda (aqlli yuguruvchi). true = eski cashback trailing (TP x LockFraction qulf)
@@ -614,7 +623,7 @@ input bool   EnableBrokerTrailSL      = true;   // Enable broker trail SL
 input int    BrokerTrailMinMovePoints = 20;   // Broker trail min move points
 // BrokerTrailMinIntervalSec: Broker SL yangilanishlari orasidagi minimal soniya
 input int    BrokerTrailMinIntervalSec = 2;   // Broker trail min interval sec
-input bool   BrokerTrailPrintOnUse    = true;   // Broker trail print on use (on/off)
+#define BrokerTrailPrintOnUse                LogExitEvents    // Package 14 log group (was input, default true)
 // RebateTimeFlat: Savat juda uzoq ochiq qolsa va MINUSDA bo'lmasa - yopiladi. Maqsad: joyni bo'shatish, keyingi savat -> ko'proq aylanma -> ko'proq cashback
 input bool   RebateTimeFlat           = true;   // Cashback time flat (on/off)
 // RebateMaxBasketBars: Shuncha M1 bar (daqiqa) dan keyin
@@ -665,7 +674,7 @@ input double ZoneBandATR             = 0.80;   // Zone band ATR
 // ZoneMinWeight: Hudud vazni shundan kam bo'lsa - to'siq emas (vazn: reaksiya kuchi + daraja soni + TF)
 input double ZoneMinWeight           = 2.0;   // Zone min weight
 // ZoneLogOnUse: Hududlarni logga yozish (diagnostika)
-input bool   ZoneLogOnUse            = false;   // Zone log on use (on/off)
+#define ZoneLogOnUse                         LogDiagnostics   // Package 14 log group (was input, default false)
 // ---- BOSQICH 18: KATTA TF HUDUDLARI ----
 // ZoneUseHTF: M30 va H1 swinglari ham hudud beradi. Ilgari dvigatel M15 gacha qarardi - shuning uchun H1 dagi 4291-4300 kabi hudud ko'rinmasdi
 input bool   ZoneUseHTF               = true;   // Zone use HTF (on/off)
@@ -714,7 +723,7 @@ input bool   LBBlockWorseThanStop        = true;   // Lb block worse than stop (
 // LBBetterThanStopPoints: By at least this much ($0.80)
 input int    LBBetterThanStopPoints      = 800;   // Lb better than stop points
 // LocationBrainPrintOnUse: Log holds and stops
-input bool   LocationBrainPrintOnUse     = true;   // Location brain print on use (on/off)
+#define LocationBrainPrintOnUse              LogBrainEvents   // Package 14 log group (was input, default true)
 // ShowLocationBrainOnDash: Show the leg line
 input bool   ShowLocationBrainOnDash     = true;   // Show location brain on dashboard
 
@@ -841,7 +850,7 @@ input int    ConsensusVoiceEdge          = 3;   // Consensus voice edge
 // ConsensusMaxScoreGap: Score gap above which the lone voice keeps its place anyway. A genuinely strong setup is not outvoted.
 input int    ConsensusMaxScoreGap        = 4;   // Consensus max score gap
 // ConsensusPrintOnUse: Log overrides
-input bool   ConsensusPrintOnUse         = true;   // Consensus print on use (on/off)
+#define ConsensusPrintOnUse                  LogEntryEvents   // Package 14 log group (was input, default true)
 
 //--- REDIRECT AND QUEUE CHECKS --------------------------------------------------------
 // Two places change the direction after the detectors have voted, and neither has ever looked at
@@ -862,7 +871,7 @@ input int    RedirectMaxHTFCost          = 2;   // Redirect max HTF cost
 // EnableQueueLocationRecheck: Re-ask the location brain before replaying a queued signal
 input bool   EnableQueueLocationRecheck  = true;   // Enable queue location recheck
 // QueueRecheckPrintOnUse: Log held replays
-input bool   QueueRecheckPrintOnUse      = true;   // Queue recheck print on use (on/off)
+#define QueueRecheckPrintOnUse               LogEntryEvents   // Package 14 log group (was input, default true)
 
 // EnableDirectionClarity: Charge a direction that barely won. A BUY at eight beating a SELL at seven is not a direction, it is a coin landing on its edge - and the engine already knew both numbers and never used the difference.
 input bool   EnableDirectionClarity      = true;   // Enable direction clarity
@@ -893,7 +902,7 @@ input double ScenarioShallowATR          = 0.8;   // Scenario shallow ATR
 // ScenEntryScoreWeight: S-ENTRY: score a strong projection adds, or a shallow one takes. A pull, not a gate - there are eleven gates already and a twelfth would be the one that stops the robot trading.
 input int    ScenEntryScoreWeight        = 3;   // Scen entry score weight
 // ScenRecordPrintOnUse: Log each recorded reaction
-input bool   ScenRecordPrintOnUse        = true;   // Scen record print on use (on/off)
+#define ScenRecordPrintOnUse                 LogSystemEvents  // Package 14 log group (was input, default true)
 
 //--- FAILED BREAK ---------------------------------------------------------------------
 // An impulse drives down through support and the bar closes back above it. The low went through;
@@ -932,7 +941,7 @@ input bool   EnableQuietAlarm            = true;   // Enable quiet alarm
 // QuietAlarmBars: Bars of silence after which the dashboard says so
 input int    QuietAlarmBars              = 40;   // Quiet alarm bars
 // QuietAlarmPrintOnUse: Log it once when it starts
-input bool   QuietAlarmPrintOnUse        = true;   // Quiet alarm print on use (on/off)
+#define QuietAlarmPrintOnUse                 LogRiskEvents    // Package 14 log group (was input, default true)
 
 //--- SAFETY VALVE ---------------------------------------------------------------------
 // Fourteen guards were added to a robot that traded three hundred times a day. Each is reasonable,
@@ -957,7 +966,7 @@ input double SafetyValveMinShare         = 0.65;   // Safety valve min share
 // SafetyValveMaxPerDay: Most times a day the valve may act. A guard that needs standing down five times is a guard to retune, not to keep bypassing.
 input int    SafetyValveMaxPerDay        = 4;   // Safety valve max per day
 // SafetyValvePrintOnUse: Log when a guard comes back
-input bool   SafetyValvePrintOnUse       = true;   // Safety valve print on use (on/off)
+#define SafetyValvePrintOnUse                LogRiskEvents    // Package 14 log group (was input, default true)
 // QuietSingleCauseShare: Share of refusals from one gate that makes it the cause rather than one of several. Forty bars of quiet from the news guard is a closed market; forty from the location brain is a threshold worth looking at, and the bar count alone cannot tell them apart.
 input double QuietSingleCauseShare       = 0.70;   // Quiet single cause share
 
@@ -984,7 +993,7 @@ input double EvidenceStep                = 0.04;   // Evidence step
 // EvidenceMaxExtra: Most it can add. A bad run is not proof every future entry is bad, and a guard that walks itself up forever ends as a robot that does not trade.
 input double EvidenceMaxExtra            = 0.15;   // Evidence max extra
 // EvidenceTightenPrintOnUse: Log each adjustment
-input bool   EvidenceTightenPrintOnUse   = true;   // Evidence tighten print on use (on/off)
+#define EvidenceTightenPrintOnUse            LogSystemEvents  // Package 14 log group (was input, default true)
 // DecisionLogRepeatSeconds: Don't repeat the same line more often than this
 input int    DecisionLogRepeatSeconds    = 60;   // Decision log repeat seconds
 // ---- BOSQICH 12: S/R DVIGATELI ----
@@ -1002,7 +1011,7 @@ input bool   LGBlockChase            = true;   // Lg block chase (on/off)
 input double LGChaseTopShare         = 0.30;   // Lg chase top share
 // LGChaseRangeATR: Sham diapazoni kamida shuncha M5 ATR bo'lsa - katta sham
 input double LGChaseRangeATR         = 1.8;   // Lg chase range ATR
-input bool   LGPrintOnUse            = true;   // Lg print on use (on/off)
+#define LGPrintOnUse                         LogSystemEvents  // Package 14 log group (was input, default true)
 // EnableWinReEntry: BOSQICH 5A: yutuqdan keyin O'SHA yo'nalishda talab qilinadigan ball kamayadi (zarardan keyin - o'zgarishsiz)
 input bool   EnableWinReEntry        = true;   // Enable win re entry
 // WinReEntryBars: Yutuqdan keyin shuncha M1 bar
@@ -1139,7 +1148,7 @@ input double GridReactionMinWallStrength  = 1.8;   // Grid reaction min wall str
 input double GridReactionWickRatioMin     = 0.35;   // Grid reaction wick ratio min
 // GridReactionWallProximityPts: Price must be within this many points of the wall for the reaction to count
 input int    GridReactionWallProximityPts = 400;   // Grid reaction wall proximity points
-input bool   GridReactionPrintOnUse       = true;   // Grid reaction print on use (on/off)
+#define GridReactionPrintOnUse               LogGridEvents    // Package 14 log group (was input, default true)
 
 // FEATURE(grid-reaction-consensus): a single M15 rejection candle can be a fakeout. Instead of
 // trusting one candle, require a genuine REVERSAL CONSENSUS in the direction that helps the
@@ -1199,8 +1208,8 @@ input int    ContextTPBufferPoints        = 400;   // Context TP buffer points
 // ContextTPMaxFactor: Ceiling as a multiple of the configured target (2.0 = a clear road may double it, no more - a scalp must stay a scalp)
 input double ContextTPMaxFactor           = 2.0;   // Context TP max factor
 // ContextTPPrintOnUse: Log every target adjustment so it can be checked against the chart
-input bool   ContextTPPrintOnUse          = true;   // Context TP print on use (on/off)
-input bool              PrintGridDecisions       = true;   // Print grid decisions
+#define ContextTPPrintOnUse                  LogExitEvents    // Package 14 log group (was input, default true)
+#define PrintGridDecisions                   LogGridEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ TP chain / advanced recovery"
 input bool              UseLegacyPack2           = true;   // Use legacy pack 2
@@ -1236,7 +1245,7 @@ input double            RecoveryDDStretchMult    = 1.35;   // Recovery DD stretc
 input bool              RecoveryBlockAgainstHTF  = true;   // Recovery block against HTF (on/off)
 input bool              UseAftershockGuard       = true;   // Use aftershock guard
 input int               AftershockMinutes        = 20;   // Aftershock minutes
-input bool              PrintLegacyPack2Events   = true;   // Print legacy pack 2 events
+#define PrintLegacyPack2Events               LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ News / broker / analytics"
 input bool              UseLegacyPack3           = true;   // Use legacy pack 3
@@ -1262,7 +1271,7 @@ input int               ClosedDealLookbackDays   = 7;   // Closed deal lookback 
 input int               ClosedDealRefreshSeconds = 300;   // Closed deal refresh seconds
 input bool              UseClientAuditSummary    = true;   // Use client audit summary
 input int               ClientAuditPrintSeconds  = 600;   // Client audit print seconds
-input bool              PrintLegacyPack3Events   = true;   // Print legacy pack 3 events
+#define PrintLegacyPack3Events               LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Safety layer"
 // Package 14: one layer instead of four (P4Mini license/lot caps, RC settings balance, Client safety).
@@ -1280,7 +1289,7 @@ input bool              SafetyWidenGridOnRisk    = true;   // Safety: widen grid
 input int               SafetyOrdersWarn         = 4;   // Safety: order pressure from N orders
 input double            SafetyGridWidenFactor    = 1.25;   // Safety: grid widen factor (spread / DD warn / orders)
 input double            SafetyGridDangerFactor   = 1.65;   // Safety: grid widen factor at DD danger
-input bool              PrintSafetyEvents        = true;   // Print safety events
+#define PrintSafetyEvents                    LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Premium visual watermark / zones"
 input bool              UsePremiumVisualEngine   = true;   // Use premium visual engine
@@ -1303,7 +1312,7 @@ input color             PremiumResistanceZoneColor = clrRed;   // Premium resist
 input color             PremiumSupportLineColor  = clrAqua;   // Premium support line color
 input color             PremiumResistanceLineColor = clrOrangeRed;   // Premium resistance line color
 input color             PremiumAccentColor       = clrGold;   // Premium accent color
-input bool              PrintPremiumVisualEvents = true;   // Print premium visual events
+#define PrintPremiumVisualEvents             LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Premium visual pack 2"
 input bool              PremiumShowBasketLines   = true;   // Premium show basket lines (on/off)
@@ -1347,25 +1356,11 @@ input int               PremiumVisualCleanupSeconds = 30;   // Premium visual cl
 input bool              PremiumCleanSessionsIfOff = true;   // Premium clean sessions if off (on/off)
 input bool              PremiumCleanZonesIfOff    = true;   // Premium clean zones if off (on/off)
 input bool              PremiumCleanSignalIfOff   = true;   // Premium clean signal if off (on/off)
-input bool              PremiumPrintCleanupEvents = true;   // Premium print cleanup events (on/off)
+#define PremiumPrintCleanupEvents            LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Warning cleanup / zero-warning polish"
 input bool              UseWarningCleanupPolish  = true;   // Use warning cleanup polish
-input bool              PrintWarningCleanupEvents = true;   // Print warning cleanup events
-
-input group "ADVANCED ▸ (inactive) Final self-audit checklist"
-
-// ---------------------------------------------------------------------------------------------
-// [NOT WIRED] The settings in this group are declared but nothing in the EA reads them, so
-// changing any of them has NO effect on trading. They belong to the release / client-preset
-// control layer (preset locking, input-range guards, licence and build checks) that was written
-// out as settings but never connected to the runtime.
-//
-// They are kept rather than deleted for two reasons: this EA is rented out, so this layer is
-// likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
-// no trading benefit. They cost nothing at runtime - they simply do nothing.
-// ---------------------------------------------------------------------------------------------
-// V31.6e cleanup: removed FinalAuditWarnIfSessionFilterOff - the check it gated is gone too.
+#define PrintWarningCleanupEvents            LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Legacy deep parity / HTF commander"
 input bool              UseLegacyDeepParityPack  = true;   // Use legacy deep parity pack
@@ -1385,7 +1380,7 @@ input int               DeepZoneReactionBonus    = 1;   // Deep zone reaction bo
 // DeepHTFCounterPenalty: BOSQICH 16: 2 -> 0. TAKROR: HTF qarshiligi ball dvigatelida allaqachon hisoblanadi (HTFAgainstScorePenalty=4, MaxTrendAgainstPenalty=6 - beshta modul shu yerga boradi). Legacy jazo esa CONDITIONS guruhiga, shift hisobidan TASHQARIDA ikkinchi marta yozilardi. Bonusi saqlandi
 input int               DeepHTFCounterPenalty    = 0;   // Deep HTF counter penalty
 input int               DeepZoneDangerPenalty    = 2;   // Deep zone danger penalty
-input bool              PrintDeepParityEvents    = true;   // Print deep parity events
+#define PrintDeepParityEvents                LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Deep BOS / CHoCH / retest upgrade"
 input bool              UseDeepBOSChochRetest    = true;   // Use deep BOS CHOCH retest
@@ -1404,7 +1399,7 @@ input int               DeepRetestBonus          = 2;   // Deep retest bonus
 // DeepBOSAgainstPenalty: BOSQICH 16: 2 -> 0. TAKROR: qarshi struktura ball dvigatelining struktura modullarida hisoblanadi. Bonusi saqlandi
 input int               DeepBOSAgainstPenalty    = 0;   // Deep BOS against penalty
 input int               DeepFailedRetestPenalty  = 1;   // Deep failed retest penalty
-input bool              PrintDeepBOSEvents       = true;   // Print deep BOS events
+#define PrintDeepBOSEvents                   LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Deep top zone / countertrend trap guard"
 input bool              UseDeepTopZoneTrapGuard  = true;   // Use deep top zone trap guard
@@ -1419,7 +1414,7 @@ input int               DeepZoneBreakoutBonus    = 2;   // Deep zone breakout bo
 // DeepOppositeZonePenalty: BOSQICH 16: 3 -> 0. TAKROR: qarshi zona uchun counter-zone, zona veto va BOSQICH 11-12 zona dvigateli bor. Bu to'rtinchi ovoz edi. Bonusi saqlandi
 input int               DeepOppositeZonePenalty  = 0;   // Deep opposite zone penalty
 input int               DeepCounterTrendTrapPenalty = 2;   // Deep counter trend trap penalty
-input bool              PrintDeepTopZoneEvents   = true;   // Print deep top zone events
+#define PrintDeepTopZoneEvents               LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Deep news / volatility shock brain"
 input bool              UseDeepNewsVolatilityBrain = true;   // Use deep news volatility brain
@@ -1438,7 +1433,7 @@ input int               DeepNewsPenalty          = 3;   // Deep news penalty
 input int               DeepShockAgainstPenalty  = 3;   // Deep shock against penalty
 input int               DeepShockExhaustPenalty  = 2;   // Deep shock exhaust penalty
 input int               DeepShockMomentumBonus   = 1;   // Deep shock momentum bonus
-input bool              PrintDeepShockEvents     = true;   // Print deep shock events
+#define PrintDeepShockEvents                 LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Adaptive entry timing brain"
 input bool              UseAdaptiveEntryTimingBrain = true;   // Use adaptive entry timing brain
@@ -1455,7 +1450,7 @@ input int               DeepTimingEarlyPenalty    = 0;   // Deep timing early pe
 input int               DeepTimingLatePenalty     = 1;   // Deep timing late penalty
 input int               DeepTimingPostShockPenalty = 2;   // Deep timing post shock penalty
 input int               DeepTimingOppCandlePenalty = 2;   // Deep timing opp candle penalty
-input bool              PrintDeepTimingEvents     = true;   // Print deep timing events
+#define PrintDeepTimingEvents                LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Adaptive recovery intelligence"
 input bool              UseAdaptiveRecoveryIntelligence = true;   // Use adaptive recovery intelligence
@@ -1473,7 +1468,7 @@ input int               DeepRecoveryTrendAgainstPenalty = 22;   // Deep recovery
 input int               DeepRecoveryZoneDangerPenalty = 20;   // Deep recovery zone danger penalty
 input int               DeepRecoveryNewsShockPenalty = 18;   // Deep recovery news shock penalty
 input int               DeepRecoveryOrderPressurePenalty = 18;   // Deep recovery order pressure penalty
-input bool              PrintDeepRecoveryEvents   = true;   // Print deep recovery events
+#define PrintDeepRecoveryEvents              LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Profit extraction / smart exit brain"
 input bool              UseProfitExtractionSmartExit = true;   // Use profit extraction smart exit
@@ -1491,7 +1486,7 @@ input int               DeepExitShockRiskMinPoints = 650;   // Deep exit shock r
 input int               DeepExitMultiOrderMinOrders = 3;   // Deep exit multi order min orders
 input int               DeepExitMultiOrderProfitPoints = 330;   // Deep exit multi order profit points
 input double            DeepExitMinProfitMoney   = 0.0;   // Deep exit min profit money
-input bool              PrintDeepExitEvents      = true;   // Print deep exit events
+#define PrintDeepExitEvents                  LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Market regime AUTO-tuning brain"
 input bool              UseMarketRegimeAutoTuningBrain = true;   // Use market regime auto tuning brain
@@ -1513,7 +1508,7 @@ input double            RegimeGridChaosDistanceFactor = 1.80;   // Regime grid c
 input double            RegimeGridTrendAgainstDistanceFactor = 1.25;   // Regime grid trend against distance factor
 input double            RegimeLotShockFactor     = 0.75;   // Regime lot shock factor
 input double            RegimeLotChaosFactor     = 0.60;   // Regime lot chaos factor
-input bool              PrintRegimeTuneEvents    = true;   // Print regime tune events
+#define PrintRegimeTuneEvents                LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ (inactive) Final intelligence merge"
 
@@ -1529,32 +1524,6 @@ input group "ADVANCED ▸ (inactive) Final intelligence merge"
 // ---------------------------------------------------------------------------------------------
 input int               FinalMergeWarnScore     = 72;   // Final merge warn score
 
-input group "ADVANCED ▸ (inactive) PRO release final / preset packager"
-
-// ---------------------------------------------------------------------------------------------
-// [NOT WIRED] The settings in this group are declared but nothing in the EA reads them, so
-// changing any of them has NO effect on trading. They belong to the release / client-preset
-// control layer (preset locking, input-range guards, licence and build checks) that was written
-// out as settings but never connected to the runtime.
-//
-// They are kept rather than deleted for two reasons: this EA is rented out, so this layer is
-// likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
-// no trading benefit. They cost nothing at runtime - they simply do nothing.
-// ---------------------------------------------------------------------------------------------
-
-input group "ADVANCED ▸ (inactive) Settings governance / client input guard"
-
-// ---------------------------------------------------------------------------------------------
-// [NOT WIRED] The settings in this group are declared but nothing in the EA reads them, so
-// changing any of them has NO effect on trading. They belong to the release / client-preset
-// control layer (preset locking, input-range guards, licence and build checks) that was written
-// out as settings but never connected to the runtime.
-//
-// They are kept rather than deleted for two reasons: this EA is rented out, so this layer is
-// likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
-// no trading benefit. They cost nothing at runtime - they simply do nothing.
-// ---------------------------------------------------------------------------------------------
-
 input group "ADVANCED ▸ Client dashboard / log polish"
 input bool              UseClientDashboardPolish = true;   // Use client dashboard polish
 // ClientDashboardViewMode: PRO / COMPACT / RENTAL / INTERNAL
@@ -1569,33 +1538,20 @@ input int               ClientDashReasonMaxChars = 70;   // Client dashboard rea
 input int               ClientDashDefenseScore   = 58;   // Client dashboard defense score
 input int               ClientDashWarnScore      = 72;   // Client dashboard warn score
 input int               ClientDashProScore       = 86;   // Client dashboard pro score
-input bool              PrintClientDashboardPolishEvents = true;   // Print client dashboard polish events
-
-input group "ADVANCED ▸ (inactive) Final audit report / build lock"
-
-// ---------------------------------------------------------------------------------------------
-// [NOT WIRED] The settings in this group are declared but nothing in the EA reads them, so
-// changing any of them has NO effect on trading. They belong to the release / client-preset
-// control layer (preset locking, input-range guards, licence and build checks) that was written
-// out as settings but never connected to the runtime.
-//
-// They are kept rather than deleted for two reasons: this EA is rented out, so this layer is
-// likely to be wanted eventually, and removing ~90 declarations from a live file is a risk with
-// no trading benefit. They cost nothing at runtime - they simply do nothing.
-// ---------------------------------------------------------------------------------------------
+#define PrintClientDashboardPolishEvents     LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Live validation probe / no-trade doctor"
 input bool              UseLiveValidationProbe   = true;   // Use live validation probe
 input bool              LiveProbeShowEntryDoctor = true;   // Live probe show entry doctor (on/off)
 input bool              LiveProbeShowGridDoctor  = true;   // Live probe show grid doctor (on/off)
 input bool              LiveProbeShowGateStack   = true;   // Live probe show gate stack (on/off)
-input bool              LiveProbePrintOnChange   = true;   // Live probe print on change (on/off)
-input bool              LiveProbePrintEveryNewBar = false;   // Live probe print every new bar (on/off)
+#define LiveProbePrintOnChange               LogSystemEvents  // Package 14 log group (was input, default true)
+#define LiveProbePrintEveryNewBar            LogDiagnostics   // Package 14 log group (was input, default false)
 input int               LiveProbeMinBarsForReady = 8;   // Live probe min bars for ready
 input int               LiveProbeMaxReasonChars  = 130;   // Live probe max reason chars
 // LiveProbeNoTradeDoctorOnly: true = diagnostic only, no blocking
 input bool              LiveProbeNoTradeDoctorOnly = true;   // Live probe no trade doctor only (on/off)
-input bool              PrintLiveProbeEvents     = true;   // Print live probe events
+#define PrintLiveProbeEvents                 LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Micro scalp settings"
 input bool              UseMicroScalpLayer       = true;   // Use micro scalp layer
@@ -1618,7 +1574,7 @@ input bool              MicroRequireSweepOrRejection = true;   // Micro require 
 input bool              MicroAllowNearZoneEntry  = true;   // Micro allow near zone entry (on/off)
 input int               MicroMinRoomPercentOfTP  = 70;   // Micro min room % of TP
 input bool              MicroBlockFreshImpulse   = true;   // Micro block fresh impulse (on/off)
-input bool              PrintMicroDecisions      = true;   // Print micro decisions
+#define PrintMicroDecisions                  LogEntryEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Entry / signal settings"
 // UseM1EntryClose: Wait for M1 bar close before entry (currently off)
@@ -1663,7 +1619,7 @@ input bool   EnableGridDepthLimit        = true;   // Enable grid depth limit
 // GridDepthBudgetShare: Share of the stop-loss budget the remaining rungs may project into. Below 1.0 so the ladder finishes before the stop rather than at it.
 input double GridDepthBudgetShare        = 0.75;   // Grid depth budget share
 // GridDepthPrintOnUse: Log depth caps
-input bool   GridDepthPrintOnUse         = true;   // Grid depth print on use (on/off)
+#define GridDepthPrintOnUse                  LogGridEvents    // Package 14 log group (was input, default true)
 // EnableBasketStaleness: Notice when the basket is fighting a different market from the one it opened in
 input bool   EnableBasketStaleness       = true;   // Enable basket staleness
 // BasketStaleAfterBars: Bars before age starts counting - two hours on M1, by which point the setup that opened it is history
@@ -1679,7 +1635,7 @@ input double BasketStaleTargetWeight     = 0.30;   // Basket stale target weight
 // BasketStaleBlockLevel: V249fix: 0.65 -> 0.70. The session component is a BINARY 0.35 that fires the instant the session hands over and never decays, so at 0.65 a basket needed only 0.30 more from age - 75% of the ramp, i.e. 330 M1 bars = 5h30m - and additions stopped. A completed 5-rung ladder needs ~37,000 points ($37) of adverse travel, which on XAUUSD routinely takes longer and ALWAYS crosses a session, so most real ladders froze at 2-3 rungs: a directional bet with no recovery mechanism left, holding the account hostage under OneBasketAtATime, on a ladder the affordability gate had already budgeted to full depth. At 0.70: age alone (0.40 max) still cannot freeze it; session+age blocks at 365 bars (6h05m); age+target (0.70) blocks WITHOUT needing a session change - which 0.72 would have made structurally impossible, since the non-session maximum is exactly 0.70. That reachability is why this is 0.70 and not higher: at 0.72 a maximally-old basket that had blown through its target could only be frozen while the clock happened to sit in a different session, and would RESUME adding when it returned to the opening session. Note the target component alone, or with only one partner, still does not block - it needs the combination. The real "this premise is dead" gate is BasketPremiseDead(), which runs before staleness and is untouched by this.
 input double BasketStaleBlockLevel       = 0.70;   // Basket stale block level
 // BasketStalePrintOnUse: Log stale baskets
-input bool   BasketStalePrintOnUse       = true;   // Basket stale print on use (on/off)
+#define BasketStalePrintOnUse                LogGridEvents    // Package 14 log group (was input, default true)
 // SituationPlanAppliesToGrid: V228: keep using the situation and structure targets once the ladder is running. Without this a basket got its measured target on the first entry and then reverted to the estimate chain for every addition - so the target drifted further away with each rung, in a direction nothing had measured. The destination does not change because the ladder grew; only the average entry does.
 input bool   SituationPlanAppliesToGrid  = true;   // Situation plan applies to grid (on/off)
 
@@ -1702,7 +1658,7 @@ input int    CandleConflictScore         = 6;   // Candle conflict score
 // CandleSplitDampen: Budget multiplier when readings simply disagree with no story - the layer is undecided and should say less
 input double CandleSplitDampen           = 0.50;   // Candle split dampen
 // CandleConflictPrintOnUse: Log named conflicts
-input bool   CandleConflictPrintOnUse    = true;   // Candle conflict print on use (on/off)
+#define CandleConflictPrintOnUse             LogEntryEvents   // Package 14 log group (was input, default true)
 
 // V216: each candle source learns its own accuracy. Ten modules, all trusted equally on the strength
 // of their reasoning - reasoning that is sound in general and may be wrong here. Wick authorship
@@ -1735,7 +1691,7 @@ input bool   PersistCandleLearning       = true;   // Persist candle learning (o
 // CandleLearningSaveEveryBars: How often the records are written back. Every tick is wasteful; only on deinit loses everything when the terminal closes unexpectedly, which it does.
 input int    CandleLearningSaveEveryBars = 30;   // Candle learning save every bars
 // CandleLearningPrintOnRestore: Log what was restored at startup
-input bool   CandleLearningPrintOnRestore = true;   // Candle learning print on restore (on/off)
+#define CandleLearningPrintOnRestore         LogSystemEvents  // Package 14 log group (was input, default true)
 
 // V218: two gaps a live loss exposed - a buy filled at 4394.43 on a bar that had spiked to 4397 and
 // come back, with M5 showing three lower highs behind it.
@@ -1759,7 +1715,7 @@ input double EntryBarMinSeverity         = 0.25;   // Entry bar min severity
 // EntryBarPenalty: Cost of filling into the wick of a sweep - high, because this is what the loss was
 input int    EntryBarPenalty             = 6;   // Entry bar penalty
 // EntryBarPrintOnUse: Log poor entry-bar placement
-input bool   EntryBarPrintOnUse          = true;   // Entry bar print on use (on/off)
+#define EntryBarPrintOnUse                   LogEntryEvents   // Package 14 log group (was input, default true)
 // THE LOCAL SHAPE: whether each swing high sits below the last. Structure breaks and trend readings
 // both lag this, and it is the first thing a trader sees.
 // EnableLocalSwingShape: Read whether the recent swings are stepping up or down
@@ -1777,7 +1733,7 @@ input int    LocalSwingFullSteps         = 3;   // Local swing full steps
 // LocalSwingScore: Weight of entering with or against the swing sequence
 input int    LocalSwingScore             = 5;   // Local swing score
 // LocalSwingPrintOnUse: Log entries taken against the swing shape
-input bool   LocalSwingPrintOnUse        = true;   // Local swing print on use (on/off)
+#define LocalSwingPrintOnUse                 LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V223: local structure read as SHAPE rather than as an indicator. Local trend is currently ADX,
 // which answers "is there a trend" and says nothing about what it looks like - price stepping down
@@ -1818,7 +1774,7 @@ input int    LocalStructureNearInvalidation = 1200;   // Local structure near in
 // LocalStructureInvalidationBonus: Credit for that
 input int    LocalStructureInvalidationBonus = 2;   // Local structure invalidation bonus
 // LocalStructurePrintOnUse: Log structure readings
-input bool   LocalStructurePrintOnUse    = true;   // Local structure print on use (on/off)
+#define LocalStructurePrintOnUse             LogBrainEvents   // Package 14 log group (was input, default true)
 // ShowLocalStructureOnDash: Show the measured structure
 input bool   ShowLocalStructureOnDash    = true;   // Show local structure on dashboard
 
@@ -1833,13 +1789,13 @@ input int    StructureBreakFreshBars     = 10;   // Structure break fresh bars
 // StructureBreakScore: Weight of a fresh break. High: this is the measured thing changing state, not an indicator crossing a line.
 input int    StructureBreakScore         = 6;   // Structure break score
 // StructureBreakPrintOnUse: Log structure breaks
-input bool   StructureBreakPrintOnUse    = true;   // Structure break print on use (on/off)
+#define StructureBreakPrintOnUse             LogBrainEvents   // Package 14 log group (was input, default true)
 // EnableStructureTarget: Use the invalidation price as the target for a counter-structure trade
 input bool   EnableStructureTarget       = true;   // Enable structure target
 // StructureTargetReachFactor: Stop short of it, as with any level-based target
 input double StructureTargetReachFactor  = 0.85;   // Structure target reach factor
 // StructureTargetPrintOnUse: Log structure-based targets
-input bool   StructureTargetPrintOnUse   = true;   // Structure target print on use (on/off)
+#define StructureTargetPrintOnUse            LogBrainEvents   // Package 14 log group (was input, default true)
 // EnableStructureConfluence: Notice when the structure ends where a zone sits
 input bool   EnableStructureConfluence   = true;   // Enable structure confluence
 // StructureConfluenceTolerance: How close ($0.70) the two must be to count as the same price
@@ -1870,7 +1826,7 @@ input int    StructurePullbackScore      = 5;   // Structure pullback score
 // StructureTransitionPenalty: Cost of committing while the timeframes are still deciding
 input int    StructureTransitionPenalty  = 3;   // Structure transition penalty
 // StructureMTFPrintOnUse: Log the timeframe picture
-input bool   StructureMTFPrintOnUse      = true;   // Structure MTF print on use (on/off)
+#define StructureMTFPrintOnUse               LogBrainEvents   // Package 14 log group (was input, default true)
 // EnableStructureMaturity: Measure how far the structure has already travelled
 input bool   EnableStructureMaturity     = true;   // Enable structure maturity
 // StructureMatureATR: Distance in ATR at which a structure has gone as far as these usually go
@@ -1987,7 +1943,7 @@ input int    LadderCautiousFewerOrders   = 2;   // Ladder cautious fewer orders
 // LadderCautiousMultReduction: And the multiplier reduction that goes with it
 input double LadderCautiousMultReduction = 0.08;   // Ladder cautious multiplier reduction
 // LadderShapePrintOnUse: Log the chosen shape
-input bool   LadderShapePrintOnUse       = true;   // Ladder shape print on use (on/off)
+#define LadderShapePrintOnUse                LogGridEvents    // Package 14 log group (was input, default true)
 
 // V242: what the system is actually earning. A grid produces a very high win rate and that number
 // says almost nothing - most baskets close at target for a small amount and the occasional one stops
@@ -2047,7 +2003,7 @@ input int    SituationScore              = 8;   // Situation score
 // SituationSuppressFactor: Share of the individual candle contributions kept once a situation is named. The rest is the same evidence a second time.
 input double SituationSuppressFactor     = 0.40;   // Situation suppress factor
 // SituationPrintOnUse: Log named situations
-input bool   SituationPrintOnUse         = true;   // Situation print on use (on/off)
+#define SituationPrintOnUse                  LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V220: the situation sets the trade, not just the score. Each of the four calls for a materially
 // different trade and the EA was giving all of them the same target and the same grid. A level that
@@ -2110,9 +2066,9 @@ input double BrokenRetestWickMinRatio    = 0.40;   // Broken retest wick min rat
 // BrokenRetestWickTolerance: How close ($1.00) the wick's tip must come to the level
 input int    BrokenRetestWickTolerance   = 1000;   // Broken retest wick tolerance
 // BrokenRetestPrintOnUse: Log rejected retests
-input bool   BrokenRetestPrintOnUse      = true;   // Broken retest print on use (on/off)
+#define BrokenRetestPrintOnUse               LogBrainEvents   // Package 14 log group (was input, default true)
 // SituationPlanPrintOnUse: Log the plan a situation produces
-input bool   SituationPlanPrintOnUse     = true;   // Situation plan print on use (on/off)
+#define SituationPlanPrintOnUse              LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V221: the grid decides WHERE to add, not only when. Distance says an addition is due; it says
 // nothing about whether the addition is a good idea, and the grid has never separated those.
@@ -2160,7 +2116,7 @@ input double GridQualityMinFactor        = 0.70;   // Grid quality min factor
 // GridQualityMaxFactor: And the most it can be increased at an excellent location
 input double GridQualityMaxFactor        = 1.15;   // Grid quality max factor
 // GridQualityPrintOnUse: Log addition quality readings
-input bool   GridQualityPrintOnUse       = true;   // Grid quality print on use (on/off)
+#define GridQualityPrintOnUse                LogGridEvents    // Package 14 log group (was input, default true)
 // MaxTotalScoreBonus: V278: 16 -> 26. Live screens show raw penalty running at thirty to forty-seven against a raw bonus of ten to twenty-eight, and the EA not trading at all. There are a hundred and thirty places that can add penalty and roughly a quarter of them were added today; the bonus side never grew with them. Twenty-six lets a setup that eleven modules agree on express that agreement against objections that now come from a much larger pool.     // V255: 12 -> 16. Penalties grew all day - band entries, sweep bars, reversal context, volatility shift, premium depth - and the bonus ceiling did not move with them. A setup can now accumulate twenty points of genuine agreement and have eight of them discarded while every point of objection survives, which makes a strong setup and a marginal one score the same. The two ceilings have to move together or the scoring quietly becomes one-sided.     // V171: 8 -> 12. When V170 raised the penalty cap to 14 it left the bonus cap at 8, so any three moderate penalties outweighed every bonus the EA could produce and the score could not recover no matter how good the setup was. A ceiling on what can argue FOR a trade must not sit below the ceiling on what can argue against it.
 input int               MaxTotalScoreBonus       = 26;   // Max total score bonus
 // MaxTrendAlignBonus: V259: 7 -> 8, moved with the trend-against ceiling so agreement and objection stay symmetric.      // V171: 5 -> 7, in proportion with the total bonus cap above. The trend-agreement group still cannot dominate, but it can now contribute meaningfully within a 12-point budget.
@@ -2173,7 +2129,7 @@ input int               RedirectMinScore          = 4;   // Redirect min score
 input int               RedirectMinImprovement    = 1;   // Redirect min improvement
 input bool              RedirectRespectMarketTrend = true;   // Redirect respect market trend (on/off)
 input bool              RedirectAvoidChaosImpulse = true;   // Redirect avoid chaos impulse (on/off)
-input bool              PrintRedirectDecisions    = true;   // Print redirect decisions
+#define PrintRedirectDecisions               LogEntryEvents   // Package 14 log group (was input, default true)
 // UseSignalQueue: Remember a valid signal for a few bars if it can't fire immediately
 input bool              UseSignalQueue           = true;   // Use signal queue
 // SignalQueueBars: How many bars a queued signal stays valid
@@ -2186,7 +2142,7 @@ input int               SignalQueueMaxAgeSeconds = 300;   // Signal queue max ag
 input bool              SignalQueueRefreshBetter = true;   // Signal queue refresh better (on/off)
 input bool              SignalQueueExpireOnOppositePass = true;   // Signal queue expire on opposite pass (on/off)
 input bool              SignalQueueReplayWhenCurrentWait = true;   // Signal queue replay when current wait (on/off)
-input bool              PrintQueueDecisions      = true;   // Print queue decisions
+#define PrintQueueDecisions                  LogEntryEvents   // Package 14 log group (was input, default true)
 
 input bool              UseMissedTradeMemory     = true;   // Use missed trade memory
 input int               MissedMemoryRepeatThreshold = 2;   // Missed memory repeat threshold
@@ -2202,7 +2158,7 @@ input bool              MissedMemoryBoostOnlyNearPass = true;   // Missed memory
 input bool              MissedMemoryAllowMicroBoost = true;   // Missed memory allow micro boost (on/off)
 input bool              MissedMemoryIgnoreHardBlocks = true;   // Missed memory ignore hard blocks (on/off)
 input bool              MissedMemoryResetOnEntry = true;   // Missed memory reset on entry (on/off)
-input bool              PrintMissedMemoryEvents  = true;   // Print missed memory events
+#define PrintMissedMemoryEvents              LogEntryEvents   // Package 14 log group (was input, default true)
 
 input bool              UseBlockExpiryEngine     = true;   // Use block expiry engine
 input int               BlockExpiryScoreWeakBars = 3;   // Block expiry score weak bars
@@ -2215,7 +2171,7 @@ input int               BlockExpiryZoneBars      = 2;   // Block expiry zone bar
 input int               BlockExpiryMaxSeconds    = 600;   // Block expiry max seconds
 input bool              BlockExpiryAllowExpiredSoftPass = true;   // Block expiry allow expired soft pass
 input int               ExpiredBlockScoreBoost   = 1;   // Expired block score boost
-input bool              PrintBlockExpiryEvents   = true;   // Print block expiry events
+#define PrintBlockExpiryEvents               LogEntryEvents   // Package 14 log group (was input, default true)
 input bool              UseFirstEntryEngine      = true;   // Use first entry engine
 input bool              OneBasketAtATime         = true;   // One basket at a time (on/off)
 // FirstEntryCooldownBars: BOSQICH 5A: 1 -> 0. TP dan keyin keyingi savat o'sha M1 barida ham ochilishi mumkin
@@ -2230,7 +2186,7 @@ input int               CloseRetryDelayMs        = 300;   // Close retry delay m
 input int               OrderSendDeviationPoints = 50;   // Order send deviation points
 // MinSecondsBetweenEntries: BOSQICH 5A: 30 -> 10. Ikki marta yuborishdan himoya uchun yetarli
 input int               MinSecondsBetweenEntries = 10;   // Min seconds between entries
-input bool              PrintEntryDecision       = true;   // Print entry decision
+#define PrintEntryDecision                   LogEntryEvents   // Package 14 log group (was input, default true)
 input bool              UseOpportunityScanner    = true;   // Use opportunity scanner
 input bool              ScannerEvaluateOnNewBarOnly = false;   // Scanner evaluate on new bar only (on/off)
 input int               ScannerLookbackBars      = 20;   // Scanner lookback bars
@@ -2278,7 +2234,7 @@ input int    DailyBiasScoreBonus          = 2;   // Daily bias score bonus
 input int    DailyBiasScorePenalty        = 1;   // Daily bias score penalty
 // DailyBiasNeutralOpenPoints: Today's open within this many points of prior close = neutral gap (no open-based bias tilt)
 input double DailyBiasNeutralOpenPoints   = 100;   // Daily bias neutral open points
-input bool   DailyBiasPrintOnUse          = true;   // Daily bias print on use (on/off)
+#define DailyBiasPrintOnUse                  LogBrainEvents   // Package 14 log group (was input, default true)
 input bool              ScannerAllowMomentum     = true;   // Scanner allow momentum (on/off)
 
 input bool              UseSignalScoreEngine     = true;   // Use signal score engine
@@ -2398,9 +2354,9 @@ input bool   EnableBlockSafetyValve      = true;   // Enable block safety valve
 // BlockSafetyValveBars: Bars (core TF) of continuous blocking before the valve opens - 180 M1 bars is three hours. Long enough that genuine protection is respected, short enough that a stuck block set does not cost a session.
 input int    BlockSafetyValveBars        = 180;   // Block safety valve bars
 // BlockSafetyValvePrintOnUse: Log every time the valve opens, and which block was holding
-input bool   BlockSafetyValvePrintOnUse  = true;   // Block safety valve print on use
+#define BlockSafetyValvePrintOnUse           LogRiskEvents    // Package 14 log group (was input, default true)
 // CounterImpulsePrintOnUse: Log when the impulse block engages and releases
-input bool              CounterImpulsePrintOnUse      = true;   // Counter impulse print on use (on/off)
+#define CounterImpulsePrintOnUse             LogEntryEvents   // Package 14 log group (was input, default true)
 
 // FEATURE(correction-exhaustion): the screenshot's right-hand loss - after a DOWN move, price
 // corrected UP a long way, the bot bought at the TOP of that correction, then the down-move resumed
@@ -2499,7 +2455,7 @@ input int    ConsecutivePressurePenalty  = 3;   // Consecutive pressure penalty
 // ConsecutivePressureMaxPenalty: Ceiling on that penalty
 input int    ConsecutivePressureMaxPenalty = 9;   // Consecutive pressure max penalty
 // ConsecutivePressurePrintOnUse: Log entries taken against a live run
-input bool   ConsecutivePressurePrintOnUse = true;   // Consecutive pressure print on use (on/off)
+#define ConsecutivePressurePrintOnUse        LogEntryEvents   // Package 14 log group (was input, default true)
 
 // V229: the single strong candle. Eight modules guard against entering into an impulse and none
 // fires on one bar - consecutive pressure needs three candles, recent thrust needs $3 over fifteen
@@ -2531,7 +2487,7 @@ input int    SingleCandlePenalty         = 5;   // Single candle penalty
 // SingleCandleBonus: Credit for entering with one. Deliberately smaller: joining a push is easier to get wrong than avoiding one.
 input int    SingleCandleBonus           = 2;   // Single candle bonus
 // SingleCandlePrintOnUse: Log dominant candles
-input bool   SingleCandlePrintOnUse      = true;   // Single candle print on use (on/off)
+#define SingleCandlePrintOnUse               LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V238: two live losses, one blind spot behind each.
 // A BUY AT 4435 into a band that had capped price on four separate days. The counter-zone check
@@ -2565,7 +2521,7 @@ input double TargetBandMinSeverity       = 0.30;   // Target band min severity
 // TargetBandPenalty: Cost of aiming into a band. High: the target is not merely optimistic, it is inside the thing that stops price.
 input int    TargetBandPenalty           = 6;   // Target band penalty
 // TargetBandPrintOnUse: Log targets landing inside bands
-input bool   TargetBandPrintOnUse        = true;   // Target band print on use (on/off)
+#define TargetBandPrintOnUse                 LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V246: the level that was broken and took itself back. ZoneMapIsPolarityFlip looks for one
 // crossing - price on one side, then the other - which describes a level changing role and is the
@@ -2609,7 +2565,7 @@ input int    ThesisMaxDistance           = 4000;   // Thesis max distance
 // ThesisTolerance: Slack ($0.20) before a close counts as through it
 input int    ThesisTolerance             = 200;   // Thesis tolerance
 // ThesisPrintOnUse: Log the thesis and its failure
-input bool   ThesisPrintOnUse            = true;   // Thesis print on use (on/off)
+#define ThesisPrintOnUse                     LogExitEvents    // Package 14 log group (was input, default true)
 
 // V290: when the premise is dead, stop asking for the full target. V247 detects that the reason for
 // the basket has gone and answers by stopping the grid - which keeps the position from growing and
@@ -2625,7 +2581,7 @@ input double DeadPremiseBEFromDD         = 12.0;   // Dead premise BE from DD
 // DeadPremiseExitPoints: Floor for that target ($0.40) - enough to clear the spread and the tick of slippage that decides whether a break-even close breaks even
 input int    DeadPremiseExitPoints       = 400;   // Dead premise exit points
 // DeadPremiseExitPrintOnUse: Log premise exits
-input bool   DeadPremiseExitPrintOnUse   = true;   // Dead premise exit print on use (on/off)
+#define DeadPremiseExitPrintOnUse            LogExitEvents    // Package 14 log group (was input, default true)
 
 // V248: three things checked too late, or not at all.
 // AFFORDABILITY: GridEffectiveMaxOrders works out whether the account can pay for the remaining
@@ -2647,9 +2603,9 @@ input int    CashbackSizingRungs         = 3;   // Cashback: size the lot for th
 // EnableBalanceSizedLot: V285: derive the base lot from the balance so the full ladder fits, instead of refusing entries when a fixed StartLot does not. Sizes down only - a large account still trades the size it was configured for.
 input bool   EnableBalanceSizedLot       = true;   // Enable balance sized lot
 // BalanceSizedLotPrintOnUse: V285: log when the lot is sized down
-input bool   BalanceSizedLotPrintOnUse   = true;   // Balance sized lot print on use (on/off)
+#define BalanceSizedLotPrintOnUse            LogEntryEvents   // Package 14 log group (was input, default true)
 // EntryAffordabilityPrintOnUse: Log refused entries
-input bool   EntryAffordabilityPrintOnUse = true;   // Entry affordability print on use (on/off)
+#define EntryAffordabilityPrintOnUse         LogEntryEvents   // Package 14 log group (was input, default true)
 // A DEAD MARKET is specifically dangerous for a ladder - the range is too tight for the target, so
 // the rungs fill quickly and the move that eventually comes finds a full basket waiting.
 // EnableDeadMarketCheck: Notice when there is nothing happening
@@ -2692,7 +2648,7 @@ input int    LiveNewsPenalty             = 5;   // Live news penalty
 // LiveNewsGridBlock: Severity at which the grid stops adding - a rung placed into a release fills at the worst price of it
 input double LiveNewsGridBlock           = 0.55;   // Live news grid block
 // LiveNewsPrintOnUse: Log detected releases
-input bool   LiveNewsPrintOnUse          = true;   // Live news print on use (on/off)
+#define LiveNewsPrintOnUse                   LogRiskEvents    // Package 14 log group (was input, default true)
 
 // V249: two readings a total cannot express, both about the same weakness - a sum hides the shape
 // of what produced it.
@@ -2735,7 +2691,7 @@ input double ConflictMinSeverity         = 0.50;   // Conflict min severity
 // ConflictPenalty: Cost of acting while the layers contradict each other
 input int    ConflictPenalty             = 5;   // Conflict penalty
 // ConflictPrintOnUse: Log layer conflicts
-input bool   ConflictPrintOnUse          = true;   // Conflict print on use (on/off)
+#define ConflictPrintOnUse                   LogEntryEvents   // Package 14 log group (was input, default true)
 
 // V250: the bigger picture overrules the local one. Three live buys made the same mistake -
 // 4670.41, 4672.48, 4670.48 - each time a double top had formed above, price broke down through it,
@@ -2765,7 +2721,7 @@ input double ReversalMinSeverity         = 0.30;   // Reversal min severity
 // ReversalContextPenalty: Cost of trading against a completed reversal. The heaviest single penalty here, because this specific mistake has now cost three baskets.
 input int    ReversalContextPenalty      = 7;   // Reversal context penalty
 // ReversalContextPrintOnUse: Log the context and retests
-input bool   ReversalContextPrintOnUse   = true;   // Reversal context print on use (on/off)
+#define ReversalContextPrintOnUse            LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V252: the levels that do not come from swings. A support at 4305-4315 held on the 2nd and 3rd of
 // September; on the 11th price returned to it and the EA did not see it - nine days is a long time
@@ -2797,7 +2753,7 @@ input double GlobalLevelMinStrength      = 1.5;   // Global level min strength
 // GlobalLevelPenalty: Cost of a global level sitting between the entry and its target
 input int    GlobalLevelPenalty          = 5;   // Global level penalty
 // GlobalLevelPrintOnUse: Log global levels in the way
-input bool   GlobalLevelPrintOnUse       = true;   // Global level print on use (on/off)
+#define GlobalLevelPrintOnUse                LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V253: the candle that took both sides. A bar with long wicks above and below a small body reads as
 // a doji - indecision, no information, ignore it. That is the wrong reading in the most expensive
@@ -2830,7 +2786,7 @@ input int    ManipulationScore           = 5;   // Manipulation score
 // ManipulationUnclearPenalty: Cost of entering while both sides are cleared and the close gave nothing away
 input int    ManipulationUnclearPenalty  = 4;   // Manipulation unclear penalty
 // ManipulationPrintOnUse: Log sweep bars
-input bool   ManipulationPrintOnUse      = true;   // Manipulation print on use (on/off)
+#define ManipulationPrintOnUse               LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V257: the wick that went and fetched something. CandleWickAuthorship already reads wicks and asks
 // which side of the bar was rejected, measured against its own body - a reading about the candle.
@@ -2859,7 +2815,7 @@ input double LiquidityWickMinConviction  = 0.30;   // Liquidity wick min convict
 // LiquidityWickScore: Weight of trading with or against the side that was collected
 input int    LiquidityWickScore          = 5;   // Liquidity wick score
 // LiquidityWickPrintOnUse: Log liquidity sweeps
-input bool   LiquidityWickPrintOnUse     = true;   // Liquidity wick print on use (on/off)
+#define LiquidityWickPrintOnUse              LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V258: sizes that are going somewhere. CandleSequenceRead compares the newest bar to the average of
 // the last five - a snapshot, which cannot tell one small candle after four large ones (a pause)
@@ -2888,7 +2844,7 @@ input double CandleProgressionMinConviction = 0.35;   // Candle progression min 
 // CandleProgressionScore: V288b: 4 -> 2. This reading is about WHEN, not whether - and V288 now answers it by holding the setup for a retrace rather than charging it points. Leaving the full penalty in place would charge twice for the same observation: once by waiting, once by subtracting.      // Weight of joining or fading a progression
 input int    CandleProgressionScore      = 2;   // Candle progression score
 // CandleProgressionPrintOnUse: Log progressions
-input bool   CandleProgressionPrintOnUse = true;   // Candle progression print on use (on/off)
+#define CandleProgressionPrintOnUse          LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V260: how price arrived. CandleLocationWeight asks where a wick's tip landed and CandleRelevance
 // asks how close a level is - both are about POSITION, which is half of context. The other half is
@@ -2915,7 +2871,7 @@ input double ArrivalMinLevelStrength     = 1.5;   // Arrival min level strength
 // ArrivalScore: Weight either way
 input int    ArrivalScore                = 4;   // Arrival score
 // ArrivalPrintOnUse: Log arrivals
-input bool   ArrivalPrintOnUse           = true;   // Arrival print on use (on/off)
+#define ArrivalPrintOnUse                    LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V261: the hour numbers are wrong for half the year. Every session boundary here is a fixed broker
 // hour and all of them assume the relationship between broker time and market time never changes.
@@ -2959,7 +2915,7 @@ input double WickOrderMinConviction      = 0.30;   // Wick order min conviction
 // WickOrderScore: Weight of trading with or against the implied direction
 input int    WickOrderScore              = 4;   // Wick order score
 // WickOrderPrintOnUse: Log the order
-input bool   WickOrderPrintOnUse         = true;   // Wick order print on use (on/off)
+#define WickOrderPrintOnUse                  LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V264: levels that have earned the right to be remembered. A shelf at 4305-4315 held on the 2nd and
 // 3rd of September; price returned on the 11th and the EA did not see it. It was never lost from the
@@ -2982,7 +2938,7 @@ input int    ProtectedZoneRefreshBars    = 20;   // Protected zone refresh bars
 // ProtectedZonePenalty: Cost of a protected level sitting between the entry and its target
 input int    ProtectedZonePenalty        = 6;   // Protected zone penalty
 // ProtectedZonePrintOnUse: Log protected levels
-input bool   ProtectedZonePrintOnUse     = true;   // Protected zone print on use (on/off)
+#define ProtectedZonePrintOnUse              LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V291: deciding before price arrives. Every reading here starts when price is already somewhere -
 // a level is reached, and only then does the work begin, and by the time thirty modules agree the
@@ -3019,7 +2975,7 @@ input double PrepFullScore               = 9.0;   // Prep full score
 // PreparedLevelBonus: Credit for arriving at a level already decided about
 input int    PreparedLevelBonus          = 4;   // Prepared level bonus
 // PreparedLevelsPrintOnUse: Log prepared levels
-input bool   PreparedLevelsPrintOnUse    = true;   // Prepared levels print on use (on/off)
+#define PreparedLevelsPrintOnUse             LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V266: when the larger scale disagrees. Every reading contributes points to one total, so an M5
 // support and an H1 downtrend arrive as two numbers that get added together and the sum can come out
@@ -3039,7 +2995,7 @@ input double HierarchyMinConflict        = 0.35;   // Hierarchy min conflict
 // HierarchyPenalty: Cost of trading against the larger scales. Heavy, because this specific mistake has now cost three baskets.
 input int    HierarchyPenalty            = 7;   // Hierarchy penalty
 // HierarchyPrintOnUse: Log hierarchy conflicts
-input bool   HierarchyPrintOnUse         = true;   // Hierarchy print on use (on/off)
+#define HierarchyPrintOnUse                  LogBrainEvents   // Package 14 log group (was input, default true)
 // And the other half: the scanner finds the best setup one way and never asks what the opposite
 // direction would have scored. Both sides looking good is not two opportunities - it is a market
 // that has not decided.
@@ -3064,7 +3020,7 @@ input double AmbiguityMinRatio           = 0.45;   // Ambiguity min ratio
 // AmbiguityPenalty: Cost of entering while both sides have a case
 input int    AmbiguityPenalty            = 5;   // Ambiguity penalty
 // AmbiguityPrintOnUse: Log ambiguous markets
-input bool   AmbiguityPrintOnUse         = true;   // Ambiguity print on use (on/off)
+#define AmbiguityPrintOnUse                  LogEntryEvents   // Package 14 log group (was input, default true)
 
 // V268: the days when nobody is there. The holiday guard exists and works only if someone types the
 // dates in - BrokerHolidayDates is a manual list that has to be refreshed every year, and a list
@@ -3100,7 +3056,7 @@ input double ThinGridDoubtFrom           = 0.35;   // Thin grid doubt from
 // GridDoubtThinWeight: How much it counts toward holding additions
 input double GridDoubtThinWeight         = 0.30;   // Grid doubt thin weight
 // ThinDayPrintOnUse: Log thin days
-input bool   ThinDayPrintOnUse           = true;   // Thin day print on use (on/off)
+#define ThinDayPrintOnUse                    LogRiskEvents    // Package 14 log group (was input, default true)
 
 // V269: which setups actually work here. The EA recognises sixteen setup types and treats them all
 // as equally likely to work, having never counted which ones do. NEAR_ZONE_REACTION and
@@ -3158,7 +3114,7 @@ input double VolumeDivergenceMinConviction = 0.30;   // Volume divergence min co
 // VolumeDivergenceScore: Weight either way
 input int    VolumeDivergenceScore       = 4;   // Volume divergence score
 // VolumeDivergencePrintOnUse: Log divergences
-input bool   VolumeDivergencePrintOnUse  = true;   // Volume divergence print on use (on/off)
+#define VolumeDivergencePrintOnUse           LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V273: the trend above everything. HigherScaleConflict reads H4 over eighty bars - thirteen days,
 // which is a swing inside a trend rather than the trend. This matters most at the distant levels
@@ -3195,7 +3151,7 @@ input int    CounterTrendPenalty         = 6;   // Counter trend penalty
 // GlobalTrendBonus: Credit for trading with it. Smaller than the penalty: being right about direction is the easy half, and entry is what the rest of the scoring is for.
 input int    GlobalTrendBonus            = 3;   // Global trend bonus
 // GlobalTrendPrintOnUse: Log global trend readings
-input bool   GlobalTrendPrintOnUse       = true;   // Global trend print on use (on/off)
+#define GlobalTrendPrintOnUse                LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V288: where in the move, not how many points off. A live SELL was taken at the low of a four-dollar
 // decline and turned two bars later; four modules had objected and each answered by subtracting
@@ -3214,7 +3170,7 @@ input double LateEntryHoldFrom           = 0.72;   // Late entry hold from
 // LateEntryRetraceShare: How much of the move a retrace must give back - just enough that the entry stops paying for what already happened
 input double LateEntryRetraceShare       = 0.25;   // Late entry retrace share
 // LateEntryPrintOnUse: Log pullback holds
-input bool   LateEntryPrintOnUse         = true;   // Late entry print on use (on/off)
+#define LateEntryPrintOnUse                  LogEntryEvents   // Package 14 log group (was input, default true)
 // EnableReversalAtExtreme: V289: credit a reversal setup for being at the extreme. The reading that makes a continuation trade late makes this one timely - fading a move that has run is the only place fading works, so being at the end is the setup rather than a flaw in it.
 input bool   EnableReversalAtExtreme     = true;   // Enable reversal at extreme
 // ReversalAtExtremeBonus: V289: weight at the far end of the move
@@ -3244,7 +3200,7 @@ input double FillTimingMinGainShare      = 0.12;   // Fill timing min gain share
 // FillTimingMinSeverity: Below this the fill is ordinary
 input double FillTimingMinSeverity       = 0.35;   // Fill timing min severity
 // FillTimingPrintOnUse: Log fill holds
-input bool   FillTimingPrintOnUse        = true;   // Fill timing print on use (on/off)
+#define FillTimingPrintOnUse                 LogEntryEvents   // Package 14 log group (was input, default true)
 // And the streak, which until now only appeared on the dashboard.
 // EnableStreakScoring: Let win and loss streaks reach the score
 input bool   EnableStreakScoring         = true;   // Enable streak scoring
@@ -3286,7 +3242,7 @@ input double VolatilityShiftLow          = 0.60;   // Volatility shift low
 // VolatilityShiftPenalty: Cost of entering while the range no longer matches the settings
 input int    VolatilityShiftPenalty      = 4;   // Volatility shift penalty
 // VolatilityShiftPrintOnUse: Log volatility shifts
-input bool   VolatilityShiftPrintOnUse   = true;   // Volatility shift print on use (on/off)
+#define VolatilityShiftPrintOnUse            LogRiskEvents    // Package 14 log group (was input, default true)
 // And from the third loss: "H2 and H4 never broke - H1 was fooled". The break confirmation added in
 // V232 looks one step up. A break can be real on H1 and invisible on H4, and the H4 reading is the
 // one that decides whether the move continues.
@@ -3301,7 +3257,7 @@ input double BandGuardMinSeverity        = 0.30;   // Band guard min severity
 // BandGuardPenalty: Cost of buying the top of a capping band, or selling the bottom of a holding one
 input int    BandGuardPenalty            = 6;   // Band guard penalty
 // BandGuardPrintOnUse: Log band entries
-input bool   BandGuardPrintOnUse         = true;   // Band guard print on use (on/off)
+#define BandGuardPrintOnUse                  LogEntryEvents   // Package 14 log group (was input, default true)
 // A SELL AT 4345 after 4325 was swept, price recovered to a higher high, and never returned.
 // Liquidity taken, structure turned, level holding three times - and the EA sold. The sweep
 // detectors exist; what was missing is the reading that a sweep has COMPLETED and its consequence
@@ -3319,7 +3275,7 @@ input double SweepReversalMinStrength    = 0.40;   // Sweep reversal min strengt
 // SweepReversalScore: Weight of trading with or against a completed sweep reversal
 input int    SweepReversalScore          = 6;   // Sweep reversal score
 // SweepReversalPrintOnUse: Log sweep reversals
-input bool   SweepReversalPrintOnUse     = true;   // Sweep reversal print on use (on/off)
+#define SweepReversalPrintOnUse              LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V239: did the candle get through the one before it? Annotated on the losing buy as "the candle did
 // not break the previous body" - the plainest statement of a push failing, and nothing in the EA
@@ -3336,7 +3292,7 @@ input double CandleProgressMinSeverity   = 0.35;   // Candle progress min severi
 // CandleProgressPenalty: Cost of entering behind a candle that achieved nothing
 input int    CandleProgressPenalty       = 5;   // Candle progress penalty
 // CandleProgressPrintOnUse: Log stalled candles
-input bool   CandleProgressPrintOnUse    = true;   // Candle progress print on use (on/off)
+#define CandleProgressPrintOnUse             LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V230: the same bar, read in context. Size alone says a push happened; it does not say whether the
 // push has anywhere left to go, whether anyone was behind it, or whether entering now means joining
@@ -3397,7 +3353,7 @@ input int    CandleContractionPenalty    = 3;   // Candle contraction penalty
 // CandleInsidePenalty: The last candle resolved nothing, so readings from it are weaker than they look
 input int    CandleInsidePenalty         = 2;   // Candle inside penalty
 // CandleSequencePrintOnUse: Log candle verdicts that change the score
-input bool   CandleSequencePrintOnUse    = true;   // Candle sequence print on use (on/off)
+#define CandleSequencePrintOnUse             LogBrainEvents   // Package 14 log group (was input, default true)
 // ShowCandleStateOnDash: Show the candle sequence reading
 input bool   ShowCandleStateOnDash       = true;   // Show candle state on dashboard
 
@@ -3430,7 +3386,7 @@ input double CandleLocationMinSignal     = 0.30;   // Candle location min signal
 // CandleLocationMaxScore: Ceiling on the adjustment - a rejection at a proven level is worth as much as most quality checks
 input int    CandleLocationMaxScore      = 5;   // Candle location max score
 // CandleLocationPrintOnUse: Log located rejections
-input bool   CandleLocationPrintOnUse    = true;   // Candle location print on use (on/off)
+#define CandleLocationPrintOnUse             LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V209: candles judged by outcome rather than shape. Every reading so far is taken the moment a bar
 // closes and then forgotten - which is the one moment it is least reliable, because a candle only
@@ -3453,7 +3409,7 @@ input double CandleFollowThroughPoorRate = 0.40;   // Candle follow through poor
 // CandleFollowThroughAdjust: Score adjustment when the record is clearly good or clearly bad
 input int    CandleFollowThroughAdjust   = 3;   // Candle follow through adjust
 // CandleFollowThroughPrintOnUse: Log each verdict
-input bool   CandleFollowThroughPrintOnUse = true;   // Candle follow through print on use (on/off)
+#define CandleFollowThroughPrintOnUse        LogBrainEvents   // Package 14 log group (was input, default true)
 // EnableCandleBreakQuality: Distinguish a clean break from an attempt that was already being pushed back
 input bool   EnableCandleBreakQuality    = true;   // Enable candle break quality
 // CandleBreakWickPenaltyWeight: How heavily a wick back past the close counts against a break
@@ -3536,7 +3492,7 @@ input double PatternGradePoorFactor      = 0.40;   // Pattern grade poor factor
 // PatternGradeGoodFactor: And for one that keeps working
 input double PatternGradeGoodFactor      = 1.35;   // Pattern grade good factor
 // PatternGradePrintOnUse: Log pattern outcomes
-input bool   PatternGradePrintOnUse      = true;   // Pattern grade print on use (on/off)
+#define PatternGradePrintOnUse               LogBrainEvents   // Package 14 log group (was input, default true)
 // EnableCandleHTF: Read the higher timeframe candle alongside the lower one
 input bool   EnableCandleHTF             = true;   // Enable candle HTF
 // CandleHTFTimeframe: V215: M5 -> M15, keeping one step above the sequence timeframe now that it reads M5.  // The timeframe that outranks the sequence reader
@@ -3550,7 +3506,7 @@ input int    CandleHTFDisagreeScore      = 5;   // Candle HTF disagree score
 // CandleHTFAgreeScore: Bonus when both timeframes point the same way
 input int    CandleHTFAgreeScore         = 2;   // Candle HTF agree score
 // CandleHTFPrintOnUse: Log timeframe disagreements
-input bool   CandleHTFPrintOnUse         = true;   // Candle HTF print on use (on/off)
+#define CandleHTFPrintOnUse                  LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V212: the bar still forming. Every other reading waits for a close, which is correct and safe and
 // costs a full minute - by the time an M1 rejection is confirmed, the move it signalled has been
@@ -3571,7 +3527,7 @@ input double LiveBarMinWeight            = 0.20;   // Live bar min weight
 // LiveBarScore: Full-weight score effect - reached only near the close, since the weight scales with the square of elapsed progress
 input int    LiveBarScore                = 4;   // Live bar score
 // LiveBarPrintOnUse: Log live-bar adjustments
-input bool   LiveBarPrintOnUse           = true;   // Live bar print on use (on/off)
+#define LiveBarPrintOnUse                    LogBrainEvents   // Package 14 log group (was input, default true)
 // ShowLiveBarOnDash: Show what the forming bar is doing
 input bool   ShowLiveBarOnDash           = true;   // Show live bar on dashboard
 
@@ -3598,7 +3554,7 @@ input double LiveBodyGrowthMin           = 0.15;   // Live body growth min
 // LiveEvolutionScore: Full-weight effect of an intra-bar change - the failed-wick case is among the clearest signals available
 input int    LiveEvolutionScore          = 5;   // Live evolution score
 // LiveEvolutionPrintOnUse: Log intra-bar changes
-input bool   LiveEvolutionPrintOnUse     = true;   // Live evolution print on use (on/off)
+#define LiveEvolutionPrintOnUse              LogBrainEvents   // Package 14 log group (was input, default true)
 // EnableLiveApproach: Notice price closing on a level right now
 input bool   EnableLiveApproach          = true;   // Enable live approach
 // LiveApproachPoints: Distance ($0.80) within which a level counts as being approached
@@ -3610,7 +3566,7 @@ input int    LiveApproachPenalty         = 3;   // Live approach penalty
 // ShowLiveEvolutionOnDash: Show what changed within the bar
 input bool   ShowLiveEvolutionOnDash     = true;   // Show live evolution on dashboard
 // CandlePatternPrintOnUse: Log recognised patterns
-input bool   CandlePatternPrintOnUse     = true;   // Candle pattern print on use (on/off)
+#define CandlePatternPrintOnUse              LogBrainEvents   // Package 14 log group (was input, default true)
 // ShowCandlePatternOnDash: Show the current pattern reading
 input bool   ShowCandlePatternOnDash     = true;   // Show candle pattern on dashboard
 // RecentThrustMinEfficiency: Net/path ratio: how one-directional the move must be. Chop sits ~0.2-0.4 and is ignored; 0.55 = clearly directional.
@@ -3661,7 +3617,7 @@ input int               LegacyPenaltyRoadblock   = 2;   // Legacy penalty roadbl
 input int               LegacyPenaltyExhaustion  = 2;   // Legacy penalty exhaustion
 input bool              LegacyHardBlockNews      = true;   // Legacy hard block news (on/off)
 input bool              LegacyHardBlockRoadblock = false;   // Legacy hard block roadblock (on/off)
-input bool              PrintLegacyUpgradeEvents = true;   // Print legacy upgrade events
+#define PrintLegacyUpgradeEvents             LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Filters / environment"
 input ENUM_TIMEFRAMES   CoreBarTF                = PERIOD_M1;   // Core bar TF
@@ -3697,13 +3653,13 @@ input int               DashboardMaxRows         = 34;   // Dashboard max rows
 input int               DashboardLineSpacing     = 14;   // Dashboard line spacing
 input bool              UsePremiumLogEngine      = true;   // Use premium log engine
 input int               PremiumLogSnapshotSeconds = 60;   // Premium log snapshot seconds
-input bool              PrintPremiumNextAction   = true;   // Print premium next action
-input bool              PrintExpertsHeartbeat    = true;   // Print experts heartbeat
-input bool              PrintNewBarLog           = true;   // Print new bar log
-input bool              PrintEnvOnChange         = true;   // Print env on change
-input bool              PrintModeOnChange        = true;   // Print mode on change
-input bool              PrintMarketOnChange      = true;   // Print market on change
-input bool              PrintTickStaleWarning    = true;   // Print tick stale warning
+#define PrintPremiumNextAction               LogSystemEvents  // Package 14 log group (was input, default true)
+#define PrintExpertsHeartbeat                LogSystemEvents  // Package 14 log group (was input, default true)
+#define PrintNewBarLog                       LogSystemEvents  // Package 14 log group (was input, default true)
+#define PrintEnvOnChange                     LogSystemEvents  // Package 14 log group (was input, default true)
+#define PrintModeOnChange                    LogSystemEvents  // Package 14 log group (was input, default true)
+#define PrintMarketOnChange                  LogSystemEvents  // Package 14 log group (was input, default true)
+#define PrintTickStaleWarning                LogSystemEvents  // Package 14 log group (was input, default true)
 input string            TelegramContact          = "@farruh_zakiy";   // Telegram contact
 input bool              UseVPSLiveValidation     = true;   // Use VPS live validation
 input int               VPSValidationSeconds     = 30;   // VPS validation seconds
@@ -3711,9 +3667,9 @@ input int               VPSMaxTickSilentSeconds  = 120;   // VPS max tick silent
 input int               VPSMaxM1BarSilentMinutes = 5;   // VPS max M1 bar silent minutes
 input int               VPSMinTicksPerMinute     = 1;   // VPS min ticks per minute
 input bool              VPSWarnIfNotM1Chart      = false;   // VPS warn if not M1 chart (on/off)
-input bool              VPSPrintNoTradeAudit     = true;   // VPS print no trade audit (on/off)
+#define VPSPrintNoTradeAudit                 LogSystemEvents  // Package 14 log group (was input, default true)
 input int               VPSNoTradeAuditSeconds   = 120;   // VPS no trade audit seconds
-input bool              VPSPrintBrokerSnapshot   = true;   // VPS print broker snapshot (on/off)
+#define VPSPrintBrokerSnapshot               LogSystemEvents  // Package 14 log group (was input, default true)
 input int               VPSBrokerSnapshotSeconds = 300;   // VPS broker snapshot seconds
 input int               DashboardCorner          = 0;   // Dashboard corner
 input int               DashboardX               = 10;   // Dashboard x
@@ -3752,7 +3708,7 @@ input bool   DailyProfitBlockNewEntriesOnTrail  = true;   // Daily profit block 
 // DailyProfitBlockRecoveryOnTrail: Trail lock blocks recovery/grid too
 input bool   DailyProfitBlockRecoveryOnTrail    = true;   // Daily profit block recovery on trail (on/off)
 // DailyProfitPrintOnLock: Print once when target/trail lock fires
-input bool   DailyProfitPrintOnLock             = true;   // Daily profit print on lock (on/off)
+#define DailyProfitPrintOnLock               LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Settings sanity"
 // EnableSettingsSanityGovernor: Catches dangerous/conflicting settings before live trading
@@ -3764,7 +3720,7 @@ input int    SettingsSanityMinGridPoints       = 1500;   // Settings sanity min 
 // SettingsSanityMinTPPoints: FirstEntryTPMinPoints below this is treated as dangerous
 input int    SettingsSanityMinTPPoints         = 300;   // Settings sanity min TP points
 // SettingsSanityPrintOnChange: Print only when sanity state changes
-input bool   SettingsSanityPrintOnChange       = true;   // Settings sanity print on change (on/off)
+#define SettingsSanityPrintOnChange          LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Setup doctor"
 // EnableSetupDoctor: Diagnose common client/VPS setup mistakes
@@ -3774,7 +3730,7 @@ input bool   SetupDoctorBlockLiveInvalid    = true;   // Setup doctor block live
 // SetupDoctorRequireTradeAllowed: Terminal/account/MQL trade permission must be allowed
 input bool   SetupDoctorRequireTradeAllowed = true;   // Setup doctor require trade allowed (on/off)
 // SetupDoctorPrintOnChange: Print setup state only when changed
-input bool   SetupDoctorPrintOnChange       = true;   // Setup doctor print on change (on/off)
+#define SetupDoctorPrintOnChange             LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Zone map / TP guard"
 // EnableZoneMapTPGuard: Cap TP before a nearby H1/M15 wall instead of ignoring it
@@ -3786,7 +3742,7 @@ input int    ZoneMapLookbackM15      = 200;   // Zone map lookback M15
 // ZoneMapBufferPoints: Keep TP this many points before the wall
 input int    ZoneMapBufferPoints     = 150;   // Zone map buffer points
 // ZoneMapPrintOnUse: Print only when TP actually gets capped
-input bool   ZoneMapPrintOnUse       = false;   // Zone map print on use (on/off)
+#define ZoneMapPrintOnUse                    LogDiagnostics   // Package 14 log group (was input, default false)
 // EnableZoneMapMomentumCaution: Momentum/trend entries ignore zones by default - this adds soft caution
 input bool   EnableZoneMapMomentumCaution = true;   // Enable zone map momentum caution
 // ZoneMapMomentumCautionPoints: If a wall is this close ahead, trim lot instead of blocking
@@ -3810,7 +3766,7 @@ input bool   EnableHTFStructureWarn  = true;   // Enable HTF structure warn
 // HTFStructureLookbackBars: H1 bars back to compare for trend bias
 input int    HTFStructureLookbackBars = 20;   // HTF structure lookback bars
 // HTFStructurePrintOnUse: Print only when a counter-trend entry is detected
-input bool   HTFStructurePrintOnUse  = false;   // HTF structure print on use (on/off)
+#define HTFStructurePrintOnUse               LogDiagnostics   // Package 14 log group (was input, default false)
 // HTFStructureCounterLotFactor: Lot multiplier when entry is counter to H1 bias (never blocks)
 input double HTFStructureCounterLotFactor = 0.6;   // HTF structure counter lot factor
 
@@ -3825,7 +3781,7 @@ input int    RetryMaxAttempts             = 3;   // Retry max attempts
 input int    RetryGiveUpCooldownSeconds   = 60;   // Retry give up cooldown seconds
 // RetryNonTransientCooldownSeconds: Wait after a non-transient failure (no money, invalid stops, etc.)
 input int    RetryNonTransientCooldownSeconds = 20;   // Retry non transient cooldown seconds
-input bool   RetryPrintOnUse              = true;   // Retry print on use (on/off)
+#define RetryPrintOnUse                      LogEntryEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Correlation guard"
 // EnableCorrelationGuard: Trim lot when other open positions compound this symbol's risk
@@ -3837,7 +3793,7 @@ input int    CorrelationLookbackBars      = 100;   // Correlation lookback bars
 input double CorrelationHighThreshold     = 0.75;   // Correlation high threshold
 // CorrelationLotFactor: Lot multiplier applied when compounding exposure detected
 input double CorrelationLotFactor         = 0.5;   // Correlation lot factor
-input bool   CorrelationPrintOnUse        = false;   // Correlation print on use (on/off)
+#define CorrelationPrintOnUse                LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Spread-aware minimum TP"
 input bool   EnableSpreadAwareTP          = true;   // Enable spread aware TP
@@ -3845,7 +3801,7 @@ input bool   EnableSpreadAwareTP          = true;   // Enable spread aware TP
 input double SpreadAwareMinRatio          = 3.0;   // Spread aware min ratio
 // SpreadAwareCommissionPoints: Optional extra buffer for commission-equivalent points
 input int    SpreadAwareCommissionPoints  = 0;   // Spread aware commission points
-input bool   SpreadAwarePrintOnUse        = false;   // Spread aware print on use (on/off)
+#define SpreadAwarePrintOnUse                LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Real economic calendar"
 // EconomicCalendarCurrency: Currency to scan; leave blank to scan all
@@ -3862,7 +3818,7 @@ input int    EconomicCalendarRefreshSeconds = 300;   // Economic calendar refres
 input bool   EconomicCalendarHardBlockFirst = true;   // Economic calendar hard block first (on/off)
 // EconomicCalendarLotFactor: Lot multiplier during caution window when not hard-blocking
 input double EconomicCalendarLotFactor      = 0.4;   // Economic calendar lot factor
-input bool   EconomicCalendarPrintOnUse     = true;   // Economic calendar print on use (on/off)
+#define EconomicCalendarPrintOnUse           LogRiskEvents    // Package 14 log group (was input, default true)
 // EnableNewsSettleRelease: after a release, the post-news pause ends as soon as the market has settled (calm M1 candles, normal spread, no anomaly) instead of always running the full post window. The pre-news pause never changes.
 input bool   EnableNewsSettleRelease        = true;   // End the post-news pause once the market settles
 // NewsSettleMinMinutes: the pause always holds at least this long after the release
@@ -3883,14 +3839,14 @@ input int    PartialCloseMinOrders        = 2;   // Partial close min orders
 input int    PartialCloseAtProfitPoints   = 1500;   // Partial close at profit points
 // PartialClosePercent: Percent of each position's volume to close
 input double PartialClosePercent          = 35.0;   // Partial close %
-input bool   PartialClosePrintOnUse       = true;   // Partial close print on use (on/off)
+#define PartialClosePrintOnUse               LogExitEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ First entry trend-against guard"
 // EnableFirstEntryTrendGuard: Trim lot when opening straight against a strong HTF/BOS trend
 input bool   EnableFirstEntryTrendGuard         = true;   // Enable first entry trend guard
 // FirstEntryTrendAgainstLotFactor: Lot multiplier applied when trend/BOS strongly oppose the entry
 input double FirstEntryTrendAgainstLotFactor    = 0.4;   // First entry trend against lot factor
-input bool   FirstEntryTrendGuardPrintOnUse     = true;   // First entry trend guard print on use (on/off)
+#define FirstEntryTrendGuardPrintOnUse       LogEntryEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Impulse / correction cooldown"
 // EnableImpulseCooldown: Keep grid cautious for a few bars after an impulse, not just the spike bar
@@ -3899,7 +3855,7 @@ input bool   EnableImpulseCooldown              = true;   // Enable impulse cool
 input int    ImpulseCooldownBarsCorrection      = 2;   // Impulse cooldown bars correction
 // ImpulseCooldownBarsTrend: Longer cooldown: impulse aligned with the established trend (possible acceleration)
 input int    ImpulseCooldownBarsTrend           = 5;   // Impulse cooldown bars trend
-input bool   ImpulseCooldownPrintOnUse          = false;   // Impulse cooldown print on use (on/off)
+#define ImpulseCooldownPrintOnUse            LogDiagnostics   // Package 14 log group (was input, default false)
 
 // V115: the impulse cooldown above was only ever consulted by GridCanOpen, so after a big candle the
 // grid waited but a brand-new basket could still be opened on the very next tick. The user noticed
@@ -4017,7 +3973,7 @@ input double KalmanBeta               = 0.05;   // Kalman beta
 input int    KalmanWarmupBars         = 30;   // Kalman warmup bars
 // KalmanTrendMinPoints: Minimum trend slope (points/bar) to call it up/down, not flat
 input double KalmanTrendMinPoints     = 5.0;   // Kalman trend min points
-input bool   KalmanPrintOnUse         = false;   // Kalman print on use (on/off)
+#define KalmanPrintOnUse                     LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Zone strength / confluence"
 // EnableZoneStrength: Score a zone by how many TFs/touches confirm it, not just distance
@@ -4154,7 +4110,7 @@ input int    ParticipantInstBonus           = 2;   // Participant inst bonus
 // ParticipantMinConfidence: Confidence needed before the profile affects the decision
 input double ParticipantMinConfidence       = 0.35;   // Participant min confidence
 // ParticipantPrintOnUse: Log profiles that change a decision
-input bool   ParticipantPrintOnUse          = true;   // Participant print on use (on/off)
+#define ParticipantPrintOnUse                LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V149: path density. The room check knows where the FIRST wall is, which answers "can the target
 // be reached" but nothing about what lies beyond it. One wall with open road behind it and five
@@ -4178,7 +4134,7 @@ input double PathDensityClearGapFactor  = 1.5;   // Path density clear gap facto
 // PathDensityClearBonus: Bonus when open road lies ahead
 input int    PathDensityClearBonus      = 2;   // Path density clear bonus
 // PathDensityPrintOnUse: Log path readings that change a decision
-input bool   PathDensityPrintOnUse      = false;   // Path density print on use (on/off)
+#define PathDensityPrintOnUse                LogDiagnostics   // Package 14 log group (was input, default false)
 
 // V150: market scale. Every structural threshold here is a fixed number tuned against a particular
 // market - cluster within $2.50, merge walls within $0.70. When the market changes character those
@@ -4236,7 +4192,7 @@ input int    ForcedFlowFadeBonus        = 2;   // Forced flow fade bonus
 // ForcedFlowMinIntensity: Intensity needed before the reading affects the decision
 input double ForcedFlowMinIntensity     = 0.40;   // Forced flow min intensity
 // ForcedFlowPrintOnUse: Log forced flow that changes a decision
-input bool   ForcedFlowPrintOnUse       = true;   // Forced flow print on use (on/off)
+#define ForcedFlowPrintOnUse                 LogEntryEvents   // Package 14 log group (was input, default true)
 
 // V153: confidence calibration. The score engine states a conviction on every entry and the lot
 // sizing now acts on it - but nothing has ever checked whether the number means what it claims. If
@@ -4255,7 +4211,7 @@ input double CalibrationGoodWinRate     = 0.55;   // Calibration good win rate
 // CalibrationPoorWinRate: Win rate at or below which the band's conviction is not supported by the record
 input double CalibrationPoorWinRate     = 0.42;   // Calibration poor win rate
 // ScoreCalibrationPrintOnUse: Log each recorded outcome
-input bool   ScoreCalibrationPrintOnUse = true;   // Score calibration print on use (on/off)
+#define ScoreCalibrationPrintOnUse           LogSystemEvents  // Package 14 log group (was input, default true)
 // ShowCalibrationOnDash: V170d: default OFF. ball kalibrlash statistikasi - haftada bir marta qarash yetarli. Seventeen new dashboard lines were added today and all defaulted on - together they push the panel past the height of a normal chart window, hiding the lines that matter during trading.
 input bool   ShowCalibrationOnDash      = false;   // Show calibration on dashboard
 
@@ -4292,7 +4248,7 @@ input int    PatternMemoryWithBonus     = 2;   // Pattern memory with bonus
 // PatternMemoryAgainstPenalty: Penalty for entering against it
 input int    PatternMemoryAgainstPenalty = 2;   // Pattern memory against penalty
 // PatternMemoryPrintOnUse: Log readings that change a decision
-input bool   PatternMemoryPrintOnUse    = true;   // Pattern memory print on use (on/off)
+#define PatternMemoryPrintOnUse              LogSystemEvents  // Package 14 log group (was input, default true)
 // ShowPatternMemoryOnDash: V170d: default OFF. tarixiy naqsh - qiziq, lekin qaror bergani jurnalда ko'rinadi. Seventeen new dashboard lines were added today and all defaulted on - together they push the panel past the height of a normal chart window, hiding the lines that matter during trading.
 input bool   ShowPatternMemoryOnDash    = false;   // Show pattern memory on dashboard
 
@@ -4318,7 +4274,7 @@ input double WarningWeightMin           = 0.50;   // Warning weight min
 // WarningWeightMax: Ceiling - a warning that has been right cannot dominate everything
 input double WarningWeightMax           = 1.80;   // Warning weight max
 // WarningLearningPrintOnUse: Log which warnings each closed basket credited
-input bool   WarningLearningPrintOnUse  = true;   // Warning learning print on use (on/off)
+#define WarningLearningPrintOnUse            LogSystemEvents  // Package 14 log group (was input, default true)
 // ShowWarningStatsOnDash: V170d: default OFF. ogohlantirish ishonchliligi - uzoq muddatli statistika. Seventeen new dashboard lines were added today and all defaulted on - together they push the panel past the height of a normal chart window, hiding the lines that matter during trading.
 input bool   ShowWarningStatsOnDash     = false;   // Show warning stats on dashboard
 
@@ -4369,7 +4325,7 @@ input int    RegimeVolatileScoreOffset  = 2;   // Regime volatile score offset
 // RegimeQuietScoreOffset: And in a market that may not travel far enough
 input int    RegimeQuietScoreOffset     = 1;   // Regime quiet score offset
 // RegimePrintOnUse: Log regime switches
-input bool   RegimePrintOnUse           = true;   // Regime print on use (on/off)
+#define RegimePrintOnUse                     LogBrainEvents   // Package 14 log group (was input, default true)
 // ShowRegimeOnDash: Show the current regime on the dashboard
 input bool   ShowRegimeOnDash           = true;   // Show regime on dashboard
 
@@ -4389,7 +4345,7 @@ input int    BlockAuditDedupeBars       = 5;   // Block audit dedupe bars
 // BlockAuditMaxSamples: Sample ceiling; beyond it older verdicts decay
 input int    BlockAuditMaxSamples       = 100;   // Block audit max samples
 // BlockAuditPrintOnUse: Log each verdict
-input bool   BlockAuditPrintOnUse       = true;   // Block audit print on use
+#define BlockAuditPrintOnUse                 LogSystemEvents  // Package 14 log group (was input, default true)
 // EnableRegimePerformance: Track closed-basket outcomes per regime
 input bool   EnableRegimePerformance    = true;   // Enable regime performance
 // RegimePerfMaxSamples: Sample ceiling per regime
@@ -4417,7 +4373,7 @@ input double ProjectionMinLotFactor     = 0.45;   // Projection min lot factor
 // ProjectionHardBlock: V171: true -> false while the size scaling proves itself. The projection already shrinks the entry to fit the account, which handles the problem it was written for; the refusal on top of that was a second answer to a question already answered, and it fires on the same ladder maths that has never run live. The scaling stays active - only the outright refusal is off.
 input bool   ProjectionHardBlock        = false;   // Projection hard block (on/off)
 // ProjectionPrintOnUse: Log projections that change a decision
-input bool   ProjectionPrintOnUse       = true;   // Projection print on use (on/off)
+#define ProjectionPrintOnUse                 LogEntryEvents   // Package 14 log group (was input, default true)
 // ShowProjectionOnDash: V170d: default OFF. narvon proyeksiyasi - entry paytida jurnalда yoziladi. Seventeen new dashboard lines were added today and all defaulted on - together they push the panel past the height of a normal chart window, hiding the lines that matter during trading.
 input bool   ShowProjectionOnDash       = false;   // Show projection on dashboard
 
@@ -4461,7 +4417,7 @@ input int    AdaptiveBasketAgeMinBars   = 60;   // Adaptive basket age min bars
 // AdaptiveBasketAgeMaxBars: Ceiling (2 days) - beyond this age has clearly stopped being informative
 input int    AdaptiveBasketAgeMaxBars   = 2880;   // Adaptive basket age max bars
 // AdaptiveBasketAgePrintOnUse: Log the learned lifetime as it updates
-input bool   AdaptiveBasketAgePrintOnUse = true;   // Adaptive basket age print on use (on/off)
+#define AdaptiveBasketAgePrintOnUse          LogGridEvents    // Package 14 log group (was input, default true)
 
 // V161: scale-in. The grid answers a wrong entry by adding size to it - which works when price comes
 // back and is ruinous when it does not, and the EA cannot tell which case it is in at the moment it
@@ -4480,7 +4436,7 @@ input int    ScaleInAbandonPoints       = 1200;   // Scale in abandon points
 // ScaleInMaxWaitBars: Bars to wait for confirmation before dropping the remainder - a setup going nowhere is not worth completing
 input int    ScaleInMaxWaitBars         = 30;   // Scale in max wait bars
 // ScaleInPrintOnUse: Log scale-in entries, completions and abandonments
-input bool   ScaleInPrintOnUse          = true;   // Scale in print on use (on/off)
+#define ScaleInPrintOnUse                    LogGridEvents    // Package 14 log group (was input, default true)
 
 // V161b: a fixed 60% / $0.80 / $1.20 throws away information the EA already has. How much to commit
 // immediately is a statement about how much this particular setup is trusted, and what counts as
@@ -4535,7 +4491,7 @@ input int    NoiseCautionPenalty        = 2;   // Noise caution penalty
 // NoiseMinTPFactor: V162b: floor on how far the target may be scaled down in churn. Below this the trade is not worth its spread.
 input double NoiseMinTPFactor           = 0.50;   // Noise min TP factor
 // NoisePrintOnUse: Log noise readings that change a decision
-input bool   NoisePrintOnUse            = true;   // Noise print on use (on/off)
+#define NoisePrintOnUse                      LogRiskEvents    // Package 14 log group (was input, default true)
 // ShowNoiseOnDash: Show the noise reading on the dashboard
 input bool   ShowNoiseOnDash            = true;   // Show noise on dashboard
 
@@ -4571,7 +4527,7 @@ input int    PressureDivergenceBonus    = 3;   // Pressure divergence bonus
 // PressureMinToAct: Pressure strength needed before it affects the decision
 input double PressureMinToAct           = 0.25;   // Pressure min to act
 // PressurePrintOnUse: Log pressure readings that change a decision
-input bool   PressurePrintOnUse         = true;   // Pressure print on use (on/off)
+#define PressurePrintOnUse                   LogEntryEvents   // Package 14 log group (was input, default true)
 // ShowPressureOnDash: Show the pressure reading on the dashboard
 input bool   ShowPressureOnDash         = true;   // Show pressure on dashboard
 
@@ -4605,7 +4561,7 @@ input int    SessionChangePenalty       = 2;   // Session change penalty
 // SessionDeadPenalty: Penalty for entering during rollover
 input int    SessionDeadPenalty         = 3;   // Session dead penalty
 // SessionPrintOnUse: Log session effects on decisions
-input bool   SessionPrintOnUse          = false;   // Session print on use (on/off)
+#define SessionPrintOnUse                    LogDiagnostics   // Package 14 log group (was input, default false)
 // ShowSessionOnDash: Show the session and what is coming on the dashboard
 input bool   ShowSessionOnDash          = true;   // Show session on dashboard
 
@@ -4635,7 +4591,7 @@ input int    SpreadForecastThinSessionPoints = 450;   // Spread forecast thin se
 // SpreadForecastPenalty: Penalty for entering into expected widening
 input int    SpreadForecastPenalty      = 2;   // Spread forecast penalty
 // SpreadPrintOnUse: Log spread economics that change a decision
-input bool   SpreadPrintOnUse           = true;   // Spread print on use (on/off)
+#define SpreadPrintOnUse                     LogRiskEvents    // Package 14 log group (was input, default true)
 // ShowSpreadCostOnDash: Show the cost ratio on the dashboard
 input bool   ShowSpreadCostOnDash       = true;   // Show spread cost on dashboard
 
@@ -4658,7 +4614,7 @@ input int    StreakPenaltyPerLoss       = 2;   // Streak penalty per loss
 // StreakMaxPenalty: Ceiling - a streak is a hint that conditions changed, not a verdict
 input int    StreakMaxPenalty           = 6;   // Streak max penalty
 // StreakPrintOnUse: Log streak warnings
-input bool   StreakPrintOnUse           = true;   // Streak print on use (on/off)
+#define StreakPrintOnUse                     LogRiskEvents    // Package 14 log group (was input, default true)
 // EnableRepeatMistakeGuard: Notice when recent baskets already lost around this price
 input bool   EnableRepeatMistakeGuard   = true;   // Enable repeat mistake guard
 // RepeatMistakePoints: How close counts as "the same place" ($2.50)
@@ -4700,7 +4656,7 @@ input int    CounterTrendExceptionalMargin  = 3;   // Counter trend exceptional 
 // CounterTrendMaxLadderOrders: Ladder depth cap for an entry against a confirmed global trend. Being wrong on this bet means the grid is averaging INTO a running trend - the single most dangerous state for a martingale, per the EA's own note. Refuses no trades; it only limits how much a wrong one can cost. 0 = no cap.
 input int    CounterTrendMaxLadderOrders    = 3;   // Counter trend max ladder orders
 // CounterTrendPrintOnUse: Log every counter-trend decision (tier B allowed / tier C refused) - this is the data you need to tune the two thresholds above from a real session rather than a guess.
-input bool   CounterTrendPrintOnUse        = true;   // Counter trend print on use (on/off)
+#define CounterTrendPrintOnUse               LogEntryEvents   // Package 14 log group (was input, default true)
 // EnableCounterZoneCluster: FIX(counter-zone-single-level): treat a SHELF of several ordinary opposing levels as a wall, not only a single strong one. This is the guard against "sell at support / buy at resistance" when the nearest level alone looks weak.
 input bool   EnableCounterZoneCluster   = true;   // Enable counter zone cluster
 // CounterZoneClusterMinLevels: How many DISTINCT opposing levels inside CounterZoneBlockPoints make a shelf. Levels closer together than ZoneNextLevelGapPoints count once.
@@ -4718,7 +4674,7 @@ input int    SetupArmPullbackPoints      = 600;   // Setup arm pullback points
 // SetupArmScoreBonus: Bonus when a confirmation arrives - the objection was answered, which is worth more than it never having been raised
 input int    SetupArmScoreBonus          = 3;   // Setup arm score bonus
 // SetupArmPrintOnUse: Log arming, confirmation and expiry
-input bool   SetupArmPrintOnUse          = true;   // Setup arm print on use (on/off)
+#define SetupArmPrintOnUse                   LogEntryEvents   // Package 14 log group (was input, default true)
 // ShowSetupArmOnDash: Show the armed setup and what it is waiting for
 input bool   ShowSetupArmOnDash          = true;   // Show setup arm on dashboard
 // EnableZoneEdgeArming: V195: wait for the zone's reaction edge instead of penalising an early fill. The edge is a price - patience reaches it, a penalty only records that it was missed.
@@ -4762,7 +4718,7 @@ input int    ArmAuditHorizonBars         = 20;   // Arm audit horizon bars
 // ArmAuditWinPoints: Move in favour ($0.80) that counts the wait as having paid off
 input int    ArmAuditWinPoints           = 800;   // Arm audit win points
 // ArmAuditPrintOnUse: Log each verdict
-input bool   ArmAuditPrintOnUse          = true;   // Arm audit print on use (on/off)
+#define ArmAuditPrintOnUse                   LogEntryEvents   // Package 14 log group (was input, default true)
 // ShowArmAuditOnDash: Show the wait statistics on the dashboard
 input bool   ShowArmAuditOnDash          = true;   // Show arm audit on dashboard
 
@@ -4801,7 +4757,7 @@ input int    ZoneEdgeMinGapPoints       = 400;   // Zone edge min gap points
 // ZoneEdgeEarlyEntryPenalty: V173: 2 -> 4. reaksiya nuqtasiga yetmagan - darrov DD. Bu SIFAT jazosi, sharoit emas - v172 da ikkalasi bir xil pasaytirilgan edi, va bu botni haqiqiy xavflarga ham befarq qildi.      // Penalty for entering at the reach edge when the reaction edge is still ahead - the fill is early and drawdown is immediate
 input int    ZoneEdgeEarlyEntryPenalty  = 4;   // Zone edge early entry penalty
 // ZoneEdgePrintOnUse: Log edge resolution that changes a decision
-input bool   ZoneEdgePrintOnUse         = true;   // Zone edge print on use (on/off)
+#define ZoneEdgePrintOnUse                   LogBrainEvents   // Package 14 log group (was input, default true)
 // ShowZoneEdgesOnDash: V170d: default OFF. zona chekkalari - jurnalда batafsilroq. Seventeen new dashboard lines were added today and all defaulted on - together they push the panel past the height of a normal chart window, hiding the lines that matter during trading.
 input bool   ShowZoneEdgesOnDash        = false;   // Show zone edges on dashboard
 
@@ -4822,7 +4778,7 @@ input double ExitQualityTargetTooSmall  = 0.65;   // Exit quality target too sma
 // ExitQualityMaxSamples: Sample ceiling
 input int    ExitQualityMaxSamples      = 60;   // Exit quality max samples
 // ExitQualityPrintOnUse: Log each post-exit verdict
-input bool   ExitQualityPrintOnUse      = true;   // Exit quality print on use (on/off)
+#define ExitQualityPrintOnUse                LogExitEvents    // Package 14 log group (was input, default true)
 // EnableSlippageTracking: Measure the gap between the price asked for and the price received
 input bool   EnableSlippageTracking     = true;   // Enable slippage tracking
 // SlippageMaxSamples: Sample ceiling
@@ -4855,7 +4811,7 @@ input double TPFactorMin                = 0.60;   // TP factor min
 // TPFactorMax: Largest. A scalper that starts holding for $4 is no longer the strategy that was tested.
 input double TPFactorMax                = 1.35;   // TP factor max
 // TPAdjustPrintOnUse: Log meaningful target adjustments
-input bool   TPAdjustPrintOnUse         = true;   // TP adjust print on use (on/off)
+#define TPAdjustPrintOnUse                   LogExitEvents    // Package 14 log group (was input, default true)
 // EntryLotFactorMin: V175: 0.65 -> 0.80 on request. The floor under the COMBINED entry adjustment. Below 80% the grid progression behind it stops matching the settings - every rung multiplies from the first, so a 65% first entry makes the whole recovery ladder 35% weaker than the numbers say.
 input double EntryLotFactorMin          = 0.80;   // Entry lot factor min
 // EntryLotAbsoluteFloor: V175: the entry lot never falls below this fraction of StartLot, whatever the adjustments decide. Applied LAST, after conviction scaling, ladder-fit scaling and the scale-in split - each is bounded on its own, but they multiply, and 0.80 x 0.80 is 0.64. This is the figure that holds.
@@ -4887,7 +4843,7 @@ input ENUM_TIMEFRAMES  FVGTimeframe          = PERIOD_M15;   // FVG timeframe
 input int              FVGLookbackBars       = 100;   // FVG lookback bars
 // FVGMinGapPoints: Ignore gaps smaller than this - not significant
 input int              FVGMinGapPoints       = 150;   // FVG min gap points
-input bool             FVGPrintOnUse         = false;   // FVG print on use (on/off)
+#define FVGPrintOnUse                        LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Order flow (tick volume)"
 // EnableOrderFlow: MT5 has no real order flow, this is a tick-volume-based proxy
@@ -4918,7 +4874,7 @@ input double           DXYProxyMinSlopePercent   = 0.15;   // DXY proxy min slop
 input bool             DXYProxyInverseRelationship = true;   // DXY proxy inverse relationship (on/off)
 // DXYProxyLotFactor: Lot multiplier when the entry goes against the dollar proxy trend
 input double           DXYProxyLotFactor         = 0.6;   // DXY proxy lot factor
-input bool             DXYProxyPrintOnUse        = true;   // DXY proxy print on use (on/off)
+#define DXYProxyPrintOnUse                   LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Broker holiday calendar"
 input bool   EnableBrokerHolidayCalendar     = true;   // Enable broker holiday calendar
@@ -4929,7 +4885,7 @@ input int    BrokerHolidayCautionDaysAfter   = 1;   // Broker holiday caution da
 // BrokerHolidayHardBlockOnDay: default OFF - caution (lot cut) instead of a hard block
 input bool   BrokerHolidayHardBlockOnDay     = false;   // Broker holiday hard block on day (on/off)
 input double BrokerHolidayLotFactor          = 0.5;   // Broker holiday lot factor
-input bool   BrokerHolidayPrintOnUse         = true;   // Broker holiday print on use (on/off)
+#define BrokerHolidayPrintOnUse              LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Laddered partial close (2-stage)"
 // EnableLadderedPartialClose: V62b: OFF for the same reason as EnableSmartPartialClose - a second trim stage only compounds the average-price distortion described there. (No effect anyway while Smart Partial Close is off, but set false so re-enabling one does not silently pull in the other.)
@@ -4946,7 +4902,7 @@ input bool   EnableNewsAutoFlat         = true;   // Enable news auto flat
 input int    NewsAutoFlatMinutesBefore  = 15;   // News auto flat minutes before
 // NewsAutoFlatOnlyIfProfit: Only close if the basket is currently in profit
 input bool   NewsAutoFlatOnlyIfProfit   = true;   // News auto flat only if profit (on/off)
-input bool   NewsAutoFlatPrintOnUse     = true;   // News auto flat print on use (on/off)
+#define NewsAutoFlatPrintOnUse               LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Correlation instability"
 // EnableCorrelationInstability: Extra caution when a pair's correlation itself is unreliable
@@ -4957,7 +4913,7 @@ input int    CorrelationLongWindowBars        = 200;   // Correlation long windo
 input double CorrelationInstabilityThreshold  = 0.35;   // Correlation instability threshold
 // CorrelationInstabilityLotFactor: Extra lot cut applied on top of the normal correlation cut
 input double CorrelationInstabilityLotFactor  = 0.7;   // Correlation instability lot factor
-input bool   CorrelationInstabilityPrintOnUse = false;   // Correlation instability print on use (on/off)
+#define CorrelationInstabilityPrintOnUse     LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Market confidence score (volatility + bayes + hurst)"
 // EnableConfidenceScore: Combines 3 independent signals into ONE final lot multiplier
@@ -4985,7 +4941,7 @@ input int    HurstMinChunkSize            = 8;   // Hurst min chunk size
 input double ConfidenceMinLotMultiplier   = 0.6;   // Confidence min lot multiplier
 // ConfidenceMaxLotMultiplier: Capped at 1.0 - never exceeds StartLot
 input double ConfidenceMaxLotMultiplier   = 1.0;   // Confidence max lot multiplier
-input bool   ConfidencePrintOnUse         = false;   // Confidence print on use (on/off)
+#define ConfidencePrintOnUse                 LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Smart zone recovery (trend-block exception)"
 // EnableSmartZoneRecovery: Allow ONE reduced-lot recovery add at a strong wall while trend-block is active
@@ -5008,14 +4964,14 @@ input double SZRLotFactor                 = 1.0;   // SZR lot factor
 input bool   EnableSZREscapeMode         = false;   // Enable SZR escape mode
 // SZREscapePlusPoints: Escape target: basket profit points that triggers the fast release
 input int    SZREscapePlusPoints         = 300;   // SZR escape plus points
-input bool   SZRPrintOnUse                = true;   // SZR print on use (on/off)
+#define SZRPrintOnUse                        LogBrainEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Hunter intelligence upgrade"
 // EnableHunterD1Filter: Hunter's lower score threshold only applies WITH the D1 trend
 input bool   EnableHunterD1Filter        = true;   // Enable hunter D1 filter
 // HunterD1LookbackDays: D1 bars back to compare for overall direction
 input int    HunterD1LookbackDays        = 10;   // Hunter D1 lookback days
-input bool   HunterD1PrintOnUse          = true;   // Hunter D1 print on use (on/off)
+#define HunterD1PrintOnUse                   LogBrainEvents   // Package 14 log group (was input, default true)
 // EnableHunterVelocitySense: Give a small score bonus when a live tick-velocity spike agrees with the signal direction (pre-candle-close impulse sensing)
 input bool   EnableHunterVelocitySense   = true;   // Enable hunter velocity sense
 input int    HunterVelocitySenseBonus    = 1;   // Hunter velocity sense bonus
@@ -5061,13 +5017,13 @@ input int    FBRLookbackBars             = 6;   // Fbr lookback bars
 input int    FBRBreachPoints             = 50;   // Fbr breach points
 // FBRMinZoneStrength: Wall must be at least this strong to qualify
 input double FBRMinZoneStrength          = 1.2;   // Fbr min zone strength
-input bool   FBRPrintOnUse               = false;   // Fbr print on use (on/off)
+#define FBRPrintOnUse                        LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Max basket exposure (scales with any account size)"
 // EnableMaxBasketExposure: Hard block: total basket margin can never exceed this % of equity, whatever the account size
 input bool   EnableMaxBasketExposure     = true;   // Enable max basket exposure
 // (moved to group "00 - MASTER SL / DD LIMITS" at the top) MaxBasketMarginPercent
-input bool   MaxBasketExposurePrintOnUse = true;   // Max basket exposure print on use (on/off)
+#define MaxBasketExposurePrintOnUse          LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Session-adaptive grid distance"
 // EnableSessionGridDistance: Grid steps tighter in quiet Asia hours, wider in London/NY
@@ -5075,7 +5031,7 @@ input bool   EnableSessionGridDistance   = true;   // Enable session grid distan
 // AsiaGridDistanceFactor: Asia session grid distance multiplier (1.0 = normal)
 input double AsiaGridDistanceFactor      = 1.0;   // Asia grid distance factor
 input double LondonNYGridDistanceFactor  = 1.15;   // London NY grid distance factor
-input bool   SessionGridPrintOnUse       = false;   // Session grid print on use (on/off)
+#define SessionGridPrintOnUse                LogDiagnostics   // Package 14 log group (was input, default false)
 // EnableSessionTransitionGuard: V31.6z24 NEW: caution during the volatile first minutes after a major session opens
 input bool   EnableSessionTransitionGuard = true;   // Enable session transition guard
 // SessionTransitionWindowMinutes: Minutes before/after session open to treat as a transition window
@@ -5115,7 +5071,7 @@ input int    GapFillMagnetMaxAgeBars     = 240;   // Gap fill magnet max age bar
 // GapFillMagnetMinBarGap: V178b: a real gap leaves a TIME hole - the bars either side sit further apart than this multiple of the timeframe. Without the test, any two adjacent minutes that jumped $2 armed the magnet, which on gold is a fast tick rather than a gap.
 input int    GapFillMagnetMinBarGap      = 3;   // Gap fill magnet min bar gap
 // GapFillMagnetPrintOnUse: Log when the magnet arms and expires
-input bool   GapFillMagnetPrintOnUse     = true;   // Gap fill magnet print on use (on/off)
+#define GapFillMagnetPrintOnUse              LogEntryEvents   // Package 14 log group (was input, default true)
 // GapFillMagnetScorePenalty: Score penalty when not hard-blocking (or for grid context)
 input int    GapFillMagnetScorePenalty    = 4;   // Gap fill magnet score penalty
 // GapFillMagnetFilledFraction: Gap counts as "filled" once price retraces this fraction of it back toward the fill level (0.90 = 90%)
@@ -5178,7 +5134,7 @@ input double NearZoneReactionMinStrength = 1.2;   // Near zone reaction min stre
 // EnableNYKillzoneCaution: Soft lot caution during typical NY-open volatility window - never blocks, any signal type
 input bool   EnableNYKillzoneCaution     = true;   // Enable NY killzone caution
 input double NYKillzoneLotFactor         = 0.7;   // NY killzone lot factor
-input bool   NYKillzonePrintOnUse        = false;   // NY killzone print on use (on/off)
+#define NYKillzonePrintOnUse                 LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Impulse correction guard (first entry) [superseded]"
 // EnableImpulseCorrectionGuard: OFF - superseded by group 77 (swing-based)
@@ -5186,7 +5142,7 @@ input bool   EnableImpulseCorrectionGuard      = false;   // Enable impulse corr
 input int    ImpulseCorrectionWindowBars       = 8;   // Impulse correction window bars
 input double ImpulseCorrectionMinRetracePercent = 25.0;   // Impulse correction min retrace %
 input double ImpulseCorrectionLotFactor        = 0.5;   // Impulse correction lot factor
-input bool   ImpulseCorrectionPrintOnUse       = true;   // Impulse correction print on use (on/off)
+#define ImpulseCorrectionPrintOnUse          LogBrainEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Swing impulse correction (upgraded, multi-layer)"
 input bool             EnableSwingImpulseCorrection = true;   // Enable swing impulse correction
@@ -5212,7 +5168,7 @@ input double            SwingImpulseZoneSearchFactor = 0.6;   // Swing impulse z
 input double            SwingImpulseBigDirLotFactor = 0.5;   // Swing impulse big dir lot factor
 // SwingImpulseSmallDirLotFactor: Lot factor when no zone match, but retrace/ATR conditions still qualify
 input double            SwingImpulseSmallDirLotFactor = 0.7;   // Swing impulse small dir lot factor
-input bool              SwingImpulsePrintOnUse      = true;   // Swing impulse print on use (on/off)
+#define SwingImpulsePrintOnUse               LogBrainEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Trend reversal (swing sequence + RSI divergence)"
 input bool              EnableTrendReversal          = true;   // Enable trend reversal
@@ -5240,7 +5196,7 @@ input int               MTFAgainstPenalty2           = 2;   // MTF against penal
 input bool              EnableTrendStrengthEntry     = true;   // Enable trend strength entry
 // TrendStrengthEntryPenaltyMax: Penalty at maximum adverse trend strength (ADX >= TrendStrengthStrongADX)
 input int               TrendStrengthEntryPenaltyMax = 4;   // Trend strength entry penalty max
-input bool              TrendReversalPrintOnUse      = true;   // Trend reversal print on use (on/off)
+#define TrendReversalPrintOnUse              LogBrainEvents   // Package 14 log group (was input, default true)
 // V31.6m cleanup: removed EnableGridReversalBlock - superseded by the continuous Grid
 // Intelligence Score system (group 92), which replaced this binary block entirely.
 
@@ -5251,7 +5207,7 @@ input int               MTFAlignmentH1LookbackBars   = 20;   // MTF alignment H1
 input int               MTFAlignmentH4LookbackBars   = 20;   // MTF alignment H4 lookback bars
 // MTFAlignmentBonusPerTF: Score bonus per additional timeframe that agrees with the entry direction
 input int               MTFAlignmentBonusPerTF       = 1;   // MTF alignment bonus per TF
-input bool              MTFAlignmentPrintOnUse       = false;   // MTF alignment print on use (on/off)
+#define MTFAlignmentPrintOnUse               LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Brain consensus (independent-evidence synergy)"
 // EnableBrainConsensus: Rewards genuine agreement across INDEPENDENT evidence categories, beyond their individual score contributions
@@ -5261,7 +5217,7 @@ input int               BrainConsensusMinCategories  = 3;   // Brain consensus m
 input int               BrainConsensusBonus          = 2;   // Brain consensus bonus
 // BrainConsensusConflictPenalty: V31.6z66: NEW state - enough categories agree AND enough disagree at the same time. Previously the `else if` meant agreement won and every opposing category was silently discarded. Conflict is ambiguity, not confirmation.
 input int               BrainConsensusConflictPenalty = 3;   // Brain consensus conflict penalty
-input bool              BrainConsensusPrintOnUse     = true;   // Brain consensus print on use (on/off)
+#define BrainConsensusPrintOnUse             LogEntryEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Zone polarity flip"
 input bool              EnableZonePolarityFlip       = true;   // Enable zone polarity flip
@@ -5291,7 +5247,7 @@ input bool              EnableSpreadATRQuality       = true;   // Enable spread 
 // SpreadATRWarnRatio: Spread above this fraction of ATR = caution
 input double            SpreadATRWarnRatio           = 0.15;   // Spread ATR warn ratio
 input double            SpreadATRLotFactor            = 0.7;   // Spread ATR lot factor
-input bool              SpreadATRPrintOnUse          = false;   // Spread ATR print on use (on/off)
+#define SpreadATRPrintOnUse                  LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ News surprise magnitude"
 input bool              EnableNewsSurprise           = true;   // Enable news surprise
@@ -5300,7 +5256,7 @@ input double             NewsSurpriseMinPercent       = 20.0;   // News surprise
 // NewsSurpriseExtraCautionMinutes: Extra caution window after a big surprise, beyond the normal pre/post window
 input int               NewsSurpriseExtraCautionMinutes = 30;   // News surprise extra caution minutes
 input double            NewsSurpriseLotFactor        = 0.6;   // News surprise lot factor
-input bool              NewsSurprisePrintOnUse       = true;   // News surprise print on use (on/off)
+#define NewsSurprisePrintOnUse               LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Day-of-week learning"
 input bool              EnableDayOfWeekBayes         = true;   // Enable day of week bayes
@@ -5316,7 +5272,7 @@ input int               PostSLDirectionWindowBars    = 15;   // Post SL directio
 // PostSLDirectionExtraScoreReq: Extra score points required for a same-direction entry in the window
 input int               PostSLDirectionExtraScoreReq = 3;   // Post SL direction extra score required
 input double            PostSLDirectionLotFactor     = 0.6;   // Post SL direction lot factor
-input bool              PostSLDirectionPrintOnUse    = true;   // Post SL direction print on use (on/off)
+#define PostSLDirectionPrintOnUse            LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Zone fatigue (rapid repeat testing)"
 input bool              EnableZoneFatigue            = true;   // Enable zone fatigue
@@ -5355,7 +5311,7 @@ input double            MarginLevelWarnPercent       = 150.0;   // Margin level 
 // MarginLevelDangerPercent: Below this - new grid additions blocked
 input double            MarginLevelDangerPercent     = 100.0;   // Margin level danger %
 input double            MarginLevelLotFactor         = 0.5;   // Margin level lot factor
-input bool              MarginLevelPrintOnUse        = true;   // Margin level print on use (on/off)
+#define MarginLevelPrintOnUse                LogRiskEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Duplicate instance protection"
 // A completely different risk dimension: not market risk, but DEPLOYMENT risk. If the same
@@ -5366,7 +5322,7 @@ input group "ADVANCED ▸ Duplicate instance protection"
 input bool              EnableDuplicateInstanceGuard = true;   // Enable duplicate instance guard
 input int               DuplicateInstanceHeartbeatSeconds = 5;   // Duplicate instance heartbeat seconds
 input int               DuplicateInstanceStaleSeconds = 30;   // Duplicate instance stale seconds
-input bool              DuplicateInstancePrintOnUse  = true;   // Duplicate instance print on use (on/off)
+#define DuplicateInstancePrintOnUse          LogSystemEvents  // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Grid intelligence (sixteen-sense, continuous)"
 // Grid is the primary rescue mechanism when a basket is losing - it now gets the fullest
@@ -5417,10 +5373,10 @@ input int               DirectionalClarityMinOpposingScore = 4;   // Directional
 input int               DirectionalClarityMaxMargin  = 3;   // Directional clarity max margin
 // DirectionalClarityMaxPenalty: Penalty at a dead tie (margin=0), scaling down linearly as the margin widens
 input int               DirectionalClarityMaxPenalty = 4;   // Directional clarity max penalty
-input bool              DirectionalClarityPrintOnUse = true;   // Directional clarity print on use (on/off)
+#define DirectionalClarityPrintOnUse         LogEntryEvents   // Package 14 log group (was input, default true)
 // GridIntelligenceHardBlockBelow: Below this score, block entirely (overwhelming multi-sense agreement against)
 input double            GridIntelligenceHardBlockBelow = 0.12;   // Grid intelligence hard block below
-input bool              GridIntelligencePrintOnUse   = true;   // Grid intelligence print on use (on/off)
+#define GridIntelligencePrintOnUse           LogGridEvents    // Package 14 log group (was input, default true)
 // GridIntelligenceConsensusWeight: Per-extra-sense adjustment when 3+ senses strongly agree (either direction)
 input double            GridIntelligenceConsensusWeight = 0.08;   // Grid intelligence consensus weight
 // GridIntelligenceConflictPenalty: Penalty when senses are genuinely split (ambiguous, dangerous ground)
@@ -5465,7 +5421,7 @@ input int               MajorSweepZoneSearchPoints   = 300;   // Major sweep zon
 input double            MajorSweepMinZoneStrength    = 1.5;   // Major sweep min zone strength
 // MajorSweepScoreBonus: Bonus/penalty magnitude when a recent sweep agrees/disagrees with the proposed direction
 input int               MajorSweepScoreBonus         = 2;   // Major sweep score bonus
-input bool              MajorSweepPrintOnUse         = true;   // Major sweep print on use (on/off)
+#define MajorSweepPrintOnUse                 LogBrainEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Equilibrium / premium-discount zone"
 // Classic SMC concept: the 50% midpoint of the current significant range splits it into
@@ -5484,7 +5440,7 @@ input int               EQZoneScoreBonus             = 2;   // EQ zone score bon
 input bool              EnableEQZoneScaling          = true;   // Enable EQ zone scaling
 // EQZoneDeepBonus: V251: extra weight at the far edge of the range, on top of the base. At the threshold itself the reading is marginal; at the extreme it is the whole trade.
 input int               EQZoneDeepBonus              = 4;   // EQ zone deep bonus
-input bool              EQZonePrintOnUse             = false;   // EQ zone print on use (on/off)
+#define EQZonePrintOnUse                     LogDiagnostics   // Package 14 log group (was input, default false)
 
 input group "ADVANCED ▸ Engulfing pattern awareness"
 // Classic two-candle reversal/continuation confirmation: current candle's body completely
@@ -5496,7 +5452,7 @@ input bool              EngulfingRequireZoneConfirm  = true;   // Engulfing requ
 input int               EngulfingZoneSearchPoints    = 300;   // Engulfing zone search points
 input double            EngulfingMinZoneStrength     = 1.5;   // Engulfing min zone strength
 input int               EngulfingScoreBonus          = 2;   // Engulfing score bonus
-input bool              EngulfingPrintOnUse          = true;   // Engulfing print on use (on/off)
+#define EngulfingPrintOnUse                  LogBrainEvents   // Package 14 log group (was input, default true)
 
 // FEATURE(candlestick-models): Pin Bar (Hammer / Shooting Star) and Morning/Evening Star, added
 // to the reversal consensus so a turn is confirmed by classic candlestick reversals, not just
@@ -5576,7 +5532,7 @@ input double FirstEntryConsensusMinScore    = 0.80;   // First entry consensus m
 input int    FirstEntryConsensusBonus       = 2;   // First entry consensus bonus
 // FirstEntryConsensusPenalty: V50b: cut 2 -> 1. This penalty stacked on top of ReversalTypeExtraScoreReq (+1 to the minimum) and the daily-bias penalty, pushing a Balanced-mode reversal entry's effective bar to ~10 points - a good setup scoring 8 was failing. The +2 bonus for confirmed consensus is kept, so consensus is still rewarded; it's just no longer double-punished when absent.
 input int    FirstEntryConsensusPenalty     = 1;   // First entry consensus penalty
-input bool   FirstEntryConsensusPrintOnUse  = true;   // First entry consensus print on use (on/off)
+#define FirstEntryConsensusPrintOnUse        LogEntryEvents   // Package 14 log group (was input, default true)
 // ReversalTypeDepthBoostMultiplier: Grid's depth-aware threshold rises this much faster for a reversal-opened basket
 input double            ReversalTypeDepthBoostMultiplier = 1.5;   // Reversal type depth boost multiplier
 
@@ -5595,7 +5551,7 @@ input int               TrendQualitySwingLookback     = 40;   // Trend quality s
 // TrendQualityBonus: Score bonus when trend quality strongly agrees with entry direction
 input int               TrendQualityBonus            = 2;   // Trend quality bonus
 input double            TrendQualityMinScoreForBonus = 0.65;   // Trend quality min score for bonus
-input bool              TrendQualityPrintOnUse       = true;   // Trend quality print on use (on/off)
+#define TrendQualityPrintOnUse               LogBrainEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Breakout continuation"
 // Opposite of Fake Breakout Return: price breaks a real zone with a strong, non-rejecting
@@ -5732,7 +5688,7 @@ input bool              EnableZoneWallHardBlock      = false;   // Enable zone w
 input int               ZoneWallHardBlockPoints      = 250;   // Zone wall hard block points
 // ZoneWallHardBlockMinStrength: V33b: raised 2.2 -> 2.5. With PDH/PDL now added as strong levels, 2.2 was reached too often and blocked too much. 2.5 reserves the hard block for genuinely major, multi-touch walls, keeping the bot active near ordinary daily levels.
 input double            ZoneWallHardBlockMinStrength = 2.5;   // Zone wall hard block min strength
-input bool              ZoneWallHardBlockPrintOnUse  = true;   // Zone wall hard block print on use (on/off)
+#define ZoneWallHardBlockPrintOnUse          LogBrainEvents   // Package 14 log group (was input, default true)
 
 // FEATURE(counter-zone-firstentry): variant B - a dedicated hard block for the exact failure the
 // user hit: a first entry opened straight INTO a strong zone it should bounce off (a SELL sitting
@@ -5769,8 +5725,8 @@ input int    SecondLevelReachPoints      = 8000;   // Second level reach points
 // SecondLevelPenalty: Score cost of trading toward a level whose real barrier sits just behind the visible one
 input int    SecondLevelPenalty          = 4;   // Second level penalty
 // SecondLevelPrintOnUse: Log when a hidden stronger level is found
-input bool   SecondLevelPrintOnUse       = true;   // Second level print on use (on/off)
-input bool   CounterZoneBlockPrintOnUse    = true;   // Counter zone block print on use (on/off)
+#define SecondLevelPrintOnUse                LogBrainEvents   // Package 14 log group (was input, default true)
+#define CounterZoneBlockPrintOnUse           LogEntryEvents   // Package 14 log group (was input, default true)
 
 // FEATURE(htf-against-firstentry): variant B for "the bot opens SELL against a BUY market and sits
 // in DD". Until now a first entry fighting the higher-timeframe trend only lost a couple of score
@@ -5950,7 +5906,7 @@ input double            GlobalLocalPullbackLocalMin  = 0.40;   // Global local p
 input double            GlobalLocalPullbackTaperRate = 0.55;   // Global local pullback taper rate
 // GlobalLocalScoreBonus: First Entry bonus/penalty magnitude when alignment is strongly favorable/unfavorable
 input int               GlobalLocalScoreBonus        = 3;   // Global local score bonus
-input bool              GlobalLocalPrintOnUse        = true;   // Global local print on use (on/off)
+#define GlobalLocalPrintOnUse                LogBrainEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Reversal consensus (unified)"
 // Direct user feedback: Sense 1 (heaviest-weighted throughout) only ever used swing+RSI to
@@ -6019,7 +5975,7 @@ input bool              EnableStandaloneMoveExtension = true;   // Enable standa
 // StandaloneMoveExtensionMaxPenalty: V121: 3 -> 5. Entering at the end of an extended trend is one of the most expensive mistakes this EA makes (it opens at the worst price and the retrace becomes deep DD), so it deserves more than a nudge. // Penalty at full climax extension, scaling up from zero at MoveExtensionMatureATR
 input int               StandaloneMoveExtensionMaxPenalty = 5;   // Standalone move extension max penalty
 input int               ImpulseScoreBonus            = 2;   // Impulse score bonus
-input bool              ImpulsePrintOnUse            = true;   // Impulse print on use (on/off)
+#define ImpulsePrintOnUse                    LogBrainEvents   // Package 14 log group (was input, default true)
 
 // FEATURE(impulse-end-hardblock): direct user request - "if the impulse is SELL, do NOT open
 // another SELL at the very bottom; if BUY, do NOT open another BUY at the very top". The
@@ -6080,8 +6036,8 @@ input bool              EnableBlowOffHardBlock       = false;   // Enable blow o
 input double            BlowOffCandleATRMult         = 2.5;   // Blow off candle ATR multiplier
 // BlowOffLookbackBars: Check the last N closed bars for a blow-off in our direction (1 = only the most recent)
 input int               BlowOffLookbackBars          = 2;   // Blow off lookback bars
-input bool              BlowOffHardBlockPrintOnUse   = true;   // Blow off hard block print on use (on/off)
-input bool              ImpulseEndHardBlockPrintOnUse = true;   // Impulse end hard block print on use (on/off)
+#define BlowOffHardBlockPrintOnUse           LogBrainEvents   // Package 14 log group (was input, default true)
+#define ImpulseEndHardBlockPrintOnUse        LogBrainEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Competing reversal signal caution"
 // Trend Reversal (swing/RSI-based) already applies universally, but our 5 dedicated
@@ -6148,7 +6104,7 @@ input int               MarketStructureAgainstPenalty = 4;   // Market structure
 // MarketStructureHardBlock: false = penalty only (recommended to start). true = hard-block entries against a confirmed structure.
 input bool              MarketStructureHardBlock     = false;   // Market structure hard block (on/off)
 // MarketStructurePrintOnUse: Log the structural reading when it affects a decision
-input bool              MarketStructurePrintOnUse    = false;   // Market structure print on use (on/off)
+#define MarketStructurePrintOnUse            LogDiagnostics   // Package 14 log group (was input, default false)
 // MarketStructureBOSBonus: Bonus for entering in the direction of a structure that just EXTENDED (Break of Structure) - the chain confirmed itself
 input int               MarketStructureBOSBonus      = 2;   // Market structure BOS bonus
 // MarketStructureCHoCHReleases: When a CHoCH fires (the chain just broke), stop penalising entries against the old structure. Without this the EA would keep defending a structure that has already failed and would miss every reversal. Highly recommended ON.
@@ -6181,7 +6137,7 @@ input double            StructureBreakTPFactor       = 0.6;   // Structure break
 // StructureBreakCountsAsExitConfirm: Count a structural turn against the basket as one SmartEarlyExit confirmation
 input bool              StructureBreakCountsAsExitConfirm = true;   // Structure break counts as exit confirm (on/off)
 // StructureBasketExitPrintOnUse: Log when the structure shortens a basket's target
-input bool              StructureBasketExitPrintOnUse = true;   // Structure basket exit print on use (on/off)
+#define StructureBasketExitPrintOnUse        LogExitEvents    // Package 14 log group (was input, default true)
 
 // V117: consensus. Each reading already speaks for itself; this asks whether they agree. Unanimity
 // across independent mechanisms (swings, zone behaviour, indicators) is the strongest signal this EA
@@ -6202,7 +6158,7 @@ input int               VerdictAgainstPenalty        = 4;   // Verdict against p
 // VerdictSplitPenalty: Penalty for entering while the readings are genuinely split (market without an owner)
 input int               VerdictSplitPenalty          = 2;   // Verdict split penalty
 // MarketVerdictPrintOnUse: Log the verdict each bar
-input bool              MarketVerdictPrintOnUse      = false;   // Market verdict print on use (on/off)
+#define MarketVerdictPrintOnUse              LogDiagnostics   // Package 14 log group (was input, default false)
 
 // V118: room to target. Direction is only half the question - the other half is whether there is
 // space in front of the entry for the target to be reached. On a ~$2.50 scalp target, opening into
@@ -6220,7 +6176,7 @@ input int               RoomTooTightPenalty          = 4;   // Room too tight pe
 // RoomHardBlock: V171: true -> false. Room is real, but the contextual TP now shrinks the target toward whatever room exists, so refusing as well means refusing trades the EA had already adapted to. Re-enable if the log shows entries still being taken into walls.
 input bool              RoomHardBlock                = false;   // Room hard block (on/off)
 // RoomPrintOnUse: Log the room measurement when it affects a decision
-input bool              RoomPrintOnUse               = false;   // Room print on use (on/off)
+#define RoomPrintOnUse                       LogDiagnostics   // Package 14 log group (was input, default false)
 
 // V119: zone role. A level's role is decided purely by whether it sits above or below price, which
 // breaks inside a thick band: there the EA sees resistance just above AND support just below, births
@@ -6263,7 +6219,7 @@ input bool   FreshImpulseWaitHardBlock       = false;   // Fresh impulse wait ha
 // FreshImpulseWaitPenalty: V190: yangi impulsdan keyin darrov kirish jazosi
 input int    FreshImpulseWaitPenalty         = 3;   // Fresh impulse wait penalty
 // ZoneRolePrintOnUse: Log when an entry is refused or penalised for an undefined zone role
-input bool              ZoneRolePrintOnUse           = true;   // Zone role print on use (on/off)
+#define ZoneRolePrintOnUse                   LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V140: liquidity map. The EA recognises a sweep only after it has happened, which is too late to
 // act on. Stops cluster just beyond swing extremes, and most heavily where several swings line up at
@@ -6293,7 +6249,7 @@ input double            LiquidityMinWeight       = 2.5;   // Liquidity min weigh
 // LiquidityNearPoints: A pool further away than this ($5) is too distant to matter for a scalp
 input int               LiquidityNearPoints      = 5000;   // Liquidity near points
 // LiquidityPrintOnUse: Log pools that change a decision
-input bool              LiquidityPrintOnUse      = true;   // Liquidity print on use (on/off)
+#define LiquidityPrintOnUse                  LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V142: event chain. Every event the EA detects - a level breaking, a thrust, a structure flip, a
 // sweep - is scored the instant it appears and then forgotten. Nothing asks what came BEFORE it,
@@ -6305,7 +6261,7 @@ input bool              EnableEventChain         = true;   // Enable event chain
 // EventChainDedupeBars: The same event kind and direction within this many bars is treated as one event still developing
 input int               EventChainDedupeBars     = 3;   // Event chain dedupe bars
 // EventChainPrintOnUse: Log every event appended to the chain (verbose - for tuning)
-input bool              EventChainPrintOnUse     = false;   // Event chain print on use (on/off)
+#define EventChainPrintOnUse                 LogDiagnostics   // Package 14 log group (was input, default false)
 // ShowEventChainOnDash: V170d: default OFF. hodisalar zanjiri - bashorat qatori uni allaqachon xulosalaydi. Seventeen new dashboard lines were added today and all defaulted on - together they push the panel past the height of a normal chart window, hiding the lines that matter during trading.
 input bool              ShowEventChainOnDash     = false;   // Show event chain on dashboard
 
@@ -6339,7 +6295,7 @@ input int               ChainExpectAgainstPenalty  = 4;   // Chain expect agains
 // ChainExpectMinConfidence: Confidence needed before the expectation affects the decision at all
 input double            ChainExpectMinConfidence   = 0.60;   // Chain expect min confidence
 // ChainExpectPrintOnUse: Log expectations that change a decision
-input bool              ChainExpectPrintOnUse      = true;   // Chain expect print on use (on/off)
+#define ChainExpectPrintOnUse                LogBrainEvents   // Package 14 log group (was input, default true)
 
 // V144: scenarios. Every module produces a direction and the EA reduces them to one answer, which
 // throws away the most useful part of the reading: "45/30/25" and "80/10/10" both name the same
@@ -6363,7 +6319,7 @@ input double            ScenarioMinMargin        = 0.20;   // Scenario min margi
 // ScenarioUndecidedPenalty: Penalty for entering while the scenarios are this close - the market has not chosen a side
 input int               ScenarioUndecidedPenalty = 2;   // Scenario undecided penalty
 // ScenarioPrintOnUse: Log the scenario split each time it affects a decision
-input bool              ScenarioPrintOnUse       = false;   // Scenario print on use (on/off)
+#define ScenarioPrintOnUse                   LogDiagnostics   // Package 14 log group (was input, default false)
 // ShowScenariosOnDash: Show the split on the dashboard
 input bool              ShowScenariosOnDash      = true;   // Show scenarios on dashboard
 
@@ -6383,7 +6339,7 @@ input double            ChainLearningShrinkage   = 12.0;   // Chain learning shr
 // ChainLearningMaxSamples: Tally ceiling per pattern; beyond it older evidence decays so behaviour can change
 input int               ChainLearningMaxSamples  = 60;   // Chain learning max samples
 // ChainLearningPrintOnUse: Log every graded prediction
-input bool              ChainLearningPrintOnUse  = true;   // Chain learning print on use (on/off)
+#define ChainLearningPrintOnUse              LogSystemEvents  // Package 14 log group (was input, default true)
 
 // V113: the break SEQUENCE - the staircase. On the live chart the user marked four levels broken in
 // turn (4020 -> 4050 -> 4070 -> 4165), each becoming support: that progression is the plainest
@@ -6402,7 +6358,7 @@ input int               BreakSequenceDedupePoints    = 800;   // Break sequence 
 input int               BreakSequenceWithBonus       = 3;   // Break sequence with bonus
 // BreakSequenceAgainstPenalty: Penalty for entering against a confirmed staircase - fading a market that is stepping through level after level
 input int               BreakSequenceAgainstPenalty  = 5;   // Break sequence against penalty
-input bool              ZoneBreakPrintOnUse          = true;   // Zone break print on use (on/off)
+#define ZoneBreakPrintOnUse                  LogBrainEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Smart trail acceleration"
 // The one part of the trade lifecycle none of today's new senses ever reached: exit/trailing
@@ -6416,7 +6372,7 @@ input bool              EnableSmartTrailTightening   = true;   // Enable smart t
 input int               SmartTrailMinStepPoints      = 100;   // Smart trail min step points
 // SmartTrailWarningsForMaxTighten: Warnings needed (out of 4 checks) to reach the minimum step
 input int               SmartTrailWarningsForMaxTighten = 3;   // Smart trail warnings for max tighten
-input bool              SmartTrailPrintOnUse         = true;   // Smart trail print on use (on/off)
+#define SmartTrailPrintOnUse                 LogExitEvents    // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Grid-vs-trailing safety check"
 // Grid Intelligence and the trailing/profit-lock system had zero awareness of each other -
@@ -6435,7 +6391,7 @@ input double            ImpulseExhaustionWickRatio   = 0.4;   // Impulse exhaust
 // ImpulseExhaustionShrinkFactor: Current body must shrink to at most this fraction of the prior body
 input double            ImpulseExhaustionShrinkFactor = 0.6;   // Impulse exhaustion shrink factor
 input int               ImpulseExhaustionPenalty     = 3;   // Impulse exhaustion penalty
-input bool              ImpulseExhaustionPrintOnUse  = true;   // Impulse exhaustion print on use (on/off)
+#define ImpulseExhaustionPrintOnUse          LogBrainEvents   // Package 14 log group (was input, default true)
 
 input group "ADVANCED ▸ Deceleration awareness (systematic audit follow-up)"
 // Four more instances of the SAME pattern found via deeper audit: checking if something IS

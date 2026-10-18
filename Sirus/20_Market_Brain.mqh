@@ -39,7 +39,7 @@ input double MBPressureWeakGap        = 20.0;   // Brain pressure weak gap
 // MBInvalidationMemoryM5: O'lgan thesis yo'nalishi ko'pi bilan shuncha M5 bar (1 soat) bloklanadi. HIDDEN-BUG FIX: 24 -> 12, va bozor shu yo'nalishni yangi struktura bilan qayta tasdiqlasa blok darhol ochiladi
 input int    MBInvalidationMemoryM5   = 12;   // Brain invalidation memory M5
 // MBThesisPrintOnUse: Thesis o'zgarishlarini jurnalga yozish ([SIRUS THESIS])
-input bool   MBThesisPrintOnUse       = true;   // Brain thesis print on use (on/off)
+#define MBThesisPrintOnUse                   LogBrainEvents   // Package 14 log group (was input, default true)
 input bool   EnableLocalTrading       = true;   // Enable local trading
 // LocalGridMaxRungs: Lokal (globalga qarshi) savat ko'pi bilan shuncha order
 input int    LocalGridMaxRungs        = 3;   // Local grid max rungs

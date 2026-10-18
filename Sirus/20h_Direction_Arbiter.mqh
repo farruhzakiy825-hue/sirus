@@ -37,7 +37,7 @@
 input group "BRAIN ▸ Direction arbiter (H1/H4 > M15 > M5/M1)"
 // EnableDirectionArbiter: Yo'nalish hakami: H1/H4 grid xavfini, M15 tomonni, M5/M1 vaqtni hal qiladi (birinchi kirish uchun)
 input bool   EnableDirectionArbiter   = true;   // Direction arbiter: H1/H4 grid risk, M15 side, M5/M1 timing
-input bool   ArbiterPrintOnUse        = true;   // Arbiter print on use (on/off)
+#define ArbiterPrintOnUse                    LogEntryEvents   // Package 14 log group (was input, default true)
 
 #define ARB_OK      0
 #define ARB_CAUTION 1

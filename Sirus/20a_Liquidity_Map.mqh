@@ -28,7 +28,7 @@ input group "BRAIN ▸ Liquidity map"
 // EnableMBLiquidityMap: Bitta likvidlik xaritasi: M5/M15/H1/H4 swing'lari + PDH/PDL, holati (toza/tegilgan/sweep/qayta sweep/olingan), kuchi (LOCAL..EXTREME), eng muhim daraja
 input bool   EnableMBLiquidityMap       = true;   // Enable mb liquidity map
 // MBLiquidityPrintOnUse: MAJOR+ sweep va tuzoqlarni jurnalga yozish ([SIRUS LIQUIDITY])
-input bool   MBLiquidityPrintOnUse      = true;   // Brain liquidity print on use (on/off)
+#define MBLiquidityPrintOnUse                LogBrainEvents   // Package 14 log group (was input, default true)
 // EnableSessionLiquidity: 12-PAKET: sessiya darajalari - Asia, Frankfurt, London high/low (oxirgi YAKUNLANGAN sessiya) likvidlik xaritasiga; New York midnight open panelda. Vaqt: UTC + yozgi/qishki vaqt, broker serveriga o'tkaziladi
 input bool   EnableSessionLiquidity     = true;   // Session liquidity: Asia / Frankfurt / London high-low, midnight open
 
