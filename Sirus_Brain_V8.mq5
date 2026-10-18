@@ -66,6 +66,7 @@ int OnInit()
    // TESTER: a non-visual run has nobody reading the journal - ~35 print-on-change loggers flooding it
    // were the main cost of a slow test. The decision trace CSV keeps the evidence.
    G_VERBOSE = VerboseLogs && !(TesterHeadless() && TesterQuietLogs);
+   RebateModeRestore(CountSirusPositions());   // package 25: an open basket keeps the mode it opened in
 
    // PACKAGE 3 (B-F12): a chart symbol change re-initialises the EA WITHOUT unloading it - every global
    // (event ring, liquidity map, lock, bias, zones, Kalman) still holds the OLD symbol's market. Trading
@@ -1092,7 +1093,7 @@ void ModuleHealthUpdate()
             (G_AFFORD_RUNG_CAP > 0 ? StringFormat(", capped at %d rungs", G_AFFORD_RUNG_CAP) : "")));
    }
 
-   if(EnableRebateMode)
+   if(RebateModeOn())
    {
       double rt = RebateTargetPoints();
       MHAdd("rebate", (rt > 0.0) ? 1 : -1,

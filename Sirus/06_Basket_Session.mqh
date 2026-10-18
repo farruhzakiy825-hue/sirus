@@ -2365,7 +2365,7 @@ double SpreadCostRatio(string &detail)
    // scanner's side in WAIT for good (and barred the brain's fast path on that side). The question this
    // check exists for - "is the spread wider than it will be in a few bars?" - is answered here against
    // the hour's normal spread instead: the ratio is how far above normal it stands (0.26 = 26% wider).
-   if(EnableRebateMode)
+   if(RebateModeOn())
    {
       double normal = MBNormalSpread();
       if(normal <= 0.0)

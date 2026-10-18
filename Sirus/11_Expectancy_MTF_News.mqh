@@ -940,7 +940,7 @@ bool StructureAgainstBasket(string &detail)
 // rebate does not cover losses. It covers the spread on the trades that work.
 double RebateTargetPoints()
 {
-   if(!EnableRebateMode || _Point <= 0.0)
+   if(!RebateModeOn() || _Point <= 0.0)
       return 0.0;
 
    double spread_pts = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
@@ -996,7 +996,7 @@ double BaseBasketTPPoints()
    // V277: the switch sits here deliberately. Every other target calculation in the EA reads this
    // one - the situation targets, the structure targets, the grid arithmetic - so putting it at the
    // top of the chain means they all follow without a second place to get it wrong.
-   if(EnableRebateMode)
+   if(RebateModeOn())
    {
       double rebate_tp = RebateTargetPoints();
       if(rebate_tp > 0.0)
@@ -1165,7 +1165,7 @@ double BasketTPForOrderCount(const int orders)
    // before the carry floor, and the TP check compares price points only - a basket held overnight closed
    // at "+224 pts" with a net LOSS, a loss close outside IMPOSSIBLE. (0 on a swap-free account.) The broker
    // backup TP is built from the same number.
-   if(EnableRebateMode)
+   if(RebateModeOn())
       return tp + BasketCarryCostPoints();
 
    // Recovery basket should escape faster as order count grows, but not too tiny.
@@ -1426,7 +1426,7 @@ bool WeekendGuardAllowsGrid(string &reason)
 // ============================================================================
 void RebateTimeFlatManage()
 {
-   if(!EnableRebateMode || !RebateTimeFlat) return;
+   if(!RebateModeOn() || !RebateTimeFlat) return;
    if(G_BASKET_ORDERS <= 0 || G_BASKET_OPEN_BAR <= 0) return;
 
    int age_bars = G_BARS_SEEN - G_BASKET_OPEN_BAR;

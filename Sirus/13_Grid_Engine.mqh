@@ -2636,6 +2636,7 @@ void RefreshGridDashboardStats()
       G_BASKET_POINTS = 0.0;
       G_BASKET_DD_PERCENT = 0.0;
       G_BASKET_MODE_FROZEN = false;   // V29 fix: basket closed, next basket uses live mode again
+      if(G_RB_FROZEN) RebateModeRelease();   // package 25: and the live cashback / normal mode
    }
 
    // FEATURE(tp-sl-lines): keep the chart TP / trailing-SL lines in sync with the current basket

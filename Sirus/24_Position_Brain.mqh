@@ -541,7 +541,7 @@ void MBRunnerReset()
 bool MBRunnerEligible(const int dir, const double tp_points, string &why)
 {
    why = "";
-   if(!EnableSmartRunner || EnableRebateMode || dir == 0 || tp_points <= 0.0)
+   if(!EnableSmartRunner || RebateModeOn() || dir == 0 || tp_points <= 0.0)
       return false;
    if(G_BASKET_ORDERS > MathMax(1, RunnerMaxOrders) || G_MB_PB_LOCAL || G_MB_PB_DEAD)
       return false;
@@ -609,7 +609,7 @@ double MBBrokerTPPointsAhead(const int dir)
 bool MBRunnerManage(const double basket_points, const double tp_points, string &why)
 {
    why = "";
-   if(!EnableSmartRunner || EnableRebateMode || G_MB_PB_DIR == 0 || G_MB_PB_BASKET == 0)
+   if(!EnableSmartRunner || RebateModeOn() || G_MB_PB_DIR == 0 || G_MB_PB_BASKET == 0)
       return false;
    if(G_MB_PB_BASKET != MBBasketOpenTime())
       return false;

@@ -286,6 +286,53 @@ int GetSpreadPoints()
 // UnifiedMaxSpreadPoints - the module values were dead. Now there is one number, times the Hunter factor in
 // Hunter mode. (CleanSpreadPoints - "is the spread tight enough for Hunter" - and CriticalSpreadPoints - the
 // absolute stop - are different questions and stay.)
+// Package 25: cashback mode as the OPEN BASKET knows it. Switching EnableRebateMode while a basket is open
+// re-initialises the EA; the basket used to switch exits half-way (a cashback broker TP left on the orders
+// while the EA chased the normal target, or the reverse). Now a basket finishes in the mode it opened in -
+// kept across the re-initialisation in a terminal variable - and the new mode starts with the next basket.
+string RebateModeKey()
+{
+   return StringFormat("SIRUS_RBMODE_%s_%I64d", _Symbol, MagicNumber);
+}
+
+bool RebateModeOn()
+{
+   return G_RB_FROZEN ? G_RB_FROZEN_VAL : EnableRebateMode;
+}
+
+void RebateModeFreeze()
+{
+   G_RB_FROZEN = true;
+   G_RB_FROZEN_VAL = EnableRebateMode;
+   if(!MQLInfoInteger(MQL_TESTER))
+      GlobalVariableSet(RebateModeKey(), (EnableRebateMode ? 1.0 : 0.0));
+}
+
+void RebateModeRelease()
+{
+   G_RB_FROZEN = false;
+   if(!MQLInfoInteger(MQL_TESTER) && GlobalVariableCheck(RebateModeKey()))
+      GlobalVariableDel(RebateModeKey());
+}
+
+// OnInit: an open basket takes back the mode it opened in.
+void RebateModeRestore(const int open_positions)
+{
+   G_RB_FROZEN = false;
+   if(MQLInfoInteger(MQL_TESTER) || !GlobalVariableCheck(RebateModeKey()))
+      return;
+   if(open_positions <= 0)
+   {
+      GlobalVariableDel(RebateModeKey());
+      return;
+   }
+   G_RB_FROZEN = true;
+   G_RB_FROZEN_VAL = (GlobalVariableGet(RebateModeKey()) > 0.5);
+   if(G_RB_FROZEN_VAL != EnableRebateMode)
+      PrintFormat("[SIRUS MODE] the open basket was opened in %s mode and finishes in it - %s mode starts with the next basket",
+                  (G_RB_FROZEN_VAL ? "cashback" : "normal"), (EnableRebateMode ? "cashback" : "normal"));
+}
+
 int MaxSpreadAllowed()
 {
    int cap = (UnifiedMaxSpreadPoints > 0) ? UnifiedMaxSpreadPoints : 500;

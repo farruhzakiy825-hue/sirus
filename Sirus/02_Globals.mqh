@@ -494,6 +494,8 @@ datetime                G_KALMAN_LAST_BAR_TIME   = 0;
 // switching mid-basket can't mix Hunter-distance and Balanced-distance grid orders together. ---
 ENUM_SIRUS_MODE        G_BASKET_FROZEN_MODE        = SIRUS_MODE_BALANCED;
 bool                    G_BASKET_MODE_FROZEN        = false;
+bool                    G_RB_FROZEN                 = false;   // package 25: the open basket keeps the cashback / normal mode it opened in
+bool                    G_RB_FROZEN_VAL             = false;
 bool                    G_LAST_IMPULSE_TREND_ALIGNED = false;
 int                     G_LAST_IMPULSE_DIRECTION     = 0;      // V31.6f: +1 up, -1 down
 double                  G_LAST_IMPULSE_CLOSE         = 0.0;

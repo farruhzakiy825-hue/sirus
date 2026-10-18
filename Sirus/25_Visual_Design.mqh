@@ -390,6 +390,9 @@ void MBHealthCollect()
       MBHealthAdd(1, StringFormat("Savat DD %.1f%% - basket SL %.0f%% ga yaqin", G_BASKET_DD_PERCENT, BasketSLPercent));
    if(G_SAF_ENTRY_BLOCK && !G_RISK_HARD_BLOCK)
       MBHealthAdd(1, "Xavfsizlik qatlami kutmoqda: " + G_SAF_REASON);
+   if(G_RB_FROZEN && G_RB_FROZEN_VAL != EnableRebateMode)
+      MBHealthAdd(1, StringFormat("Rejim almashtirildi: ochiq savat %s rejimida yopiladi, keyingisi %s", (G_RB_FROZEN_VAL ? "cashback" : "oddiy"),
+                                  (EnableRebateMode ? "cashback" : "oddiy")));
    if(G_CAL_BLIND)
       MBHealthAdd(1, "Kalendar o'qilmayapti - zaxira jadval yoqilgan (08:30 / 10:00 NY)");
    else if(G_CAL_ACTIVE && EconomicCalendarHardBlockFirst)
@@ -960,7 +963,7 @@ void MBDrawPanel()
    int left_end = G_MB_PANEL_Y;
 
    // --- cashback (only in rebate mode) ---
-   if(EnableRebateMode)
+   if(RebateModeOn())
    {
       MBPanelSection("S_CB", "CASHBACK AYLANMASI", x0, w, lh);
       MBTurnoverUpdate();

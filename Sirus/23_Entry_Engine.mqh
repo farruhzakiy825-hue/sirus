@@ -1553,7 +1553,7 @@ bool MBMomentumNow(const int dir)
 // Cashback tempo is on: rebate mode with the tempo switch.
 bool MBCashbackTempo()
 {
-   return (EnableRebateMode && EnableCashbackTempo);
+   return (RebateModeOn() && EnableCashbackTempo);
 }
 
 // Lot step for the first entry: CAUTION trims it.

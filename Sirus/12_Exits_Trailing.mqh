@@ -1306,7 +1306,7 @@ double   G_BROKER_TRAIL_LAST_LOCK = 0.0;
 
 bool RebateTrailingOn()
 {
-   return (EnableRebateMode && EnableRebateTrailingMode && RebateTargetPoints() > 0.0);
+   return (RebateModeOn() && EnableRebateTrailingMode && RebateTargetPoints() > 0.0);
 }
 
 void RebateTrailReset()
@@ -1508,7 +1508,7 @@ void BrokerBackupSync(const long direction, const double avg_price, const double
    // points - with the EA running it always closes first at its own (spread-aware) target; the broker's
    // copy is only the offline backup, and a moving spread does not make it re-modify every few seconds.
    double btp = 0.0;
-   if(EnableBrokerBasketTP && EnableRebateMode && orders >= 2 && UseBasketTPPoints && !RebateTrailingOn() && tp_points > 0.0)
+   if(EnableBrokerBasketTP && RebateModeOn() && orders >= 2 && UseBasketTPPoints && !RebateTrailingOn() && tp_points > 0.0)
    {
       double bt_pts = tp_points + 50.0;
       btp = NormalizePriceSafe(is_buy ? avg_price + bt_pts * _Point : avg_price - bt_pts * _Point);
@@ -1787,7 +1787,7 @@ double AutoGridBaseDistance()
    //
    // Spacing has to scale with the target it serves. Here it is a multiple of the same spread the
    // target is built from, which keeps the ladder proportionate to what it is trying to recover.
-   if(EnableRebateMode && RebateGridSpacingMultiple > 0.0)
+   if(RebateModeOn() && RebateGridSpacingMultiple > 0.0)
    {
       double rebate_tp = RebateTargetPoints();
       if(rebate_tp > 0.0)

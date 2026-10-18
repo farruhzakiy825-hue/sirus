@@ -255,7 +255,7 @@ string MBCostPanelText()
                            : StringFormat("Xarajat: spread %.0f (o'rganilmoqda)", spr);
    double slip = MBExpectedSlip();
    if(slip > 0.0) t += StringFormat(" · slippage ~%.0f", slip);
-   if(EnableRebateMode)
+   if(RebateModeOn())
    {
       double tp = RebateTargetPoints();
       t += StringFormat(" · kerakli harakat %.0f", spr + slip + tp);

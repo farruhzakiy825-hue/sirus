@@ -1161,7 +1161,7 @@ double EntryTPPoints(const bool quiet = false)   // package 8: quiet = a reader 
    // its own chain: MainTPPoints, then the ATR adaptation, then a floor of FirstEntryTPMinPoints.
    // So rebate mode was correctly wired for the basket and silently absent from the one order that
    // actually opens, which is why the target came out at its usual size.
-   if(EnableRebateMode)
+   if(RebateModeOn())
    {
       double rebate_tp = RebateTargetPoints();
       if(rebate_tp > 0.0)
@@ -1253,7 +1253,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
 
       // V283: spread-aware widening is exactly what rebate mode already does, by design and with its
       // own multiple - applying both widens the target twice.
-      if(EnableSpreadAwareTP && !EnableRebateMode && tp > 0.0)
+      if(EnableSpreadAwareTP && !RebateModeOn() && tp > 0.0)
       {
          double spread_points = (ask - bid) / _Point;
          double min_required = spread_points * SpreadAwareMinRatio + SpreadAwareCommissionPoints;
@@ -1279,7 +1279,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
             // V283: and the floor does not apply in rebate mode - a floor of 2000 points is twenty
          // times the target the mode is built around, so it would quietly restore the ordinary
          // target under a different name.
-         double min_floor = price + (EnableRebateMode ? RebateTargetPoints() : (double)FirstEntryTPMinPoints) * _Point;
+         double min_floor = price + (RebateModeOn() ? RebateTargetPoints() : (double)FirstEntryTPMinPoints) * _Point;
             if(capped > min_floor)
             {
                if((ZoneMapPrintOnUse && G_VERBOSE))
@@ -1298,7 +1298,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
 
       // V283: spread-aware widening is exactly what rebate mode already does, by design and with its
       // own multiple - applying both widens the target twice.
-      if(EnableSpreadAwareTP && !EnableRebateMode && tp > 0.0)
+      if(EnableSpreadAwareTP && !RebateModeOn() && tp > 0.0)
       {
          double spread_points = (ask - bid) / _Point;
          double min_required = spread_points * SpreadAwareMinRatio + SpreadAwareCommissionPoints;
@@ -1321,7 +1321,7 @@ bool BuildEntryPrices(ENUM_ORDER_TYPE order_type, double &price, double &sl, dou
             double strength = ZoneMapStrength(sup);
             double buffer_points = ZoneMapBufferPoints * (1.0 + (strength - 1.0) * ZoneStrengthTPBufferScale);
             double capped = sup + buffer_points * _Point;
-            double min_floor = price - (EnableRebateMode ? RebateTargetPoints() : (double)FirstEntryTPMinPoints) * _Point;
+            double min_floor = price - (RebateModeOn() ? RebateTargetPoints() : (double)FirstEntryTPMinPoints) * _Point;
             if(capped < min_floor)
             {
                if((ZoneMapPrintOnUse && G_VERBOSE))
@@ -4938,6 +4938,7 @@ void UpdateFirstEntryEngine(const string source)
       // V29 fix: lock the grid profile mode for this basket's whole lifetime.
       G_BASKET_FROZEN_MODE = G_ACTIVE_MODE;
       G_BASKET_MODE_FROZEN = true;
+      RebateModeFreeze();   // package 25: the basket finishes in the cashback / normal mode it opened in
 
       // V29 new (D-block): remember which detector opened this basket, for Bayes tracking.
       G_BASKET_OPENING_TYPE = G_OPP_TYPE;

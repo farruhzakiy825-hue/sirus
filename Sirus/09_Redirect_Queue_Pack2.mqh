@@ -2473,7 +2473,7 @@ double Pack2BasketTPForOrders(const int orders, const double base_tp)
 
    // V283: the basket floor is bypassed in rebate mode for the same reason as the first-entry one -
    // 1200 points is twelve times the target this mode exists to reach.
-   if(!EnableRebateMode && tp < BasketTPMinPoints)
+   if(!RebateModeOn() && tp < BasketTPMinPoints)
       tp = (double)BasketTPMinPoints;
 
    // V156: the regime sets how far a target can reasonably reach. A trend supports a wider one; a
@@ -2920,7 +2920,7 @@ bool Pack2CheckBasketBreakEvenOrTrail()
       }
    }
 
-   if(UseAdvancedBasketTrailing && !EnableRebateMode && !RebateTrailingOn() &&   // trailing is a normal-mode tool only
+   if(UseAdvancedBasketTrailing && !RebateModeOn() && !RebateTrailingOn() &&   // trailing is a normal-mode tool only
       !MBRunnerActive() && G_BASKET_POINTS >= effective_trail_start)   // the smart runner owns its own trail
    {
       int smart_step = SmartTrailEffectiveStep();
