@@ -982,7 +982,7 @@ bool MBCandOk(const int d, const int type)
       return false;
    // Package 11: every candidate is now asked on every tick (the competition no longer stops at the first) -
    // the answer for a side and a kind is kept for the tick.
-   static int  co_tick[2][32];
+   static long co_tick[2][32];   // G_TICK_COUNT is ulong; -1 = never
    static bool co_val[2][32];
    static bool co_init = false;
    if(!co_init)
@@ -994,7 +994,7 @@ bool MBCandOk(const int d, const int type)
    }
    int cs = (d > 0) ? 1 : 0;
    int ct = MathMax(0, MathMin(31, type));
-   if(co_tick[cs][ct] == G_TICK_COUNT)
+   if(co_tick[cs][ct] == (long)G_TICK_COUNT)
       return co_val[cs][ct];
    ENUM_OPPORTUNITY_TYPE keep_type = G_OPP_TYPE;
    int keep_score = G_SCORE_FINAL;
@@ -1013,7 +1013,7 @@ bool MBCandOk(const int d, const int type)
    }
    G_OPP_TYPE = keep_type;
    G_SCORE_FINAL = keep_score;
-   co_tick[cs][ct] = G_TICK_COUNT;
+   co_tick[cs][ct] = (long)G_TICK_COUNT;
    co_val[cs][ct] = !blocked;
    return !blocked;
 }

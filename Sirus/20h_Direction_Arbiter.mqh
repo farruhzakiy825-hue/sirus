@@ -45,7 +45,7 @@ input bool   EnableDirectionArbiter   = true;   // Direction arbiter: H1/H4 grid
 
 int      G_ARB_LVL[2];          // 0 = SELL, 1 = BUY
 string   G_ARB_WHY[2];
-int      G_ARB_TICK = -1;       // memo: once per tick (the probes ask it for every candidate)
+long     G_ARB_TICK = -1;       // memo: once per tick (G_TICK_COUNT is ulong; -1 = never) (the probes ask it for every candidate)
 
 bool MBArbiterOn()
 {
@@ -133,9 +133,9 @@ int MBArbiterLevel(const int dir, string &why)
    why = "";
    if(!MBArbiterOn() || dir == 0)
       return ARB_OK;
-   if(G_ARB_TICK != G_TICK_COUNT)
+   if(G_ARB_TICK != (long)G_TICK_COUNT)
    {
-      G_ARB_TICK = G_TICK_COUNT;
+      G_ARB_TICK = (long)G_TICK_COUNT;
       for(int k = 0; k <= 1; k++)
          G_ARB_LVL[k] = MBArbiterEval((k == 1) ? 1 : -1, G_ARB_WHY[k]);
    }

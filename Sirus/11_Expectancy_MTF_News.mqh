@@ -3754,18 +3754,18 @@ double ZoneMapNearestResistance(const double price) { return ZoneMapMemo(1, pric
 // edge measured to the far level and the minor wall that decides the scalp disappeared. Memo per tick.
 double ZoneMapNearestPlain(const int side, const double price)
 {
-   static int    pm_tick[2] = {-1, -1};
+   static long   pm_tick[2] = {-1, -1};   // G_TICK_COUNT is ulong - long keeps the -1 "never" mark
    static double pm_px[2]   = {0.0, 0.0};
    static double pm_val[2]  = {0.0, 0.0};
    static int    pm_bar[2]  = {-1, -1};
    int sd = (side == 0) ? 0 : 1;
-   if(pm_tick[sd] == G_TICK_COUNT && pm_px[sd] == price && pm_bar[sd] == G_ZMC_CACHE_BAR)
+   if(pm_tick[sd] == (long)G_TICK_COUNT && pm_px[sd] == price && pm_bar[sd] == G_ZMC_CACHE_BAR)
       return pm_val[sd];
    bool was = G_ZONE_LOOKUP_BUSY;
    G_ZONE_LOOKUP_BUSY = true;   // the override (and the shared memo) stand aside
    double v = (sd == 0) ? ZoneMapNearestSupportCalc(price) : ZoneMapNearestResistanceCalc(price);
    G_ZONE_LOOKUP_BUSY = was;
-   pm_tick[sd] = G_TICK_COUNT;
+   pm_tick[sd] = (long)G_TICK_COUNT;
    pm_px[sd] = price;
    pm_val[sd] = v;
    pm_bar[sd] = G_ZMC_CACHE_BAR;
