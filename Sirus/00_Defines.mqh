@@ -437,7 +437,8 @@ bool CloseSirusBasket(const string reason);
 #define MB_PROF_POST     7
 #define MB_PROF_PANEL    8
 #define MB_PROF_SHADOW   9
-#define MB_PROF_SEGS     10
+#define MB_PROF_OTHER    10   // the part of a tick no segment above covers (tick minus their sum)
+#define MB_PROF_SEGS     11
 void MBLiveSweepUpdate();   // stage 14 live sweep - called by the event engine above its definition
 bool MBLiveSweepFresh(const int dir, string &what);
 bool MBMomentumNow(const int dir);
@@ -445,6 +446,7 @@ bool MBEntryFastFor(const int dir);
 void MBProfBegin(const int seg);
 void MBProfEnd(const int seg);
 string MBProfText();
+string MBProfShortText();
 void MBShadowOnDecision(const bool ready, const string reason);
 void MBShadowOnEntry(const int dir, const double price);
 void MBShadowUpdate();

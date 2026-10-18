@@ -50,6 +50,15 @@ double G_PROF_AVG[MB_PROF_SEGS];      // exponential average, microseconds
 ulong  G_PROF_PEAK[MB_PROF_SEGS];     // highest single reading this hour
 ulong  G_PROF_N[MB_PROF_SEGS];
 datetime G_PROF_HOUR = 0;
+// The first ticks after a start load history, create indicator handles and read the calendar - one of
+// them can take a second or more. Averaged in with a handful of real ticks (a quiet or closing market)
+// that one start-up tick read as "44 ms per tick". They are kept out of the average and the peak;
+// their own peak goes to the journal once.
+#define MB_PROF_WARMUP_TICKS 20
+#define MB_PROF_SLOW_MIN_N   100      // the "slow" warning needs this many measured ticks
+ulong  G_PROF_SEG_SUM = 0;            // this tick's segment total, for MB_PROF_OTHER
+ulong  G_PROF_WARM_PEAK = 0;
+bool   G_PROF_WARM_DONE = false;
 
 string MBProfName(const int seg)
 {
@@ -65,6 +74,7 @@ string MBProfName(const int seg)
       case MB_PROF_POST:    return "post";
       case MB_PROF_PANEL:   return "panel";
       case MB_PROF_SHADOW:  return "shadow";
+      case MB_PROF_OTHER:   return "other";
    }
    return "?";
 }
@@ -81,6 +91,7 @@ string MBProfNameUz(const int seg)
       case MB_PROF_ENTRY:   return "kirish";
       case MB_PROF_POST:    return "post";
       case MB_PROF_SHADOW:  return "soya";
+      case MB_PROF_OTHER:   return "boshqa";
    }
    return MBProfName(seg);
 }
@@ -89,7 +100,18 @@ void MBProfBegin(const int seg)
 {
    if(!EnableProfiler || seg < 0 || seg >= MB_PROF_SEGS)
       return;
+   if(seg == MB_PROF_TICK)
+      G_PROF_SEG_SUM = 0;
    G_PROF_START[seg] = GetMicrosecondCount();
+}
+
+void MBProfAdd(const int seg, const ulong us)
+{
+   G_PROF_N[seg]++;
+   double k = (G_PROF_N[seg] < 50) ? 1.0 / (double)G_PROF_N[seg] : 0.02;
+   G_PROF_AVG[seg] += k * ((double)us - G_PROF_AVG[seg]);
+   if(us > G_PROF_PEAK[seg])
+      G_PROF_PEAK[seg] = us;
 }
 
 void MBProfEnd(const int seg)
@@ -103,11 +125,24 @@ void MBProfEnd(const int seg)
    }
    ulong us = GetMicrosecondCount() - G_PROF_START[seg];
    G_PROF_START[seg] = 0;
-   G_PROF_N[seg]++;
-   double k = (G_PROF_N[seg] < 50) ? 1.0 / (double)G_PROF_N[seg] : 0.02;
-   G_PROF_AVG[seg] += k * ((double)us - G_PROF_AVG[seg]);
-   if(us > G_PROF_PEAK[seg])
-      G_PROF_PEAK[seg] = us;
+   if(seg != MB_PROF_TICK && seg != MB_PROF_PANEL)
+      G_PROF_SEG_SUM += us;
+   if(G_TICK_COUNT <= MB_PROF_WARMUP_TICKS)   // start-up ticks - see MB_PROF_WARMUP_TICKS
+   {
+      if(seg == MB_PROF_TICK && us > G_PROF_WARM_PEAK)
+         G_PROF_WARM_PEAK = us;
+      return;
+   }
+   if(!G_PROF_WARM_DONE)
+   {
+      G_PROF_WARM_DONE = true;
+      if(G_VERBOSE)
+         PrintFormat("[SIRUS PROF] start-up: the first %d ticks peaked at %.1f ms (history / calendar loading) - not counted",
+                     MB_PROF_WARMUP_TICKS, G_PROF_WARM_PEAK / 1000.0);
+   }
+   MBProfAdd(seg, us);
+   if(seg == MB_PROF_TICK)
+      MBProfAdd(MB_PROF_OTHER, (us > G_PROF_SEG_SUM) ? us - G_PROF_SEG_SUM : 0);
 
    // Hourly journal line, then the peaks start again.
    if(seg == MB_PROF_TICK)
@@ -136,19 +171,37 @@ void MBProfEnd(const int seg)
 // PERFORMANCE CONTRACT: a tick averaging over 30 ms is a regression - the panel line turns amber.
 bool MBProfSlow()
 {
-   return (EnableProfiler && G_PROF_N[MB_PROF_TICK] > 0 && G_PROF_AVG[MB_PROF_TICK] > 30000.0);
+   return (EnableProfiler && G_PROF_N[MB_PROF_TICK] >= MB_PROF_SLOW_MIN_N && G_PROF_AVG[MB_PROF_TICK] > 30000.0);
 }
 
-string MBProfText()
+int MBProfHeaviest()
 {
-   if(!EnableProfiler || G_PROF_N[MB_PROF_TICK] == 0)
-      return "";
    int heavy = -1;
    for(int i = MB_PROF_PRE; i < MB_PROF_SEGS; i++)
    {
       if(i == MB_PROF_PANEL) continue;
       if(heavy < 0 || G_PROF_AVG[i] > G_PROF_AVG[heavy]) heavy = i;
    }
+   return heavy;
+}
+
+// The health block's line - short enough for one panel row.
+string MBProfShortText()
+{
+   int heavy = MBProfHeaviest();
+   string t = StringFormat("tik %.1f ms", G_PROF_AVG[MB_PROF_TICK] / 1000.0);
+   if(heavy >= 0)
+      t += StringFormat(", og'iri %s %.1f ms", MBProfNameUz(heavy), G_PROF_AVG[heavy] / 1000.0);
+   return t;
+}
+
+string MBProfText()
+{
+   if(!EnableProfiler)
+      return "";
+   if(G_PROF_N[MB_PROF_TICK] == 0)
+      return (G_TICK_COUNT > 0 ? StringFormat("tezlik: o'lchanmoqda (%d/%d tik)", (int)G_TICK_COUNT, MB_PROF_WARMUP_TICKS + 1) : "");
+   int heavy = MBProfHeaviest();
    string t = StringFormat("tik %.2f ms (eng ko'p %.1f)", G_PROF_AVG[MB_PROF_TICK] / 1000.0, G_PROF_PEAK[MB_PROF_TICK] / 1000.0);
    if(heavy >= 0)
       t += StringFormat(" · og'iri: %s %.2f", MBProfNameUz(heavy), G_PROF_AVG[heavy] / 1000.0);

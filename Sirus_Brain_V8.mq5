@@ -1451,7 +1451,9 @@ void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest 
    }
    G_TICK_COUNT++;
    G_LAST_TICK_LOCAL = TimeLocal();
+   MBProfBegin(MB_PROF_TICK);   // measured as a tick, so its segments are not left over for the next one
    CoreUpdate("TICK");
+   MBProfEnd(MB_PROF_TICK);
 }
 
 void OnTimer()

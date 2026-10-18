@@ -1,5 +1,17 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 27-paket: tezlik o'lchagichi to'g'rilandi (2026-10-18)
+
+Paneldagi "Tezlik sekin: tik 44.55 ms (eng ko'p 1323.4) · og'iri: skaner 3" ogohlantirishi tekshirildi. Har bir bo'lim
+3 ms dan kam edi, jami esa 44 ms ko'rinardi. Sabab: EA ishga tushgandagi birinchi tiklardan biri (tarix, indikatorlar,
+kalendar yuklanadi) 1.3 soniya oldi va bozor jim paytida u bir necha haqiqiy tik bilan o'rtachaga qo'shilib ketdi
+(1323 / 30 ≈ 44). Bu savdo sekinligi emas edi.
+- Birinchi 20 tik o'rtacha va eng ko'p qiymatga qo'shilmaydi, ularning cho'qqisi jurnalga bir marta yoziladi.
+- "Sekin" ogohlantirishi kamida 100 ta o'lchangan tikdan keyingina chiqadi.
+- Yangi "boshqa" bo'limi: tikning hech bir bo'limga kirmagan qismi. Endi "og'iri" har doim haqiqiy aybdorni ko'rsatadi.
+- Broker yopgan savatdan keyingi qarorlar ham tik sifatida o'lchanadi.
+- HOLAT NAZORATI qatori qisqartirildi, endi bir qatorga to'liq sig'adi.
+
 ## 26-paket: treyder sifatida xolis tekshiruv - topilgan xatolar tuzatildi (2026-10-18)
 
 To'rt yo'nalishda mustaqil tekshiruv (pul va risk; yo'nalish va kirish; 14-paket birlashtirishlari va kompilyatsiya;
