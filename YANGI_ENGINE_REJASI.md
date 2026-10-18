@@ -787,7 +787,7 @@ Bu qoidalar egasi bilan kelishilgan. Hujjatdagi har qanday band shu qoidalar ich
 | XIV. Risk va hisob himoyasi | ✅ / 🟡 | Daily loss, basket SL, `EmergencyForceClose`, disaster SL. 2-paket: `G_RISK_SCOPE`. "Himoya boshqa modul tomonidan bekor qilinmasin" talabi uchun statik tekshiruv kerak (H auditi) |
 | XV. News, Spread, Session risk | ✅ / 🟡 | MT5 kalendari, tester rejimi, spread anomaliyasi. **Kalendar ma'lumoti kelmasa qanday xavfsiz holatga o'tishi aniq belgilanmagan** |
 | XVI. Texnik arxitektura (event, state, multi-instance, resurs) | 🟡 | Hisob har yangi barda bo'ladi, ATR keshi bor. 3-paket: symbol almashtirilsa INIT_FAILED. Bitta symbolda bir nechta EA nusxasi va GlobalVariable to'qnashuvi tekshirilmagan |
-| XVII. Logging, Dashboard, Bad Entry Autopsy | ✅ / 🟡 | 26b 13 ta teg bilan ishlaydi. Hujjatdagi 12 toifadan **Wrong market state, Execution error, Exit failure, Risk rule failure** yo'q |
+| XVII. Logging, Dashboard, Bad Entry Autopsy | ✅ | 26b 17 ta teg. 16-paket: Wrong market state, Execution error, Exit failure, Risk rule failure qo'shildi |
 | XVIII. Input va Mode integration | ❌ | **3236 ta input** bor. Hunter/Fox/Balanced farqlari, zid inputlar va dublikatlar (masalan cashback/lot) audit qilinmagan |
 | XIX. Testing va Validation | 🟡 | `REGRESSION_TEST.md`, Trace va Shadow CSV bor, tester ham mos (91ec859). Tester'da regression replay hali bajarilmagan |
 | XX. Deployment | ✅ | Git, har paket alohida commit, CHANGELOG. Kompilyatsiya egasida |
@@ -827,7 +827,7 @@ Har paketdan oldin dalil to'planadi (Trace CSV va 2-raund audit). Shundan keyin 
 | 6 | Session Engine to'ldirish: Frankfurt, Midnight open, Asia/London H/L likvidlik xaritasiga  — ✅ 12-paket | Nishon va sweep sifati oshadi | VI.3 |
 | 7 | ~~Cashback limit-order dvigateli (C3)~~ — ⛔ egasi voz kechdi (2026-10-18) | Eng katta yangi modul. Avval 2–6 tayyor bo'lishi kerak: pending order risk, eskirish, takrorlanish | 13.4 C3, X.3, XIII |
 | 8 | Input auditi: 3236 input, rejimlar farqi, zid va dublikat inputlar. Ma'nosi tasdiqlanmasdan hech biri o'zgartirilmaydi — ✅ 13-paket (`docs/INPUT_AUDIT.md`); ✅ 14-paket: egasi tasdiqlagan 5 taklif bajarildi - bitta xavfsizlik qatlami, bitta UTC+DST sessiya dvigateli, bitta spread chegarasi, litsenziya qoldiqlari olib tashlandi, log kalitlari 7 guruhda (3066 -> ~2760 input) | Rejimlar orasidagi yashirin farq — "kamchilik tugamaydi" sabablaridan biri | XVIII |
-| 9 | Autopsy toifalari: Wrong market state, Execution error, Exit failure, Risk rule failure | Har xato ildiz sababga bog'lanadi | XVII.2 |
+| 9 | Autopsy toifalari: Wrong market state, Execution error, Exit failure, Risk rule failure — ✅ 16-paket (`Sirus_Autopsy3` CSV) | Har xato ildiz sababga bog'lanadi | XVII.2 |
 | 10 | Ssenariy feedback: 20f ssenariy ulushlari nishonga yetdimi yoki invalidatsiya bo'ldimi — CSV'da | "Oldindan sezish" sifatini o'lchash. Avval faqat qayd etiladi, qoida o'zgarmaydi | Brain Architecture §5 |
 | 11 | News fail-safe va multi-instance tekshiruvi | Kam uchraydi, lekin xavfli | XV, XVI.3 |
 

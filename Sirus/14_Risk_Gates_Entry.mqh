@@ -4914,6 +4914,7 @@ void UpdateFirstEntryEngine(const string source)
       MBMemoryOnEntry((order_type == ORDER_TYPE_BUY ? 1 : -1), G_TRADE.ResultPrice());
       MBFastEntryFilled();
       MBAutopsyOnEntry(order_type == ORDER_TYPE_BUY ? 1 : -1);   // plan stage 7: snapshot of every layer at entry
+      MBAutopsyOnFill(slip_requested, G_TRADE.ResultPrice(), (order_type == ORDER_TYPE_BUY ? 1 : -1));   // package 16
       MBShadowOnEntry((order_type == ORDER_TYPE_BUY ? 1 : -1), G_TRADE.ResultPrice());
       TraceSent((order_type == ORDER_TYPE_BUY ? 1 : -1), G_TRADE.ResultPrice());   // package 1: decision trace
       if(EnableSlippageTracking)

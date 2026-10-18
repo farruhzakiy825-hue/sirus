@@ -624,6 +624,7 @@ void MBHTFZonesUpdate();      // 20g - called by CoreUpdate (16)
 void MBLowerHighUpdate();     // 20g - called by CoreUpdate (16)
 void MBMarketStateTick();     // 20f - called by CoreUpdate (16), every tick
 void MBAutopsyOnEntry(const int dir);   // 26b - called by the first-entry engine (14)
+void MBAutopsyOnFill(const double requested, const double filled, const int dir);   // 26b - package 16
 void MBAutopsyOnClose(const int dir, const double res, const double mfe, const double mae, const datetime opened, const datetime t_show);   // 26b - called by 24
 string MBAutopsyPanelText();   // 26b - read by the panel (25)
 void MBCostSlipRecord(const double slip_pts);   // 20e - called by SlippageRecord (06)

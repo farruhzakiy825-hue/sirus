@@ -1,5 +1,22 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 16-paket: Autopsy'ning 4 yangi toifasi + 3 ta kompilyator ogohlantirishi (2026-10-18)
+
+Manba: master reja XVII.2. Kompilyatsiya: egasida 0 xato, 3 ogohlantirish edi - tuzatildi. Savdo mantiqi o'zgarmadi -
+faqat yomon tugagan savatning sababi aniqroq yoziladi.
+
+- **Ogohlantirishlar:** `G_TICK_COUNT` (ulong) uchta memo'da `int` ga saqlanardi (11 zona xaritasi, 20h hakam, 23
+  raqobat). Endi `long`, aniq cast bilan.
+- **NOTO'G'RI BOZOR HOLATI** - kirishda shu tomonga o'qilgan bozor holati (20f) savat davomida ag'darildi: holat
+  qarama-qarshi tomonga o'tdi yoki SOXTA BREAKOUT bo'ldi.
+- **IJRO XATOSI** - kirishdagi slippage bizga qarshi TP'ning 1/3 qismi yoki 2 normal spreaddan katta, to'ldirishdan
+  oldin vaqtinchalik qayta urinish bo'lgan, yoki savat davomida grid orderi yuborilmagan.
+- **CHIQISH XATOSI** - savat to'liq TP masofasida foydada bo'lgan, lekin baribir foydasiz tugagan.
+- **RISK QOIDASI** - savatni risk qoidasi yopgan: basket SL, emergency, disaster SL, RISK, yangilik / dam olish
+  oldidan yopish, broker stop-out.
+- Yangi CSV: `Sirus_Autopsy3_<symbol>_<magic>.csv` - qo'shimcha ustunlar `state_entry`, `state_close`, `slip_pts`,
+  `retries`, `grid_fails`, `exit_why`. Jurnal qatorida yopilish sababi, holat o'zgarishi va slippage.
+
 ## 15-paket: hakamning EXECUTE FAST va WAIT-FOR-LOCATION natijalari (2026-10-18)
 
 Manba: master reja IX.4 (Entry Priority Judge) va IX.2 (har WAIT uchun qayta baholash sharti). Kompilyatsiya
