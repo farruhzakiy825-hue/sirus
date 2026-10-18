@@ -1,5 +1,21 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 21-paket: premium ikki ustunli panel va yangi watermark (2026-10-18)
+
+Egasi maketni tanladi (ikki ustun). Savdo mantiqi o'zgarmadi. Kompilyatsiya qilinmagan - statik tekshiruvlar toza.
+
+- **Ikki ustun.** `PanelLayout`: 0 avtomatik (grafik kengligi yetsa ikki ustun - sukut), 1 bitta ustun to'liq,
+  2 bitta ustun ixcham, 3 har doim ikki ustun. Chap ustun: cashback, bozor nafasi. O'ng ustun: HAKAM · ZONALAR · JOY,
+  zarba lahzasi, savat, bozor izlari, xabarlar. Balandlik sig'masa ikki ustunda ham ixcham qatorlar.
+- **Premium ko'rinish:** oltin chiziqli sarlavha tasmasi, oraliqli "S I R U S" brendi va "BY ZAKIY · oltin ovchisi";
+  4 ta katta kartochka - BALANS (equity), BUGUN (zarbalar), DD HOZIR (savatdagi eng chuqur), MAX DD (balans tarixi),
+  har birining tepasida rangli chiziq; bo'lim sarlavhalari oltin ◆ belgi va oltin chiziq bilan; ustunlar orasida
+  ingichka oltin ajratgich; pastda bitta tasma - spread, server vaqti va tezlik.
+- **Watermark:** zamonaviy "Bahnschrift" shrifti (Windows 10/11 da bor), harflar oralatilgan "S I R U S", oltin tus,
+  oltin chiziq va ikki ◆, ostida "B Y   Z A K I Y". **Panel egallamagan bo'sh qismning o'rtasiga** joylashadi va u
+  yerga sig'masa o'zi kichrayadi - SIRUS yozuvi panel ostida qolmaydi.
+- Yangi input: `PanelBrandFont` ("Bahnschrift SemiBold"). `WatermarkFont` / `WatermarkSubFont` sukuti Bahnschrift.
+
 ## 20-paket: kontekst eskirishi va nishongacha yo'l (2026-10-18)
 
 Manba: reja 15.5-5 (kontekst eskirishi va ishonch) va master reja VI.2 (Target Engine: nishongacha to'siqlar).
