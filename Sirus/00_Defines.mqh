@@ -647,7 +647,7 @@ void MBDeleteWatermark();
 void MBDrawPanel();
 bool MBNewPanelOn();
 int MBSendFailsRecent(const int sec, string &last);   // 26d - package 24, read by the panel's health check (25)
-int MBInputAuditCount(string &first);   // 25 - package 19, read by the premium header (15)
+int MBInputAuditCount(string &first);                 // 26d - package 24, the start-up audit for the panel's health check   // 25 - package 19, read by the premium header (15)
 void MBDeletePanel();
 void MBDeleteAllVisuals();
 bool MBFastEntryCandidate(int &dir, string &why);

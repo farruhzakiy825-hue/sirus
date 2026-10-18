@@ -321,11 +321,8 @@ void RebateModeRestore(const int open_positions)
    G_RB_FROZEN = false;
    if(MQLInfoInteger(MQL_TESTER) || !GlobalVariableCheck(RebateModeKey()))
       return;
-   if(open_positions <= 0)
-   {
-      GlobalVariableDel(RebateModeKey());
-      return;
-   }
+   // Package 26: at a terminal start OnInit can run before the positions are synchronised (a count of 0).
+   // The saved mode is kept; the basket-flat reset on the first refresh releases it if there is no basket.
    G_RB_FROZEN = true;
    G_RB_FROZEN_VAL = (GlobalVariableGet(RebateModeKey()) > 0.5);
    if(G_RB_FROZEN_VAL != EnableRebateMode)
@@ -337,7 +334,13 @@ int MaxSpreadAllowed()
 {
    int cap = (UnifiedMaxSpreadPoints > 0) ? UnifiedMaxSpreadPoints : 500;
    if(G_ACTIVE_MODE == SIRUS_MODE_HIGH_HUNTER)
+   {
       cap = (int)MathRound(cap * MathMax(0.1, HunterSpreadFactor));
+      // Package 26: the Hunter cap stays between the clean spread and the critical block.
+      if(CriticalSpreadPoints > 0)
+         cap = MathMin(cap, CriticalSpreadPoints - 1);
+      cap = MathMax(cap, MathMax(1, CleanSpreadPoints));
+   }
    return cap;
 }
 

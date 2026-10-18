@@ -1,5 +1,44 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 26-paket: treyder sifatida xolis tekshiruv - topilgan xatolar tuzatildi (2026-10-18)
+
+To'rt yo'nalishda mustaqil tekshiruv (pul va risk; yo'nalish va kirish; 14-paket birlashtirishlari va kompilyatsiya;
+yangi himoyalar). Har topilma kod bilan tasdiqlangandan keyin tuzatildi. Statik tekshiruvlar toza.
+
+**Muhim (P1):**
+- **Yangiliklar kalendari amalda deyarli ishlamagan.** `CalendarValueHistory` true/false qaytaradi, kod esa uni hodisalar
+  soni deb o'qirdi: muvaffaqiyatli o'qishda faqat BIRINCHI qator ko'rilardi (ko'pincha past ahamiyatli) - yangilik
+  oynasi, auto-flat va "surprise" deyarli hech qachon ishlamagan; xato esa hech qachon xato deb ko'rilmagan, fail-safe
+  yoqilmasdi. Endi qatorlar soni `ArraySize`, xato `GetLastError` bilan; panel radari ham. 7 kun bo'yi bitta ham USD
+  qatori bo'lmasa - kalendar yuklanmagan deb hisoblanadi (fail-safe).
+- **Margin rescue pog'onani oldingisidan kichik qilardi** (qoidangiz buzilardi). Endi eng kami - oldingi pog'ona;
+  sig'masa, pog'ona qo'yilmaydi. Margin darajasi kesishi ham bu qoidani buzolmaydi.
+
+**O'rta (P2):**
+- Grid chuqurligi savatdagi mavjud zararni hisobga oladi: basket SL'gacha bir necha yuz punkt qolganda yangi pog'ona
+  ochilmaydi (u qutqara olmaydi).
+- "G'oya o'ldi" chiqishi to'langan swapni qo'shadi - sof zararda yopilmaydi.
+- Hakam: "yaxshiroq joy" rejasi order to'lganda o'chadi (avval hukm chiqqanda o'chib, SmartFill kutayotganda yo'qolardi);
+  reja darajasidan 0.5 ATR(M5) dan ko'p o'tib ketgan yoki rolini yo'qotgan daraja endi "joy" emas (pichoq tutmaslik);
+  cashback'da neytral / range kirishga bitta shakllanayotgan M1 sham yetarli emas - kamida bitta yopilgan dalil kerak;
+  qarshi kuchli tomonga kirishda soya klapani talabni o'zi yumshatmaydi (qoidangiz: yo'nalish darvozalari o'z-o'zidan
+  yumshamaydi); grid zinapoyasi haqiqiy masofa bilan (ATR tagligi va min/max) hisoblanadi.
+- Nusxa himoyasi yurak urishi taymerda ham - bozor tanaffusidan keyin ikki grafik bir vaqtda savdo qilmaydi.
+- Savatning cashback / oddiy rejimi terminal qayta ishga tushganda yo'qolmaydi.
+
+**Kichik (P3):** fail-safe jadvali grid qutqaruvini to'xtatmaydi (faqat yangi kirish); cashback TP spread 0 o'qilsa
+ham to'g'ri; Hunter spread koeffitsienti chegaralangan; autopsy "chiqish xatosi" foydada yopilganlarga qo'yilmaydi va
+yarim tunda grid xatolari to'g'ri sanaladi; panel: tanaffusda eskirgan risk sababi o'rniga "bozor tanaffusda",
+rad etishlar real vaqt bo'yicha, bo'sh joy faqat haqiqatda yashirilgan qatorlar bilan to'ladi; xavfsizlik jurnali
+har tikda yozilmaydi.
+- `SafetyMaxFirstLot` sukuti 0 (o'chiq): birinchi kirish tagligi bazaviy lotni baribir qaytarardi - 0.25 chegara hech
+  qachon ishlamagan. Lot `EntryBaseLot` va `MaxLot` dan.
+
+**Egasining qarori kerak (o'zgartirilmadi):** `EntryAffordabilityShare` = 1.0 - 3 pog'onali cashback zinapoyasi
+3-pog'onani SL ga juda yaqin ochadigan qilib hisoblanadi (endi bunday pog'ona ochilmaydi, demak amalda 2 qutqaruv
+pog'onasi). 0.8 qilinsa lot ~20% kichrayadi (kichik hisobda 0.02 -> 0.01, aylanma ikki baravar kam).
+`CashbackSizingRungs` savatni 3 orderga cheklamaydi (katta hisobda 5 gacha boradi, budjet ichida).
+
 ## 25-paket: qolgan kamchiliklar - grid xavfi, zona to'qnashuvi hakami, rejim almashtirish (2026-10-18)
 
 Bozor ochilishidan oldin, sinov ma'lumotisiz qilinadigan hamma band. Kompilyatsiya qilinmagan - statik tekshiruvlar toza.

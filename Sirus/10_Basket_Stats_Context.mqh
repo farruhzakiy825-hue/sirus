@@ -99,7 +99,8 @@ void SafetyLayerUpdate(const string source)
                                G_SAF_REASON);
 
    // State changes only - a spread spike that lasts ten minutes prints twice, not every bar.
-   string signature = G_SAF_STATUS + "|" + G_SAF_REASON;
+   // Package 26: the state, not the live numbers (spread / DD values changed every tick and flooded the journal).
+   string signature = G_SAF_STATUS + StringFormat("|%d%d%d%d", (int)G_SAF_SYMBOL_OK, (int)G_SAF_SPREAD_RISK, (int)G_SAF_DD_RISK, (int)G_SAF_ORDER_RISK);
    if(signature != G_SAF_LAST_SIGNATURE)
    {
       if(PrintSafetyEvents && (G_SAF_LAST_SIGNATURE == "" || G_SAF_ENTRY_BLOCK || G_SAF_GRID_FACTOR > 1.0))

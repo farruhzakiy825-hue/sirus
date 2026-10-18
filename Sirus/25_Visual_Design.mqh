@@ -292,7 +292,7 @@ int MBPanelPriority(const string id)
    int n = 0;
    for(int i = 0; i < p; i++)
       if(StringGetCharacter(G_MB_PANEL_PRI, i) == ',') n++;
-   return n - 1;
+   return n;   // package 26: the comma count before the id is its 0-based index
 }
 
 bool MBPanelIsDetail(const string id)
@@ -903,7 +903,7 @@ void MBDrawPanel()
    G_MB_PANEL_RIGHT_EDGE = card_x + card_w;
    // Package 23: the watermark is placed beside the panel - redraw it the moment the panel's edge is known or
    // moves (it used to be drawn before the first panel and stayed centred under it).
-   if(prev_edge != G_MB_PANEL_RIGHT_EDGE && EnableNewWatermark && PremiumShowWatermark)
+   if(prev_edge != G_MB_PANEL_RIGHT_EDGE && EnableNewWatermark && PremiumShowWatermark && UsePremiumVisualEngine)
       MBDrawWatermark();
 
    // --- card and header band ---
@@ -1385,6 +1385,7 @@ void MBDrawPanel()
    {
       int spare = (chart_h - 8) - (G_MB_PANEL_Y + 4);
       int step = (spare >= 0) ? spare / lh : -((-spare + lh - 1) / lh);
+      step = MathMin(step, G_MB_PANEL_HID[0] + G_MB_PANEL_HID[1]);   // package 26: only lines that were really left out
       G_MB_PANEL_EXTRA = MathMax(0, MathMin(30, G_MB_PANEL_EXTRA + step));
    }
    else
