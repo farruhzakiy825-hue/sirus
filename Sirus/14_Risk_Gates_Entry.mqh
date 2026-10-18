@@ -601,6 +601,14 @@ double MarginRescueGridLot(const ENUM_ORDER_TYPE order_type, const double intend
 
    double vmin = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
    double floor_lot = intended_lot * MathMax(0.05, MathMin(1.0, GridMarginRescueMinFactor));
+   // Package 26 (owner rule): a rung is never smaller than the previous one - the rescue may shrink the
+   // intended lot only down to the last rung; if even that does not fit, the margin wall stands.
+   if(EnableGridNeverBelowPrevious)
+   {
+      int o = 0; double v = 0.0, av = 0.0, pr = 0.0, lp = 0.0, ll = 0.0; long dr = -1; datetime lt = 0;
+      if(GetSirusBasketStats(o, v, av, pr, dr, lp, ll, lt) && ll > 0.0)
+         floor_lot = MathMax(floor_lot, ll);
+   }
 
    // Step down in 10% increments and take the first size that clears BOTH margin checks.
    for(int step = 9; step >= 1; step--)

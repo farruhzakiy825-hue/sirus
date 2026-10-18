@@ -1279,8 +1279,8 @@ input group "ADVANCED ▸ Safety layer"
 input bool              EnableSafetyLayer        = true;   // Enable safety layer
 // SafetySymbolKeyword: the EA trades only a symbol containing this text. Empty = any symbol.
 input string            SafetySymbolKeyword      = "XAU";   // Safety: symbol keyword
-// SafetyMaxFirstLot: first-entry lot cap, applied after sizing. 0 = no cap.
-input double            SafetyMaxFirstLot        = 0.25;   // Safety: max first lot (0 = off)
+// SafetyMaxFirstLot: first-entry lot cap. 0 = no cap. Package 26: off by default - the first-entry floor (MinFirstEntryLotFactor 1.0) restores the base lot after it anyway, so a cap here was never in force; the lot comes from EntryBaseLot / MaxLot.
+input double            SafetyMaxFirstLot        = 0.0;   // Safety: max first lot (0 = off)
 // SafetyMaxGridLot: grid rung lot cap, applied after the rung floor. 0 = no cap.
 input double            SafetyMaxGridLot         = 1.00;   // Safety: max grid lot (0 = off)
 // SafetyWidenGridOnRisk: widen the next rung's distance on high spread, DD or order pressure (lot is never cut).

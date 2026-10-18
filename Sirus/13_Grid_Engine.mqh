@@ -1541,6 +1541,10 @@ double NextGridLot(const double last_lot, const int current_orders)
    // Hard limits last - the floor cannot undo account protection.
    lot = SafetyAdjustLot(lot, true);
    lot = MarginLevelLotAdjust(lot);
+   // Package 26 (owner rule): the margin-level trim may not undo "never below the previous rung" - if the
+   // account cannot carry this rung, the margin guard refuses it before the send; no smaller rung.
+   if(EnableGridNeverBelowPrevious && last_lot > 0.0 && lot < last_lot)
+      lot = last_lot;
 
    if(MaxLot > 0.0 && lot > MaxLot)
       lot = MaxLot;

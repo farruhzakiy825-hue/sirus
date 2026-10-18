@@ -944,6 +944,12 @@ double RebateTargetPoints()
       return 0.0;
 
    double spread_pts = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+   // Package 26: some accounts report SYMBOL_SPREAD 0 - take it from the quotes, else the hour's normal, so
+   // cashback mode does not fall back to the normal-mode target.
+   if(spread_pts <= 0.0)
+      spread_pts = (SymbolInfoDouble(_Symbol, SYMBOL_ASK) - SymbolInfoDouble(_Symbol, SYMBOL_BID)) / _Point;
+   if(spread_pts <= 0.0)
+      spread_pts = MBNormalSpread();
    if(spread_pts <= 0.0)
       return 0.0;
 
@@ -1152,7 +1158,7 @@ double BasketTPForOrderCount(const int orders)
             PrintFormat("[SIRUS BASKET] premise gone and %.1f%% down - target cut %.0f -> %.0f, "
                         "leaving on the first retrace",
                         G_BASKET_DD_PERCENT, tp, exit_tp);
-         return exit_tp;
+         return exit_tp + BasketCarryCostPoints();   // package 26: the swap already paid - never a net-loss close
       }
    }
 

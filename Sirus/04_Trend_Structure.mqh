@@ -2016,6 +2016,10 @@ int GridEffectiveMaxOrders(string &reason)
    double per_point = tick_val / (tick_sz / _Point);
    double projected_loss = remaining_lots * span_pts * per_point;
    double budget = balance * (BasketSLPercent / 100.0) * GridDepthBudgetShare;
+   // Package 26: the remaining rungs plus the loss already on the basket must stay inside the basket SL - a
+   // rung that would open with the stop a few hundred points away cannot rescue anything.
+   double sl_room = balance * (BasketSLPercent / 100.0) - MathMax(0.0, -G_BASKET_PROFIT);
+   budget = MathMin(budget, MathMax(0.0, sl_room));
 
    if(budget > 0.0 && projected_loss > budget)
    {
