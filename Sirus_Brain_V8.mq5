@@ -785,6 +785,7 @@ int OnInit()
          G_LAST_WARNING = combo_err;
       }
    }
+   InputAuditReport();   // package 13: contradictions between inputs and with the owner's rules (warn only)
 
    return INIT_SUCCEEDED;
 }

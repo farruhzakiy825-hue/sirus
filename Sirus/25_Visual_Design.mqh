@@ -43,6 +43,13 @@ input int    PanelFontSize            = 9;   // Panel font size
 // CashbackPerLot: CASHBACK bo'limi: 1 lot uchun qaytadigan $ (0 = taxminiy cashback ko'rsatilmaydi). Bo'lim faqat cashback rejimida chiqadi
 input double CashbackPerLot           = 0.0;   // Cashback per lot
 
+// Package 13 (input audit): CashbackPerLot (panel) and RebateUSDPerLot (20e cost line) were two inputs for one
+// number. Either one now feeds both; RebateUSDPerLot wins when both are set (the audit warns about that).
+double CashbackUSDPerLot()
+{
+   return (RebateUSDPerLot > 0.0) ? RebateUSDPerLot : CashbackPerLot;
+}
+
 #define MB_VIS_PREFIX   "SIRUS_UI_"
 
 // --- colour system ---------------------------------------------------------------------------
@@ -357,8 +364,8 @@ void MBTurnoverUpdate()
 string MBTurnoverText(const string label, const int k)
 {
    string s = StringFormat("%-6s %8.2f lot  %5d savdo", label, G_MB_TURN_LOTS[k], G_MB_TURN_DEALS[k]);
-   if(CashbackPerLot > 0.0)
-      s += StringFormat("  ≈ %.2f $", G_MB_TURN_LOTS[k] * CashbackPerLot);
+   if(CashbackUSDPerLot() > 0.0)
+      s += StringFormat("  ≈ %.2f $", G_MB_TURN_LOTS[k] * CashbackUSDPerLot());
    return s;
 }
 

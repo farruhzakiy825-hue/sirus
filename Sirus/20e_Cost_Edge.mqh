@@ -259,8 +259,8 @@ string MBCostPanelText()
    {
       double tp = RebateTargetPoints();
       t += StringFormat(" · kerakli harakat %.0f", spr + slip + tp);
-      if(RebateUSDPerLot > 0.0)
-         t += StringFormat(" · cashback $%.2f/lot", RebateUSDPerLot);
+      if(CashbackUSDPerLot() > 0.0)
+         t += StringFormat(" · cashback $%.2f/lot", CashbackUSDPerLot());   // package 13: one number from either input
    }
    return t;
 }

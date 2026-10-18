@@ -140,3 +140,66 @@ void TraceSendFailed(const int dir, const string kind, const double lot, const i
                          (TradeSendMayHaveFilled(retcode) ? " | no answer - the account is checked before any retry" : "")));
    TraceFlush();
 }
+
+//+------------------------------------------------------------------+
+//| Package 13 (master plan XVIII, input audit): settings that       |
+//| contradict each other or the owner's rules - warned at start.     |
+//| Nothing is changed: the meaning of an input is the owner's.       |
+//+------------------------------------------------------------------+
+string InputAuditWarnings()
+{
+   string w = "";
+   // Owner: cashback = a fixed TP, trailing only in normal mode.
+   if(EnableRebateMode && EnableRebateTrailingMode)
+      w += "cashback mode with EnableRebateTrailingMode on - the owner's rule is a fixed TP in cashback mode\n";
+   if(EnableRebateMode && CashbackSizingRungs > MaxOrders)
+      w += StringFormat("CashbackSizingRungs %d > MaxOrders %d - the lot is sized for the full ladder\n", CashbackSizingRungs, MaxOrders);
+   if(MaxLot > 0.0 && StartLot > MaxLot)
+      w += StringFormat("StartLot %.2f > MaxLot %.2f - every entry is cut to MaxLot\n", StartLot, MaxLot);
+   if(MinFirstEntryLotFactor > 1.0)
+      w += StringFormat("MinFirstEntryLotFactor %.2f > 1 - the floor lifts entries ABOVE the base lot\n", MinFirstEntryLotFactor);
+   // Owner: basket SL 50%.
+   if(!UseBasketSL)
+      w += "UseBasketSL is off - the owner's rule is a 50% basket stop\n";
+   else if(MathAbs(BasketSLPercent - 50.0) > 0.01)
+      w += StringFormat("BasketSLPercent %.1f - the owner's rule is 50%%\n", BasketSLPercent);
+   // Owner: a rung is never smaller than the one before.
+   if(!EnableGridNeverBelowPrevious)
+      w += "EnableGridNeverBelowPrevious is off - a rung may be smaller than the one before (the owner: a blind add)\n";
+   if(RebateUSDPerLot > 0.0 && CashbackPerLot > 0.0 && MathAbs(RebateUSDPerLot - CashbackPerLot) > 0.0001)
+      w += StringFormat("RebateUSDPerLot %.2f and CashbackPerLot %.2f differ - %.2f is used\n", RebateUSDPerLot, CashbackPerLot, RebateUSDPerLot);
+   // Owner: a small dollar account trades cashback mode only. A cent account reports its balance in cents.
+   string ccy = AccountInfoString(ACCOUNT_CURRENCY);
+   bool cent = (StringFind(ccy, "USC") >= 0 || StringFind(ccy, "UScents") >= 0);
+   double bal = AccountInfoDouble(ACCOUNT_BALANCE);
+   if(!EnableRebateMode && !cent && bal > 0.0 && bal < 500.0)
+      w += StringFormat("balance %.2f %s in normal mode - the owner's rule: a small dollar account trades cashback mode\n", bal, ccy);
+   // The fixed session hours assume a UTC+0 server; the session liquidity map (package 12) converts by itself.
+   int off_h = MBServerUTCOffsetSec() / 3600;
+   if(off_h != 0)
+      w += StringFormat("broker server is UTC%+d - the fixed session-hour inputs (Session*Hour, NYKillzone*, AsiaSession*, LondonNYSession*) assume UTC+0; shift them by %d\n",
+                        off_h, off_h);
+   return w;
+}
+
+void InputAuditReport()
+{
+   string w = InputAuditWarnings();
+   if(StringLen(w) == 0)
+   {
+      Print("[SIRUS INPUT AUDIT] no contradictions found");
+      return;
+   }
+   string lines[];
+   int n = StringSplit(w, '\n', lines);
+   int shown = 0;
+   for(int i = 0; i < n; i++)
+   {
+      if(StringLen(lines[i]) == 0)
+         continue;
+      PrintFormat("[SIRUS INPUT AUDIT] %s", lines[i]);
+      if(shown == 0)
+         G_LAST_WARNING = "input audit: " + lines[i];
+      shown++;
+   }
+}

@@ -1,5 +1,17 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 13-paket: input auditi (2026-10-18)
+
+Hisobot: `docs/INPUT_AUDIT.md`. Master reja XVIII - inputlarning ma'nosi o'zgartirilmadi.
+- 3066 input; kodda umuman o'qilmaydigani 0; 133 kalit sukut bo'yicha o'chiq; 66 input faqat o'chiq kalit ortida.
+  Ko'plikning sababi - parallel oilalar (sessiya soatlari 5 to'plam, maksimal spread 14, birinchi lot 8, pog'ona 9).
+- Rejimlar: Balanced / Hunter faqat eski skaner/score/grid masofasini o'zgartiradi; miya (17-26) rejimni o'qimaydi.
+- Birlashtirildi: `RebateUSDPerLot` va `CashbackPerLot` (bir son, ikki input) - `CashbackUSDPerLot()`.
+- Yangi: ishga tushishda `InputAuditReport()` - zid sozlamalar va egasining qoidalariga zidlar haqida ogohlantirish
+  (cashback'da trailing, basket SL != 50%, NeverBelowPrevious o'chiq, kichik dollar hisob oddiy rejimda, server
+  UTC+0 emas va qat'iy sessiya soatlari va h.k.). Faqat ogohlantiradi.
+- Egasining qarori: cashback limit-order dvigatelidan voz kechildi (rejadan chiqarildi).
+
 ## 12-paket: sessiya darajalari likvidlik xaritasida (2026-10-18)
 
 Manba: master reja VI.3 (Session Engine) va egasining "Asia, Frankfurt, London, NY, Midnight, broker vaqti, yozgi/qishki
