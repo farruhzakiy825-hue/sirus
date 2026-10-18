@@ -129,9 +129,34 @@ void TraceSent(const int dir, const double price)
 
 // Package 6 (plan X.4): an order the broker refused or never answered, with its code - execution errors
 // are then counted, not guessed. kind: "entry" or "grid".
+// Package 24: the last order rejections, for the panel's health check (kept even with the trace off).
+#define SENDFAIL_KEEP 8
+datetime G_SENDFAIL_T[SENDFAIL_KEEP];
+string   G_SENDFAIL_W[SENDFAIL_KEEP];
+int      G_SENDFAIL_POS = 0;
+
+// How many orders were refused in the last `sec` seconds, and the newest one in words.
+int MBSendFailsRecent(const int sec, string &last)
+{
+   last = "";
+   int n = 0;
+   datetime newest = 0;
+   for(int i = 0; i < SENDFAIL_KEEP; i++)
+   {
+      if(G_SENDFAIL_T[i] <= 0 || TimeCurrent() - G_SENDFAIL_T[i] > sec)
+         continue;
+      n++;
+      if(G_SENDFAIL_T[i] > newest) { newest = G_SENDFAIL_T[i]; last = G_SENDFAIL_W[i]; }
+   }
+   return n;
+}
+
 void TraceSendFailed(const int dir, const string kind, const double lot, const int retcode, const string desc,
                      const double price)
 {
+   G_SENDFAIL_T[G_SENDFAIL_POS] = TimeCurrent();
+   G_SENDFAIL_W[G_SENDFAIL_POS] = StringFormat("%s %s %.2f lot: %d %s", kind, (dir > 0 ? "BUY" : "SELL"), lot, retcode, desc);
+   G_SENDFAIL_POS = (G_SENDFAIL_POS + 1) % SENDFAIL_KEEP;
    if(!EnableDecisionTrace || MQLInfoInteger(MQL_OPTIMIZATION))
       return;
    TraceRow(dir, "FAILED", GATE_NONE,
@@ -187,9 +212,21 @@ string InputAuditWarnings()
    return w;
 }
 
+// Package 24: the start-up audit's findings, for the panel's health check.
+int    G_IA_COUNT = 0;
+string G_IA_FIRST = "";
+
+int MBInputAuditCount(string &first)
+{
+   first = G_IA_FIRST;
+   return G_IA_COUNT;
+}
+
 void InputAuditReport()
 {
    string w = InputAuditWarnings();
+   G_IA_COUNT = 0;
+   G_IA_FIRST = "";
    if(StringLen(w) == 0)
    {
       Print("[SIRUS INPUT AUDIT] no contradictions found");
@@ -204,7 +241,11 @@ void InputAuditReport()
          continue;
       PrintFormat("[SIRUS INPUT AUDIT] %s", lines[i]);
       if(shown == 0)
+      {
          G_LAST_WARNING = "input audit: " + lines[i];
+         G_IA_FIRST = lines[i];
+      }
       shown++;
+      G_IA_COUNT = shown;
    }
 }

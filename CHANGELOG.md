@@ -1,5 +1,22 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 24-paket: panelda HOLAT NAZORATI va bo'sh joyni to'ldirish (2026-10-18)
+
+Egasi maketni tasdiqladi. Savdo mantiqi o'zgarmadi - faqat ko'rsatish.
+
+- **HOLAT NAZORATI** bloki sarlavha ostida, ixcham rejimda ham doim ko'rinadi. Qizil - hozir savdo yo'q, sariq - savdo
+  bor, lekin muammo bor, yashil - "Hammasi ishlayapti". Eng og'iri birinchi, ko'pi bilan 4 qator ("yana N ta").
+  Tekshiradi: broker ulanishi; MT5 AutoTrading tugmasi va EA ruxsati; ikkinchi EA nusxasi; HIMOYA sababi o'zbekcha
+  (bozor yopiq - so'nggi tik vaqti bilan, favqulodda / equity DD, kunlik zarar, spread, zarardan keyingi tanaffus,
+  kunlik urinishlar, tarix yuklanmoqda); margin darajasi (<150% qizil, <300% sariq); oxirgi 30 daqiqada rad etilgan
+  orderlar (retcode va tavsif bilan); savat DD basket SL ga yaqin (80%); xavfsizlik qatlami kutmoqda; kalendar
+  ko'r yoki yangilik oynasi; tik kelmayapti; sozlama auditi ogohlantirishlari; tezlik sekin.
+- **"Sabab: initial entry"** endi chiqmaydi: himoya paytida "himoya - <sabab>, yangi kirish yo'q", birinchi tikdan
+  oldin "tekshiruv hali boshlanmadi".
+- **Bo'sh joy:** ixcham panelda pastda joy qolsa, yashirilgan qatorlar foydalisidan boshlab qaytadi: to'siqlar bugun,
+  tuzilma, LOCK, zona, joy, sessiya, filtr dalili, soya va h.k. - ekran qancha sig'dirsa, shuncha.
+- Rad etilgan orderlar endi Trace o'chiq bo'lsa ham eslab qolinadi (oxirgi 8 tasi).
+
 ## 23-paket: panel yana bitta ustunli, watermark shamlar ortida va markazda (2026-10-18)
 
 Egasining qarori: ikki ustun to'g'ri kelmadi - bitta ustunli holat yaxshi; watermark shrifti qolsin.

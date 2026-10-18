@@ -280,10 +280,167 @@ int  G_MB_PANEL_HID[2];          // package 22: lines a compact draw left out, p
 int  G_MB_PANEL_TWO_H = 0;       // height of the last full two-column draw
 
 // Package 19: the lines a compact panel leaves out (the detail - still in the journal and the CSVs).
+// Package 24: when the compact panel leaves room, detail lines come back in this order (most useful first).
+int G_MB_PANEL_EXTRA = 0;
+string G_MB_PANEL_PRI = ",E_QUIET,B_ST,B_LK,B_ZI,B_LX,B_SES,E_EG,E_SHADOW,B_MC,B_HZ,B_SESL,B_CE,B_EVB,B_TF,B_LOCTH,B_NAR,B_SCF,A4,C2,C3,V1,V2,N2,K6,K7,";
+
+int MBPanelPriority(const string id)
+{
+   int p = StringFind(G_MB_PANEL_PRI, "," + id + ",");
+   if(p < 0)
+      return 999;
+   int n = 0;
+   for(int i = 0; i < p; i++)
+      if(StringGetCharacter(G_MB_PANEL_PRI, i) == ',') n++;
+   return n - 1;
+}
+
 bool MBPanelIsDetail(const string id)
 {
-   return (StringFind(",A4,C2,C3,B_EVB,B_LOCTH,B_TF,B_SCF,B_NAR,B_ST,B_LK,B_SESL,B_ZI,B_HZ,B_MC,B_CE,B_LX,B_SES,"
-                      "E_QUIET,E_SHADOW,E_EG,V1,V2,N2,F2,K6,K7,", "," + id + ",") >= 0);
+   if(StringFind(",A4,C2,C3,B_EVB,B_LOCTH,B_TF,B_SCF,B_NAR,B_ST,B_LK,B_SESL,B_ZI,B_HZ,B_MC,B_CE,B_LX,B_SES,"
+                 "E_QUIET,E_SHADOW,E_EG,V1,V2,N2,F2,K6,K7,", "," + id + ",") < 0)
+      return false;
+   return (MBPanelPriority(id) >= G_MB_PANEL_EXTRA);   // a compact panel with room shows the first few again
+}
+
+//---------------------------------------------------------------------
+// Package 24: HOLAT NAZORATI - every problem that stops or spoils trading, in words, at the top of the panel
+// (compact or not). Red = no trading now, amber = trading with a problem, green = nothing wrong.
+//---------------------------------------------------------------------
+#define MB_HL_MAX 8
+int    G_HL_N = 0;
+int    G_HL_SEV[MB_HL_MAX];
+string G_HL_TXT[MB_HL_MAX];
+
+void MBHealthAdd(const int sev, const string text)
+{
+   if(G_HL_N >= MB_HL_MAX)
+      return;
+   G_HL_SEV[G_HL_N] = sev;
+   G_HL_TXT[G_HL_N] = text;
+   G_HL_N++;
+}
+
+string MBAgoUz(const long sec)
+{
+   if(sec >= 86400) return StringFormat("%d kun oldin", (int)(sec / 86400));
+   if(sec >= 3600)  return StringFormat("%d soat oldin", (int)(sec / 3600));
+   return StringFormat("%d daq oldin", (int)MathMax(1, sec / 60));
+}
+
+string MBEnvReasonUz(const string r)
+{
+   if(StringFind(r, "tick stale") == 0 || r == "no tick received yet")
+   {
+      datetime lt = (datetime)SymbolInfoInteger(_Symbol, SYMBOL_TIME);
+      return (lt > 0) ? StringFormat("bozor yopiq yoki tik yo'q - so'nggi tik %s (%s)", TimeToString(lt, TIME_DATE | TIME_MINUTES),
+                                     MBAgoUz((long)(TimeTradeServer() - lt)))
+                      : "bozor yopiq yoki tik yo'q";
+   }
+   if(r == "terminal AutoTrading disabled")      return "MT5 da AutoTrading (Algo Trading) o'chiq";
+   if(r == "MQL trading disabled for EA")        return "EA ga savdo ruxsati berilmagan (EA sozlamasi)";
+   if(r == "account trading disabled" || r == "expert trading disabled on account") return "hisob EA savdosiga ruxsat bermaydi";
+   if(r == "symbol trade mode not FULL")         return "simvolda hozir savdo yopiq (sessiya tashqarisi)";
+   if(StringFind(r, "spread high") >= 0)          return "spread juda yuqori " + StringSubstr(r, StringFind(r, "high") + 5);
+   if(StringFind(r, "history not ready") >= 0)    return "grafik tarixi yuklanmoqda (" + StringSubstr(r, 0, 3) + ")";
+   if(StringFind(r, "symbol") == 0)               return "simvol muammosi: " + r;
+   return "savdo muhiti tayyor emas: " + r;
+}
+
+string MBRiskReasonUz(const string r)
+{
+   if(StringFind(r, "EMERGENCY DD") == 0)         return "favqulodda DD " + StringSubstr(r, 13);
+   if(StringFind(r, "Equity stop DD") == 0)       return "equity to'xtash DD " + StringSubstr(r, 15);
+   if(StringFind(r, "Daily loss money") == 0)     return "kunlik zarar chegarasi " + StringSubstr(r, 17);
+   if(StringFind(r, "Daily loss") == 0)           return "kunlik zarar chegarasi " + StringSubstr(r, 11);
+   if(r == "ENV not ready")                       return MBEnvReasonUz(G_ENV_BLOCK_REASON);
+   if(StringFind(r, "risk spread high") == 0)     return "spread juda yuqori " + StringSubstr(r, 17);
+   if(StringFind(r, "post-loss cooldown until") == 0) return "zarardan keyingi tanaffus " + StringSubstr(r, 25) + " gacha";
+   if(StringFind(r, "max daily entry attempts") == 0) return "kunlik kirish urinishlari tugadi " + StringSubstr(r, 25);
+   if(StringFind(r, "max daily grid attempts") == 0)  return "kunlik grid urinishlari tugadi " + StringSubstr(r, 24);
+   return r;
+}
+
+void MBHealthCollect()
+{
+   G_HL_N = 0;
+   bool tester = (bool)MQLInfoInteger(MQL_TESTER);
+   // red - nothing can trade now
+   if(!tester && TerminalInfoInteger(TERMINAL_CONNECTED) == 0)
+      MBHealthAdd(2, "Broker bilan ulanish yo'q - internet / server ulanishini tekshiring");
+   if(!tester && TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) == 0)
+      MBHealthAdd(2, "MT5 da AutoTrading (Algo Trading) tugmasi o'chiq - savdo yo'q");
+   else if(!tester && MQLInfoInteger(MQL_TRADE_ALLOWED) == 0)
+      MBHealthAdd(2, "EA sozlamasida 'Algo Trading ga ruxsat' belgilanmagan");
+   if(G_DUP_ACTIVE)
+      MBHealthAdd(2, "Boshqa grafikda shu EA (shu Magic) ishlayapti - bu grafik savdo ochmaydi");
+   if(G_RISK_HARD_BLOCK)
+      MBHealthAdd(2, "HIMOYA: " + MBRiskReasonUz(G_RISK_REASON));
+   double ml = AccountInfoDouble(ACCOUNT_MARGIN_LEVEL);
+   if(G_BASKET_ORDERS > 0 && ml > 0.0 && ml < 150.0)
+      MBHealthAdd(2, StringFormat("Margin darajasi %.0f%% - stop-out xavfi", ml));
+   string fl = "";
+   int nf = MBSendFailsRecent(1800, fl);
+   if(nf > 0)
+      MBHealthAdd(nf >= 3 ? 2 : 1, StringFormat("Oxirgi 30 daqiqada %d order rad etildi: %s", nf, fl));
+   // amber - trading, but something is off
+   if(G_BASKET_ORDERS > 0 && ml > 0.0 && ml >= 150.0 && ml < 300.0)
+      MBHealthAdd(1, StringFormat("Margin darajasi %.0f%% - past", ml));
+   if(G_BASKET_ORDERS > 0 && BasketSLPercent > 0.0 && G_BASKET_DD_PERCENT >= 0.8 * BasketSLPercent)
+      MBHealthAdd(1, StringFormat("Savat DD %.1f%% - basket SL %.0f%% ga yaqin", G_BASKET_DD_PERCENT, BasketSLPercent));
+   if(G_SAF_ENTRY_BLOCK && !G_RISK_HARD_BLOCK)
+      MBHealthAdd(1, "Xavfsizlik qatlami kutmoqda: " + G_SAF_REASON);
+   if(G_CAL_BLIND)
+      MBHealthAdd(1, "Kalendar o'qilmayapti - zaxira jadval yoqilgan (08:30 / 10:00 NY)");
+   else if(G_CAL_ACTIVE && EconomicCalendarHardBlockFirst)
+      MBHealthAdd(1, StringFormat("Yangilik oynasi: %s - yangi kirish yo'q", G_CAL_EVENT_NAME));
+   int ta = TickAgeSeconds();
+   if(!G_RISK_HARD_BLOCK && !tester && ta > 180)
+      MBHealthAdd(1, StringFormat("Tik kelmayapti: %d daqiqa", ta / 60));
+   string ia = "";
+   int nia = MBInputAuditCount(ia);
+   if(nia > 0)
+      MBHealthAdd(1, "Sozlama: " + ia + (nia > 1 ? StringFormat(" (+%d)", nia - 1) : ""));
+   if(MBProfSlow())
+      MBHealthAdd(1, "Tezlik sekin: " + MBProfText());
+}
+
+// Draws the block at the cursor: worst first (reds were added first), at most 4 lines.
+void MBPanelHealth(const int x, const int w, const int lh)
+{
+   double sc = MBVisScale();
+   MBHealthCollect();
+   int worst = 0;
+   for(int i = 0; i < G_HL_N; i++) worst = MathMax(worst, G_HL_SEV[i]);
+   color tone = (worst >= 2) ? MBVisRed() : ((worst == 1) ? MBVisAmber() : MBVisGreen());
+   int rows = (G_HL_N > 0) ? MathMin(G_HL_N, 4) : 1;
+   int bx = x + 12, bw = w - 24, by = G_MB_PANEL_Y + (int)(2 * sc);
+   int bh = (int)(lh * 1.05) + rows * lh;
+   MBVisRect("P_HB", bx, by, bw, bh, MBVisBlend(MBVisCard(), tone, 0.10), MBVisBlend(MBVisCard(), tone, 0.55), false);
+   MBVisRect("P_HA", bx, by, (int)MathMax(2, 3 * sc), bh, tone, tone, false);
+   string title = "HOLAT NAZORATI" + (G_HL_N > 4 ? StringFormat("  ·  yana %d ta", G_HL_N - 4) : "");
+   MBVisText("P_HT", title, bx + (int)(10 * sc), by + (int)(4 * sc), tone, G_MB_PANEL_FS - 1, PanelFontBold, ANCHOR_LEFT_UPPER, false);
+   int ry = by + (int)(lh * 1.05);
+   for(int r = 0; r < 4; r++)
+   {
+      string ico_id = "P_HI" + IntegerToString(r), txt_id = "P_HR" + IntegerToString(r);
+      if(r >= rows)
+      {
+         ObjectDelete(0, MB_VIS_PREFIX + ico_id);
+         ObjectDelete(0, MB_VIS_PREFIX + txt_id);
+         continue;
+      }
+      int sev = (G_HL_N > 0) ? G_HL_SEV[r] : 0;
+      color c = (sev >= 2) ? MBVisRed() : ((sev == 1) ? MBVisAmber() : MBVisGreen());
+      string ico = (sev >= 2) ? "✖" : ((sev == 1) ? "⚠" : "✔");
+      string txt = (G_HL_N > 0) ? G_HL_TXT[r]
+                   : StringFormat("Hammasi ishlayapti: ulanish, AutoTrading, spread %d/%d, risk, kalendar", G_LAST_SPREAD_POINTS, MaxSpreadAllowed());
+      int tx = bx + (int)(30 * sc);
+      MBVisText(ico_id, ico, bx + (int)(12 * sc), ry, c, G_MB_PANEL_FS, "Segoe UI Symbol", ANCHOR_LEFT_UPPER, false);
+      MBVisText(txt_id, MBVisFitPx(txt, PanelFont, G_MB_PANEL_FS, bw - (tx - bx) - (int)(8 * sc)), tx, ry, c, G_MB_PANEL_FS, PanelFont, ANCHOR_LEFT_UPPER, false);
+      ry += lh;
+   }
+   G_MB_PANEL_Y = by + bh + (int)(4 * sc);
 }
 
 int MBPanelPillW(const string text)
@@ -761,6 +918,9 @@ void MBDrawPanel()
    MBPanelPill("P_STATUS", status, card_x + card_w - 12 - pill_w, band_cy - (lh - 2) / 2, lh - 2, status_tone);
    G_MB_PANEL_Y = y0 + band_h + (int)(8 * sc);
 
+   // --- health check (package 24): always visible, compact or not ---
+   MBPanelHealth(card_x, card_w, lh);
+
    // --- account ---
    double bal = AccountInfoDouble(ACCOUNT_BALANCE);
    double eq = AccountInfoDouble(ACCOUNT_EQUITY);
@@ -1029,6 +1189,10 @@ void MBDrawPanel()
    string why_txt = MBReasonUz(G_ENTRY_REASON);
    if(G_BASKET_ORDERS > 0)
       why_txt = StringFormat("savat ochiq (%d order) - yangi kirish yo'q, savat boshqarilmoqda", G_BASKET_ORDERS);
+   else if(G_RISK_HARD_BLOCK)   // package 24: the entry check does not run under a hard block - say why
+      why_txt = "himoya - " + MBRiskReasonUz(G_RISK_REASON) + ", yangi kirish yo'q";
+   else if(G_ENTRY_REASON == "initial entry")
+      why_txt = "tekshiruv hali boshlanmadi (birinchi tik kutilmoqda)";
    else if(G_ENTRY_REASON == "score not passed" && G_OPP_DIR != OPP_DIR_NONE && G_SCORE_MIN_REQUIRED > 0)
       why_txt = StringFormat("%s signal kuchsiz: ball %d / kerak %d", (G_OPP_DIR == OPP_DIR_BUY ? "BUY" : "SELL"),
                              G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
@@ -1202,6 +1366,16 @@ void MBDrawPanel()
    if(two) G_MB_PANEL_TWO_H = full_now;
    else    G_MB_PANEL_FULL_H = full_now;
    ObjectSetInteger(0, MB_VIS_PREFIX + "P_CARD", OBJPROP_YSIZE, G_MB_PANEL_Y - y0 + 4);
+   // Package 24: a compact panel with room left brings detail lines back, most useful first (one line of
+   // room = one line more; an overflow takes lines away again).
+   if(G_MB_PANEL_COMPACT && chart_h > 0 && lh > 0)
+   {
+      int spare = (chart_h - 8) - (G_MB_PANEL_Y + 4);
+      int step = (spare >= 0) ? spare / lh : -((-spare + lh - 1) / lh);
+      G_MB_PANEL_EXTRA = MathMax(0, MathMin(30, G_MB_PANEL_EXTRA + step));
+   }
+   else
+      G_MB_PANEL_EXTRA = 0;
    ChartRedraw(0);   // timer redraws otherwise wait for the next tick to show
 }
 
