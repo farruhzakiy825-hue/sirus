@@ -1572,7 +1572,7 @@ void MBFastEntryFilled()
    // the market before this basket.
    if(G_BASKET_ORDERS <= 1)
       MBSecondChanceTaken();
-   if(StringFind(G_OPP_REASON, "FAST ") == 0 || StringFind(G_OPP_REASON, "BRAIN ") == 0)
+   if(StringFind(G_OPP_REASON, "FAST ") == 0 || StringFind(G_OPP_REASON, "BRAIN ") == 0 || StringFind(G_OPP_REASON, "YADRO ") == 0)
    {
       MBFastToday();
       G_MB_FAST_TODAY++;
@@ -1581,7 +1581,8 @@ void MBFastEntryFilled()
    if(G_BASKET_ORDERS <= 1)
    {
       int colon = StringFind(G_OPP_REASON, ":");
-      G_MB_ENTRY_KIND = (StringFind(G_OPP_REASON, "BRAIN ") == 0 || StringFind(G_OPP_REASON, "FAST ") == 0)
+      G_MB_ENTRY_KIND = (StringFind(G_OPP_REASON, "BRAIN ") == 0 || StringFind(G_OPP_REASON, "FAST ") == 0 ||
+                         StringFind(G_OPP_REASON, "YADRO ") == 0)
                         ? ((colon > 0) ? StringSubstr(G_OPP_REASON, 0, colon) : G_OPP_REASON)
                         : "detektor " + OpportunityTypeToString(G_OPP_TYPE);
       G_MB_ENTRY_KIND += StringFormat(" · sifat %d", G_MB_ENTRY_QUALITY);

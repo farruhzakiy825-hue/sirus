@@ -834,3 +834,25 @@ Har paketdan oldin dalil to'planadi (Trace CSV va 2-raund audit). Shundan keyin 
 **Egasidan kerak:**
 - Har paketdan keyin kompilyatsiya natijasi.
 - Jonli `Sirus_Trace_*.csv` va `Sirus_Shadow_*.csv` fayllari.
+
+## 16. YADRO — kirish qarorini qayta qurish (29-paket, 2026-10-19)
+
+**Sabab:** jonli kunda bot deyarli jim turdi. Birinchi kirishni 150 dan ortiq joy rad etishi mumkin edi, va kirish
+uchun hammasi "ha" deyishi kerak edi. Soya daftari: rad etilganlarning 3–7% i grid talab qilardi, ochilganlarning 17%.
+Ya'ni filtrlar xavfni ajratmay, faqat savdo sonini kamaytirgan.
+
+**Yechim:** kirishni 5 savol hal qiladi: yo'nalish, joy, trigger, TP uchun joy, xavfsizlik. Eski zanjir o'chirilmadi,
+maslahatchi bo'lib ishlaydi: har YADRO qarori yonida uning fikri Trace'ga yoziladi (`eski: ...`).
+
+**Keyingi qadam — filtrlarni birma-bir qaytarish:**
+1. Har kuni Trace va Autopsy: YADRO ochgan savatlar, eski zanjir "yo'q" degan va "ha" degan guruhlarga bo'linadi.
+2. Qaysi eski filtr "yo'q" degan savatlar grid'ga sezilarli ko'proq kirsa (kamida 30 natija), o'sha filtr YADRO'ga
+   qo'shiladi.
+3. Grid kamaytirmaydigan filtrlar maslahatchi bo'lib qoladi.
+
+| Holat | Band |
+|---|---|
+| ✅ | YADRO 5 savol, ikki tomon har tikda, eski zanjir maslahatchi, panel qatori |
+| ⏳ | Birinchi jonli kun natijasi (Trace + Autopsy3) |
+| ⏳ | Filtrlarni dalil bo'yicha birma-bir qaytarish |
+

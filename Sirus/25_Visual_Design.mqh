@@ -1204,6 +1204,8 @@ void MBDrawPanel()
       why_txt = StringFormat("savat ochiq (%d order) - yangi kirish yo'q, savat boshqarilmoqda", G_BASKET_ORDERS);
    else if(G_RISK_HARD_BLOCK)   // package 24: the entry check does not run under a hard block - say why
       why_txt = "himoya - " + MBRiskReasonUz(G_RISK_REASON) + ", yangi kirish yo'q";
+   else if(CoreEntryOn() && StringFind(G_ENTRY_REASON, "core ") == 0)
+      why_txt = CoreReasonUz(G_ENTRY_REASON);   // package 29: YADRO's own refusal
    else if(G_ENTRY_REASON == "initial entry")
       why_txt = "tekshiruv hali boshlanmadi (birinchi tik kutilmoqda)";
    else if(G_ENTRY_REASON == "score not passed" && G_OPP_DIR != OPP_DIR_NONE && G_SCORE_MIN_REQUIRED > 0)
@@ -1215,7 +1217,9 @@ void MBDrawPanel()
                   (G_QUIET_BARS >= 30 ? MBVisAmber() : muted), false, x0, w, lh);
    else
       MBPanelLine("E_QUIET", "To'siqlar bugun: " + MBGateTopUz(3), muted, false, x0, w, lh);
-   if(G_BASKET_ORDERS <= 0 && EnableBrainEntries && (StringLen(G_MB_FAST_WHYNOT[0]) > 0 || StringLen(G_MB_FAST_WHYNOT[1]) > 0))
+   if(G_BASKET_ORDERS <= 0 && CoreEntryOn())
+      MBPanelLine("E_FAST", CorePanelText(), muted, false, x0, w, lh);   // package 29: YADRO, both sides
+   else if(G_BASKET_ORDERS <= 0 && EnableBrainEntries && (StringLen(G_MB_FAST_WHYNOT[0]) > 0 || StringLen(G_MB_FAST_WHYNOT[1]) > 0))
       MBPanelLine("E_FAST", StringFormat("Miya  BUY: %s  ·  SELL: %s", G_MB_FAST_WHYNOT[1], G_MB_FAST_WHYNOT[0]), muted, false, x0, w, lh);
    else
       ObjectDelete(0, MB_VIS_PREFIX + "E_FAST");

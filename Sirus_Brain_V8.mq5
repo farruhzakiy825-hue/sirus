@@ -55,6 +55,7 @@
 #include "Sirus/26_Measure.mqh"          // Stage 12: profiler + shadow ledger
 #include "Sirus/26b_Autopsy.mqh"         // Plan stage 7: trade memory, bad-entry autopsy, bad-taken vs good-missed balance
 #include "Sirus/26c_Evidence_Gates.mqh"  // Evidence gates: every quality filter proves its place on the robot's own numbers
+#include "Sirus/27_Core_Entry.mqh"      // YADRO: the first entry decided by five questions; the old chain advises
 #include "Sirus/26d_Trace.mqh"           // Decision trace: one CSV row per decision - who changed it, which rule refused, what every TF said
 #include "Sirus/90_Reason_Code.mqh"      // Reason Code (always last): why every order was opened (journal + CSV)
 

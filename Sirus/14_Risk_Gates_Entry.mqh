@@ -1817,6 +1817,12 @@ int GateClassify(const string why)
    if(StringLen(why) == 0)                         return GATE_NONE;
 
    if(StringFind(why, "no setup") == 0)            return GATE_NOSETUP;
+   // PACKAGE 29: YADRO's four setup questions (its safety refusals keep their own texts).
+   if(StringFind(why, "core direction") == 0)      return GATE_DIRECTION;
+   if(StringFind(why, "core place") == 0)          return GATE_LOCATION;
+   if(StringFind(why, "core trigger") == 0)        return GATE_MBJUDGE;
+   if(StringFind(why, "core room") == 0)           return GATE_ZONE;
+   if(StringFind(why, "core none") == 0)           return GATE_NOSETUP;
    if(StringFind(why, "market brain veto") == 0)   return GATE_MBVETO;
    if(StringFind(why, "entry judge") == 0)         return GATE_MBJUDGE;
 
@@ -4573,7 +4579,7 @@ bool FirstEntryCanRun(string &reason)
 void UpdateFirstEntryEngine(const string source)
 {
    string reason = "";
-   G_ENTRY_READY = FirstEntryCanRun(reason);
+   G_ENTRY_READY = CoreEntryOn() ? CoreEntryCanRun(reason) : FirstEntryCanRun(reason);   // package 29: YADRO
    G_EG_RECORD = false;   // evidence gates: skips are recorded inside the decision only
 
    // GATE REGISTRY: every refusal passes through here, which is what makes one line worth more
@@ -4651,8 +4657,8 @@ void UpdateFirstEntryEngine(const string source)
          G_FUNNEL_GATE_BLOCK++;
          G_FUNNEL_LAST_GATE = reason;
       }
-      G_ENTRY_STATUS = "ENTRY: WAIT | reason=" + reason;
-      G_ENTRY_REASON = reason;
+      G_ENTRY_STATUS = "ENTRY: WAIT | reason=" + CoreStripAdvice(reason);
+      G_ENTRY_REASON = CoreStripAdvice(reason);   // package 29: the old chain's advice stays in the Trace
       G_ENTRY_DETAIL = StringFormat("ENTRY DETAIL: attempts=%d success=%d fails=%d deferred=%d | positions=%d",
                                     G_ENTRY_ATTEMPTS,
                                     G_ENTRY_SUCCESSES,

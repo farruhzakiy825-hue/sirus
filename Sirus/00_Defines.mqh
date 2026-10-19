@@ -447,6 +447,11 @@ void MBProfBegin(const int seg);
 void MBProfEnd(const int seg);
 string MBProfText();
 string MBProfShortText();
+bool   CoreEntryOn();                          // 27 - YADRO decides the first entry (read by 14, 25)
+bool   CoreEntryCanRun(string &reason);        // 27 - the YADRO decision (called by 14)
+string CorePanelText();                        // 27 - panel line
+string CoreStripAdvice(const string why);      // 27 - a decision text without the old chain's advice
+string CoreReasonUz(const string why);         // 27 - panel "Sabab" for a YADRO refusal
 void MBShadowOnDecision(const bool ready, const string reason);
 void MBShadowOnEntry(const int dir, const double price);
 void MBShadowUpdate();

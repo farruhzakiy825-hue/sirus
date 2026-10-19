@@ -1,5 +1,32 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 29-paket: YADRO — birinchi kirish 5 savol bilan hal qilinadi (2026-10-19)
+
+**Nega:** tuzatishlardan keyin ham bot jim turdi. Birinchi kirishni 150+ joy rad etishi mumkin edi va hammasi bir
+vaqtda "ha" deyishi kerak edi. 383 daqiqalik qarordan faqat 7 tasida savdo ochilgan. Soya daftari esa filtrlar xavfni
+ajratmasligini ko'rsatdi: rad etilganlarning 3–7% i grid talab qilardi, ochilganlarning 17%.
+
+**YADRO (`27_Core_Entry.mqh`), har tikda ikkala tomon uchun:**
+1. **Yo'nalish.** H1 + H4 bilan yoki neytral bo'lsa — ochiq. Ikkalasi qarshi bo'lsa yoki bias −3 bo'lsa, faqat o'z
+   joyida mumkin (sweep yoki ushlab turgan daraja). Bunda M5 / lokal oyoq burilgan va yopilgan trigger bo'lishi kerak,
+   H1 + M15 qarshi itarayotgan bo'lmasligi kerak. V1 (tasdiqlangan burilish) va zarardan keyingi qayta kirish xotirasi
+   saqlandi.
+2. **Joy.** Charchagan impuls va olingan likvidlik to'sadi. "Oyoqning oxiri" faqat H1 + H4 ga qarshi bo'lsa to'sadi.
+3. **Trigger.** Hozir shu tomonga trigger bo'lishi kerak (trendga qarshi bo'lsa — yopilgan burilish). Shakllanayotgan
+   sham qarshi tomonga displacement bermasligi kerak (V4).
+4. **TP uchun joy.** TP ichida ushlab turgan qarama-qarshi daraja yo'q (V3), xarajat odatiy.
+5. **Xavfsizlik.** Risk, safety, yangilik, spread, dam olish / bayram, anomaliya, dublikat, pauza, bitta savat,
+   broker xatosidan keyin kutish, operator va sozlamalar tekshiruvi.
+
+- Ikkala tomon o'tsa, yaxshiroq joylashgani olinadi. Teng bo'lsa, shu tomonga hal qiladi: jonli sham, keyin M5,
+  keyin lokal oyoq.
+- **Eski zanjir o'chirilmadi.** U maslahatchi bo'lib ishlaydi: har qaror yonida Trace'ga `eski: ...` yoziladi.
+  Shu orqali har bir eski filtrni YADRO uning maslahatiga qarshi ochgan savdolarda o'lchab, foydasi isbotlanganini
+  birma-bir qaytaramiz.
+- Panel: "Sabab" va "YADRO BUY: … · SELL: …" qatori har tomonning holatini ko'rsatadi.
+- Grid, chiqish, basket SL, cashback TP, lot qoidalari o'zgarmadi.
+- Kalitlar: `EntryCoreMode = true`, `CoreLegacyAdvisor = true`.
+
 ## 28-paket: jonli savdo tahlili - trend ichidagi SELL'lar 2 soat to'silgani tuzatildi (2026-10-19)
 
 19-oktabr fayllari (Trace, Shadow, Autopsy) tahlil qilindi. 07:40 dan 09:17 gacha (server vaqti) birorta ham kirish
