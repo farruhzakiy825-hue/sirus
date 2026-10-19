@@ -1,5 +1,18 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 41-paket: filtrlar yana yoqildi; "ikki tomon yopiq" nazorati qo'shildi (2026-10-19)
+
+- **Egasining qarori:** filtrni savdo ko'payishi uchun shunchaki o'chirish yechim emas. Ularni bir-biriga moslashtirish
+  kerak. 40-paketdagi o'chiq holat bekor qilindi: hammasi yoqiq. Xatti-harakat 39-paket bilan bir xil, unda savdo
+  boshlangan edi. Kalitlar faqat sozlash uchun qoladi.
+- **Yangi nazorat (faqat tashxis, hech narsani yumshatmaydi):**
+  - YADRO'ning setup qoidalari ikkala tomonni ham 5 daqiqadan ko'proq yopib tursa, HOLAT NAZORATI'da sariq qator
+    chiqadi: `Ikki tomon N daq yopiq: BUY <sabab> | SELL <sabab>`.
+  - Jurnalga ham yoziladi (15 daqiqada bir marta): `[SIRUS YADRO DEADLOCK]`.
+  - Xavfsizlik to'xtatgan (yangilik, pauza) yoki savat ochiq paytlar bu hisobga kirmaydi.
+  - Shu bilan qaysi ikki qoida bir-biriga zid ekanini aniq ko'ramiz va o'sha juftni moslashtiramiz. 37-paketda
+    global bias va H1 bosimi juftligi shunday hal qilingan edi.
+
 ## 40-paket: YADRO birinchi tez holatiga qaytarildi — keyin qo'shilgan to'siqlar o'chiq kalitlarga o'tdi (2026-10-19)
 
 **Xato nima edi:** birinchi YADRO (29-paket) savdoni tez boshladi. Keyin har skrinshotdan keyin yangi to'siq

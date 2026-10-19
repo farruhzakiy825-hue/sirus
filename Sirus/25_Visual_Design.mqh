@@ -413,6 +413,9 @@ void MBHealthCollect()
       MBHealthAdd(1, "Sozlama: " + ia + (nia > 1 ? StringFormat(" (+%d)", nia - 1) : ""));
    if(MBProfSlow())
       MBHealthAdd(1, "Tezlik sekin: " + MBProfShortText());
+   string dl = CoreDeadlockText();   // package 41: two YADRO rules holding both sides
+   if(StringLen(dl) > 0)
+      MBHealthAdd(1, dl);
 }
 
 // Draws the block at the cursor: worst first (reds were added first), at most 4 lines.

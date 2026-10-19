@@ -54,27 +54,29 @@ input int    CoreMinControl           = 35;   // YADRO: min micro control share 
 // CoreLocalTurnControl: 38-PAKET: lokal oyoq katta TF ga qarshi burilganda (lokal burilish savdosi) mikro nazorat kamida shu foiz bo'lsin
 input int    CoreLocalTurnControl     = 60;   // YADRO: micro control for a local turn against H1/H4, %
 
-// PACKAGE 40 (owner, live 2026-10-19): the first YADRO (package 29) traded fast; every refusal added after
-// it (packages 31-38) was reasonable alone and together they choked the entries again - the very stacking
-// YADRO was built to end. Each of them is now a switch, OFF by default, to be turned on one by one only
-// when the Trace / Autopsy numbers show it lowers the grid rate. The rules that ADD entries (the turn
-// after a stretched run, the HTF reversal, the brain's turn, the local turn, the boxed-range escape) and
-// the safety / speed / lot fixes stay on.
-input group "YADRO ▸ Extra filters (OFF until the data earns them)"
+// PACKAGE 40-41: each refusal added after the first YADRO (packages 30-38) is a switch. Owner decision:
+// they stay ON - switching a filter off just to trade more is no answer; they are tuned to work together
+// instead. The deadlock watch below shows when two of them hold BOTH sides at once, so the pair can be
+// reconciled on evidence (as package 37 did for the global bias vs the H1 push).
+input group "YADRO ▸ Filters (on; tune them together, do not switch off to trade more)"
 // CoreNoChasing: 30-PAKET: cho'zilgan yugurish cho'qqisida o'sha tomonga kirmaslik (4177 dagi BUY xatosidan)
 input bool   CoreNoChasing            = true;   // YADRO filter: no chasing at the tip of a stretched run
 // CoreUseMicroControl: 31-PAKET: mikro nazorat CoreMinControl % dan past bo'lsa oddiy kirish yo'q
-input bool   CoreUseMicroControl      = false;   // YADRO filter: micro control minimum
+input bool   CoreUseMicroControl      = true;    // YADRO filter: micro control minimum
 // CoreUseGlobalLocal: 32-PAKET: global bias'ga qarshi kirish uchun M5 / lokal oyoq burilgan bo'lishi kerak
-input bool   CoreUseGlobalLocal       = false;   // YADRO filter: global bias needs M5 / local turned
+input bool   CoreUseGlobalLocal       = true;    // YADRO filter: global bias needs M5 / local turned
 // CoreUseZoneChecks: 32-PAKET: yangi H1/H4 zona va kuchli RBR/DBR zona qoq oldida kirmaslik
-input bool   CoreUseZoneChecks        = false;   // YADRO filter: HTF zone / zone-intelligence block
+input bool   CoreUseZoneChecks        = true;    // YADRO filter: HTF zone / zone-intelligence block
 // CoreUseH1PushRule: 33-PAKET: H1 yoki H4 qarshi va H1 + M15 bosimi qarshi bo'lsa kirmaslik
-input bool   CoreUseH1PushRule        = false;   // YADRO filter: one of H1/H4 against with H1+M15 pushing
+input bool   CoreUseH1PushRule        = true;    // YADRO filter: one of H1/H4 against with H1+M15 pushing
 // CoreUseLocalLayer: 38-PAKET: lokal qatlam qarshi bo'lsa kirmaslik; oddiy rejimda M5 va lokal ikkalasi kerak
-input bool   CoreUseLocalLayer        = false;   // YADRO filter: local layer against / strict in normal mode
+input bool   CoreUseLocalLayer        = true;    // YADRO filter: local layer against / strict in normal mode
 
 string G_CORE_WHY[2];      // 0 = SELL, 1 = BUY: why that side was refused / taken this tick
+// PACKAGE 41: deadlock watch - since when BOTH sides are refused by the core's own setup rules (not safety,
+// not an open basket) and what refuses each. Diagnosis only: nothing is relaxed by it.
+datetime G_CORE_BOTH_SINCE = 0;
+datetime G_CORE_BOTH_PRINTED = 0;
 
 // PACKAGE 30 (live 2026-10-19 11:16): YADRO bought 4177.4, the top of a $9 rally inside an H4 down-turn,
 // and price fell back to 4169. A trader does not buy the last tick of a run - and at the top of a run
@@ -321,11 +323,12 @@ bool CoreSideOk(const int d, string &why, int &rank)
    }
    // 3. TRIGGER (a turn is taken only on proof: a closed turn candle or a sweep, never the forming candle)
    bool strong = MBHasStrongTriggerNow(d);
-   // The full counter-trend side and the turn need a closed turn; every other entry any trigger.
+   // A side let through against H1 / H4 (counter-trend, or by a reversal / the brain's turn) and the turn
+   // need a closed turn; an ordinary with-trend / neutral entry any trigger.
    bool trig;
    if(reversal)
       trig = (strong || swept);                                   // a turn after a stretched run: real proof only
-   else if(counter)   // package 40: as in package 29 - only the full counter-trend side needs the closed turn
+   else if(counter || ((htf_rev || brain_turn) && (MBSign(h1) == -d || MBSign(h4) == -d)))   // let through against H1 / H4: a closed turn
       // Package 38: a cashback local turn takes its M1 candle - a CLOSED trigger candle, never the forming one.
       trig = (strong || swept || (via_local && cashback && MBCandleTriggerNow(0, d, px)));
    else
@@ -460,6 +463,7 @@ bool CoreEntryCanRun(string &reason)
    string safety = "";
    if(!CoreSafetyAllows(safety))
    {
+      G_CORE_BOTH_SINCE = 0;   // package 41: a safety hold is not a deadlock of the setup rules
       reason = safety;   // a basket open, news, cooldown ... - nothing for the advisor to compare
       G_CORE_WHY[0] = "core safety: " + safety;   // package 36: the panel shows it instead of an old reason
       G_CORE_WHY[1] = G_CORE_WHY[0];
@@ -486,6 +490,21 @@ bool CoreEntryCanRun(string &reason)
    }
    else if(ok[1]) d = 1;
    else if(ok[0]) d = -1;
+
+   // Package 41: deadlock watch (diagnosis only).
+   if(!ok[1] && !ok[0])
+   {
+      if(G_CORE_BOTH_SINCE <= 0)
+         G_CORE_BOTH_SINCE = TimeCurrent();
+      if(TimeCurrent() - G_CORE_BOTH_SINCE >= 300 && TimeCurrent() - G_CORE_BOTH_PRINTED >= 900)
+      {
+         G_CORE_BOTH_PRINTED = TimeCurrent();
+         PrintFormat("[SIRUS YADRO DEADLOCK] both sides refused for %d min | BUY: %s | SELL: %s",
+                     (int)((TimeCurrent() - G_CORE_BOTH_SINCE) / 60), G_CORE_WHY[1], G_CORE_WHY[0]);
+      }
+   }
+   else
+      G_CORE_BOTH_SINCE = 0;
 
    if(d == 0)
    {
@@ -600,6 +619,20 @@ bool CoreFastReentry(const int dir)
    if(TimeCurrent() - G_RE_TIME > 120)
       return false;
    return MBReentryFastOk(dir);
+}
+
+// Package 41: HOLAT NAZORATI line while both sides have been refused for 5+ minutes ("" otherwise).
+string CoreDeadlockText()
+{
+   if(!CoreEntryOn() || G_CORE_BOTH_SINCE <= 0 || G_BASKET_ORDERS > 0)
+      return "";
+   int mins = (int)((TimeCurrent() - G_CORE_BOTH_SINCE) / 60);
+   if(mins < 5)
+      return "";
+   string b = CoreReasonUz(G_CORE_WHY[1]), s = CoreReasonUz(G_CORE_WHY[0]);
+   if(StringLen(b) > 34) b = StringSubstr(b, 0, 34);
+   if(StringLen(s) > 34) s = StringSubstr(s, 0, 34);
+   return StringFormat("Ikki tomon %d daq yopiq: BUY %s | SELL %s", mins, b, s);
 }
 
 // Package 36: one panel line per side - the two reasons no longer share one line (it was cut off and the
