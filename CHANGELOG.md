@@ -1,5 +1,26 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 50-paket: "kech + global bias'ga qarshi" kirish yo'q — tester dalili bilan (2026-10-19)
+
+**Dalil:** tester, 10–17 sentyabr 2026, 431 savat.
+
+| Kirish | Savat | Gridga tushgan |
+|---|---|---|
+| Harakat yo'lining 80% idan oldin | 282 | 5% |
+| 80% dan keyin | 149 | 11% |
+| 80% dan keyin + global bias'ga qarshi | 73 | **15%** |
+| 80% dan keyin + bias bilan | 76 | 8% |
+
+**Qoida:** harakat yo'lining ≥80% ini bosib bo'lgan va global bias'ga qarshi kirish ochilmaydi. Bu 32 ta grid
+savatdan 11 tasini va eng chuqur 13 tadan 5 tasini olib tashlaydi, jumladan 10.09 dagi 28 soatlik BUY'ni. Savdo
+soni ~17% kamayadi.
+
+**Ochiq qoladi:**
+- bias bilan bir tomonda bo'lgan kech kirish;
+- yangi sweep'dagi burilish.
+
+Kalit: `CoreLateAgainstBiasPct = 80` (0 = o'chiq). Keyingi tester sinovi uning ta'sirini raqam bilan ko'rsatadi.
+
 ## 49-paket: tester jadvalini jonli bot ustidan yozib yubormaydi (2026-10-19)
 
 - Tester va jonli grafik jadvalni bitta faylga yozardi. Jonli bot har 30 daqiqada o'zining kichik jadvalini saqlab,

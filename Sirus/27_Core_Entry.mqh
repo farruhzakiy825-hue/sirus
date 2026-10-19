@@ -71,6 +71,8 @@ input bool   CoreUseZoneChecks        = true;    // YADRO filter: HTF zone / zon
 input bool   CoreUseH1PushRule        = true;    // YADRO filter: one of H1/H4 against with H1+M15 pushing
 // CoreUseLocalLayer: 38-PAKET: lokal qatlam qarshi bo'lsa kirmaslik; oddiy rejimda M5 va lokal ikkalasi kerak
 input bool   CoreUseLocalLayer        = true;    // YADRO filter: local layer against / strict in normal mode
+// CoreLateAgainstBiasPct: 50-PAKET (tester dalili): harakat yo'lining shu foizidan keyin va global bias'ga qarshi kirish yo'q (0 = o'chiq)
+input double CoreLateAgainstBiasPct   = 80.0;   // YADRO filter: late (leg %) AND against the global bias
 
 string G_CORE_WHY[2];      // 0 = SELL, 1 = BUY: why that side was refused / taken this tick
 int    G_CORE_ROUTE[2];    // package 45: how the side passed - 0 plain, 1 counter-trend, 2 turn after a run, 3 HTF / brain turn
@@ -322,6 +324,21 @@ bool CoreSideOk(const int d, string &why, int &rank)
       if(!(late_only && !htf_any_against))
       {
          why = "core place: " + w;
+         return false;
+      }
+   }
+
+   // PACKAGE 50 (tester 10-17 Sep 2026, 431 baskets): entries past 80% of the leg needed the grid 11% of the
+   // time against 5% earlier in the leg; past 80% AND against the global bias 15% (11 of the 32 grid
+   // baskets, 5 of the 13 deepest - the 28-hour BUY of 10 Sep among them). Late WITH the bias stays open
+   // (8%), and so does a turn on a fresh sweep - it is the other side's leg that is spent there.
+   if(CoreLateAgainstBiasPct > 0.0 && MBBiasAlign(d) < 0 && !swept)
+   {
+      double lg15 = 0.0;
+      double lgp = MBLegPct(d, lg15);
+      if(lgp >= CoreLateAgainstBiasPct)
+      {
+         why = StringFormat("core place: %s late (%.0f%% of the leg) and against the global bias %s", side, lgp, MBBiasName(G_MB_BIAS));
          return false;
       }
    }
