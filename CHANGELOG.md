@@ -1,5 +1,13 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 36-paket: panel — YADRO sababi har tomon uchun alohida qatorda (2026-10-19)
+
+- Avval "YADRO BUY: … · SELL: …" bitta qatorga sig'madi va SELL qismi qirqilib qolardi. Endi ikki qator bor:
+  `YADRO BUY : …` va `YADRO SELL: …`. Har birida o'zbekcha sabab (yo'nalish / joy / trigger / TP uchun joy) yoki
+  "tayyor: …" yoziladi.
+- Xavfsizlik to'xtatgan bo'lsa (pauza, yangilik, spread, ochiq savat), ikkala qatorda "xavfsizlik - …" ko'rinadi.
+  Avval bu holatda eski sabab qolib ketardi.
+
 ## 35-paket: YADRO — tasdiqlangan katta TF burilishi trendga qarshi kirishga ruxsat beradi (2026-10-19)
 
 **Jonli holat (12:39):** katta TF likvidligi ovlandi (KEY pastki SWEEP @ 4163.7), M1 darajadan qaytdi, M5 yuqoriga

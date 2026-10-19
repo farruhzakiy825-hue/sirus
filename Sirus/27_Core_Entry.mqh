@@ -394,6 +394,8 @@ bool CoreEntryCanRun(string &reason)
    if(!CoreSafetyAllows(safety))
    {
       reason = safety;   // a basket open, news, cooldown ... - nothing for the advisor to compare
+      G_CORE_WHY[0] = "core safety: " + safety;   // package 36: the panel shows it instead of an old reason
+      G_CORE_WHY[1] = G_CORE_WHY[0];
       return false;
    }
 
@@ -519,6 +521,18 @@ string CorePanelText()
    return StringFormat("YADRO  BUY: %s  ·  SELL: %s", b, s);
 }
 
+// Package 36: one panel line per side - the two reasons no longer share one line (it was cut off and the
+// SELL half never showed). Ready sides read "tayyor: ...".
+string CorePanelSide(const int k)
+{
+   string t = (StringLen(G_CORE_WHY[k]) > 0) ? G_CORE_WHY[k] : "-";
+   if(StringFind(t, "core ") == 0)
+      t = CoreReasonUz(t);
+   else if(t != "-")
+      t = "tayyor: " + t;
+   return StringFormat("YADRO %s: %s", (k == 1 ? "BUY " : "SELL"), t);
+}
+
 // The decision text without the old chain's advice (the panel and the status show YADRO's own reason;
 // the Trace CSV keeps both).
 string CoreStripAdvice(const string why)
@@ -536,5 +550,6 @@ string CoreReasonUz(const string why)
    if(StringFind(t, "core trigger: ") == 0)   return "trigger - " + StringSubstr(t, 14);
    if(StringFind(t, "core room: ") == 0)      return "TP uchun joy - " + StringSubstr(t, 11);
    if(StringFind(t, "core none: ") == 0)      return StringSubstr(t, 11);
+   if(StringFind(t, "core safety: ") == 0)    return "xavfsizlik - " + StringSubstr(t, 13);
    return t;
 }

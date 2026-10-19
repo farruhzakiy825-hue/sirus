@@ -1218,11 +1218,20 @@ void MBDrawPanel()
    else
       MBPanelLine("E_QUIET", "To'siqlar bugun: " + MBGateTopUz(3), muted, false, x0, w, lh);
    if(G_BASKET_ORDERS <= 0 && CoreEntryOn())
-      MBPanelLine("E_FAST", CorePanelText(), muted, false, x0, w, lh);   // package 29: YADRO, both sides
+   {
+      MBPanelLine("E_FAST", CorePanelSide(1), muted, false, x0, w, lh);    // package 36: YADRO, one line per side
+      MBPanelLine("E_FAST2", CorePanelSide(0), muted, false, x0, w, lh);
+   }
    else if(G_BASKET_ORDERS <= 0 && EnableBrainEntries && (StringLen(G_MB_FAST_WHYNOT[0]) > 0 || StringLen(G_MB_FAST_WHYNOT[1]) > 0))
+   {
       MBPanelLine("E_FAST", StringFormat("Miya  BUY: %s  ·  SELL: %s", G_MB_FAST_WHYNOT[1], G_MB_FAST_WHYNOT[0]), muted, false, x0, w, lh);
+      ObjectDelete(0, MB_VIS_PREFIX + "E_FAST2");
+   }
    else
+   {
       ObjectDelete(0, MB_VIS_PREFIX + "E_FAST");
+      ObjectDelete(0, MB_VIS_PREFIX + "E_FAST2");
+   }
    string sh = MBShadowPanelText();
    if(StringLen(sh) > 0)
       MBPanelLine("E_SHADOW", sh, (StringFind(sh, "⚠") >= 0 ? MBVisAmber() : muted), false, x0, w, lh);
