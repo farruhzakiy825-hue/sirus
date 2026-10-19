@@ -54,6 +54,26 @@ input int    CoreMinControl           = 35;   // YADRO: min micro control share 
 // CoreLocalTurnControl: 38-PAKET: lokal oyoq katta TF ga qarshi burilganda (lokal burilish savdosi) mikro nazorat kamida shu foiz bo'lsin
 input int    CoreLocalTurnControl     = 60;   // YADRO: micro control for a local turn against H1/H4, %
 
+// PACKAGE 40 (owner, live 2026-10-19): the first YADRO (package 29) traded fast; every refusal added after
+// it (packages 31-38) was reasonable alone and together they choked the entries again - the very stacking
+// YADRO was built to end. Each of them is now a switch, OFF by default, to be turned on one by one only
+// when the Trace / Autopsy numbers show it lowers the grid rate. The rules that ADD entries (the turn
+// after a stretched run, the HTF reversal, the brain's turn, the local turn, the boxed-range escape) and
+// the safety / speed / lot fixes stay on.
+input group "YADRO ▸ Extra filters (OFF until the data earns them)"
+// CoreNoChasing: 30-PAKET: cho'zilgan yugurish cho'qqisida o'sha tomonga kirmaslik (4177 dagi BUY xatosidan)
+input bool   CoreNoChasing            = true;   // YADRO filter: no chasing at the tip of a stretched run
+// CoreUseMicroControl: 31-PAKET: mikro nazorat CoreMinControl % dan past bo'lsa oddiy kirish yo'q
+input bool   CoreUseMicroControl      = false;   // YADRO filter: micro control minimum
+// CoreUseGlobalLocal: 32-PAKET: global bias'ga qarshi kirish uchun M5 / lokal oyoq burilgan bo'lishi kerak
+input bool   CoreUseGlobalLocal       = false;   // YADRO filter: global bias needs M5 / local turned
+// CoreUseZoneChecks: 32-PAKET: yangi H1/H4 zona va kuchli RBR/DBR zona qoq oldida kirmaslik
+input bool   CoreUseZoneChecks        = false;   // YADRO filter: HTF zone / zone-intelligence block
+// CoreUseH1PushRule: 33-PAKET: H1 yoki H4 qarshi va H1 + M15 bosimi qarshi bo'lsa kirmaslik
+input bool   CoreUseH1PushRule        = false;   // YADRO filter: one of H1/H4 against with H1+M15 pushing
+// CoreUseLocalLayer: 38-PAKET: lokal qatlam qarshi bo'lsa kirmaslik; oddiy rejimda M5 va lokal ikkalasi kerak
+input bool   CoreUseLocalLayer        = false;   // YADRO filter: local layer against / strict in normal mode
+
 string G_CORE_WHY[2];      // 0 = SELL, 1 = BUY: why that side was refused / taken this tick
 
 // PACKAGE 30 (live 2026-10-19 11:16): YADRO bought 4177.4, the top of a $9 rally inside an H4 down-turn,
@@ -206,14 +226,15 @@ bool CoreSideOk(const int d, string &why, int &rank)
    // leg. Normal mode (larger TP): both, or one with the other neutral.
    bool cashback = RebateModeOn();
    int  m5 = MBM5StructDir(), lc = MBLayerLocal();
-   bool local_with    = cashback ? (m5 == d || lc == d) : ((m5 == d && lc != -d) || (lc == d && m5 != -d));
+   bool strict_local  = (CoreUseLocalLayer && !cashback);
+   bool local_with    = !strict_local ? (m5 == d || lc == d) : ((m5 == d && lc != -d) || (lc == d && m5 != -d));
    bool local_against = cashback ? (m5 == -d && lc == -d) : (m5 == -d || lc == -d);
    bool local_turn    = local_with && (!EnableMicroControl || CoreLocalTurnControl <= 0 || MBControlOf(d) >= CoreLocalTurnControl);
    bool via_local = false;
 
    // 1. DIRECTION
    string loc = "";
-   if(local_against && !reversal && !htf_rev)
+   if(CoreUseLocalLayer && local_against && !reversal && !htf_rev)
    {
       why = StringFormat("core direction: the local layer is against %s (M5 %s, local leg %s) - waiting for it to turn", side,
                          (m5 > 0 ? "up" : (m5 < 0 ? "down" : "flat")), (lc > 0 ? "up" : (lc < 0 ? "down" : "flat")));
@@ -252,7 +273,7 @@ bool CoreSideOk(const int d, string &why, int &rank)
    }
    // PACKAGE 33: one of H1 / H4 against while H1 AND M15 candle pressure still push against it - the
    // arbiter's DENY: buying into a live H1 pullback. A turn with its proof is checked at the trigger.
-   if(!counter && !reversal && !htf_rev && !brain_turn && (MBSign(h1) == -d || MBSign(h4) == -d) && MBPressureSide(3) == -d && MBPressureSide(2) == -d)
+   if(CoreUseH1PushRule && !counter && !reversal && !htf_rev && !brain_turn && (MBSign(h1) == -d || MBSign(h4) == -d) && MBPressureSide(3) == -d && MBPressureSide(2) == -d)
    {
       why = StringFormat("core direction: %s with %s against and H1 + M15 still pushing against it", side,
                          (MBSign(h1) == -d ? "H1" : "H4"));
@@ -262,7 +283,7 @@ bool CoreSideOk(const int d, string &why, int &rank)
    // way underneath - M5 structure or the local leg - the V0 local-trading rule; inside an H1 + H4 trend
    // too (an M15 pullback is bought once M5 / local turns back, not while it still falls). A turn after a
    // stretched run carries its own proof (checked at the trigger).
-   if(MBBiasAlign(d) < 0 && !reversal && MBM5StructDir() != d && MBLayerLocal() != d)
+   if(CoreUseGlobalLocal && MBBiasAlign(d) < 0 && !reversal && MBM5StructDir() != d && MBLayerLocal() != d)
    {
       why = StringFormat("core direction: %s against the global bias (%s) - M5 structure / local leg not turned its way", side,
                          MBBiasName(G_MB_BIAS));
@@ -293,20 +314,18 @@ bool CoreSideOk(const int d, string &why, int &rank)
 
    // PACKAGE 30: no chasing - not into the tip of a stretched run (more room with the H1 + H4 trend).
    double ext = 0.0;
-   if(CoreStretched(d, (with_htf ? MathMax(CoreTipLegATR, CoreTipLegATRTrend) : CoreTipLegATR), ext))
+   if(CoreNoChasing && CoreStretched(d, (with_htf ? MathMax(CoreTipLegATR, CoreTipLegATRTrend) : CoreTipLegATR), ext))
    {
       why = StringFormat("core place: %s at the tip of a %.1f ATR(M5) run - no chasing, waiting for a pullback or the turn", side, ext);
       return false;
    }
    // 3. TRIGGER (a turn is taken only on proof: a closed turn candle or a sweep, never the forming candle)
    bool strong = MBHasStrongTriggerNow(d);
-   // A side let through against H1 / H4 (by a reversal or the brain's turn) needs a closed turn; an
-   // ordinary with-trend / neutral entry any trigger.
-   bool against_htf = (MBSign(h1) == -d || MBSign(h4) == -d);
+   // The full counter-trend side and the turn need a closed turn; every other entry any trigger.
    bool trig;
    if(reversal)
       trig = (strong || swept);                                   // a turn after a stretched run: real proof only
-   else if(counter || ((htf_rev || brain_turn) && against_htf))
+   else if(counter)   // package 40: as in package 29 - only the full counter-trend side needs the closed turn
       // Package 38: a cashback local turn takes its M1 candle - a CLOSED trigger candle, never the forming one.
       trig = (strong || swept || (via_local && cashback && MBCandleTriggerNow(0, d, px)));
    else
@@ -327,7 +346,7 @@ bool CoreSideOk(const int d, string &why, int &rank)
    // tick flow). A plain entry does not go in while the other side clearly holds it; a turn entry carries
    // its own proof (a closed turn candle or a sweep), the control share lags a turn by design.
    int ctrl = MBControlOf(d);
-   if(EnableMicroControl && CoreMinControl > 0 && ctrl < CoreMinControl && !((counter || reversal) && (strong || swept)))
+   if(CoreUseMicroControl && EnableMicroControl && CoreMinControl > 0 && ctrl < CoreMinControl && !((counter || reversal) && (strong || swept)))
    {
       why = StringFormat("core trigger: micro control %s %d%% - the other side controls the flow now", side, ctrl);
       return false;
@@ -358,7 +377,7 @@ bool CoreSideOk(const int d, string &why, int &rank)
    }
    // PACKAGE 32 (zones): not into the other side's fresh higher-timeframe zone - inside it or right at it -
    // until an M15 close takes it out (20g) ...
-   if(EnableHTFZones && MBHTFZoneBlocks(d, w))
+   if(CoreUseZoneChecks && EnableHTFZones && MBHTFZoneBlocks(d, w))
    {
       why = "core room: " + w;
       return false;
@@ -366,7 +385,7 @@ bool CoreSideOk(const int d, string &why, int &rank)
    // ... and not into a strong fresh supply / demand zone (20i) right in front when this side's own zone
    // here is weaker - the judge's BLOCK verdict - unless the live candle is breaking it now.
    double atr5 = G_MB_ATR[1] * _Point;
-   if(EnableZoneConflictBlock && atr5 > 0.0 && G_MB_LIVE_DIR != d)
+   if(CoreUseZoneChecks && EnableZoneConflictBlock && atr5 > 0.0 && G_MB_LIVE_DIR != d)
    {
       int zo = ZIOpposingAhead(d, px, ZoneConflictBlockATR * atr5, ZoneConflictBlockScore);
       if(zo >= 0)

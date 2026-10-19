@@ -1,5 +1,33 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 40-paket: YADRO birinchi tez holatiga qaytarildi — keyin qo'shilgan to'siqlar o'chiq kalitlarga o'tdi (2026-10-19)
+
+**Xato nima edi:** birinchi YADRO (29-paket) savdoni tez boshladi. Keyin har skrinshotdan keyin yangi to'siq
+qo'shildi (31–38 paketlar). Har biri alohida mantiqli edi, birgalikda esa botni yana bo'g'ib qo'ydi. Bu aynan YADRO
+tugatishi kerak bo'lgan "to'siqlar yig'indisi" xatosi edi. Kelishilgan qoida buzilgan edi: filtr faqat dalil bilan,
+birma-bir qaytariladi.
+
+**Endi har bir qo'shimcha to'siq alohida kalit:**
+
+| Kalit | To'siq | Holat |
+|---|---|---|
+| `CoreNoChasing` | cho'zilgan yugurish cho'qqisida kirmaslik (4177 dagi BUY xatosidan) | **yoqiq** |
+| `CoreUseMicroControl` | mikro nazorat minimum | o'chiq |
+| `CoreUseGlobalLocal` | global bias'ga qarshi M5 / lokal burilishi talabi | o'chiq |
+| `CoreUseZoneChecks` | H1/H4 zona va RBR/DBR zona bloki | o'chiq |
+| `CoreUseH1PushRule` | "H1 + M15 itaryapti" (bitta HTF qarshi bo'lganda) | o'chiq |
+| `CoreUseLocalLayer` | lokal qatlam qarshi bo'lsa to'xtash; oddiy rejimda qattiq lokal | o'chiq |
+
+**Saqlab qolinganlar:**
+- **Savdo qo'shadigan qoidalar:** burilishga kirish, HTF burilishi, miya burilishi, lokal burilish, tor diapazon
+  istisnosi.
+- **Xavfsizlik:** yangilik egasi, tartibsiz bozor / spread / eskirgan tik.
+- **Tezlik:** maslahatchi, TP/SL chiziqlari.
+- **Tuzatishlar:** lot / hakam holati, panel, TP dan keyin darhol qayta kirish.
+
+Yopilgan burilish shami faqat to'liq trendga qarshi tomon va burilish uchun talab qilinadi. 29-paketdagidek, qolgan
+kirishlarga istalgan trigger yetadi.
+
 ## 39-paket: TP dan keyingi qayta kirish SmartFill'da kutmaydi (2026-10-19)
 
 - Avval SmartFill har bir kirishni (TP dan keyingi qayta kirishni ham) 8 soniyagacha ushlab turardi. U 120 punktlik
