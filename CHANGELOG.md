@@ -1,5 +1,12 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 48-paket: Ehtimol jadvali oddiy va cashback rejimini alohida saqlaydi (2026-10-19)
+
+- Oddiy rejim va cashback rejimining TP'lari har xil. Birinchi tester sinovi oddiy rejimda o'tgan edi, keyingisi
+  cashback rejimida. Ikkala natija bitta jadvalga aralashib ketardi.
+- Endi har tomon uchun 243 tadan katak har rejimga alohida ajratiladi. CSV'da `mode` ustuni bor.
+- Fayl formati yangilandi. Eski, aralash fayl o'qilmaydi va keyingi saqlashda yangisi bilan almashtiriladi.
+
 ## 47-paket: Strategy Tester uchun alohida versiya ("too many inputs" xatosi) (2026-10-19)
 
 - **Muammo:** jonli botda ~2800 ta sozlama bor. Jonli grafik buni ko'taradi, Strategy Tester esa "too many inputs"

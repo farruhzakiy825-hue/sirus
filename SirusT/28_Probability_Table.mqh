@@ -21,7 +21,8 @@
 // Each result is filed under the moment's fingerprint, seen from the trade's side:
 //   H1+H4 (with / mixed / against) x local layer M5+leg (with / mixed / against) x last closed M1
 //   candle (with / small / against) x place in the last hour's M5 range (cheap / middle / dear for
-//   that side) x volatility (ATR(M1) vs the TP: quiet / normal / fast)  = 243 cells per side.
+//   that side) x volatility (ATR(M1) vs the TP: quiet / normal / fast)  = 243 cells per side, kept apart
+//   for normal and cashback mode (package 48: their targets differ).
 //
 // The table is kept in the COMMON files folder (Sirus_PTable_<symbol>_<magic>.bin), so a Strategy
 // Tester run over a month or two fills it in minutes and the live chart starts with it; a readable copy
@@ -39,7 +40,8 @@ input double PTCleanMAETP             = 3.0;   // Probability table: clean TP = 
 // PTMinSamples: Panelda foiz ko'rsatish uchun katakda kamida shuncha natija
 input int    PTMinSamples             = 30;   // Probability table: samples before a cell is shown as judged
 
-#define PT_CELLS   243
+#define PT_BASE    243         // one mode's fingerprints
+#define PT_CELLS   486         // package 48: x 2 modes - normal (0..242) and cashback (243..485); the TP differs
 #define PT_MAXV    160          // live virtual trades (2 per M1 bar x PTMaxMinutes, with room)
 #define PT_TP      0
 #define PT_CLEAN   1
@@ -95,14 +97,15 @@ int PTCell(const int d)
       return -1;
    double k = atr1 / tp;
    int vol = (k < 0.6) ? 0 : ((k > 1.5) ? 2 : 1);
-   return (((htf * 3 + loc) * 3 + m1) * 3 + pos) * 3 + vol;
+   // Package 48: cashback and normal mode trade different targets - their results never share a cell.
+   return (((htf * 3 + loc) * 3 + m1) * 3 + pos) * 3 + vol + (RebateModeOn() ? PT_BASE : 0);
 }
 
 string PTCellText(const int c)
 {
    if(c < 0)
       return "-";
-   int vol = c % 3, pos = (c / 3) % 3, m1 = (c / 9) % 3, loc = (c / 27) % 3, htf = (c / 81) % 3;
+   int vol = c % 3, pos = (c / 3) % 3, m1 = (c / 9) % 3, loc = (c / 27) % 3, htf = (c / 81) % 3;   // %3 drops the mode
    string t3[3] = {"qarshi", "aralash", "bilan"};
    string p3[3] = {"qimmat", "o'rta", "arzon"};
    string v3[3] = {"sokin", "oddiy", "tez"};
@@ -137,7 +140,7 @@ void PTSave()
    int h = FileOpen(PTFileName("bin"), FILE_WRITE | FILE_BIN | FILE_COMMON);
    if(h != INVALID_HANDLE)
    {
-      FileWriteInteger(h, 46);          // format version
+      FileWriteInteger(h, 48);          // format version (48: two modes)
       FileWriteInteger(h, PT_CELLS);
       for(int s = 0; s < 2; s++)
          for(int c = 0; c < PT_CELLS; c++)
@@ -154,7 +157,7 @@ void PTSave()
    h = FileOpen(PTFileName("csv"), FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
    if(h != INVALID_HANDLE)
    {
-      FileWriteString(h, "side;htf;local;m1;place;vol;n;tp;clean_tp;adverse;timeout;tp_pct;clean_pct;adverse_pct;avg_sec_to_tp\r\n");
+      FileWriteString(h, "mode;side;htf;local;m1;place;vol;n;tp;clean_tp;adverse;timeout;tp_pct;clean_pct;adverse_pct;avg_sec_to_tp\r\n");
       string t3[3] = {"against", "mixed", "with"};
       string p3[3] = {"dear", "middle", "cheap"};
       string v3[3] = {"quiet", "normal", "fast"};
@@ -165,7 +168,8 @@ void PTSave()
             if(n <= 0) continue;
             int vol = c % 3, pos = (c / 3) % 3, m1 = (c / 9) % 3, loc = (c / 27) % 3, htf = (c / 81) % 3;
             int tpn = G_PT_TP[s][c], cl = G_PT_CLEAN[s][c], ad = G_PT_ADV[s][c];
-            FileWriteString(h, StringFormat("%s;%s;%s;%s;%s;%s;%d;%d;%d;%d;%d;%.1f;%.1f;%.1f;%.0f\r\n",
+            FileWriteString(h, StringFormat("%s;%s;%s;%s;%s;%s;%s;%d;%d;%d;%d;%d;%.1f;%.1f;%.1f;%.0f\r\n",
+                                            (c >= PT_BASE ? "cashback" : "normal"),
                                             (s == 1 ? "BUY" : "SELL"), t3[htf], t3[loc], t3[m1], p3[pos], v3[vol],
                                             n, tpn, cl, ad, n - tpn - ad,
                                             100.0 * tpn / n, 100.0 * cl / n, 100.0 * ad / n,
@@ -184,7 +188,7 @@ void PTLoad()
    if(h == INVALID_HANDLE)
       return;
    int ver = FileReadInteger(h), cells = FileReadInteger(h);
-   if(ver == 46 && cells == PT_CELLS)
+   if(ver == 48 && cells == PT_CELLS)   // an older file (one mixed mode) is not read - it is replaced on the next save
    {
       G_PT_TOTAL = 0;
       for(int s = 0; s < 2; s++)
