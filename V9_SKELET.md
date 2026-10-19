@@ -176,3 +176,22 @@ Olinmaydi: skaner, redirect, navbat, legacy/deep paketlar, 15 lot sozlagich, ikk
 | 3 | 70 qoidalari raqamlari bilan + byudjet / zarar / lot / cashback TP qarorlari | yo'q |
 | 4 | 80 + 90: xavfsizlik va ijro | demo |
 | 5 | Demo → live | ha |
+
+---
+
+## 7. Xazinadan keyin aniqlashtirishlar (`V8_XAZINA.md` §6)
+
+- **SINDI** eski oyoq shartnomasini tugatadi. Teskari oyoqqa shartnoma faqat reversal ≥ 4-bosqichda va Xarita ruxsat bersa beriladi. "M5 MSS H1 ni bekor qila olmaydi."
+- **Hedge yo'q.** Yangi shartnoma faqat eski basket yopilgandan keyin.
+- **40 Xarita** ichiga qo'shiladi:
+  - 7 holatli TF holati va ruxsat matritsasi (IMPULS / KORREKSIYA / taqiq);
+  - devorlar va zona roli (qat'iy: oldinda devor bo'lsa, joy yo'q);
+  - HTF sweep vetosi;
+  - premium / discount;
+  - katta oyoq KECH yoki TUGADI bo'lsa, shu tomonga yangi shartnoma yo'q (4081 SELL saboqi).
+- **50 Qadam** jonli hodisalarni ishlatadi: tick sweep, shakllanayotgan displacement. Bekor bo'lish har tickda tekshiriladi. Tezlik maqsadi: 250–450 savdo/kun, O'lchovda kuzatiladi.
+- **60 O'lchov** faqat blok qo'shadi. Yo'nalish va "qayerda" vetolarini hech qachon yumshatmaydi.
+- **Konstantalar** bitta faylda: `01_Konstantalar.mqh`, nomi va izohi bilan.
+- **Re-entry** hodisaga bog'langan: "Re-entry oralig'i (sekund)" sozlamasi olib tashlanadi. Kirish va chiqish uchun alohida CTrade obyektlari. Restart kaliti POSITION_IDENTIFIER.
+- **Normal rejimda bitta qulf / trailing egasi** — Shartnoma.
+- **Ochiq qarorlar** (3-bosqich): `V8_XAZINA.md` §7.
