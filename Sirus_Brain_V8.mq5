@@ -55,6 +55,7 @@
 #include "Sirus/26_Measure.mqh"          // Stage 12: profiler + shadow ledger
 #include "Sirus/26b_Autopsy.mqh"         // Plan stage 7: trade memory, bad-entry autopsy, bad-taken vs good-missed balance
 #include "Sirus/26c_Evidence_Gates.mqh"  // Evidence gates: every quality filter proves its place on the robot's own numbers
+#include "Sirus/28_Probability_Table.mqh" // EHTIMOL JADVALI: virtual BUY + SELL on every M1 bar, results per situation (observe only)
 #include "Sirus/27_Core_Entry.mqh"      // YADRO: the first entry decided by five questions; the old chain advises
 #include "Sirus/26d_Trace.mqh"           // Decision trace: one CSV row per decision - who changed it, which rule refused, what every TF said
 #include "Sirus/90_Reason_Code.mqh"      // Reason Code (always last): why every order was opened (journal + CSV)
@@ -717,6 +718,7 @@ int OnInit()
          G_TRAIL_PEAK_POINTS = GlobalVariableGet(tp_key);
    }
    Print("[SIRUS V31.5 PATCH] active: V31.4 + LOT TRACE (first-entry lot pipeline transparency)");
+   PTLoad();   // package 46: the probability table learned so far (common files - a tester run fills it)
    CoreUpdate("INIT");
    DrawDashboard();
    PrintHeartbeat();
@@ -748,6 +750,7 @@ void OnDeinit(const int reason)
    CandleLearningSave();
    PatternRecordSave();
    FollowRecordSave();
+   PTSave();   // package 46: the probability table (also what a tester run filled)
 
    EventKillTimer();
    SirusReleaseATRHandles(); // V30: free cached indicator handles
@@ -1399,6 +1402,7 @@ void OnTick()
 
    MBProfBegin(MB_PROF_SHADOW);
    MBShadowUpdate();
+   PTUpdate();   // package 46: probability table (observe only)
    MBProfEnd(MB_PROF_SHADOW);
    MBProfEnd(MB_PROF_TICK);
 

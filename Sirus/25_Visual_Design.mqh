@@ -1235,6 +1235,11 @@ void MBDrawPanel()
       ObjectDelete(0, MB_VIS_PREFIX + "E_FAST");
       ObjectDelete(0, MB_VIS_PREFIX + "E_FAST2");
    }
+   string ptx = PTPanelText();   // package 46: the probability table (observe only)
+   if(G_BASKET_ORDERS <= 0 && StringLen(ptx) > 0)
+      MBPanelLine("E_PT", ptx, muted, false, x0, w, lh);
+   else
+      ObjectDelete(0, MB_VIS_PREFIX + "E_PT");
    string sh = MBShadowPanelText();
    if(StringLen(sh) > 0)
       MBPanelLine("E_SHADOW", sh, (StringFind(sh, "⚠") >= 0 ? MBVisAmber() : muted), false, x0, w, lh);

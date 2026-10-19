@@ -1,5 +1,36 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 46-paket: EHTIMOL JADVALI — 1-qadam: faqat kuzatish (savdoga ta'sir qilmaydi) (2026-10-19)
+
+**G'oya:** qoidalarni qo'lda yozish o'rniga bozorning o'z statistikasi. Asosiy savol: "shu kabi lahzadan keyin narx
+spread + TP ni grid qadamidan oldin bosib o'tadimi?"
+
+**Qanday ishlaydi (`28_Probability_Table.mqh`):**
+- **Xayoliy savdolar.** Har yopilgan M1 shamida bot 2 ta xayoliy savdo ochadi: BUY (ask'da) va SELL (bid'da).
+  - Haqiqiy TP va haqiqiy birinchi grid qadami ishlatiladi.
+  - Order yuborilmaydi.
+- **Natija turlari:**
+  - **TP:** TP ga yetdi. "Toza TP": yo'lda eng yomon qarshi yurish TP x 3 ichida qolgan.
+  - **ADVERSE:** avval bir grid qadami qarshi yurdi (savatga grid kerak bo'lardi).
+  - **TIMEOUT:** 30 daqiqada hech biri bo'lmadi.
+- **Holat "barmoq izi".** Har tomon uchun alohida, 243 katak:
+  - H1+H4: bilan / aralash / qarshi;
+  - lokal (M5 + oyoq): bilan / aralash / qarshi;
+  - oxirgi M1 sham: bilan / kichik / qarshi;
+  - so'nggi soat M5 diapazonidagi joy: arzon / o'rta / qimmat;
+  - volatillik (ATR(M1) TP ga nisbatan): sokin / oddiy / tez.
+- **Saqlash.** Jadval umumiy (Common) papkada saqlanadi: `Sirus_PTable_<symbol>_<magic>.bin`.
+  - Strategy Tester'da bir-ikki oy o'tkazilsa, jadval bir necha daqiqada to'ladi va jonli grafik uni tayyor holda
+    o'qiydi.
+  - Odam o'qiydigan nusxasi: `.csv`.
+- **Panel qatori:** `EHTIMOL BUY: toza TP 46/50 (92%) · grid 4% · SELL: ...`. Bu jadvalning aynan hozirgi lahza
+  haqidagi fikri. Natija kam bo'lsa, "o'rganilmoqda (n/30)" yoziladi.
+
+**Muhim:** bu qadam hech qanday savdo qilmaydi. Qarorni YADRO qabul qiladi. 2-qadam: testerda to'ldirish va natijani
+ko'rish. 3-qadam: raqamlar yaxshi bo'lsa, savdoga ulash.
+
+Kalitlar: `EnableProbTable = true`, `PTMaxMinutes = 30`, `PTCleanMAETP = 3.0`, `PTMinSamples = 30`.
+
 ## 45-paket: keng tekshiruv — grid va kirishdagi "pichoq tutish" yo'llari yopildi (2026-10-19)
 
 Uch mustaqil tekshiruv (kirish, grid/savat, dalil funksiyalari) bir xil turdagi kamchiliklarni topdi. Yangi to'siq

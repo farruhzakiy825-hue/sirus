@@ -856,3 +856,11 @@ maslahatchi bo'lib ishlaydi: har YADRO qarori yonida uning fikri Trace'ga yozila
 | ⏳ | Birinchi jonli kun natijasi (Trace + Autopsy3) |
 | ⏳ | Filtrlarni dalil bo'yicha birma-bir qaytarish |
 
+## 17. EHTIMOL JADVALI — bozorning o'z statistikasi (46-paket, 2026-10-19)
+
+| Holat | Qadam |
+|---|---|
+| ✅ | 1. Har M1 shamida xayoliy BUY + SELL, natija 243 katakli holat bo'yicha (faqat kuzatish) |
+| ⏳ | 2. Strategy Tester'da 1–2 oy bilan to'ldirish, `Sirus_PTable_*.csv` ni birga ko'rish |
+| ⏳ | 3. Raqamlar YADRO'dan yaxshi bo'lsa — savdoga ulash (kalit bilan), xavfsizlik qoidalari o'zgarmaydi |
+

@@ -462,7 +462,8 @@ bool   CoreEntryCanRun(string &reason);        // 27 - the YADRO decision (calle
 string CorePanelText();                        // 27 - panel line
 string CorePanelSide(const int k);
 bool   CoreFastReentry(const int dir);
-string CoreDeadlockText();                     // 27 - HOLAT NAZORATI: both sides refused 5+ min         // 27 - the re-entry right after a TP the same way (SmartFill skips its wait)             // 27 - panel line per side (1 = BUY, 0 = SELL)
+string CoreDeadlockText();
+string PTPanelText();                          // 28 - probability table: what it says about this moment                     // 27 - HOLAT NAZORATI: both sides refused 5+ min         // 27 - the re-entry right after a TP the same way (SmartFill skips its wait)             // 27 - panel line per side (1 = BUY, 0 = SELL)
 string CoreStripAdvice(const string why);      // 27 - a decision text without the old chain's advice
 string CoreReasonUz(const string why);         // 27 - panel "Sabab" for a YADRO refusal
 void MBShadowOnDecision(const bool ready, const string reason);
