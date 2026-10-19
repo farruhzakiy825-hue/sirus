@@ -1,5 +1,62 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## V9 — SOYA SAVDO + KO'Z JURNALI (order yuborilmaydi)
+
+Robot endi kechasi o'zi ma'lumot yig'adi. Ertalab faqat fayllarni yuborasiz.
+
+**Soya savdo (`SirusV9/70_Soya.mqh`)**
+
+Kirish qoidasining birinchi varianti kuzatuvda ishlaydi. Robot "shu yerda kirardim" deydi, lekin order yubormaydi. Ikki rejim bir vaqtda, alohida kuzatiladi:
+- **CB (cashback):**
+  - oyoq tasdiqlangan, bosqich YANGI yoki RIVOJ;
+  - xarita QARSHI emas, katta oyoq kech emas;
+  - qaytish sayoz yoki oltin zonada;
+  - oldinda TP gacha devor yo'q;
+  - qadam oyoq tomonida;
+  - O'lchov katagi "salbiy" emas.
+  - TP kichik (cashback formulasi).
+- **N (oddiy):** shu shartlar, qo'shimcha ravishda faqat IMPULS va oltin zona. TP = ATR(M15), MAQSAD gacha bo'lgan yo'lning 80% idan oshmaydi.
+
+**Chiqish:**
+- TP darajasida;
+- yoki oyoq **SINDI** bo'lganda (teskari oyoq tug'ildi) — bozor narxida.
+
+TP dan keyin shartlar hali bajarilsa, darhol qayta kiriladi. Grid va lot hali yo'q: bular 3-bosqich qarorlari.
+
+**Chartda:**
+- ▲ / ▼ strelkalar, yonida "CB" yoki "N" yozuvi;
+- natija: ✓ (TP) yoki ✗ (SINDI), kirish nuqtasidan nuqtali chiziq bilan;
+- oxirgi 40 ta soya savdo saqlanadi.
+
+**Panelda:**
+- yangi bo'lim **SOYA SAVDO · KIRARDIM**: ochiq soya savdo yoki **nega hozir kirmayotgani** (birinchi bajarilmagan shart);
+- bugungi kirishlar, TP va SINDI soni, jami natija punktda.
+
+**Ko'z jurnali (`SirusV9/99_Jurnal.mqh`)**
+
+Har M5 bar yopilganda bitta qator yoziladi:
+- narx, spread;
+- M5 oyog'i: yo'nalish, bosqich, yurgan %, qaytish %, zona, ORIGIN, HIMOYA, MAQSAD, turtkilar, tug'ilish, burilish;
+- xarita: H1 va H4 holati, range, "katta oyoq kech";
+- devorlar, hovuzlar;
+- qadam, oxirgi hodisa;
+- soya savdo holati va O'lchov bahosi.
+
+**Fayllar** (Common\Files papkasida, har kun uchun alohida):
+- `SirusV9_Kozlar_<symbol>_<sana>.csv`
+- `SirusV9_Soya_<symbol>_<sana>.csv`
+- Testerda ishlatilsa, nomlari `SirusV9_TESTER_…` bilan boshlanadi.
+
+**Tuzatishlar**
+- **Oyoq bosqichi.** "Yurgan %" endi oxirgi turtkidan (HIMOYA dan) maqsadgacha o'lchanadi. Ilgari ORIGIN dan o'lchanardi va maqsad doim ekstremumdan sal narida bo'lgani uchun uzoq oyoq avtomatik "KECH" chiqardi. Maqsad yo'q bo'lsa, oxirgi turtki uzunligi olinadi. "KECH" bo'lishi uchun endi 5+ turtki kerak (oldin 3 edi).
+- **Soya TP natijasi** TP darajasida hisoblanadi (broker TP si kabi), keyingi tick narxida emas.
+
+**Sintetik sinovdan ogohlantirish (tasodifiy narx, real bozor emas):**
+- CB soya savdolarining ~93% i TP bilan tugadi.
+- Lekin oz sonli SINDI zarari shu TP lardan ko'p chiqdi: kichik TP ga qarshi uzoq o'lim chizig'i.
+- Bu aynan 3-bosqichdagi "zarar qoidasi va byudjet" qarorining mavzusi.
+- Real bozorda qanday bo'lishini jurnallar ko'rsatadi.
+
 ## V9 — 2-bosqich: O'LCHOV + premium dashboard + watermark (savdo qilmaydi)
 
 ### O'lchov (`SirusV9/60_Olchov.mqh`)

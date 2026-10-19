@@ -45,8 +45,8 @@
 //--- 30 OYOQ (POYDEVOR 3.2-3.4)
 #define V9_STAGE_NEW          0.33    // yurgani < 33% = YANGI
 #define V9_STAGE_LATE         0.66    // >= 66% = KECH
-#define V9_STAGE_WAVES_LATE   3       // 3+ turtki = KECH
-#define V9_LEN_NEW_ATR15      1.5     // maqsad yo'q: uzunlik < 1.5 ATR (bir pog'ona katta TF; M5 -> M15) = YANGI (17: EARLY)
+#define V9_STAGE_WAVES_LATE   5       // 5+ turtki (BOS) = KECH: trend juda yetilgan
+#define V9_LEN_NEW_ATR15      1.5     // maqsad yo'q: oxirgi turtki < 1.5 ATR (bir pog'ona katta TF; M5 -> M15) = YANGI (17: EARLY)
 #define V9_LEN_LATE_ATR15     2.5     // >= 2.5 ATR = KECH (17: LATE)
 #define V9_PB_SHALLOW         0.23    // qaytish zonalari (HIMOYA dan o'lchanadi)
 #define V9_PB_GOLD_LO         0.38

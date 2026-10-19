@@ -1,6 +1,6 @@
 ﻿//+------------------------------------------------------------------+
 //| SirusV9.mq5 — SIRUS BY ZAKIY                                     |
-//| 2-bosqich: KO'ZLAR + O'LCHOV. Faqat kuzatadi. SAVDO QILMAYDI:     |
+//| KO'ZLAR + O'LCHOV + SOYA SAVDO. Faqat kuzatadi. ORDER YUBORMAYDI:  |
 //| bu faylda order yuboradigan hech qanday kod yo'q.                |
 //|                                                                  |
 //| Qatlamlar (V9_SKELET.md): 10 Hodisalar -> 20 Likvidlik ->        |
@@ -8,8 +8,8 @@
 //| Mantiq: POYDEVOR.md, saboqlar: V8_XAZINA.md.                     |
 //+------------------------------------------------------------------+
 #property copyright   "SIRUS BY ZAKIY"
-#property version     "9.02"
-#property description "SIRUS V9 - 2-bosqich: ko'zlar + o'lchov (xayoliy savdolar). Savdo qilmaydi."
+#property version     "9.03"
+#property description "SIRUS V9 - ko'zlar + o'lchov + soya savdo (kirardim) + ko'z jurnali. Order yubormaydi."
 
 input group "SIRUS V9 ▸ Ko'rinish"
 input bool   InpShowPanel     = true;   // Panel (premium karta)
@@ -28,7 +28,9 @@ input int    InpPanelY        = 24;     // Panel: tepadan (px)
 #include "SirusV9/40_Xarita.mqh"
 #include "SirusV9/50_Qadam.mqh"
 #include "SirusV9/60_Olchov.mqh"
+#include "SirusV9/70_Soya.mqh"
 #include "SirusV9/95_Panel.mqh"
+#include "SirusV9/99_Jurnal.mqh"
 
 double g_msEma = 0.0;    // oddiy tick (yangi barsiz) o'rtacha vaqti
 double g_msBar = 0.0;    // yangi bar (qayta qurish) o'rtacha vaqti
@@ -59,6 +61,7 @@ int OnInit()
    g_msEma = 0.0;
    g_msBar = 0.0;
    V9OlInit();
+   V9SoyaInit();
    PrintFormat("[SIRUS V9] %s: 2-bosqich (ko'zlar + o'lchov) ishga tushdi - savdo qilmaydi, faqat kuzatadi", _Symbol);
    return INIT_SUCCEEDED;
 }
@@ -80,6 +83,7 @@ void OnTick()
 
    bool full = false;
    bool m1New = false;
+   bool m5New = false;
    bool poolsDue = false;
    bool zonesDue = false;
    for(int tfi = 0; tfi < V9_TF_N; tfi++)
@@ -93,6 +97,7 @@ void OnTick()
          V9EventsRebuild(tfi);
          full = true;
          if(tfi == V9_M1) m1New = true;
+         if(tfi == V9_M5) m5New = true;
          if(tfi >= V9_M5) { poolsDue = true; zonesDue = true; }
       }
       else
@@ -116,6 +121,9 @@ void OnTick()
    if(m1New)
       V9OlStep();
    V9OlTick();
+   V9SoyaTick();
+   if(m5New)
+      V9JrKoz();
    V9OlSave(false);
 
    // Tezlik: birinchi 20 tick (tarix yuklanishi) hisobga olinmaydi; oddiy tick va yangi bar alohida.

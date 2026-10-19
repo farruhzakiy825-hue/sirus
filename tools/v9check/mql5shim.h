@@ -28,13 +28,14 @@ template<class T> bool ArraySetAsSeries(MqlArray<T>&, bool){ return true; }
 enum ENUM_TIMEFRAMES { PERIOD_CURRENT=0, PERIOD_M1=1, PERIOD_M5=5, PERIOD_M15=15, PERIOD_H1=60, PERIOD_H4=240, PERIOD_D1=1440, PERIOD_W1=10080 };
 enum { SYMBOL_BID=1, SYMBOL_ASK=2 };
 enum { INIT_SUCCEEDED=0 };
-enum { OBJ_TREND=1, OBJ_RECTANGLE, OBJ_TEXT, OBJ_LABEL, OBJ_RECTANGLE_LABEL };
+enum { OBJ_TREND=1, OBJ_RECTANGLE, OBJ_TEXT, OBJ_LABEL, OBJ_RECTANGLE_LABEL, OBJ_ARROW };
 enum { OBJPROP_SELECTABLE=1, OBJPROP_HIDDEN, OBJPROP_RAY_RIGHT, OBJPROP_COLOR, OBJPROP_STYLE, OBJPROP_WIDTH, OBJPROP_BACK, OBJPROP_FILL,
        OBJPROP_ANCHOR, OBJPROP_TEXT, OBJPROP_FONT, OBJPROP_FONTSIZE, OBJPROP_CORNER, OBJPROP_XDISTANCE, OBJPROP_YDISTANCE,
-       OBJPROP_BORDER_TYPE, OBJPROP_XSIZE, OBJPROP_YSIZE, OBJPROP_BGCOLOR };
+       OBJPROP_BORDER_TYPE, OBJPROP_XSIZE, OBJPROP_YSIZE, OBJPROP_BGCOLOR, OBJPROP_ARROWCODE };
 enum { BORDER_FLAT=0 };
 enum { STYLE_SOLID=0, STYLE_DASH, STYLE_DOT, STYLE_DASHDOT };
 enum ENUM_ANCHOR_POINT { ANCHOR_LEFT=0, ANCHOR_LEFT_UPPER, ANCHOR_RIGHT_UPPER, ANCHOR_CENTER, ANCHOR_RIGHT };
+enum ENUM_ARROW_ANCHOR { ANCHOR_TOP=10, ANCHOR_BOTTOM };
 enum { CORNER_LEFT_UPPER=0 };
 #define clrBlack 0u
 #define clrGold 1u
@@ -84,7 +85,7 @@ inline double SymbolInfoDouble(const string&, int p){ return p==SYMBOL_BID? g_si
 inline datetime TimeCurrent(){ return g_simNow; }
 inline datetime TimeTradeServer(){ return g_simNow; }
 inline datetime TimeGMT(){ return g_simNow; }
-inline void TimeToStruct(datetime t, MqlDateTime& d){ long long s=t%86400; if(s<0)s+=86400; d.hour=(int)(s/3600); d.min=(int)((s%3600)/60); d.sec=(int)(s%60); d.year=2026; d.mon=1; d.day=1; d.day_of_week=1; d.day_of_year=1; }
+inline void TimeToStruct(datetime t, MqlDateTime& d){ long long s=t%86400; if(s<0)s+=86400; d.hour=(int)(s/3600); d.min=(int)((s%3600)/60); d.sec=(int)(s%60); d.year=2026; d.mon=1; d.day=1+(int)((t/86400)%28); d.day_of_week=1; d.day_of_year=(int)((t/86400)%365); }
 extern ulong g_us; inline ulong GetMicrosecondCount(){ return g_us; } inline uint GetTickCount(){ return (uint)(g_us/1000); }
 
 inline string DoubleToString(double v, int d){ char b[64]; snprintf(b,64,"%.*f",d,v); return b; }
@@ -126,10 +127,10 @@ inline double MathSqrt(double x){ return std::sqrt(x); }
 enum { CHARTEVENT_CHART_CHANGE=9 };
 enum { MQL_TESTER=1, MQL_OPTIMIZATION=2 }; extern int g_isTester; inline long MQLInfoInteger(int p){ return p==MQL_TESTER? g_isTester : 0; }
 // files (real files under ./files)
-enum { FILE_READ=1, FILE_WRITE=2, FILE_BIN=4, FILE_COMMON=8, FILE_TXT=16, FILE_ANSI=32 };
+enum { FILE_READ=1, FILE_WRITE=2, FILE_BIN=4, FILE_COMMON=8, FILE_TXT=16, FILE_ANSI=32, FILE_SHARE_READ=64 };
 enum { INT_VALUE=4 }; const int INVALID_HANDLE=-1;
 static FILE* g_fh[16];
-inline int FileOpen(const string& n, int flags){ string p="files_"+n; FILE* f=fopen(p.c_str(), (flags&FILE_WRITE)?"wb":"rb"); if(!f) return INVALID_HANDLE; for(int i=0;i<16;i++) if(!g_fh[i]){ g_fh[i]=f; return i; } fclose(f); return INVALID_HANDLE; }
+inline int FileOpen(const string& n, int flags){ string p="files_"+n; FILE* f=fopen(p.c_str(), ((flags&FILE_WRITE)&&(flags&FILE_READ))?"a+b":((flags&FILE_WRITE)?"wb":"rb")); if(!f) return INVALID_HANDLE; for(int i=0;i<16;i++) if(!g_fh[i]){ g_fh[i]=f; return i; } fclose(f); return INVALID_HANDLE; }
 inline void FileClose(int h){ if(h>=0&&g_fh[h]){ fclose(g_fh[h]); g_fh[h]=nullptr; } }
 inline bool FileIsExist(const string& n, int){ string p="files_"+n; FILE* f=fopen(p.c_str(),"rb"); if(f){ fclose(f); return true;} return false; }
 inline uint FileWriteInteger(int h, int v, int){ return (uint)fwrite(&v,4,1,g_fh[h])*4; }
@@ -139,3 +140,6 @@ inline uint FileWriteString(int h, const string& s){ return (uint)fwrite(s.data(
 inline int FileReadInteger(int h, int){ int v=0; if(fread(&v,4,1,g_fh[h])!=1) return 0; return v; }
 inline long long FileReadLong(int h){ long long v=0; if(fread(&v,8,1,g_fh[h])!=1) return 0; return v; }
 inline double FileReadDouble(int h){ double v=0; if(fread(&v,8,1,g_fh[h])!=1) return 0; return v; }
+inline unsigned long long FileSize(int h){ long cur=ftell(g_fh[h]); fseek(g_fh[h],0,SEEK_END); long e=ftell(g_fh[h]); fseek(g_fh[h],cur,SEEK_SET); return (unsigned long long)e; }
+inline bool FileSeek(int h, long long off, int origin){ return fseek(g_fh[h],(long)off,origin)==0; }
+inline int StringReplace(string& s, const string& f, const string& r){ if(f.empty()) return 0; int c=0; size_t p=0; while((p=s.find(f,p))!=string::npos){ s.replace(p,f.size(),r); p+=r.size(); c++; } return c; }

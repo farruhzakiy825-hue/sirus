@@ -240,12 +240,16 @@ void V9LegCompute(const int tfi)
 
    double span = d * (ext - g_lv[tfi].origin);
    g_lv[tfi].lenAtr = (atrRef > 0.0) ? span / atrRef : 0.0;
+   // Yurgan %: OXIRGI TURTKI (HIMOYA -> EKSTREMUM) maqsadgacha bo'lgan yo'lning qancha qismini bosib o'tdi.
+   // ORIGIN dan o'lchanmaydi: maqsad har doim ekstremumdan sal narida tanlanadi va uzoq oyoqda nisbat o'z-o'zidan
+   // 100% ga yaqinlashardi. Har yangi BOS da HIMOYA suriladi va hisob yangidan boshlanadi.
    g_lv[tfi].progress = -1.0;
    if(g_lv[tfi].targetIdx >= 0)
    {
-      double full = d * (g_lv[tfi].target - g_lv[tfi].origin);
+      double full = d * (g_lv[tfi].target - g_lv[tfi].himoya);
+      double done = d * (ext - g_lv[tfi].himoya);
       if(full > 0.0)
-         g_lv[tfi].progress = span / full;
+         g_lv[tfi].progress = MathMax(0.0, done) / full;
    }
 
    // Qaytish HIMOYA dan o'lchanadi (POYDEVOR 3.2).
@@ -270,10 +274,14 @@ void V9LegCompute(const int tfi)
       st = STG_TUGADI;
    else
    {
+      // Maqsad bor: unga qanchalik yaqin. Maqsad yo'q: OXIRGI TURTKI (HIMOYA -> EKSTREMUM) qanchalik cho'zilgan.
+      // Butun oyoq uzunligi emas: uzoq trend ichida har BOS + qaytish yangi turtki, va butun oyoq bilan
+      // o'lchansa deyarli hamma oyoq "KECH" bo'lib qolardi (sintetik sinovda vaqtning 61% i).
+      double push = (atrRef > 0.0) ? d * (ext - g_lv[tfi].himoya) / atrRef : 0.0;
       if(g_lv[tfi].progress >= 0.0)
          st = (g_lv[tfi].progress < V9_STAGE_NEW) ? STG_YANGI : ((g_lv[tfi].progress < V9_STAGE_LATE) ? STG_RIVOJ : STG_KECH);
       else
-         st = (g_lv[tfi].lenAtr < V9_LEN_NEW_ATR15) ? STG_YANGI : ((g_lv[tfi].lenAtr < V9_LEN_LATE_ATR15) ? STG_RIVOJ : STG_KECH);
+         st = (push < V9_LEN_NEW_ATR15) ? STG_YANGI : ((push < V9_LEN_LATE_ATR15) ? STG_RIVOJ : STG_KECH);
       if(g_leg[tfi].waves >= V9_STAGE_WAVES_LATE && st < STG_KECH)
          st = STG_KECH;
    }

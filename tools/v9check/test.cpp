@@ -44,6 +44,9 @@ void checkInvariants(){
   }
   for(int i=0;i<g_npool;i++){ CHECK(g_pool[i].cls>=1&&g_pool[i].cls<=5,"pool cls"); CHECK(g_pool[i].side==1||g_pool[i].side==-1,"pool side"); }
   for(int z=0;z<g_nzone;z++) CHECK(g_zone[z].lo<g_zone[z].hi, "zone lo<hi");
+  // SOYA
+  for(int m=0;m<2;m++) if(g_sy[m].on){ CHECK(g_sy[m].dir==1||g_sy[m].dir==-1,"soya dir"); CHECK(g_sy[m].dir*(g_sy[m].tpLvl-g_sy[m].entry)>-1.0,"soya tp side");
+     CHECK(g_lv[V9_M5].ok && g_lv[V9_M5].dir==g_sy[m].dir && g_lv[V9_M5].bornT==g_sy[m].legBornT, "soya open on a dead leg"); }
   // O'LCHOV
   { int open=0; for(int i=0;i<OL_VMAX;i++) if(g_vt[i].on){ open++; CHECK(g_vt[i].base>0&&g_vt[i].base<1,"vt base range"); CHECK(g_vt[i].cell>=0&&g_vt[i].cell<OL_CELLS,"vt cell");
       CHECK(g_vt[i].bin>=0&&g_vt[i].bin<OL_BINS,"vt bin"); int sd=g_vt[i].side; CHECK(sd*(g_vt[i].tpLvl-g_vt[i].stLvl)>0,"vt tp/stop order"); }
@@ -137,6 +140,7 @@ int main(int argc,char**argv){
   { int sig=0, cnt=0; double zs=0, zz=0;
     for(int m=0;m<OL_MODES;m++) for(int c=0;c<OL_CELLS;c++){ int n; double p,pe,z; if(V9OlStat(m,c,n,p,pe,z) && n>=100){ cnt++; zs+=z; zz+=z*z; if(fabs(z)>=3){ sig++; if(sig<=8) printf("cell m%d %3d n=%5d p=%.3f exp=%.3f z=%+.1f %s\n",m,c,n,p,pe,z,V9OlCellText(c).c_str()); } } }
     printf("zstat: cells(n>=100)=%d |z|>=3: %d  mean z=%.2f  sd z=%.2f\n", cnt, sig, cnt?zs/cnt:0, cnt?sqrt(zz/cnt-(zs/cnt)*(zs/cnt)):0); }
+  printf("soya: CB kirish=%d TP=%d SINDI=%d pts=%.0f | N kirish=%d TP=%d SINDI=%d pts=%.0f | id=%d\n", g_syIn[0],g_syTp[0],g_sySd[0],g_syPts[0],g_syIn[1],g_syTp[1],g_sySd[1],g_syPts[1],g_sySeq);
   if(argc>3) dumpJson(argv[3]);
   if(fails) printf("FAILS=%d\n",fails);
   return fails?1:0;

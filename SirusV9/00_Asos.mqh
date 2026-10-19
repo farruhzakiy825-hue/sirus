@@ -151,3 +151,36 @@ int V9ServerOffsetSec()
    long r = (d >= 0) ? ((d + half / 2) / half) * half : -(((-d) + half / 2) / half) * half;
    return (int)r;
 }
+
+//--- Faylga qator qo'shadi (umumiy papka Common\Files). Fayl yangi bo'lsa avval sarlavha yoziladi.
+//--- Har safar ochib-yopiladi: terminal to'satdan yopilsa ham yozilgan qatorlar yo'qolmaydi.
+void V9FileAppend(const string name, const string header, const string line)
+{
+   if(MQLInfoInteger(MQL_OPTIMIZATION) != 0)
+      return;
+   int h = FileOpen(name, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON | FILE_SHARE_READ);
+   if(h == INVALID_HANDLE)
+      return;
+   if(FileSize(h) == 0)
+      FileWriteString(h, header + "\r\n");
+   FileSeek(h, 0, SEEK_END);
+   FileWriteString(h, line + "\r\n");
+   FileClose(h);
+}
+
+//--- Kunlik fayl nomi: SirusV9_<tur>_<symbol>_2026-10-19.csv (testerda TESTER_ qo'shiladi).
+string V9DailyFile(const string kind)
+{
+   MqlDateTime t;
+   TimeToStruct(TimeCurrent(), t);
+   string pre = (MQLInfoInteger(MQL_TESTER) != 0) ? "SirusV9_TESTER_" : "SirusV9_";
+   return pre + kind + "_" + _Symbol + StringFormat("_%04d-%02d-%02d.csv", t.year, t.mon, t.day);
+}
+
+string V9TimeStr(const datetime t)
+{
+   MqlDateTime d;
+   TimeToStruct(t, d);
+   return StringFormat("%04d-%02d-%02d %02d:%02d:%02d", d.year, d.mon, d.day, d.hour, d.min, d.sec);
+}
+

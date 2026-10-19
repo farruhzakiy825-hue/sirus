@@ -551,7 +551,7 @@ void V9PanelDraw(const double ms, const double msBar)
    int bw = V9TextW(brand, V9F_BRAND, bfs);
    V9UIText("P_ver", "V9", x + bw + 8, g_py + V9Pix(bfs) - V9Pix(InpFontSize) - 2, V9Muted(), InpFontSize, V9F_BRAND,
             ANCHOR_LEFT_UPPER, false);
-   V9UIPill("P_mode", "KUZATUV · SAVDO YO'Q", x + w, g_py + 4, V9Amber());
+   V9UIPill("P_mode", "SOYA · SAVDO YO'Q", x + w, g_py + 4, V9Amber());
    g_py += V9Pix(bfs) + 8;
    string sub = _Symbol + " · ko'zlar + o'lchov · spread " + V9Px(V9Spread()) + StringFormat(" · tick %.2f ms · bar %.1f ms", ms, msBar);
    V9UIText("P_sub", V9Fit(sub, V9F_TEXT, InpFontSize - 1, w), x, g_py, V9Muted(), InpFontSize - 1, V9F_TEXT, ANCHOR_LEFT_UPPER, false);
@@ -670,6 +670,20 @@ void V9PanelDraw(const double ms, const double msBar)
       V9Section("P_s4", "QADAM · M1", x, w);
       V9Line("P_qd", V9Arrow(g_qd.dir) + "  " + g_qd.why, V9DirClr(g_qd.dir),
              (g_qd.pressure != 0) ? "bosim " + V9Arrow(g_qd.pressure) : "bosim —", V9DirClr(g_qd.pressure), x, w, false);
+
+      // --- SOYA SAVDO (kirish qoidasi kuzatuvda: robot shu yerda kirardi, order yubormaydi)
+      V9Section("P_s7", "SOYA SAVDO · KIRARDIM", x, w);
+      for(int m = 0; m < 2; m++)
+      {
+         string sid = (m == 0) ? "P_sc" : "P_sn";
+         int sd = g_sy[m].on ? g_sy[m].dir : 0;
+         V9UIText(sid + "_n", (m == 0) ? "CB" : "N", x, g_py, V9Gold(), InpFontSize, V9F_BRAND, ANCHOR_LEFT_UPPER, false);
+         V9UIText(sid + "_t", V9Fit(V9SyNowText(m), V9F_TEXT, InpFontSize, w - 34), x + 34, g_py, g_sy[m].on ? V9DirClr(sd) : V9Muted(),
+                  InpFontSize, V9F_TEXT, ANCHOR_LEFT_UPPER, false);
+         g_py += V9Row(InpFontSize);
+         V9Line(sid + "_s", V9SyStatText(m), V9Muted(), StringFormat("%+.0f p", g_syPts[m]),
+                (g_syPts[m] >= 0.0) ? V9Green() : V9Red(), x + 34, w - 34, false);
+      }
 
       // --- O'LCHOV
       V9Section("P_s5", "O'LCHOV · XAYOLIY SAVDOLAR", x, w);
