@@ -1,5 +1,19 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 34-paket: tezlik — YADRO maslahatchisi, savat chiziqlari, himoyalar o'lchagichi (2026-10-19)
+
+- **Eski zanjir maslahatchisi har tikda to'liq ishlardi**, savat ochiq bo'lsa ham, va YADRO'ning ustiga qo'shimcha
+  yuk bo'lardi. Endi u faqat kerakli paytda ishlaydi:
+  - YADRO kirish olgan tikda (har savdo eski zanjir fikri bilan yoziladi; SmartFill kutganda ham bir marta);
+  - savat yo'q paytda daqiqasiga bir marta (rad etishlar uchun);
+  - savat ochiq yoki xavfsizlik to'xtatgan paytda umuman ishlamaydi.
+- **TP/SL chiziqlari har tikda 10–15 marta qayta chizilardi.** Savat statistikasi bir tikda shuncha marta
+  yangilanadi, har safar grafik bilan sinxron so'rov ketardi (`ObjectFind`). Savat yo'q paytda esa har tikda o'nlab
+  o'chirish buyrug'i yuborilardi. Endi chiziqlar faqat ko'rsatadigan narsa o'zgarganda yoki daqiqada bir marta
+  chiziladi.
+- **Himoyalar qismi ichki o'lchanadi:** risk, VPS, pack3, safety, warn, pack2, recovery, smartexit. "Tezlik sekin"
+  qatorida endi aniq aybdor ko'rinadi, masalan `og'iri himoyalar 36 ms (recovery 30.2)`.
+
 ## 33-paket: YADRO — mustaqil tekshiruvda topilgan kamchiliklar tuzatildi (2026-10-19)
 
 **Xavfsizlik (jiddiy):**

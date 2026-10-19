@@ -324,14 +324,17 @@ bool CoreSideOk(const int d, string &why, int &rank)
 }
 
 // The decision. Sets the scanner state the send path reads (direction, type, score, context).
-bool CoreEntryCanRun(string &reason)
-{
-   int det_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
-   G_TR_TICK = "";   // package 33: the decision trace starts clean also without the advisor
+// PACKAGE 34 (speed): the old chain as advisor ran the whole legacy decision on EVERY tick - with a basket
+// open too - on top of the core. It now runs only when its verdict is worth writing down: on the tick the
+// core takes an entry (every trade carries the old chain's opinion), and while flat once per M1 bar for the
+// refusals. Everything it touches is put back afterwards (package 33): the scanner / score state, the
+// evidence-gate bookkeeping, the brain fast-entry flag.
+datetime G_CORE_ADV_BAR = 0;
+int      G_CORE_ADV_DIR = 0;
+string   G_CORE_ADV_LAST = "";
 
-   // The old chain as advisor: run it first, keep its verdict, then decide here. Package 33: everything
-   // the scanner handed this tick is put back afterwards - the advisor's relief, fast entry, redirect or
-   // scenario step must not leak into the core's lot, warning weight or score band.
+string CoreRunAdvisor()
+{
    ENUM_OPPORTUNITY_DIR   s_dir = G_OPP_DIR;
    ENUM_OPPORTUNITY_TYPE  s_type = G_OPP_TYPE;
    ENUM_OPPORTUNITY_GRADE s_grade = G_OPP_GRADE;
@@ -340,30 +343,38 @@ bool CoreEntryCanRun(string &reason)
    int    s_bonus = G_SCORE_BONUS, s_pen = G_SCORE_PENALTY, s_raw = G_PENALTY_RAW, s_sit = G_SITUATION, s_sitd = G_SITUATION_DIR;
    double s_clar = G_OPP_DIR_CLARITY;
    ENUM_SCORE_DECISION s_dec = G_SCORE_DECISION;
-   bool   s_micro = G_SCORE_IS_MICRO, s_against = G_ENTRY_AGAINST_GLOBAL;
-   G_CORE_LEGACY = "";
-   if(CoreLegacyAdvisor)
-   {
-      string lr = "";
-      bool lok = FirstEntryCanRun(lr);
-      G_CORE_LEGACY = lok ? "ready" : lr;
-      if(StringLen(G_CORE_LEGACY) > 90)
-         G_CORE_LEGACY = StringSubstr(G_CORE_LEGACY, 0, 90);
-      G_OPP_DIR = s_dir; G_OPP_TYPE = s_type; G_OPP_GRADE = s_grade;
-      G_OPP_REASON = s_oreason; G_OPP_DETAIL = s_odetail; G_OPP_SCORE = s_oscore; G_OPP_DIR_CLARITY = s_clar;
-      G_SCORE_FINAL = s_final; G_SCORE_MIN_REQUIRED = s_min; G_SCORE_BASE = s_base; G_SCORE_BONUS = s_bonus;
-      G_SCORE_PENALTY = s_pen; G_PENALTY_RAW = s_raw; G_SCORE_DETAIL = s_sdetail; G_SCORE_HARD_BLOCK = s_shard;
-      G_SCORE_DECISION = s_dec; G_SCORE_IS_MICRO = s_micro; G_ENTRY_AGAINST_GLOBAL = s_against;
-      G_SITUATION = s_sit; G_SITUATION_DIR = s_sitd;
-   }
+   bool   s_micro = G_SCORE_IS_MICRO, s_against = G_ENTRY_AGAINST_GLOBAL, s_fast = G_MB_FAST_ACTIVE, s_rec = G_EG_RECORD;
+   int    s_mask = G_EG_SKIP_MASK;
+
+   string lr = "";
+   bool lok = FirstEntryCanRun(lr);
+   string v = lok ? "ready" : lr;
+   if(StringLen(v) > 90)
+      v = StringSubstr(v, 0, 90);
+
+   G_OPP_DIR = s_dir; G_OPP_TYPE = s_type; G_OPP_GRADE = s_grade;
+   G_OPP_REASON = s_oreason; G_OPP_DETAIL = s_odetail; G_OPP_SCORE = s_oscore; G_OPP_DIR_CLARITY = s_clar;
+   G_SCORE_FINAL = s_final; G_SCORE_MIN_REQUIRED = s_min; G_SCORE_BASE = s_base; G_SCORE_BONUS = s_bonus;
+   G_SCORE_PENALTY = s_pen; G_PENALTY_RAW = s_raw; G_SCORE_DETAIL = s_sdetail; G_SCORE_HARD_BLOCK = s_shard;
+   G_SCORE_DECISION = s_dec; G_SCORE_IS_MICRO = s_micro; G_ENTRY_AGAINST_GLOBAL = s_against;
+   G_SITUATION = s_sit; G_SITUATION_DIR = s_sitd;
+   G_MB_FAST_ACTIVE = s_fast; G_EG_RECORD = s_rec; G_EG_SKIP_MASK = s_mask;
+   return v;
+}
+
+bool CoreEntryCanRun(string &reason)
+{
+   int det_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
    ENUM_OPPORTUNITY_TYPE det_type = G_OPP_TYPE;
+   G_TR_TICK = "";   // package 33: the decision trace starts clean
+   G_CORE_LEGACY = "";
    G_MB_FAST_ACTIVE = false;
    G_EG_SKIP_MASK = 0;
 
    string safety = "";
    if(!CoreSafetyAllows(safety))
    {
-      reason = safety;
+      reason = safety;   // a basket open, news, cooldown ... - nothing for the advisor to compare
       return false;
    }
 
@@ -394,14 +405,20 @@ bool CoreEntryCanRun(string &reason)
          reason = "core none: both sides equal - waiting for the market to pick one";
       else
       {
-         // Name the refusal of the scanner's side if it has one, else of the side that came closer.
+         // Name the refusal of the scanner's side if it has one, else both.
          int show = (det_dir != 0) ? ((det_dir > 0) ? 1 : 0) : 1;
          reason = G_CORE_WHY[show];
          if(det_dir == 0)
             reason = "core none: BUY - " + G_CORE_WHY[1] + " | SELL - " + G_CORE_WHY[0];
       }
-      if(CoreLegacyAdvisor)
+      datetime m1 = iTime(_Symbol, PERIOD_M1, 0);
+      if(CoreLegacyAdvisor && (m1 != G_CORE_ADV_BAR || G_CORE_ADV_DIR != 0))
+      {
+         G_CORE_ADV_BAR = m1;
+         G_CORE_ADV_DIR = 0;
+         G_CORE_LEGACY = CoreRunAdvisor();
          reason += " | eski: " + G_CORE_LEGACY;
+      }
       return false;
    }
 
@@ -434,9 +451,24 @@ bool CoreEntryCanRun(string &reason)
    G_SCORE_DECISION = SCORE_DECISION_PASS;
    G_ENTRY_AGAINST_GLOBAL = (MBBiasAlign(d) < 0);
    G_OPP_REASON = StringFormat("YADRO %s: %s", (d > 0 ? "BUY" : "SELL"), G_CORE_WHY[k]);
+
+   // The old chain's opinion on the trade being taken (its state changes are undone inside). Once per
+   // side per M1 bar - SmartFill can hold a ready entry for several ticks.
+   if(CoreLegacyAdvisor)
+   {
+      datetime m1r = iTime(_Symbol, PERIOD_M1, 0);
+      if(m1r != G_CORE_ADV_BAR || d != G_CORE_ADV_DIR)
+      {
+         G_CORE_ADV_BAR = m1r;
+         G_CORE_ADV_DIR = d;
+         G_CORE_ADV_LAST = CoreRunAdvisor();
+      }
+      G_CORE_LEGACY = G_CORE_ADV_LAST;
+   }
+
    // Package 33: the send path reads the Entry Judge's state (lot caution, SmartFill fast flag, entry DNA
-   // for Memory). Refresh it for THIS side - the advisor's probes left it for another side or tick - and
-   // keep the core's verdict: the judge's CAUTION does not shrink a core entry, its EXECUTE FAST still
+   // for Memory). Refresh it for THIS side - after the advisor, whose probes leave it for another side -
+   // and keep the core's verdict: the judge's CAUTION does not shrink a core entry, its EXECUTE FAST still
    // lets SmartFill fire at once.
    {
       string jw = "";

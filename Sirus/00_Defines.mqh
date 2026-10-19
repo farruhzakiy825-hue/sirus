@@ -438,7 +438,17 @@ bool CloseSirusBasket(const string reason);
 #define MB_PROF_PANEL    8
 #define MB_PROF_SHADOW   9
 #define MB_PROF_OTHER    10   // the part of a tick no segment above covers (tick minus their sum)
-#define MB_PROF_SEGS     11
+// Package 34: the guards segment split by function (inside MB_PROF_GUARDS - not added to the tick sum)
+#define MB_PROF_SUB0     11
+#define MB_PROF_G_RISK   11
+#define MB_PROF_G_VPS    12
+#define MB_PROF_G_PACK3  13
+#define MB_PROF_G_SAFETY 14
+#define MB_PROF_G_WARN   15
+#define MB_PROF_G_PACK2  16
+#define MB_PROF_G_RECOV  17
+#define MB_PROF_G_EXIT   18
+#define MB_PROF_SEGS     19
 void MBLiveSweepUpdate();   // stage 14 live sweep - called by the event engine above its definition
 bool MBLiveSweepFresh(const int dir, string &what);
 bool MBMomentumNow(const int dir);

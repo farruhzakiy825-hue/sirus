@@ -75,6 +75,14 @@ string MBProfName(const int seg)
       case MB_PROF_PANEL:   return "panel";
       case MB_PROF_SHADOW:  return "shadow";
       case MB_PROF_OTHER:   return "other";
+      case MB_PROF_G_RISK:   return "g.risk";
+      case MB_PROF_G_VPS:    return "g.vps";
+      case MB_PROF_G_PACK3:  return "g.pack3";
+      case MB_PROF_G_SAFETY: return "g.safety";
+      case MB_PROF_G_WARN:   return "g.warn";
+      case MB_PROF_G_PACK2:  return "g.pack2";
+      case MB_PROF_G_RECOV:  return "g.recovery";
+      case MB_PROF_G_EXIT:   return "g.smartexit";
    }
    return "?";
 }
@@ -125,7 +133,7 @@ void MBProfEnd(const int seg)
    }
    ulong us = GetMicrosecondCount() - G_PROF_START[seg];
    G_PROF_START[seg] = 0;
-   if(seg != MB_PROF_TICK && seg != MB_PROF_PANEL)
+   if(seg != MB_PROF_TICK && seg != MB_PROF_PANEL && seg < MB_PROF_SUB0)
       G_PROF_SEG_SUM += us;
    if(G_TICK_COUNT <= MB_PROF_WARMUP_TICKS)   // start-up ticks - see MB_PROF_WARMUP_TICKS
    {
@@ -177,12 +185,25 @@ bool MBProfSlow()
 int MBProfHeaviest()
 {
    int heavy = -1;
-   for(int i = MB_PROF_PRE; i < MB_PROF_SEGS; i++)
+   for(int i = MB_PROF_PRE; i < MB_PROF_SUB0; i++)
    {
       if(i == MB_PROF_PANEL) continue;
       if(heavy < 0 || G_PROF_AVG[i] > G_PROF_AVG[heavy]) heavy = i;
    }
    return heavy;
+}
+
+// Package 34: when the guards are the heaviest, the function inside them that costs the most.
+string MBProfGuardDetail()
+{
+   int g = -1;
+   for(int i = MB_PROF_SUB0; i < MB_PROF_SEGS; i++)
+      if(G_PROF_N[i] > 0 && (g < 0 || G_PROF_AVG[i] > G_PROF_AVG[g])) g = i;
+   if(g < 0)
+      return "";
+   string nm = MBProfName(g);
+   StringReplace(nm, "g.", "");
+   return StringFormat(" (%s %.1f)", nm, G_PROF_AVG[g] / 1000.0);
 }
 
 // The health block's line - short enough for one panel row.
@@ -191,7 +212,8 @@ string MBProfShortText()
    int heavy = MBProfHeaviest();
    string t = StringFormat("tik %.1f ms", G_PROF_AVG[MB_PROF_TICK] / 1000.0);
    if(heavy >= 0)
-      t += StringFormat(", og'iri %s %.1f ms", MBProfNameUz(heavy), G_PROF_AVG[heavy] / 1000.0);
+      t += StringFormat(", og'iri %s %.1f ms%s", MBProfNameUz(heavy), G_PROF_AVG[heavy] / 1000.0,
+                        (heavy == MB_PROF_GUARDS ? MBProfGuardDetail() : ""));
    return t;
 }
 
@@ -204,7 +226,8 @@ string MBProfText()
    int heavy = MBProfHeaviest();
    string t = StringFormat("tik %.2f ms (eng ko'p %.1f)", G_PROF_AVG[MB_PROF_TICK] / 1000.0, G_PROF_PEAK[MB_PROF_TICK] / 1000.0);
    if(heavy >= 0)
-      t += StringFormat(" · og'iri: %s %.2f", MBProfNameUz(heavy), G_PROF_AVG[heavy] / 1000.0);
+      t += StringFormat(" · og'iri: %s %.2f%s", MBProfNameUz(heavy), G_PROF_AVG[heavy] / 1000.0,
+                        (heavy == MB_PROF_GUARDS ? MBProfGuardDetail() : ""));
    if(G_PROF_N[MB_PROF_PANEL] > 0)
       t += StringFormat(" · panel %.1f", G_PROF_AVG[MB_PROF_PANEL] / 1000.0);
    if(EnableScannerThrottle && G_SCAN_RUNS + G_SCAN_SKIPPED > 0)

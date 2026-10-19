@@ -942,17 +942,17 @@ void CoreUpdate(const string source)
       ScanSnapshotRestore();   // the market has not changed enough - last scan's answer, unmutated
    MBProfEnd(MB_PROF_SCAN);
    MBProfBegin(MB_PROF_GUARDS);
-   UpdateRiskEngine(source);
-   UpdateVPSLiveValidation(source);
-   UpdateLegacyPack3(source);
-   SafetyLayerUpdate(source);
-   UpdateWarningCleanupPolish(source);
+   MBProfBegin(MB_PROF_G_RISK);   UpdateRiskEngine(source);            MBProfEnd(MB_PROF_G_RISK);
+   MBProfBegin(MB_PROF_G_VPS);    UpdateVPSLiveValidation(source);     MBProfEnd(MB_PROF_G_VPS);
+   MBProfBegin(MB_PROF_G_PACK3);  UpdateLegacyPack3(source);           MBProfEnd(MB_PROF_G_PACK3);
+   MBProfBegin(MB_PROF_G_SAFETY); SafetyLayerUpdate(source);           MBProfEnd(MB_PROF_G_SAFETY);
+   MBProfBegin(MB_PROF_G_WARN);   UpdateWarningCleanupPolish(source);  MBProfEnd(MB_PROF_G_WARN);
    // UpdateClientDashboardPolish / UpdateLiveValidationProbe only build dashboard text (G_CDP_* / G_LVP_*,
    // read by nothing but DrawDashboard). They ran three times per tick; once, after the entry pass, is the
    // only result anyone ever saw.
-   UpdateLegacyPack2(source);
-   UpdateAdaptiveRecoveryIntelligence(source);
-   UpdateProfitExtractionSmartExit(source);
+   MBProfBegin(MB_PROF_G_PACK2);  UpdateLegacyPack2(source);                    MBProfEnd(MB_PROF_G_PACK2);
+   MBProfBegin(MB_PROF_G_RECOV);  UpdateAdaptiveRecoveryIntelligence(source);   MBProfEnd(MB_PROF_G_RECOV);
+   MBProfBegin(MB_PROF_G_EXIT);   UpdateProfitExtractionSmartExit(source);      MBProfEnd(MB_PROF_G_EXIT);
    // FIX(init-bypasses-anti-churn): OnInit zeroes G_BARS_SEEN / G_TICK_COUNT / G_LAST_ENTRY_TIME and
    // sets G_LAST_ENTRY_BAR = -100000, then calls CoreUpdate("INIT"). Both anti-churn guards read as
    // "no recent entry" against that blank state - the cooldown test is skipped because

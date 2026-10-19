@@ -2507,7 +2507,30 @@ bool GridCanOpen(string &reason)
 // moves the average. The trailing line is drawn only while trailing is armed. Objects use the
 // dedicated LINE_ prefix so they are cleared here (not by dashboard/close-marker cleanup) and are
 // removed the moment the basket closes.
+// PACKAGE 34 (speed): RefreshGridDashboardStats() - the only caller - runs 10-15 times per tick (risk
+// engine twice, recovery, grid, exits ...), and every call re-drew these lines: ObjectFind is synchronous
+// with the chart thread, and on a flat account each call queued four ObjectDelete commands - dozens of
+// chart commands per tick for lines that change a few times a minute. Now they are touched only when
+// what they show changes (orders, average, target, trailing lock) or once per M1 bar for the label.
+string G_TPSL_SIG = "";
+
 void DrawBasketTPSLLines()
+{
+   if(TesterHeadless())
+      return;
+   string sig = "flat";
+   if(EnableTPSLLines && G_BASKET_ORDERS > 0 && G_BASKET_AVG_PRICE > 0.0 &&
+      (G_BASKET_DIRECTION == POSITION_TYPE_BUY || G_BASKET_DIRECTION == POSITION_TYPE_SELL))
+      sig = StringFormat("%d|%d|%s|%.0f|%d|%.0f|%I64d", G_BASKET_ORDERS, (int)G_BASKET_DIRECTION,
+                         DoubleToString(G_BASKET_AVG_PRICE, _Digits), BasketTPForOrderCount(G_BASKET_ORDERS),
+                         (G_BASKET_TRAIL_ACTIVE ? 1 : 0), G_BASKET_TRAIL_LOCK, (long)iTime(_Symbol, PERIOD_M1, 0));
+   if(sig == G_TPSL_SIG)
+      return;
+   G_TPSL_SIG = sig;
+   DrawBasketTPSLLinesNow();
+}
+
+void DrawBasketTPSLLinesNow()
 {
    // PERF: chart objects are for live monitoring only - never draw them in the tester/optimizer,
    // where redrawing every tick massively slows runs (same reason the dashboard is skipped there).
