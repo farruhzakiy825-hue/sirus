@@ -44,6 +44,8 @@ input int    MBVetoReversalConfirms   = 2;   // Brain veto reversal confirms
 input bool   MBVetoZoneRole           = true;   // Brain veto zone role (on/off)
 // MBVetoZoneNearATR: V2: zona narxdan ATR(M5) x shu ichida bo'lsa tekshiriladi
 input double MBVetoZoneNearATR        = 1.5;   // Brain veto zone near ATR
+// MBVetoZoneRoleTrendPass: V2: H4 va H1 kirish tomonida bo'lsa, "sweep qilinib qaytarilgan" kichik zona to'smaydi (trend zinapoyasi)
+input bool   MBVetoZoneRoleTrendPass  = true;   // Brain veto zone role: with-trend pass
 // MBVetoNoRoom: V3: maqsadgacha ushlab turgan qarama-qarshi zona bo'lsa
 input bool   MBVetoNoRoom             = true;   // Brain veto no room (on/off)
 // MBVetoRoomTPMult: V3: zonagacha masofa < savat TP x shu bo'lsa - joy yo'q
@@ -215,6 +217,25 @@ bool MBV3Blocked(const int dir, const double price, double &room_pts, double &ne
    return (room_pts < need_pts);
 }
 
+// PACKAGE 27 (live 2026-10-19): in a falling staircase every M5 swing low gets swept and bounced off
+// before the next leg down, so V2 read each one as "support swept and reclaimed - not a sell zone" and
+// refused the with-trend SELL for two hours while price fell 4184 -> 4170. Shadow ledger since 15 Oct:
+// those refused SELLs needed a grid 3% of the time (116 TP / 4 GRID); the entries actually taken, 17%.
+// With H4 and H1 both on the entry's side, a swept-and-reclaimed level is a pullback inside the trend,
+// not a reversal - a real reversal is V1's job (sweep plus displacement / MSS) and still vetoes. A level
+// that was never broken at all, or a flipped level awaiting its retest, still vetoes as before.
+bool MBVetoZoneTrendPass(const int dir, const double level)
+{
+   if(!MBVetoZoneRoleTrendPass || dir == 0)
+      return false;
+   if(MBTFStateSign(4) != dir || MBTFStateSign(3) != dir)
+      return false;
+   SMBZone z;
+   if(!MBZoneRead(level, z) || z.flipped)
+      return false;
+   return (z.state == MB_ZS_SWEPT || z.state == MB_ZS_RECLAIMED || z.prev_state == MB_ZS_SWEPT);
+}
+
 // V2 + V3. The zone the entry leans on, and the one it is walking into.
 bool MBVetoZoneCheck(const int dir, const double price, string &why)
 {
@@ -234,6 +255,8 @@ bool MBVetoZoneCheck(const int dir, const double price, string &why)
       {
          string zwhy = "";
          int v = MBZoneEntryVerdict(dir, lean, zwhy);
+         if(v < 0 && MBVetoZoneTrendPass(dir, lean))
+            v = 1;
          if(v <= 0)
          {
             why = StringFormat("V2 zone role: %s", zwhy);
@@ -245,7 +268,7 @@ bool MBVetoZoneCheck(const int dir, const double price, string &why)
       if(pierced > 0.0)
       {
          string pwhy = "";
-         if(MBZoneEntryVerdict(dir, pierced, pwhy) <= 0)
+         if(MBZoneEntryVerdict(dir, pierced, pwhy) <= 0 && !MBVetoZoneTrendPass(dir, pierced))
          {
             why = StringFormat("V2 zone role: %s", pwhy);
             return true;

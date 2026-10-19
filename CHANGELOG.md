@@ -1,5 +1,20 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 28-paket: jonli savdo tahlili - trend ichidagi SELL'lar 2 soat to'silgani tuzatildi (2026-10-19)
+
+19-oktabr fayllari (Trace, Shadow, Autopsy) tahlil qilindi. 07:40 dan 09:17 gacha (server vaqti) birorta ham kirish
+bo'lmagan. Narx shu vaqtda 4184 dan 4170 gacha tushgan, H4 va H1 pastga qaragan edi.
+- **Sabab:** V2 veto ("zona hali SUPPORT, sweep qilinib qaytarilgan - sotish zonasi emas") 151 marta SELL'ni to'sgan.
+  Pastga tushayotgan zinapoyada har bir kichik M5 past nuqta avval sweep qilinadi va bir oz qaytadi. V2 har birini
+  "qaytarilgan support" deb o'qib, trend bo'yicha sotishni to'sib qo'ygan.
+- **Dalil (soya daftari, 15-oktabrdan beri):** V2 to'sgan trend bo'yicha SELL'lar 120 ta, ulardan faqat 4 tasi (3%)
+  grid talab qilardi. Haqiqatda ochilgan kirishlarda bu ko'rsatkich 17%. Ya'ni V2 eng xavfsiz kirishlarni to'sgan.
+- **Tuzatish:** H4 va H1 ikkalasi kirish tomonida bo'lsa, faqat "sweep qilinib qaytarilgan" kichik zona endi to'smaydi.
+  Bu trend ichidagi pullback. Haqiqiy burilishni V1 (sweep + displacement / MSS) ushlaydi va u o'zgarmadi. Hech qachon
+  buzilmagan support va retest kutayotgan buzilgan zona avvalgidek to'sadi. Trendga qarshi BUY'lar (VH) ham avvalgidek
+  to'siladi.
+- Yangi kalit: `MBVetoZoneRoleTrendPass = true`. O'chirilsa, eski xatti-harakat qaytadi.
+
 ## 27-paket: tezlik o'lchagichi to'g'rilandi (2026-10-18)
 
 Paneldagi "Tezlik sekin: tik 44.55 ms (eng ko'p 1323.4) · og'iri: skaner 3" ogohlantirishi tekshirildi. Har bir bo'lim
