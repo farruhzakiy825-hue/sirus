@@ -75,7 +75,7 @@ Bitta kanonik obyekt. Hamma modul shu obyektdan o'qiydi, hech kim oyoqni o'zicha
 
 - **Yurgani %** = (EKSTREMUM − ORIGIN) / (MAQSAD − ORIGIN).
   - Maqsad yo'q bo'lsa, % hisoblanmaydi va oyoq ATR(M15) bilan o'lchanadi. Endi hech qachon "0%" bo'lmaydi.
-- **Qaytish %** = (EKSTREMUM − narx) / (EKSTREMUM − ORIGIN). Hozir oyoq qancha orqaga qaytgan.
+- **Qaytish %** = (EKSTREMUM − narx) / (EKSTREMUM − HIMOYA). Oxirgi turtki qancha orqaga qaytgan. HIMOYA dan o'lchanadi, ORIGIN dan emas: shunda kirish va grid zonalari doim o'lim chizig'idan **oldin** turadi (mockupda tekshirildi: ORIGIN dan o'lchansa, grid zonasi HIMOYA ostiga, ya'ni o'lik hududga tushib qolardi).
 - **Uzunlik** = (EKSTREMUM − ORIGIN) / ATR(M15).
 
 ### 3.3 Hayot sikli
@@ -101,6 +101,8 @@ Bitta kanonik obyekt. Hamma modul shu obyektdan o'qiydi, hech kim oyoqni o'zicha
 | 62–79% | chuqur | Grid pog'onasi joyi |
 | 79–100% | himoya oldi | Faqat himoya ushlab tursa |
 | HIMOYAdan o'tdi | — | Oyoq SINDI, shartnoma tugadi |
+
+Mockup: `docs/mockup/oyoq_mockup.html`
 
 ### 3.5 Katta oyoq (XARITA)
 
