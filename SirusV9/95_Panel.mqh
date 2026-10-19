@@ -524,7 +524,7 @@ int V9PoolNearestSide(const int side)
    return best;
 }
 
-void V9PanelDraw(const double ms)
+void V9PanelDraw(const double ms, const double msBar)
 {
    if(!InpShowPanel)
    {
@@ -553,7 +553,7 @@ void V9PanelDraw(const double ms)
             ANCHOR_LEFT_UPPER, false);
    V9UIPill("P_mode", "KUZATUV · SAVDO YO'Q", x + w, g_py + 4, V9Amber());
    g_py += V9Pix(bfs) + 8;
-   string sub = _Symbol + " · ko'zlar + o'lchov · spread " + V9Px(V9Spread()) + StringFormat(" · %.2f ms", ms);
+   string sub = _Symbol + " · ko'zlar + o'lchov · spread " + V9Px(V9Spread()) + StringFormat(" · tick %.2f ms · bar %.1f ms", ms, msBar);
    V9UIText("P_sub", V9Fit(sub, V9F_TEXT, InpFontSize - 1, w), x, g_py, V9Muted(), InpFontSize - 1, V9F_TEXT, ANCHOR_LEFT_UPPER, false);
    g_py += V9Row(InpFontSize - 1);
 
@@ -699,14 +699,14 @@ void V9PanelDraw(const double ms)
    V9UIRect("P_card", X, InpPanelY, W, g_py - InpPanelY, V9Card(), V9Border(), false);
 }
 
-void V9DrawAll(const bool full, const double ms)
+void V9DrawAll(const bool full, const double ms, const double msBar)
 {
    g_lblN = 0;
    if(InpShowM5Leg) V9ChartLeg(V9_M5, "M5_", 2);
    else             ObjectsDeleteAll(0, V9ObjName("M5_"));
    if(InpShowH1Leg) V9ChartLeg(V9_H1, "H1_", 3);
    else             ObjectsDeleteAll(0, V9ObjName("H1_"));
-   V9PanelDraw(ms);
+   V9PanelDraw(ms, msBar);
    if(full)
       V9DrawWatermark();
    ChartRedraw(0);

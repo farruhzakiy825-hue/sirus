@@ -30,7 +30,9 @@ input int    InpPanelY        = 24;     // Panel: tepadan (px)
 #include "SirusV9/60_Olchov.mqh"
 #include "SirusV9/95_Panel.mqh"
 
-double g_msEma = 0.0;
+double g_msEma = 0.0;    // oddiy tick (yangi barsiz) o'rtacha vaqti
+double g_msBar = 0.0;    // yangi bar (qayta qurish) o'rtacha vaqti
+long   g_ticks = 0;
 uint   g_lastDraw = 0;
 
 int OnInit()
@@ -53,6 +55,9 @@ int OnInit()
    g_qd.dir = 0;
    g_qd.lswDir = 0;
    g_qd.why = "";
+   g_ticks = 0;
+   g_msEma = 0.0;
+   g_msBar = 0.0;
    V9OlInit();
    PrintFormat("[SIRUS V9] %s: 2-bosqich (ko'zlar + o'lchov) ishga tushdi - savdo qilmaydi, faqat kuzatadi", _Symbol);
    return INIT_SUCCEEDED;
@@ -113,14 +118,20 @@ void OnTick()
    V9OlTick();
    V9OlSave(false);
 
+   // Tezlik: birinchi 20 tick (tarix yuklanishi) hisobga olinmaydi; oddiy tick va yangi bar alohida.
    double ms = (double)(GetMicrosecondCount() - t0) / 1000.0;
-   g_msEma = (g_msEma <= 0.0) ? ms : g_msEma * 0.95 + ms * 0.05;
+   g_ticks++;
+   if(g_ticks > 20)
+   {
+      if(full) g_msBar = (g_msBar <= 0.0) ? ms : g_msBar * 0.9 + ms * 0.1;
+      else     g_msEma = (g_msEma <= 0.0) ? ms : g_msEma * 0.95 + ms * 0.05;
+   }
 
    uint now = GetTickCount();
    if(full || now - g_lastDraw >= (uint)V9_DRAW_MS)
    {
       g_lastDraw = now;
-      V9DrawAll(full, g_msEma);
+      V9DrawAll(full, g_msEma, g_msBar);
    }
 }
 
