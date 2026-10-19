@@ -1,5 +1,30 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 33-paket: YADRO — mustaqil tekshiruvda topilgan kamchiliklar tuzatildi (2026-10-19)
+
+**Xavfsizlik (jiddiy):**
+- **Jonli yangilik bloki tushib qolgan edi.** Kutilmagan yangilik spike'ida grid to'xtardi, birinchi kirish esa
+  ochilaverardi. Endi YADRO ham yangilik egasini (`NewsOwnerBlocksEntry`) so'raydi.
+- **Bozor tartibsizligi (chaos), o'qib bo'lmaydigan yoki o'ta katta spread, eskirgan tik** endi YADRO'da ham kirishni
+  to'xtatadi (`ScoreHardBlockCheck`).
+
+**To'g'rilik:**
+- **Lot va SmartFill boshqa tomon hukmini o'qirdi.** Maslahatchi (eski zanjir) qoldirgan hakam holati tasodifan lotni
+  x0.75 qilardi yoki SmartFill'ni o'tkazib yuborardi. Endi tanlangan tomon uchun hakam holati yangilanadi. CAUTION
+  YADRO kirishining lotini kichraytirmaydi. Memory to'g'ri kirish DNK'sini o'rganadi.
+- **Maslahatchi ball holatini buzib qoldirardi.** Uning yengilliklari, tezkor kirish va redirect qiymatlari lot,
+  ogohlantirish og'irligi va ball oralig'iga o'tib ketardi. Endi skaner holati to'liq qaytariladi. YADRO skanerga
+  teskari tomonga kirsa, ball minimum bo'ladi (boshqa tomonning bali o'tmaydi).
+- **Tor diapazonda ikki tomon birdan to'silardi (V3).** Endi faqat TP uchun joyi kamroq tomon to'siladi.
+  `MBVetoNoRoom` kaliti ham hisobga olinadi.
+- Dalil darvozalari faqat olingan tomon uchun yoziladi. Trace qatori maslahatchisiz ham toza boshlanadi.
+
+**Treyder mantig'i:**
+- H1 yoki H4 dan biri qarshi bo'lsa va H1 + M15 shamlari hali qarshi itarayotgan bo'lsa, kirish yo'q. Bu hakamning
+  avvalgi TAQIQ'i: jonli H1 pullback'ga qarshi sotib olmaslik. Isbotlangan burilish bundan mustasno.
+- "Oyoqning oxiri" endi faqat H1 yoki H4 qarshi bo'lganda to'sadi (sarlavhadagi qoida bilan bir xil). Cho'qqida
+  quvmaslik qoidasi alohida ishlaydi.
+
 ## 32-paket: YADRO — global/lokal va zonalar qayta tekshirildi (2026-10-19)
 
 - **Global va lokal:** global bias'ga qarshi kirish endi faqat M5 struktura yoki lokal oyoq shu tomonga burilgan bo'lsa

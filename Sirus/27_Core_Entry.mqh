@@ -115,6 +115,7 @@ bool CoreSafetyAllows(string &reason)
    if(!SetupDoctorAllowsEntry(reason))           return false;
    if(!RetryEngineAllowsFirstEntry(reason))      return false;
    if(!EconomicCalendarAllowsEntry(reason))      return false;
+   if(EnableNewsOwner && NewsOwnerBlocksEntry(reason))   return false;   // package 33: the live news read too (the grid reads it)
    if(!BrokerHolidayAllowsEntry(reason))         return false;
    if(!WeekendGuardAllowsEntry(reason))          return false;
    if(!AccountModeAllowsTrading(reason))         return false;
@@ -129,6 +130,15 @@ bool CoreSafetyAllows(string &reason)
    if(MBAnomalyBlocks(an))
    {
       reason = "anomaly: " + an;
+      return false;
+   }
+   // PACKAGE 33: the scanner's SAFETY hard block - market chaos, unreadable / extreme spread, no or stale
+   // tick. Asked directly: its other hard blocks (walls, counter-context, blow-off, legacy roadblock) are
+   // setup opinions the core's own questions answer.
+   string hb = "";
+   if(ScoreHardBlockCheck(hb))
+   {
+      reason = "hard block: " + hb;
       return false;
    }
    reason = "";
@@ -183,6 +193,14 @@ bool CoreSideOk(const int d, string &why, int &rank)
          return false;
       }
    }
+   // PACKAGE 33: one of H1 / H4 against while H1 AND M15 candle pressure still push against it - the
+   // arbiter's DENY: buying into a live H1 pullback. A turn with its proof is checked at the trigger.
+   if(!counter && !reversal && (MBSign(h1) == -d || MBSign(h4) == -d) && MBPressureSide(3) == -d && MBPressureSide(2) == -d)
+   {
+      why = StringFormat("core direction: %s with %s against and H1 + M15 still pushing against it", side,
+                         (MBSign(h1) == -d ? "H1" : "H4"));
+      return false;
+   }
    // PACKAGE 32 (global vs local): against the global bias the entry needs the market to have turned its
    // way underneath - M5 structure or the local leg - the V0 local-trading rule; inside an H1 + H4 trend
    // too (an M15 pullback is bought once M5 / local turns back, not while it still falls). A turn after a
@@ -208,7 +226,8 @@ bool CoreSideOk(const int d, string &why, int &rank)
    if(MBLateBlocks(d, w, u))
    {
       bool late_only = (StringFind(w, "late entry") == 0);
-      if(!(late_only && with_htf))
+      bool htf_any_against = (MBSign(h1) == -d || MBSign(h4) == -d);
+      if(!(late_only && !htf_any_against))
       {
          why = "core place: " + w;
          return false;
@@ -250,10 +269,20 @@ bool CoreSideOk(const int d, string &why, int &rank)
    // 4. ROOM
    double room = 0.0, need = 0.0;
    string zt = "";
-   if(MBV3Blocked(d, px, room, need, zt))
+   if(MBVetoNoRoom && MBV3Blocked(d, px, room, need, zt))
    {
-      why = StringFormat("core room: %s holds %.0f pts away (TP needs %.0f)", zt, MathMax(0.0, room), need);
-      return false;
+      // Package 33: price boxed between a holding support and resistance - only the side with LESS room is
+      // refused (the veto's own escape, 21); refusing both was silence in every tight range.
+      double px_o = SymbolInfoDouble(_Symbol, (d > 0 ? SYMBOL_BID : SYMBOL_ASK));
+      double room_o = 0.0, need_o = 0.0;
+      string zt_o = "";
+      bool boxed = MBV3Blocked(-d, px_o, room_o, need_o, zt_o);
+      if(!boxed || room < room_o)
+      {
+         why = StringFormat("core room: %s holds %.0f pts away (TP needs %.0f)%s", zt, MathMax(0.0, room), need,
+                            (boxed ? StringFormat(" - boxed, the other side has %.0f", MathMax(0.0, room_o)) : ""));
+         return false;
+      }
    }
    if(MBCostBlocks(d, w, u))
    {
@@ -298,9 +327,20 @@ bool CoreSideOk(const int d, string &why, int &rank)
 bool CoreEntryCanRun(string &reason)
 {
    int det_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
-   ENUM_OPPORTUNITY_TYPE det_type = G_OPP_TYPE;
+   G_TR_TICK = "";   // package 33: the decision trace starts clean also without the advisor
 
-   // The old chain as advisor: run it first, keep its verdict, then decide here.
+   // The old chain as advisor: run it first, keep its verdict, then decide here. Package 33: everything
+   // the scanner handed this tick is put back afterwards - the advisor's relief, fast entry, redirect or
+   // scenario step must not leak into the core's lot, warning weight or score band.
+   ENUM_OPPORTUNITY_DIR   s_dir = G_OPP_DIR;
+   ENUM_OPPORTUNITY_TYPE  s_type = G_OPP_TYPE;
+   ENUM_OPPORTUNITY_GRADE s_grade = G_OPP_GRADE;
+   string s_oreason = G_OPP_REASON, s_odetail = G_OPP_DETAIL, s_sdetail = G_SCORE_DETAIL, s_shard = G_SCORE_HARD_BLOCK;
+   int    s_oscore = G_OPP_SCORE, s_final = G_SCORE_FINAL, s_min = G_SCORE_MIN_REQUIRED, s_base = G_SCORE_BASE;
+   int    s_bonus = G_SCORE_BONUS, s_pen = G_SCORE_PENALTY, s_raw = G_PENALTY_RAW, s_sit = G_SITUATION, s_sitd = G_SITUATION_DIR;
+   double s_clar = G_OPP_DIR_CLARITY;
+   ENUM_SCORE_DECISION s_dec = G_SCORE_DECISION;
+   bool   s_micro = G_SCORE_IS_MICRO, s_against = G_ENTRY_AGAINST_GLOBAL;
    G_CORE_LEGACY = "";
    if(CoreLegacyAdvisor)
    {
@@ -309,10 +349,14 @@ bool CoreEntryCanRun(string &reason)
       G_CORE_LEGACY = lok ? "ready" : lr;
       if(StringLen(G_CORE_LEGACY) > 90)
          G_CORE_LEGACY = StringSubstr(G_CORE_LEGACY, 0, 90);
-      // FirstEntryCanRun may have redirected or replaced the setup - the core reads the scanner's own.
-      G_OPP_DIR = (det_dir > 0) ? OPP_DIR_BUY : ((det_dir < 0) ? OPP_DIR_SELL : OPP_DIR_NONE);
-      G_OPP_TYPE = det_type;
+      G_OPP_DIR = s_dir; G_OPP_TYPE = s_type; G_OPP_GRADE = s_grade;
+      G_OPP_REASON = s_oreason; G_OPP_DETAIL = s_odetail; G_OPP_SCORE = s_oscore; G_OPP_DIR_CLARITY = s_clar;
+      G_SCORE_FINAL = s_final; G_SCORE_MIN_REQUIRED = s_min; G_SCORE_BASE = s_base; G_SCORE_BONUS = s_bonus;
+      G_SCORE_PENALTY = s_pen; G_PENALTY_RAW = s_raw; G_SCORE_DETAIL = s_sdetail; G_SCORE_HARD_BLOCK = s_shard;
+      G_SCORE_DECISION = s_dec; G_SCORE_IS_MICRO = s_micro; G_ENTRY_AGAINST_GLOBAL = s_against;
+      G_SITUATION = s_sit; G_SITUATION_DIR = s_sitd;
    }
+   ENUM_OPPORTUNITY_TYPE det_type = G_OPP_TYPE;
    G_MB_FAST_ACTIVE = false;
    G_EG_SKIP_MASK = 0;
 
@@ -325,8 +369,10 @@ bool CoreEntryCanRun(string &reason)
 
    int rk[2] = {0, 0};
    bool ok[2];
+   G_EG_RECORD = false;   // package 33: the evidence-gate relaxations are recorded for the side taken only
    for(int k = 0; k <= 1; k++)
       ok[k] = CoreSideOk((k == 1) ? 1 : -1, G_CORE_WHY[k], rk[k]);
+   G_EG_SKIP_MASK = 0;
 
    int d = 0;
    if(ok[1] && ok[0])
@@ -360,6 +406,11 @@ bool CoreEntryCanRun(string &reason)
    }
 
    int k = (d > 0) ? 1 : 0;
+   {
+      string cw = "", cu = "";
+      G_EG_RECORD = true;
+      MBCostBlocks(d, cw, cu);   // cached this tick - records the relaxations that stood aside for this side
+   }
    ENUM_OPPORTUNITY_DIR opp = (d > 0) ? OPP_DIR_BUY : OPP_DIR_SELL;
    bool same = (det_dir == d && det_type != OPP_TYPE_NONE);
    bool counter = (MBSign(G_MB_TF_STATE[3]) == -d && MBSign(G_MB_TF_STATE[4]) == -d);
@@ -378,10 +429,27 @@ bool CoreEntryCanRun(string &reason)
    G_SCORE_IS_MICRO = false;
    if(G_SCORE_MIN_REQUIRED <= 0)
       G_SCORE_MIN_REQUIRED = MinScoreForContext(false);
-   G_SCORE_FINAL = MathMax(G_SCORE_FINAL, G_SCORE_MIN_REQUIRED);
+   // Package 33: the scanner's score belongs to its own side - a core entry the other way carries the minimum.
+   G_SCORE_FINAL = same ? MathMax(G_SCORE_FINAL, G_SCORE_MIN_REQUIRED) : G_SCORE_MIN_REQUIRED;
    G_SCORE_DECISION = SCORE_DECISION_PASS;
    G_ENTRY_AGAINST_GLOBAL = (MBBiasAlign(d) < 0);
    G_OPP_REASON = StringFormat("YADRO %s: %s", (d > 0 ? "BUY" : "SELL"), G_CORE_WHY[k]);
+   // Package 33: the send path reads the Entry Judge's state (lot caution, SmartFill fast flag, entry DNA
+   // for Memory). Refresh it for THIS side - the advisor's probes left it for another side or tick - and
+   // keep the core's verdict: the judge's CAUTION does not shrink a core entry, its EXECUTE FAST still
+   // lets SmartFill fire at once.
+   {
+      string jw = "";
+      bool jp = G_MB_JUDGE_PROBE;
+      G_MB_JUDGE_PROBE = false;
+      MBEntryJudgeAllows(d, jw);
+      G_MB_JUDGE_PROBE = jp;
+      G_MB_ENTRY_DECISION = MB_ED_EXECUTE;
+      if(!(G_MB_ENTRY_OUTCOME == MB_EO_EXECUTE_FAST && G_MB_ENTRY_OUTCOME_DIR == d))
+         G_MB_ENTRY_OUTCOME = MB_EO_EXECUTE;
+      G_MB_ENTRY_OUTCOME_DIR = d;
+      G_MB_ENTRY_RECHECK = "";
+   }
    reason = G_OPP_REASON;
    if(CoreLegacyAdvisor)
       reason += " | eski: " + G_CORE_LEGACY;
