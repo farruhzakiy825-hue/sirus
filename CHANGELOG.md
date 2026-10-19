@@ -1,5 +1,18 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 47-paket: Strategy Tester uchun alohida versiya ("too many inputs" xatosi) (2026-10-19)
+
+- **Muammo:** jonli botda ~2800 ta sozlama bor. Jonli grafik buni ko'taradi, Strategy Tester esa "too many inputs"
+  deb ishga tushmaydi.
+- **Yechim:** `Sirus_Brain_V8_Tester.mq5` va `SirusT/` papkasi.
+  - Bu to'liq bir xil bot.
+  - Asosiy sozlamalar sozlama bo'lib qoladi: "SIRUS ▸ 1–7" guruhlari, YADRO va EHTIMOL JADVALI, jami 76 ta.
+  - Qolgan 2727 tasi jonli botdagi standart qiymat bilan o'zgarmas (const) bo'ladi.
+- **Jonli bot fayllariga tegilmaydi.** Tester versiyasi skript bilan yaratiladi: `python3 tools/make_tester_build.py`.
+  Har o'zgarishdan keyin skript qayta ishga tushiriladi.
+- **Ehtimol jadvali** Common papkada saqlanadi. Testerda to'ldirilgan jadvalni jonli bot (bir xil simvol va magic
+  bilan) o'zi o'qiydi.
+
 ## 46-paket: EHTIMOL JADVALI — 1-qadam: faqat kuzatish (savdoga ta'sir qilmaydi) (2026-10-19)
 
 **G'oya:** qoidalarni qo'lda yozish o'rniga bozorning o'z statistikasi. Asosiy savol: "shu kabi lahzadan keyin narx
