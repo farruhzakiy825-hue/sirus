@@ -744,6 +744,16 @@ bool MBPermissionCheck(const int dir, string &why)
       if(a == 1)
          return false;
    }
+   // PACKAGE 28 (owner): the same "own location" the arbiter accepts (20h) - a fresh sweep of the other
+   // side's liquidity, or a support / resistance the role engine says still holds - lets a counter-bias
+   // entry through a weak or turning bias (-1 / -2) once M5 structure or the local leg has turned toward
+   // it and a closed turn trigger fires. A strongly opposed bias (-3) still forbids it.
+   if(a < 0 && a >= -2 && (MBM5StructDir() == dir || MBLayerLocal() == dir) && MBHasStrongTriggerNow(dir))
+   {
+      string own_loc = "";
+      if(MBArbiterAtOwnLocation(dir, SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID)), own_loc))
+         return false;
+   }
    // REGIME DOMINANCE: in a range / compression a weak or turning bias does not veto.
    if(a < 0 && a >= -2 && MBRangeRules())
       return false;

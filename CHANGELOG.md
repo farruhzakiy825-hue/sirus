@@ -15,6 +15,25 @@ bo'lmagan. Narx shu vaqtda 4184 dan 4170 gacha tushgan, H4 va H1 pastga qaragan 
   to'siladi.
 - Yangi kalit: `MBVetoZoneRoleTrendPass = true`. O'chirilsa, eski xatti-harakat qaytadi.
 
+**Ikki tomonga savdo (egasining talabi: "BUY joyida BUY, SELL joyida SELL"):**
+- Trend pastga bo'lsa, hakam (VH) har qanday BUY'ni TAQIQ qilardi, hatto ushlab turgan support ustidagi BUY'ni ham.
+  Soya daftari (15-oktabrdan beri): shunday to'silgan BUY'larning faqat 5% i grid talab qilardi, ochilganlarda 17%.
+- Endi H1/H4 qarshi bo'lsa ham, narx **o'z joyida** tursa, TAQIQ o'rniga EHTIYOT beriladi. O'z joyi:
+  - qarama-qarshi tomon likvidligi hozirgina sweep qilingan (LIVE sweep);
+  - yoki zona roli dvigateli "hali ushlab turibdi" degan support / resistance ATR(M5) x 0.35 ichida.
+- EHTIYOT avvalgidek M5 struktura yoki lokal oyoq burilganini va yopilgan burilish triggerini talab qiladi.
+- V0 (bias ruxsati) ham shu joyni tan oladi. Faqat zaif yoki burilayotgan bias'da (-1 / -2) ishlaydi.
+- O'zgarmagan: kuchli qarama-qarshi bias (-3) va "H1 + M15 hali qarshi itaryapti" holati avvalgidek to'siladi.
+- Yangi kalitlar: `ArbiterCounterAtLocation = true`, `ArbiterLocationATR = 0.35`.
+
+**Zona xatosi:** zonalar zanjir bo'lib birlashib ketardi: har bir daraja faqat oldingisiga tegsa yetardi. Natijada
+110 ta M30/H1 daraja bitta "4130-4200 support zonasi"ga aylangan (70$ keng), 4130 dan yuqoridagi har SELL
+"supportga sotish" deb to'silgan. Endi bitta zona ATR(M5) x 2.5 dan keng bo'lmaydi (`ZoneClusterMaxATR`).
+
+**Drift himoyasi:** bu himoya eskirgan signalni QUVISHga qarshi. Endi:
+- narx signalga qarshi tomonga ketgan bo'lsa (yaxshiroq narx), to'smaydi;
+- H1 + H4 trendi bo'yicha kech kirish ham to'silmaydi. Soya daftarida drift to'sgan SELL'lar: 9 TP / 0 GRID.
+
 ## 27-paket: tezlik o'lchagichi to'g'rilandi (2026-10-18)
 
 Paneldagi "Tezlik sekin: tik 44.55 ms (eng ko'p 1323.4) · og'iri: skaner 3" ogohlantirishi tekshirildi. Har bir bo'lim

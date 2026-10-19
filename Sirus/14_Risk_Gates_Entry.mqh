@@ -3370,6 +3370,11 @@ void ZoneEngineBuild()
    double atr5 = ATRPointsManual(PERIOD_M5, ATRPeriod, 1) * _Point;
    if(atr5 <= 0.0) return;
    double merge = atr5 * ZoneClusterATR;
+   // PACKAGE 28 (live 2026-10-19): the merge was a chain - each level only had to touch the previous
+   // one, so 110 M30/H1 wick areas linked into one "support zone 4130-4200" ($70 wide) and every SELL
+   // above 4130 was "into support". A cluster now stops growing at ZoneClusterMaxATR x ATR(M5); a level
+   // lying wholly inside the cluster still joins it.
+   double max_w = atr5 * MathMax(ZoneClusterATR, ZoneClusterMaxATR);
 
    // Klaster: hududlar kesishsa yoki orasi merge dan kichik bo'lsa - birlashadi
    int i0 = 0;
@@ -3377,7 +3382,8 @@ void ZoneEngineBuild()
    {
       int i1 = i0;
       double cur_hi = lb[i0];
-      while(i1 + 1 < nl && (la[i1+1] - cur_hi) <= merge)
+      while(i1 + 1 < nl && (la[i1+1] - cur_hi) <= merge
+            && (lb[i1+1] <= cur_hi || (MathMax(cur_hi, lb[i1+1]) - la[i0]) <= max_w))
       {
          i1++;
          if(lb[i1] > cur_hi) cur_hi = lb[i1];

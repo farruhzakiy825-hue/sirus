@@ -38,6 +38,10 @@ input group "BRAIN ▸ Direction arbiter (H1/H4 > M15 > M5/M1)"
 // EnableDirectionArbiter: Yo'nalish hakami: H1/H4 grid xavfini, M15 tomonni, M5/M1 vaqtni hal qiladi (birinchi kirish uchun)
 input bool   EnableDirectionArbiter   = true;   // Direction arbiter: H1/H4 grid risk, M15 side, M5/M1 timing
 #define ArbiterPrintOnUse                    LogEntryEvents   // Package 14 log group (was input, default true)
+// ArbiterCounterAtLocation: 28-PAKET: H1/H4 qarshi bo'lsa ham, narx o'z tomonining joyida (sweep qilingan likvidlik yoki ushlab turgan support / resistance) turgan bo'lsa - TAQIQ emas, EHTIYOT: M5 / lokal oyoq burilgan va yopilgan trigger bo'lsa kirish mumkin
+input bool   ArbiterCounterAtLocation = true;   // Arbiter: counter-trend entry allowed at its own location
+// ArbiterLocationATR: 28-PAKET: daraja narxdan ATR(M5) x shu ichida bo'lsa - "joyida"
+input double ArbiterLocationATR       = 0.35;   // Arbiter: location distance ATR(M5)
 
 #define ARB_OK      0
 #define ARB_CAUTION 1
@@ -81,6 +85,35 @@ string MBArbStateTxt(const int s)
    return "flat";
 }
 
+// PACKAGE 28 (owner, live 2026-10-19): "BUY where a BUY belongs, SELL where a SELL belongs". In a
+// downtrend the arbiter denied every BUY - also the one at a support that held, right after the sell-side
+// liquidity under it was swept. Shadow ledger since 15 Oct: those refused counter-trend BUYs needed a grid
+// 5% of the time, the entries taken 17%. Such a BUY is now CAUTION, not DENY - and CAUTION still demands
+// M5 structure or the local leg turned toward it AND a closed turn trigger. Without the location, or while
+// H1 and M15 still push against it, it stays DENY.
+bool MBArbiterAtOwnLocation(const int dir, const double px, string &loc)
+{
+   loc = "";
+   if(!ArbiterCounterAtLocation || dir == 0 || px <= 0.0)
+      return false;
+   string sw = "";
+   if(MBLiveSweepFresh(dir, sw))
+   {
+      loc = sw;
+      return true;
+   }
+   double atr5 = G_MB_ATR[1] * _Point;
+   if(atr5 <= 0.0)
+      return false;
+   double lv = (dir > 0) ? ZoneMapNearestSupport(px) : ZoneMapNearestResistance(px);
+   if(lv <= 0.0 || MathAbs(px - lv) > MathMax(0.05, ArbiterLocationATR) * atr5)
+      return false;
+   if(MBZoneRoleAt(lv) != dir)   // the role engine: still a support (BUY) / resistance (SELL)
+      return false;
+   loc = StringFormat("%s %s holds", (dir > 0 ? "support" : "resistance"), DoubleToString(lv, _Digits));
+   return true;
+}
+
 int MBArbiterEval(const int dir, string &why)
 {
    why = "";
@@ -114,6 +147,12 @@ int MBArbiterEval(const int dir, string &why)
       if(own_zone && m15_with && !push)
       {
          why = st + " against - but at its own HTF zone with M15 turned";
+         return ARB_CAUTION;
+      }
+      string loc = "";
+      if(!push && MBArbiterAtOwnLocation(dir, px, loc))
+      {
+         why = st + " against - but at its own location (" + loc + ")";
          return ARB_CAUTION;
       }
       why = st + " against, no HTF reversal - a wrong first entry here is a grid";

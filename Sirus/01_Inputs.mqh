@@ -669,6 +669,8 @@ input int    LGHoldBeyondBarsM1      = 2;   // Lg hold beyond bars M1
 input bool   ZoneEngineOn            = true;   // Zone engine on (on/off)
 // ZoneClusterATR: Bir-biridan shu M5 ATR ichidagi darajalar bitta hudud
 input double ZoneClusterATR          = 0.50;   // Zone cluster ATR
+// ZoneClusterMaxATR: 28-PAKET: bitta hudud M5 ATR x shundan keng bo'lmaydi (zanjir bo'lib 70$ lik "hudud" yasalmasin)
+input double ZoneClusterMaxATR       = 2.5;   // Zone cluster max width ATR
 // ZoneBandATR: Hudud chetidan shu masofada - "hudud yonida"
 input double ZoneBandATR             = 0.80;   // Zone band ATR
 // ZoneMinWeight: Hudud vazni shundan kam bo'lsa - to'siq emas (vazn: reaksiya kuchi + daraja soni + TF)

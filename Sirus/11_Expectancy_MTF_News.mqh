@@ -2061,6 +2061,15 @@ bool EntryDriftAllows(string &reason)
    double limit = MathMax((double)MathMax(1, DriftMinPointsFloor),
                           (atr > 0.0 ? atr * DriftMaxATRFraction : 0.0));
    int dr_dir = (G_OPP_DIR == OPP_DIR_BUY) ? 1 : ((G_OPP_DIR == OPP_DIR_SELL) ? -1 : 0);
+   // PACKAGE 28 (live 2026-10-19): the guard is against CHASING a stale signal. Price that moved against
+   // the signal offers a better fill, not a stale one; and inside an H1 + H4 trend the late with-trend
+   // fill is the trend itself (shadow ledger: drift-refused SELLs 9 TP / 0 GRID).
+   if(dr_dir != 0 && drift_pts > limit)
+   {
+      bool chasing = (dr_dir * (bid - signal_close) > 0.0);
+      if(!chasing || (MBTFStateSign(4) == dr_dir && MBTFStateSign(3) == dr_dir))
+         return true;
+   }
 
    if(drift_pts > limit && !MBEGSkip(EG_DRIFT, dr_dir))   // evidence gate: stands aside when it does not earn its place
    {
