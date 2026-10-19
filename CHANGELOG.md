@@ -1,5 +1,18 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 31-paket: YADRO mikro nazoratni ham o'qiydi (2026-10-19)
+
+YADRO shamlarni avvaldan o'qiydi: trigger shamlar (hajm tekshiruvi, rejection'ning davomi bilan), jonli sham, M1/M5
+hodisalari (sweep, soxta yorib o'tish, MSS, reclaim, rejection, siqilishdan chiqish), M5 struktura, lokal oyoq,
+charchash bosimi, qarshi displacement (V4), H1/M15 sham bosimi. Endi unga mikro nazorat qatlami (20d) ham ulandi:
+- **Kim boshqaryapti (BUY% / SELL%).** Oddiy kirish o'z tomonining nazorati 35% dan past bo'lsa ochilmaydi, ya'ni
+  qarshi tomon oqimni 65%+ ushlab turgan payt. Burilish kirishiga bu talab qo'yilmaydi: nazorat burilishdan kech
+  qoladi, uning dalili yopilgan burilish shami yoki sweep.
+- **Mikro burilish turi.** Asosiy yo'nalishga qarshi REVERSAL bo'lsa, burilish tomoni ustunlik oladi. Asosiy tomon
+  EXHAUST yoki REVERSAL holatida bo'lsa, o'sha tomon ustunlikni yo'qotadi.
+- Panel / Trace: har kirish sababida `control NN%` ko'rinadi.
+- Kalit: `CoreMinControl = 35` (0 = o'chiq).
+
 ## 30-paket: YADRO — cho'qqida quvmaslik va tasdiq bilan burilishga kirish (2026-10-19)
 
 **Jonli holat (11:16):** narx 4168 dan 4177.6 gacha ~9$ ko'tarildi (H4 pastga burilayotgan edi). YADRO aynan cho'qqida

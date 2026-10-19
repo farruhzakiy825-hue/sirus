@@ -49,6 +49,8 @@ input double CoreTipLegATRTrend       = 3.0;   // YADRO: no chasing with the HTF
 input int    CoreTipBars              = 8;   // YADRO: stretched run lookback, M5 bars
 // CoreReversalEntry: Cho'zilgan yugurishdan keyin teskari tomonga kirish: yopilgan burilish shami yoki sweep bilan
 input bool   CoreReversalEntry        = true;   // YADRO: reversal entry after a stretched run
+// CoreMinControl: 31-PAKET: mikro nazorat (BUY% / SELL%) shu foizdan past bo'lsa - qarshi tomon boshqaryapti, oddiy kirish yo'q (burilish kirishiga yopilgan burilish shami yetadi)
+input int    CoreMinControl           = 35;   // YADRO: min micro control share for the side, %
 
 string G_CORE_WHY[2];      // 0 = SELL, 1 = BUY: why that side was refused / taken this tick
 
@@ -225,6 +227,15 @@ bool CoreSideOk(const int d, string &why, int &rank)
       why = "core trigger: " + w;
       return false;
    }
+   // PACKAGE 31: who controls the micro flow now (20d: candles, displacement, M1 / M5 structure, pressure,
+   // tick flow). A plain entry does not go in while the other side clearly holds it; a turn entry carries
+   // its own proof (a closed turn candle or a sweep), the control share lags a turn by design.
+   int ctrl = MBControlOf(d);
+   if(EnableMicroControl && CoreMinControl > 0 && ctrl < CoreMinControl && !((counter || reversal) && (strong || swept)))
+   {
+      why = StringFormat("core trigger: micro control %s %d%% - the other side controls the flow now", side, ctrl);
+      return false;
+   }
 
    // 4. ROOM
    double room = 0.0, need = 0.0;
@@ -241,10 +252,12 @@ bool CoreSideOk(const int d, string &why, int &rank)
    }
 
    rank = (with_htf ? 4 : 0) + (MBBiasAlign(d) > 0 ? 2 : 0) + (strong ? 1 : 0) + (G_MB_LIVE_DIR == d ? 1 : 0) - (counter ? 3 : 0)
-          + (reversal ? 3 : 0);
-   why = StringFormat("%s%s%s%s", (with_htf ? "with H1+H4" : (counter ? "counter at " + loc : "HTF neutral")),
+          + (reversal ? 3 : 0)
+          + ((EnableMicroControl && G_MC_TURN == MC_TURN_REVERSAL && d == -G_MC_PRIMARY) ? 2 : 0)    // the micro turn is this side's
+          - ((EnableMicroControl && (G_MC_TURN == MC_TURN_REVERSAL || G_MC_TURN == MC_TURN_EXHAUST) && d == G_MC_PRIMARY) ? 2 : 0);
+   why = StringFormat("%s%s%s%s · control %d%%", (with_htf ? "with H1+H4" : (counter ? "counter at " + loc : "HTF neutral")),
                       (reversal ? StringFormat(" · turn after a %.1f ATR run%s", rev_ext, (swept ? " (" + rsw + ")" : "")) : ""),
-                      (strong ? " · closed trigger" : " · trigger"), (G_MB_LIVE_DIR == d ? " · live candle" : ""));
+                      (strong ? " · closed trigger" : " · trigger"), (G_MB_LIVE_DIR == d ? " · live candle" : ""), ctrl);
    return true;
 }
 
