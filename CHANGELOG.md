@@ -1,5 +1,13 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 42-paket: Autopsy'dagi soxta "GRID MUZLADI" belgisi tuzatildi (2026-10-19)
+
+- 19-oktabr Autopsy faylida 12 savatdan 10 tasi "GRID MUZLADI" deb belgilangan edi. Ular orasida 0 daqiqa yashagan
+  savatlar ham bor edi.
+- Sabab: grid "ushlab turish" vaqti oldingi savatdan qolib ketardi. Grid engine uni faqat grid qo'sha olganda
+  tozalardi.
+- Endi har yangi savat va savat yopilishida bu vaqt nolga qaytadi. Autopsy tahlili endi to'g'ri ma'lumot beradi.
+
 ## 41-paket: filtrlar yana yoqildi; "ikki tomon yopiq" nazorati qo'shildi (2026-10-19)
 
 - **Egasining qarori:** filtrni savdo ko'payishi uchun shunchaki o'chirish yechim emas. Ularni bir-biriga moslashtirish

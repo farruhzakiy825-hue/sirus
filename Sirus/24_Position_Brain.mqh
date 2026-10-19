@@ -791,6 +791,7 @@ void MBPositionBrainUpdate()
       G_PB_MAE = 0.0;
       G_PB_T_SHOW = 0;
       G_PB_MAX_HOLD_MIN = 0;
+      G_GRID_HOLD_SINCE = 0;   // package 42: a hold of the closed basket is not the next basket's
       G_PB_EXP_FAIL = false;
       G_PB_EXP_WHY = "";
       G_MB_PB_BASKET = 0;
@@ -819,6 +820,10 @@ void MBPositionBrainUpdate()
       G_PB_MAE = 0.0;
       G_PB_T_SHOW = 0;
       G_PB_MAX_HOLD_MIN = 0;
+      // PACKAGE 42: G_GRID_HOLD_SINCE is only cleared by the grid engine when the grid may add, so a hold
+      // left from an earlier basket made the next one read "grid held 30+ min" at once - the autopsy
+      // tagged GRID MUZLADI on baskets that lived 0 minutes (10 of 12 on 19 Oct).
+      G_GRID_HOLD_SINCE = 0;
       G_PB_EXP_FAIL = false;
       G_PB_EXP_WHY = "";
       G_MB_PB_BASKET = opened;
