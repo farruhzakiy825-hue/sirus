@@ -41,7 +41,43 @@ input bool   EntryCoreMode            = true;   // YADRO: core entry decides the
 // CoreLegacyAdvisor: Eski zanjir maslahatchi bo'lib ishlaydi - uning fikri Trace'ga yoziladi (taqqoslash uchun)
 input bool   CoreLegacyAdvisor        = true;   // YADRO: run the old chain as an advisor (Trace)
 
+// CoreTipLegATR: 30-PAKET: oxirgi M5 barlarda shu ATR(M5) dan ko'p yugurgan harakatning cho'qqisida (yuqori chorakda) o'sha tomonga kirilmaydi
+input double CoreTipLegATR            = 1.8;   // YADRO: no chasing - stretched run, ATR(M5)
+// CoreTipLegATRTrend: H1 + H4 bilan bir tomonda bo'lsa - shu ATR(M5) dan keyin (trend yugurishiga ko'proq joy)
+input double CoreTipLegATRTrend       = 3.0;   // YADRO: no chasing with the HTF trend, ATR(M5)
+// CoreTipBars: Yugurish shuncha M5 bar ichida o'lchanadi
+input int    CoreTipBars              = 8;   // YADRO: stretched run lookback, M5 bars
+// CoreReversalEntry: Cho'zilgan yugurishdan keyin teskari tomonga kirish: yopilgan burilish shami yoki sweep bilan
+input bool   CoreReversalEntry        = true;   // YADRO: reversal entry after a stretched run
+
 string G_CORE_WHY[2];      // 0 = SELL, 1 = BUY: why that side was refused / taken this tick
+
+// PACKAGE 30 (live 2026-10-19 11:16): YADRO bought 4177.4, the top of a $9 rally inside an H4 down-turn,
+// and price fell back to 4169. A trader does not buy the last tick of a run - and at the top of a run
+// that has stalled he looks for the turn. A run in dir is "stretched" when price has travelled at least
+// min_atr x ATR(M5) from the extreme of the last CoreTipBars M5 bars and still stands in the top quarter
+// of that range. ext = the run in ATR(M5).
+bool CoreStretched(const int dir, const double min_atr, double &ext)
+{
+   ext = 0.0;
+   double atr5 = G_MB_ATR[1] * _Point;
+   int n = MathMax(3, CoreTipBars);
+   if(dir == 0 || atr5 <= 0.0)
+      return false;
+   int ilo = iLowest(_Symbol, PERIOD_M5, MODE_LOW, n, 0), ihi = iHighest(_Symbol, PERIOD_M5, MODE_HIGH, n, 0);
+   if(ilo < 0 || ihi < 0)
+      return false;
+   double lo = iLow(_Symbol, PERIOD_M5, ilo), hi = iHigh(_Symbol, PERIOD_M5, ihi);
+   double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(lo <= 0.0 || hi <= lo || px <= 0.0)
+      return false;
+   // The run must go the right way: the up-run's low came before its high (and the reverse).
+   if(dir > 0 && ilo < ihi) return false;
+   if(dir < 0 && ihi < ilo) return false;
+   ext = (dir > 0 ? (px - lo) : (hi - px)) / atr5;
+   double pos = (dir > 0) ? (px - lo) / (hi - lo) : (hi - px) / (hi - lo);
+   return (ext >= min_atr && pos >= 0.75);
+}
 string G_CORE_LEGACY = ""; // the old chain's verdict this tick
 
 bool CoreEntryOn()
@@ -160,12 +196,28 @@ bool CoreSideOk(const int d, string &why, int &rank)
       }
    }
 
+   // PACKAGE 30: no chasing - not into the tip of a stretched run (more room with the H1 + H4 trend).
+   double ext = 0.0;
+   if(CoreStretched(d, (with_htf ? MathMax(CoreTipLegATR, CoreTipLegATRTrend) : CoreTipLegATR), ext))
+   {
+      why = StringFormat("core place: %s at the tip of a %.1f ATR(M5) run - no chasing, waiting for a pullback or the turn", side, ext);
+      return false;
+   }
+   // PACKAGE 30: the other way's run is stretched - this side is the turn. Taken only on proof: a closed
+   // turn candle or a sweep of the run's extreme, never on the forming candle alone.
+   double rev_ext = 0.0;
+   bool reversal = CoreReversalEntry && CoreStretched(-d, CoreTipLegATR, rev_ext);
+   string rsw = "";
+   bool swept = reversal && MBLiveSweepFresh(d, rsw);
+
    // 3. TRIGGER
    bool strong = MBHasStrongTriggerNow(d);
-   bool trig = counter ? strong : (strong || MBHasTriggerNow(d));
+   bool trig = (counter || reversal) ? (strong || swept) : (strong || MBHasTriggerNow(d));
    if(!trig)
    {
-      why = StringFormat("core trigger: no %s trigger now%s", side, (counter ? " (counter-trend needs a closed turn)" : ""));
+      why = StringFormat("core trigger: no %s trigger now%s", side,
+                         (counter ? " (counter-trend needs a closed turn)" :
+                          (reversal ? StringFormat(" (turn after a %.1f ATR run needs a closed turn candle or a sweep)", rev_ext) : "")));
       return false;
    }
    if(MBVetoAcceleration && MBVetoAccelerationCheck(d, w))
@@ -188,8 +240,10 @@ bool CoreSideOk(const int d, string &why, int &rank)
       return false;
    }
 
-   rank = (with_htf ? 4 : 0) + (MBBiasAlign(d) > 0 ? 2 : 0) + (strong ? 1 : 0) + (G_MB_LIVE_DIR == d ? 1 : 0) - (counter ? 3 : 0);
-   why = StringFormat("%s%s%s", (with_htf ? "with H1+H4" : (counter ? "counter at " + loc : "HTF neutral")),
+   rank = (with_htf ? 4 : 0) + (MBBiasAlign(d) > 0 ? 2 : 0) + (strong ? 1 : 0) + (G_MB_LIVE_DIR == d ? 1 : 0) - (counter ? 3 : 0)
+          + (reversal ? 3 : 0);
+   why = StringFormat("%s%s%s%s", (with_htf ? "with H1+H4" : (counter ? "counter at " + loc : "HTF neutral")),
+                      (reversal ? StringFormat(" · turn after a %.1f ATR run%s", rev_ext, (swept ? " (" + rsw + ")" : "")) : ""),
                       (strong ? " · closed trigger" : " · trigger"), (G_MB_LIVE_DIR == d ? " · live candle" : ""));
    return true;
 }

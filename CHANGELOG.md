@@ -1,5 +1,22 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 30-paket: YADRO — cho'qqida quvmaslik va tasdiq bilan burilishga kirish (2026-10-19)
+
+**Jonli holat (11:16):** narx 4168 dan 4177.6 gacha ~9$ ko'tarildi (H4 pastga burilayotgan edi). YADRO aynan cho'qqida
+BUY ochdi (4177.4), keyin narx 4169 gacha qaytdi. Treyder yugurishning oxirgi tikida sotib olmaydi. Cho'qqida harakat
+to'xtasa, u burilishni qidiradi.
+
+- **Quvmaslik (2-savol, Joy):** oxirgi 8 ta M5 barda harakat ATR(M5) x 1.8 dan ko'p yurgan bo'lsa va narx shu
+  diapazonning yuqori choragida tursa, o'sha tomonga kirilmaydi. Panel yozuvi: "joy - BUY at the tip of a 3.8 ATR(M5)
+  run". H1 + H4 bilan bir tomonda bo'lsa, chegara ATR x 3.0 (trend yugurishiga ko'proq joy).
+- **Burilishga kirish:** qarshi tomonning yugurishi cho'zilgan bo'lsa, bu tomon "burilish" hisoblanadi va ustunlik
+  oladi. Kirish faqat dalil bilan:
+  - yopilgan burilish shami yoki yugurish uchining sweep'i;
+  - shakllanayotgan sham hali qarshi tomonga kuchli yurayotgan bo'lsa (V4), kutadi;
+  - H1 + H4 kuchli trendga qarshi bo'lsa, avvalgidek o'z joyi ham kerak (sweep yoki ushlab turgan daraja).
+- Hedge yo'q qoidasi o'zgarmadi: ochiq savat bor paytda qarama-qarshi kirish ochilmaydi.
+- Kalitlar: `CoreTipLegATR = 1.8`, `CoreTipLegATRTrend = 3.0`, `CoreTipBars = 8`, `CoreReversalEntry = true`.
+
 ## 29-paket: YADRO — birinchi kirish 5 savol bilan hal qilinadi (2026-10-19)
 
 **Nega:** tuzatishlardan keyin ham bot jim turdi. Birinchi kirishni 150+ joy rad etishi mumkin edi va hammasi bir
