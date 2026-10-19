@@ -340,6 +340,27 @@ bool CoreSideOk(const int d, string &why, int &rank)
                           (reversal ? StringFormat(" (turn after a %.1f ATR run needs a closed turn candle or a sweep)", rev_ext) : "")));
       return false;
    }
+   // PACKAGE 43 (live 13:34 - knife catch): a BUY went in at 4163.0 while every M1 candle after the 13:30
+   // spike was falling (local down, micro down, local flow strongly down) - the turn exceptions accepted the
+   // spike's M5 confirmation, still "valid", as the proof. A side let through against H1 / H4 or as a turn
+   // is the micro layer's call on TIMING: the last closed M1 candle must already be its own and the forming
+   // one not running against it, and the micro control must not be clearly the other side's. A fresh sweep
+   // reclaim is its own candle and needs only the forming candle not against it.
+   if(counter || reversal || ((htf_rev || brain_turn) && (MBSign(h1) == -d || MBSign(h4) == -d)))
+   {
+      bool m1_own = (G_MB_LAST[0].dir == d) || swept;
+      if(!m1_own || G_MB_LIVE_DIR == -d)
+      {
+         why = StringFormat("core trigger: %s turn - %s; waiting for the M1 candle that turns its way", side,
+                            (G_MB_LIVE_DIR == -d ? "the forming M1 candle runs against it" : "the last closed M1 candle is not its way"));
+         return false;
+      }
+      if(EnableMicroControl && MBControlOf(d) < 45)
+      {
+         why = StringFormat("core trigger: %s turn - micro control %d%%, the other side still holds the flow", side, MBControlOf(d));
+         return false;
+      }
+   }
    if(MBVetoAcceleration && MBVetoAccelerationCheck(d, w))
    {
       why = "core trigger: " + w;

@@ -1,5 +1,22 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 43-paket: burilish kirishlari pichoq tutmaydi — oxirgi M1 sham o'z tomonida bo'lishi shart (2026-10-19)
+
+**Jonli holat (13:34):** 13:30 dagi yuqoriga otilishdan keyin barcha M1 shamlar pastga ketdi. Lokal ▼, mikro ▼,
+lokal oqim kuchli ▼ edi. Shunda ham BUY 4163.0 da ochildi va narx 4152 gacha tushdi. Sabab: burilish istisnolari
+(cho'zilgan yugurishdan keyingi burilish va miya burilishi) otilishning hali "amal qilayotgan" M5 tasdig'ini dalil deb
+qabul qildi.
+
+**Tuzatish (3 qatlam qoidasi: vaqtni mikro belgilaydi).** H1/H4 ga qarshi yoki burilish sifatida o'tkaziladigan
+tomon uchun:
+- **oxirgi yopilgan M1 shami shu tomonda** bo'lishi kerak;
+- **shakllanayotgan sham qarshi yurmasligi** kerak;
+- **mikro nazorat aniq qarshi tomonda bo'lmasligi** kerak (kamida 45%).
+
+Yangi sweep reclaim'da sweep shamining o'zi dalil bo'ladi, shuning uchun u yerda faqat shakllanayotgan sham tekshiriladi.
+
+Oddiy trend bo'yicha yoki neytral kirishlar o'zgarmadi.
+
 ## 42-paket: Autopsy'dagi soxta "GRID MUZLADI" belgisi tuzatildi (2026-10-19)
 
 - 19-oktabr Autopsy faylida 12 savatdan 10 tasi "GRID MUZLADI" deb belgilangan edi. Ular orasida 0 daqiqa yashagan
