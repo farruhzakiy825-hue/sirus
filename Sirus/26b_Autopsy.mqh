@@ -258,9 +258,10 @@ string MBAutopsyPanelText()
    int top = -1;
    for(int i = 0; i < AU_TAGS; i++)
       if(G_AU_TODAY[i] > 0 && (top < 0 || G_AU_TODAY[i] > G_AU_TODAY[top])) top = i;
-   string t = StringFormat("Balans: noto'g'ri ochilgan %d/%d", G_AU_BAD, G_AU_BASKETS);
+   // Package 28: plainer words - the owner could not tell what "o'tkazilgan yaxshi 9/9" meant.
+   string t = StringFormat("Bugun: xato kirish %d/%d savat", G_AU_BAD, G_AU_BASKETS);
    if(G_AU_BASKETS > 0) t += StringFormat(" (%.0f%%)", 100.0 * G_AU_BAD / G_AU_BASKETS);
-   t += StringFormat(" · o'tkazilgan yaxshi %d/%d", btp, bn);
+   t += StringFormat(" · rad etilgandan TP ga yetardi %d/%d", btp, bn);
    if(top >= 0) t += StringFormat(" · eng ko'p xato: %s ×%d", G_AU_TAG_UZ[top], G_AU_TODAY[top]);
    return t;
 }

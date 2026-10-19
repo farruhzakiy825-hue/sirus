@@ -30,6 +30,9 @@ bo'lmagan. Narx shu vaqtda 4184 dan 4170 gacha tushgan, H4 va H1 pastga qaragan 
 110 ta M30/H1 daraja bitta "4130-4200 support zonasi"ga aylangan (70$ keng), 4130 dan yuqoridagi har SELL
 "supportga sotish" deb to'silgan. Endi bitta zona ATR(M5) x 2.5 dan keng bo'lmaydi (`ZoneClusterMaxATR`).
 
+**Panel:** "Balans: noto'g'ri ochilgan / o'tkazilgan yaxshi" qatori tushunarliroq yozildi: "Bugun: xato kirish X/Y
+savat · rad etilgandan TP ga yetardi A/B".
+
 **Drift himoyasi:** bu himoya eskirgan signalni QUVISHga qarshi. Endi:
 - narx signalga qarshi tomonga ketgan bo'lsa (yaxshiroq narx), to'smaydi;
 - H1 + H4 trendi bo'yicha kech kirish ham to'silmaydi. Soya daftarida drift to'sgan SELL'lar: 9 TP / 0 GRID.
