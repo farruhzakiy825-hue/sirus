@@ -55,8 +55,8 @@ string V9MapStateName(const int st)
    {
       case  3: return "BULLISH";
       case  2: return "BULLISH (zaif)";
-      case  1: return "O'TISH ▲";
-      case -1: return "O'TISH ▼";
+      case  1: return "O'TISH";
+      case -1: return "O'TISH";
       case -2: return "BEARISH (zaif)";
       case -3: return "BEARISH";
    }

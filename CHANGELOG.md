@@ -1,5 +1,74 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## V9 — 2-bosqich: O'LCHOV + premium dashboard + watermark (savdo qilmaydi)
+
+### O'lchov (`SirusV9/60_Olchov.mqh`)
+
+Robot hali ham savdo qilmaydi. Endi u o'zini o'zi o'lchaydi.
+
+**Qanday ishlaydi:**
+- Har yopilgan M1 shamida xayoliy BUY va SELL ochiladi. Har biri ikki xil TP bilan:
+  - kichik TP = cashback formulasi (spread × 0.6 + 80 p);
+  - o'rta TP = ATR(M15).
+- Stop = oyoqning o'lim chizig'i, ATR(M5) × 0.15 narida:
+  - oyoq bilan kirilgan savdoda — HIMOYA;
+  - oyoqqa qarshi kirilgan savdoda — EKSTREMUM.
+- Natija 720 ta katakning biriga yoziladi. Katak quyidagilardan tuziladi:
+  - tomon;
+  - oyoq bilan yoki qarshi;
+  - M5 bosqich;
+  - qaytish zonasi;
+  - H1 xaritasi;
+  - M1 qadam.
+
+**Tasodif bilan solishtirish:**
+- TP masofasi a, stop masofasi b bo'lsa, tasodifiy kirish TP ga b/(a+b) ehtimol bilan yetadi.
+- Ustunlik = haqiqiy TP ulushi − shu tasodifiy ulush.
+- Baho: z ≥ 2 — **ustunlik bor**, z ≤ −2 — **salbiy**, 30 natijadan kam bo'lsa — **noma'lum**.
+- Bir barda TP ham, stop ham tegsa — stop deb hisoblanadi (ehtiyotkor hisob).
+
+**Fayllar** (umumiy papka `Common/Files`):
+- `SirusV9_Olchov_<symbol>.bin` va `.csv` — live jadval.
+- `SirusV9_Olchov_TESTER_<symbol>.*` — tester jadvali.
+- Qoidalar:
+  - live tester jadvalini faqat o'qiydi;
+  - tester o'zini qayta yuklamaydi, shuning uchun bitta davr ikki marta sanalmaydi;
+  - optimizatsiya paytida fayl yozilmaydi.
+
+**O'lchov faqat ko'rsatadi.** U 3-bosqichda Shartnomaga faqat blok qo'sha oladi, vetolarni hech qachon yumshatmaydi.
+
+**Sintetik tasodifiy bozordagi tekshiruv:**
+- Kichik TP da: TP 96%, tasodifiy kirish 97% — ya'ni ustunlik yo'q. Tasodifiy narxda shunday bo'lishi kerak edi.
+- O'lchagich "neytral" dedi, demak to'g'ri ishlaydi.
+
+### Premium dashboard
+
+- Bitta karta, bitta ustun.
+- Sarlavha: oltin chiziq, **S I R U S** (Bahnschrift) va "KUZATUV · SAVDO YO'Q" pill.
+- Bo'limlar:
+  - **OYOQ** — yurgan / qaytish progress chiziqlari, oltin zona belgilari bilan;
+  - **KATTA RASM** — H1/H4 holati va range chizig'i;
+  - **LIKVIDLIK · DEVOR**;
+  - **QADAM**;
+  - **O'LCHOV** — BUY/SELL katagi baho pill'i bilan;
+  - **OXIRGI HODISA**.
+- Shriftlar: matn Segoe UI, raqamlar Consolas.
+- Ranglar chart fonidan aralashtiriladi: qorong'i va yorug' fonda ham chiroyli ko'rinadi.
+
+### Watermark
+
+- Chart o'rtasida (panel bo'sh qoldirgan qismda), vertikal markazda, shamlar orqasida.
+- **S I R U S** yozuvi, oltin chiziq ikki romb bilan, ostida **B Y  Z A K I Y**.
+- Chart o'lchami o'zgarsa joyiga qaytadi.
+
+### Chart tozalandi
+
+- Hovuzlar va devorlar endi **chizilmaydi**. Robot ularni ko'radi, panel aytadi.
+- Faqat oyoq chiziqlari qoldi: M5 va H1 uchun ORIGIN, HIMOYA, MAQSAD.
+- Chiziqlar har soniyada suzmaydi: o'ng cheti faqat yangi chart barida siljiydi.
+
+**Sozlamalar:** 7 ta, hammasi ko'rinish uchun.
+
 ## V9 — 1-bosqich: KO'ZLAR (savdo qilmaydi)
 
 Fundamentdan qayta qurishning birinchi bosqichi. V8 ga tegilmadi va u muzlatildi.

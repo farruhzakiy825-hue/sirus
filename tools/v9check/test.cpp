@@ -2,7 +2,7 @@
 #include "v9.cpp"
 #include <random>
 std::map<int, std::vector<SimBar>> g_sim; datetime g_simNow=0; double g_simBid=0, g_simAsk=0;
-double g_chartMax=0, g_chartMin=0; int g_digits=3; double g_point=0.001; ulong g_us=0; std::map<string,SimObj> g_objs;
+int g_isTester=0; double g_chartMax=0, g_chartMin=0; int g_digits=3; double g_point=0.001; ulong g_us=0; std::map<string,SimObj> g_objs;
 static const int TFS[7]={1,5,15,60,240,1440,10080};
 static int fails=0;
 #define CHECK(c, msg) do{ if(!(c)){ if(fails<25) printf("FAIL t=%lld: %s\n",(long long)g_simNow,msg); fails++; } }while(0)
@@ -44,6 +44,11 @@ void checkInvariants(){
   }
   for(int i=0;i<g_npool;i++){ CHECK(g_pool[i].cls>=1&&g_pool[i].cls<=5,"pool cls"); CHECK(g_pool[i].side==1||g_pool[i].side==-1,"pool side"); }
   for(int z=0;z<g_nzone;z++) CHECK(g_zone[z].lo<g_zone[z].hi, "zone lo<hi");
+  // O'LCHOV
+  { int open=0; for(int i=0;i<OL_VMAX;i++) if(g_vt[i].on){ open++; CHECK(g_vt[i].base>0&&g_vt[i].base<1,"vt base range"); CHECK(g_vt[i].cell>=0&&g_vt[i].cell<OL_CELLS,"vt cell"); 
+      int sd=g_vt[i].side; CHECK(sd*(g_vt[i].tpLvl-g_vt[i].stLvl)>0,"vt tp/stop order"); }
+    CHECK(open<OL_VMAX,"vt ring full");
+    for(int m=0;m<OL_MODES;m++) for(int c=0;c<OL_CELLS;c++){ int r=g_olTp[m][c]+g_olSt[m][c]; CHECK(r+g_olTo[m][c]<=g_olN[m][c],"ol counts exceed opened"); CHECK(g_olBase[m][c]<=r+1e-9 && g_olBase[m][c]>=0,"ol base sum"); } }
   CHECK((int)g_objs.size()<400, "too many objects");
 }
 
@@ -96,9 +101,12 @@ void dumpJson(const char* path){
   for(int i=from;i<n;i++) fprintf(f,"%s[%lld,%.3f,%.3f,%.3f,%.3f]",i>from?",":"",(long long)v[i].t,v[i].o,v[i].h,v[i].l,v[i].c);
   fprintf(f,"],\"objs\":[");
   bool first=true;
-  for(auto& o: g_objs){ std::string t=o.second.text; for(auto& ch: t) if(ch=='"') ch='\''; 
-    fprintf(f,"%s{\"n\":\"%s\",\"ty\":%d,\"t1\":%lld,\"p1\":%.3f,\"t2\":%lld,\"p2\":%.3f,\"tx\":\"%s\"}",first?"":",",o.first.c_str(),o.second.type,(long long)o.second.t[0],o.second.p[0],(long long)o.second.t[1],o.second.p[1],t.c_str()); first=false; }
-  fprintf(f,"],\"now\":%lld,\"bid\":%.3f}",(long long)g_simNow,g_simBid); fclose(f);
+  for(auto& o: g_objs){ std::string t=o.second.text; for(auto& ch: t) if(ch=='"'||ch=='\\') ch='\'';
+    fprintf(f,"%s{\"n\":\"%s\",\"ty\":%d,\"seq\":%lld,\"t1\":%lld,\"p1\":%.3f,\"t2\":%lld,\"p2\":%.3f,\"tx\":\"%s\",\"ip\":{",first?"":",",o.first.c_str(),o.second.type,o.second.seq,(long long)o.second.t[0],o.second.p[0],(long long)o.second.t[1],o.second.p[1],t.c_str());
+    bool f2=true; for(auto& kv: o.second.ip){ fprintf(f,"%s\"%d\":%lld",f2?"":",",kv.first,kv.second); f2=false; }
+    fprintf(f,"},\"sp\":{"); f2=true; for(auto& kv: o.second.sp){ if(kv.first==OBJPROP_TEXT) continue; fprintf(f,"%s\"%d\":\"%s\"",f2?"":",",kv.first,kv.second.c_str()); f2=false; }
+    fprintf(f,"}}"); first=false; }
+  fprintf(f,"],\"now\":%lld,\"bid\":%.3f,\"cmin\":%.3f,\"cmax\":%.3f}",(long long)g_simNow,g_simBid,g_chartMin,g_chartMax); fclose(f);
 }
 int main(int argc,char**argv){
   scenarios();
@@ -120,9 +128,15 @@ int main(int argc,char**argv){
     p=c;
   }
   printf("ticks=%ld fails=%d pools=%d zones=%d objs=%zu\n",ticks,fails,g_npool,g_nzone,g_objs.size());
-  for(int tfi=0;tfi<V9_TF_N;tfi++) if(g_lv[tfi].ok) printf("%s: %s | %s\n",V9TFName(tfi).c_str(),V9LegShort(tfi).c_str(),V9LegBirthText(tfi).c_str());
+  for(int tfi=0;tfi<V9_TF_N;tfi++) if(g_lv[tfi].ok) printf("%s: %s\n",V9TFName(tfi).c_str(),V9LegShort(tfi).c_str());
   // print panel
   for(auto& o: g_objs) if(o.first.rfind("SV9_pn_",0)==0) printf("PANEL %s\n",o.second.text.c_str());
+  { long tot=g_olTotal; int tp0=0; for(int c=0;c<OL_CELLS;c++) tp0+=g_olTp[0][c];
+    V9OlSave(true); V9OlInit(); int tp1=0; for(int c=0;c<OL_CELLS;c++) tp1+=g_olTp[0][c];
+    printf("olchov: total=%ld reloaded=%lld tp0=%d tp1=%d\n", tot, (long long)g_olTotal, tp0, tp1); CHECK(tot==g_olTotal && tp0==tp1, "olchov file roundtrip"); }
+  // best/worst cells (kichik TP)
+  for(int c=0;c<OL_CELLS;c++){ int n; double p,pb,z; if(V9OlStat(0,c,n,p,pb,z) && n>=200 && fabs(z)>=3) printf("cell %3d n=%5d p=%.3f base=%.3f z=%+.1f %s\n",c,n,p,pb,z,V9OlCellText(c).c_str()); }
   if(argc>3) dumpJson(argv[3]);
+  if(fails) printf("FAILS=%d\n",fails);
   return fails?1:0;
 }

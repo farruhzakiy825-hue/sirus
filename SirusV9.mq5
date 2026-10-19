@@ -1,26 +1,24 @@
 ﻿//+------------------------------------------------------------------+
 //| SirusV9.mq5 — SIRUS BY ZAKIY                                     |
-//| 1-bosqich: KO'ZLAR. Faqat kuzatadi va chizadi. SAVDO QILMAYDI:   |
+//| 2-bosqich: KO'ZLAR + O'LCHOV. Faqat kuzatadi. SAVDO QILMAYDI:     |
 //| bu faylda order yuboradigan hech qanday kod yo'q.                |
 //|                                                                  |
 //| Qatlamlar (V9_SKELET.md): 10 Hodisalar -> 20 Likvidlik ->        |
-//| 30 Oyoq -> 40 Xarita -> 50 Qadam -> 95 Panel.                    |
+//| 30 Oyoq -> 40 Xarita -> 50 Qadam -> 60 O'lchov -> 95 Panel.      |
 //| Mantiq: POYDEVOR.md, saboqlar: V8_XAZINA.md.                     |
 //+------------------------------------------------------------------+
 #property copyright   "SIRUS BY ZAKIY"
-#property version     "9.01"
-#property description "SIRUS V9 - 1-bosqich: ko'zlar (oyoq, xarita, likvidlik, qadam). Savdo qilmaydi."
+#property version     "9.02"
+#property description "SIRUS V9 - 2-bosqich: ko'zlar + o'lchov (xayoliy savdolar). Savdo qilmaydi."
 
 input group "SIRUS V9 ▸ Ko'rinish"
-input bool   InpShowPanel  = true;            // Panel
-input bool   InpShowM5Leg  = true;            // M5 oyog'i: ORIGIN / HIMOYA / MAQSAD / zonalar
-input bool   InpShowH1Leg  = true;            // H1 oyog'i (katta oyoq)
-input bool   InpShowPools  = true;            // Likvidlik hovuzlari
-input bool   InpShowZones  = true;            // Devorlar (H1 / H4 zonalar)
-input string InpFont       = "Segoe UI";      // Shrift (V8 panelidagi)
-input int    InpFontSize   = 9;               // Shrift o'lchami
-input int    InpPanelX     = 12;              // Panel: chapdan
-input int    InpPanelY     = 24;              // Panel: tepadan
+input bool   InpShowPanel     = true;   // Panel (premium karta)
+input bool   InpShowWatermark = true;   // Watermark: chart o'rtasida, shamlar orqasida
+input bool   InpShowM5Leg     = true;   // M5 oyog'i chiziqlari: ORIGIN / HIMOYA / MAQSAD
+input bool   InpShowH1Leg     = true;   // H1 oyog'i chiziqlari (katta oyoq)
+input int    InpFontSize      = 9;      // Shrift o'lchami
+input int    InpPanelX        = 12;     // Panel: chapdan (px)
+input int    InpPanelY        = 24;     // Panel: tepadan (px)
 
 #include "SirusV9/01_Konstantalar.mqh"
 #include "SirusV9/00_Asos.mqh"
@@ -29,6 +27,7 @@ input int    InpPanelY     = 24;              // Panel: tepadan
 #include "SirusV9/30_Oyoq.mqh"
 #include "SirusV9/40_Xarita.mqh"
 #include "SirusV9/50_Qadam.mqh"
+#include "SirusV9/60_Olchov.mqh"
 #include "SirusV9/95_Panel.mqh"
 
 double g_msEma = 0.0;
@@ -54,12 +53,14 @@ int OnInit()
    g_qd.dir = 0;
    g_qd.lswDir = 0;
    g_qd.why = "";
-   PrintFormat("[SIRUS V9] %s: 1-bosqich (ko'zlar) ishga tushdi - savdo qilmaydi, faqat kuzatadi", _Symbol);
+   V9OlInit();
+   PrintFormat("[SIRUS V9] %s: 2-bosqich (ko'zlar + o'lchov) ishga tushdi - savdo qilmaydi, faqat kuzatadi", _Symbol);
    return INIT_SUCCEEDED;
 }
 
 void OnDeinit(const int reason)
 {
+   V9OlSave(true);
    V9PanelClear();
    ChartRedraw(0);
 }
@@ -106,6 +107,10 @@ void OnTick()
       V9LegCompute(tfi);
    V9MapCompute();
    V9QadamLive();
+   V9OlNow();
+   if(m1New)
+      V9OlStep();
+   V9OlSave(false);
 
    double ms = (double)(GetMicrosecondCount() - t0) / 1000.0;
    g_msEma = (g_msEma <= 0.0) ? ms : g_msEma * 0.95 + ms * 0.05;
@@ -115,5 +120,15 @@ void OnTick()
    {
       g_lastDraw = now;
       V9DrawAll(full, g_msEma);
+   }
+}
+
+//--- Chart o'lchami / masshtabi o'zgarsa watermark joyiga qaytadi.
+void OnChartEvent(const int id, const long &lparam, const double &dparam, const string &sparam)
+{
+   if(id == CHARTEVENT_CHART_CHANGE)
+   {
+      V9DrawWatermark();
+      ChartRedraw(0);
    }
 }

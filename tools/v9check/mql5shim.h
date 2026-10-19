@@ -25,15 +25,18 @@ template<class T> struct MqlArray {
 template<class T> int ArrayResize(MqlArray<T>& a, int n){ a.v.resize(n); return n; }
 template<class T> int ArraySize(const MqlArray<T>& a){ return (int)a.v.size(); }
 template<class T> bool ArraySetAsSeries(MqlArray<T>&, bool){ return true; }
-enum ENUM_TIMEFRAMES { PERIOD_M1=1, PERIOD_M5=5, PERIOD_M15=15, PERIOD_H1=60, PERIOD_H4=240, PERIOD_D1=1440, PERIOD_W1=10080 };
+enum ENUM_TIMEFRAMES { PERIOD_CURRENT=0, PERIOD_M1=1, PERIOD_M5=5, PERIOD_M15=15, PERIOD_H1=60, PERIOD_H4=240, PERIOD_D1=1440, PERIOD_W1=10080 };
 enum { SYMBOL_BID=1, SYMBOL_ASK=2 };
 enum { INIT_SUCCEEDED=0 };
-enum { OBJ_TREND=1, OBJ_RECTANGLE, OBJ_TEXT, OBJ_LABEL };
+enum { OBJ_TREND=1, OBJ_RECTANGLE, OBJ_TEXT, OBJ_LABEL, OBJ_RECTANGLE_LABEL };
 enum { OBJPROP_SELECTABLE=1, OBJPROP_HIDDEN, OBJPROP_RAY_RIGHT, OBJPROP_COLOR, OBJPROP_STYLE, OBJPROP_WIDTH, OBJPROP_BACK, OBJPROP_FILL,
-       OBJPROP_ANCHOR, OBJPROP_TEXT, OBJPROP_FONT, OBJPROP_FONTSIZE, OBJPROP_CORNER, OBJPROP_XDISTANCE, OBJPROP_YDISTANCE };
+       OBJPROP_ANCHOR, OBJPROP_TEXT, OBJPROP_FONT, OBJPROP_FONTSIZE, OBJPROP_CORNER, OBJPROP_XDISTANCE, OBJPROP_YDISTANCE,
+       OBJPROP_BORDER_TYPE, OBJPROP_XSIZE, OBJPROP_YSIZE, OBJPROP_BGCOLOR };
+enum { BORDER_FLAT=0 };
 enum { STYLE_SOLID=0, STYLE_DASH, STYLE_DOT, STYLE_DASHDOT };
-enum { ANCHOR_LEFT=0, ANCHOR_LEFT_UPPER };
+enum ENUM_ANCHOR_POINT { ANCHOR_LEFT=0, ANCHOR_LEFT_UPPER, ANCHOR_RIGHT_UPPER, ANCHOR_CENTER, ANCHOR_RIGHT };
 enum { CORNER_LEFT_UPPER=0 };
+#define clrBlack 0u
 #define clrGold 1u
 #define clrWhiteSmoke 2u
 #define clrDarkGray 3u
@@ -58,8 +61,8 @@ extern int g_digits; extern double g_point;
 #define _Symbol string("XAUUSD")
 #define _Digits g_digits
 #define _Point g_point
-inline int PeriodSeconds(ENUM_TIMEFRAMES tf=PERIOD_M5){ return (int)tf*60; }
-inline std::vector<SimBar>& SimTf(ENUM_TIMEFRAMES tf){ return g_sim[(int)tf]; }
+inline int PeriodSeconds(ENUM_TIMEFRAMES tf=PERIOD_CURRENT){ if(tf==PERIOD_CURRENT) tf=PERIOD_M5; return (int)tf*60; }
+inline std::vector<SimBar>& SimTf(ENUM_TIMEFRAMES tf){ if(tf==PERIOD_CURRENT) tf=PERIOD_M5; return g_sim[(int)tf]; }
 // series index s: 0 = forming (last element)
 inline int CopyRates(const string&, ENUM_TIMEFRAMES tf, int start, int count, MqlArray<MqlRates>& r){
   auto& v = SimTf(tf); int n=(int)v.size(); int newest = n-1-start; if(newest<0) return -1;
@@ -93,18 +96,46 @@ template<class... A> void PrintFormat(const string& f, A... a){ (void)StringForm
 inline void Print(const string&){}
 
 // objects
-struct SimObj { int type; datetime t[2]; double p[2]; string text; };
+struct SimObj { int type; datetime t[2]; double p[2]; string text; std::map<int,long long> ip; std::map<int,string> sp; long long seq=0; };
+inline long long& SimSeq(){ static long long s=0; return s; }
 extern std::map<string,SimObj> g_objs;
 inline int ObjectFind(long, const string& n){ return g_objs.count(n)?0:-1; }
-inline bool ObjectCreate(long, const string& n, int type, int, datetime t1, double p1, datetime t2=0, double p2=0){ if(g_objs.count(n)) return false; g_objs[n]=SimObj{type,{t1,t2},{p1,p2},""}; return true; }
+inline bool ObjectCreate(long, const string& n, int type, int, datetime t1, double p1, datetime t2=0, double p2=0){ if(g_objs.count(n)) return false; SimObj o; o.seq=++SimSeq(); o.type=type; o.t[0]=t1; o.t[1]=t2; o.p[0]=p1; o.p[1]=p2; g_objs[n]=o; return true; }
 inline bool ObjectMove(long, const string& n, int i, datetime t, double p){ if(!g_objs.count(n)) return false; g_objs[n].t[i]=t; g_objs[n].p[i]=p; return true; }
-inline bool ObjectSetInteger(long, const string& n, int, long long){ return g_objs.count(n)>0; }
-inline bool ObjectSetString(long, const string& n, int prop, const string& v){ if(!g_objs.count(n)) return false; if(prop==OBJPROP_TEXT) g_objs[n].text=v; return true; }
+inline bool ObjectSetInteger(long, const string& n, int prop, long long v){ if(!g_objs.count(n)) return false; g_objs[n].ip[prop]=v; return true; }
+inline bool ObjectSetString(long, const string& n, int prop, const string& v){ if(!g_objs.count(n)) return false; if(prop==OBJPROP_TEXT) g_objs[n].text=v; g_objs[n].sp[prop]=v; return true; }
 inline bool ObjectDelete(long, const string& n){ return g_objs.erase(n)>0; }
 inline int ObjectsDeleteAll(long, const string& pre){ int c=0; for(auto it=g_objs.begin(); it!=g_objs.end();){ if(it->first.rfind(pre,0)==0){ it=g_objs.erase(it); c++; } else ++it; } return c; }
 inline void ChartRedraw(long){}
 enum ENUM_CHART_PROPERTY_DOUBLE { CHART_PRICE_MAX=1, CHART_PRICE_MIN };
-enum ENUM_CHART_PROPERTY_INTEGER { CHART_HEIGHT_IN_PIXELS=1 };
+enum ENUM_CHART_PROPERTY_INTEGER { CHART_HEIGHT_IN_PIXELS=1, CHART_WIDTH_IN_PIXELS, CHART_COLOR_BACKGROUND };
 extern double g_chartMax, g_chartMin;
-inline double ChartGetDouble(long, ENUM_CHART_PROPERTY_DOUBLE p, int sub=0){ return p==CHART_PRICE_MAX? g_chartMax : g_chartMin; }
-inline long ChartGetInteger(long, ENUM_CHART_PROPERTY_INTEGER, int sub=0){ return 620; }
+inline double ChartGetDouble(long, ENUM_CHART_PROPERTY_DOUBLE p, int =0){ return p==CHART_PRICE_MAX? g_chartMax : g_chartMin; }
+inline long ChartGetInteger(long, ENUM_CHART_PROPERTY_INTEGER p, int =0){ if(p==CHART_WIDTH_IN_PIXELS) return 1400; if(p==CHART_COLOR_BACKGROUND) return 0x1C1511; return 760; }
+
+enum { TERMINAL_SCREEN_DPI=1 }; inline long TerminalInfoInteger(int){ return 96; }
+static string g_tfont; static int g_tsize=90;
+inline bool TextSetFont(const string& f, int sz){ g_tfont=f; g_tsize = sz<0? -sz : sz*10; return true; }
+inline int Utf8Len(const string& t){ int n=0; for(unsigned char c: t) if((c&0xC0)!=0x80) n++; return n; }
+inline bool TextGetSize(const string& t, uint& w, uint& h){ double k = (g_tfont.find("Consolas")!=string::npos)?0.62:0.56; w=(uint)(Utf8Len(t)*g_tsize/10.0*1.333*k); h=(uint)(g_tsize/10.0*1.333); return true; }
+inline int StringLen(const string& t){ return Utf8Len(t); }
+inline string StringSubstr(const string& t, int start, int len=-1){ // utf8-aware
+  std::vector<size_t> idx; for(size_t i=0;i<t.size();i++) if(((unsigned char)t[i]&0xC0)!=0x80) idx.push_back(i); idx.push_back(t.size());
+  int n=(int)idx.size()-1; if(start>=n) return ""; int e = (len<0)? n : std::min(n,start+len); return t.substr(idx[start], idx[e]-idx[start]); }
+inline double MathSqrt(double x){ return std::sqrt(x); }
+enum { CHARTEVENT_CHART_CHANGE=9 };
+enum { MQL_TESTER=1, MQL_OPTIMIZATION=2 }; extern int g_isTester; inline long MQLInfoInteger(int p){ return p==MQL_TESTER? g_isTester : 0; }
+// files (real files under ./files)
+enum { FILE_READ=1, FILE_WRITE=2, FILE_BIN=4, FILE_COMMON=8, FILE_TXT=16, FILE_ANSI=32 };
+enum { INT_VALUE=4 }; const int INVALID_HANDLE=-1;
+static FILE* g_fh[16];
+inline int FileOpen(const string& n, int flags){ string p="files_"+n; FILE* f=fopen(p.c_str(), (flags&FILE_WRITE)?"wb":"rb"); if(!f) return INVALID_HANDLE; for(int i=0;i<16;i++) if(!g_fh[i]){ g_fh[i]=f; return i; } fclose(f); return INVALID_HANDLE; }
+inline void FileClose(int h){ if(h>=0&&g_fh[h]){ fclose(g_fh[h]); g_fh[h]=nullptr; } }
+inline bool FileIsExist(const string& n, int){ string p="files_"+n; FILE* f=fopen(p.c_str(),"rb"); if(f){ fclose(f); return true;} return false; }
+inline uint FileWriteInteger(int h, int v, int){ return (uint)fwrite(&v,4,1,g_fh[h])*4; }
+inline uint FileWriteLong(int h, long long v){ return (uint)fwrite(&v,8,1,g_fh[h])*8; }
+inline uint FileWriteDouble(int h, double v){ return (uint)fwrite(&v,8,1,g_fh[h])*8; }
+inline uint FileWriteString(int h, const string& s){ return (uint)fwrite(s.data(),1,s.size(),g_fh[h]); }
+inline int FileReadInteger(int h, int){ int v=0; if(fread(&v,4,1,g_fh[h])!=1) return 0; return v; }
+inline long long FileReadLong(int h){ long long v=0; if(fread(&v,8,1,g_fh[h])!=1) return 0; return v; }
+inline double FileReadDouble(int h){ double v=0; if(fread(&v,8,1,g_fh[h])!=1) return 0; return v; }

@@ -82,6 +82,21 @@
 #define V9_LSW_NEAR_ATR5      1.0     // ... narxdan ATR(M5) x 1 ichidagi swinglar
 #define V9_TICK_RING          512
 
+//--- 60 O'LCHOV (V8 28_Probability_Table saboqlari bilan)
+#define OL_MODES              2       // 0 = kichik TP (cashback formulasi), 1 = o'rta TP (ATR(M15))
+#define OL_CELLS              720     // 2 tomon x 2 oyoqqa nisbat x 5 bosqich x 4 zona x 3 xarita x 3 qadam
+#define OL_VMAX               640     // bir vaqtda ochiq xayoliy savdolar
+#define OL_TIMEOUT_MIN        120     // shuncha daqiqada TP ham, stop ham bo'lmasa - hisobga olinmaydi
+#define OL_STOP_BUF_ATR5      0.15    // stop = HIMOYA (yoki ekstremum) dan ATR(M5) x 0.15 narida (SINDI qoidasi)
+#define OL_STOP_MAX_ATR15     5.0     // stop masofasi ko'pi bilan ATR(M15) x 5
+#define OL_CB_SPREAD_K        0.60    // kichik TP = min(spread, 350 p) x 0.6 + 80 p (V8 RebateTargetPoints)
+#define OL_CB_SPREAD_CAP      350
+#define OL_CB_ADD_PTS         80
+#define OL_MIN_N              30      // katak shundan kam natijada "noma'lum"
+#define OL_Z_SIG              2.0     // ustunlik / salbiy: z >= 2
+#define OL_FILE_VER           902
+#define OL_SAVE_SEC           1800    // live: 30 daqiqada bir saqlash
+
 //--- 95 PANEL
 #define V9_DRAW_MS            250     // chizish oralig'i
 #define V9_OBJ                "SV9_"  // obyekt prefiksi

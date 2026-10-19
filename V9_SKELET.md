@@ -171,8 +171,8 @@ Olinmaydi: skaner, redirect, navbat, legacy/deep paketlar, 15 lot sozlagich, ikk
 | Bosqich | Nima | Savdo? |
 |---|---|---|
 | 0 | Shu skelet (egasi tasdiqlaydi) | — |
-| 1 | 00–50 + 95: ko'zlar va chart. Egasi live chartda tekshiradi | yo'q |
-| 2 | 60: o'lchov | yo'q |
+| 1 | 00–50 + 95: ko'zlar va chart — **qurildi**. Egasi live chartda tekshiradi | yo'q |
+| 2 | 60: o'lchov — **qurildi** (premium panel va watermark bilan) | yo'q |
 | 3 | 70 qoidalari raqamlari bilan + byudjet / zarar / lot / cashback TP qarorlari | yo'q |
 | 4 | 80 + 90: xavfsizlik va ijro | demo |
 | 5 | Demo → live | ha |
