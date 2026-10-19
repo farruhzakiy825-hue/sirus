@@ -1,5 +1,23 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 37-paket: YADRO — "boshi berk ko'cha" (ikki tomon birdan to'silishi) yechildi (2026-10-19)
+
+**Jonli holat (13:05):** H1 pastki likvidligi sweep qilindi (4165.5), global bias TRANSITION_UP ga o'tdi, M5 va lokal
+oyoq yuqoriga burildi. Lekin ikkala tomon ham to'silgan edi:
+- **BUY:** H1 DN va H1 + M15 shamlari hali pastga itaryapti.
+- **SELL:** global bias'ga qarshi, M5 / lokal pastga burilmagan.
+
+Har bir qoida alohida to'g'ri, birgalikda esa burilish davom etguncha bot jim qoldi.
+
+**Yechim:** global bias (miyaning burilishni o'qiydigan qatlami: struktura xotirasi, qulf, burilish yetukligi) shu
+tomonga og'ib bo'lgan bo'lsa va M5 yoki lokal oyoq ham u bilan bir xil bo'lsa, burilish allaqachon boshlangan
+hisoblanadi. H1 / M15 sham bosimi orqada qolgan qism, shuning uchun:
+- "hali itaryapti" degan rad etish olib tashlanadi;
+- bu holat o'sha tomon uchun "joy" hisoblanadi;
+- lekin yopilgan burilish shami baribir shart.
+
+Oddiy trend bo'yicha yoki neytral kirishlarda o'zgarish yo'q: istalgan trigger yetadi.
+
 ## 36-paket: panel — YADRO sababi har tomon uchun alohida qatorda (2026-10-19)
 
 - Avval "YADRO BUY: … · SELL: …" bitta qatorga sig'madi va SELL qismi qirqilib qolardi. Endi ikki qator bor:

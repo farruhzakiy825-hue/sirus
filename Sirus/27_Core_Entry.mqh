@@ -186,12 +186,21 @@ bool CoreSideOk(const int d, string &why, int &rank)
    string rv_what = "";
    datetime rv_t = 0;
    bool htf_rev = MBReversalAfter(d, 3, 4, true, rv_since, rv_what, rv_t);
+   // PACKAGE 37 (live 13:05 - deadlock): after an H1 sell-side sweep the brain's global bias turned to
+   // TRANSITION_UP, M5 turned up, the local leg went up - and both sides stood refused: BUY because H1
+   // was still DN with H1 + M15 candle pressure down, SELL because it was against the global bias with
+   // M5 / local not turned. Each rule right alone, together silence for as long as a turn takes. The
+   // brain's bias is the layer built to read the turn (structure memory, lock, reversal maturity): when
+   // it already leans this side and M5 or the local leg agrees, the turn is underway - the H1 / M15
+   // pressure is the lagging part. It then answers the "still pushing" refusal and stands as the side's
+   // location; a closed turn trigger is still required.
+   bool brain_turn = (MBBiasAlign(d) >= 1 && (MBM5StructDir() == d || MBLayerLocal() == d));
 
    // 1. DIRECTION
    string loc = "";
    if(counter)
    {
-      bool push = (MBPressureSide(3) == -d && MBPressureSide(2) == -d) && !htf_rev;
+      bool push = (MBPressureSide(3) == -d && MBPressureSide(2) == -d) && !htf_rev && !brain_turn;
       if(push)
       {
          why = StringFormat("core direction: %s against H4 %s / H1 %s and H1 + M15 still push against it", side,
@@ -200,6 +209,8 @@ bool CoreSideOk(const int d, string &why, int &rank)
       }
       if(htf_rev)
          loc = "HTF reversal " + rv_what;
+      else if(brain_turn)
+         loc = "brain turning " + MBBiasName(G_MB_BIAS);
       else if(!MBArbiterAtOwnLocation(d, px, loc))
       {
          why = StringFormat("core direction: %s against H4 %s / H1 %s - only at its own location (sweep / holding level)", side,
@@ -214,7 +225,7 @@ bool CoreSideOk(const int d, string &why, int &rank)
    }
    // PACKAGE 33: one of H1 / H4 against while H1 AND M15 candle pressure still push against it - the
    // arbiter's DENY: buying into a live H1 pullback. A turn with its proof is checked at the trigger.
-   if(!counter && !reversal && !htf_rev && (MBSign(h1) == -d || MBSign(h4) == -d) && MBPressureSide(3) == -d && MBPressureSide(2) == -d)
+   if(!counter && !reversal && !htf_rev && !brain_turn && (MBSign(h1) == -d || MBSign(h4) == -d) && MBPressureSide(3) == -d && MBPressureSide(2) == -d)
    {
       why = StringFormat("core direction: %s with %s against and H1 + M15 still pushing against it", side,
                          (MBSign(h1) == -d ? "H1" : "H4"));
@@ -262,7 +273,10 @@ bool CoreSideOk(const int d, string &why, int &rank)
    }
    // 3. TRIGGER (a turn is taken only on proof: a closed turn candle or a sweep, never the forming candle)
    bool strong = MBHasStrongTriggerNow(d);
-   bool trig = (counter || reversal || htf_rev) ? (strong || swept) : (strong || MBHasTriggerNow(d));
+   // A side let through against H1 / H4 (by a reversal or the brain's turn) needs a closed turn; an
+   // ordinary with-trend / neutral entry any trigger.
+   bool against_htf = (MBSign(h1) == -d || MBSign(h4) == -d);
+   bool trig = (counter || reversal || ((htf_rev || brain_turn) && against_htf)) ? (strong || swept) : (strong || MBHasTriggerNow(d));
    if(!trig)
    {
       why = StringFormat("core trigger: no %s trigger now%s", side,
