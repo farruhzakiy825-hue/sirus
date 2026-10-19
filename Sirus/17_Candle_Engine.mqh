@@ -620,6 +620,31 @@ int MBPressureSide(const int tfi)
 }
 
 // The last closed candle on tfi says strongly that dir has taken over.
+// PACKAGE 44 (live 13:34): an M5 candle's evidence lasted the whole next M5 bar - a spike that closed at its
+// high still "confirmed" a BUY after four falling M1 candles had given half of it back. Its evidence ends
+// when the M1 flow has turned on it: the forming M1 candle displacing against it, a CLOSED M1 push candle
+// against it since the M5 bar closed, or (for a push candle) price back past the middle of its body.
+bool MBM5EvidenceLive(const int dir)
+{
+   if(dir == 0)
+      return false;
+   if(G_MB_LIVE_DIR == -dir)
+      return false;
+   int it0 = G_MB_LAST[0].intent;
+   if(G_MB_LAST[0].dir == -dir && G_MB_LAST[0].time >= G_MB_LAST[1].time + 300 &&
+      (it0 == MB_CI_DISPLACEMENT || it0 == MB_CI_CONTINUATION || it0 == MB_CI_BREAKOUT))
+      return false;
+   int it = G_MB_LAST[1].intent;
+   if(it == MB_CI_DISPLACEMENT || it == MB_CI_CONTINUATION || it == MB_CI_BREAKOUT)
+   {
+      double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      double mid = 0.5 * (G_MB_LAST[1].open + G_MB_LAST[1].close);
+      if(px > 0.0 && mid > 0.0 && dir * (px - mid) < 0.0)
+         return false;
+   }
+   return true;
+}
+
 bool MBCandleConfirms(const int tfi, const int dir)
 {
    if(dir == 0 || G_MB_LAST[tfi].dir != dir)
@@ -641,6 +666,8 @@ bool MBCandleConfirms(const int tfi, const int dir)
    // even after price broke the wick it rejected from - a BUY could go into the breakdown on a bullish
    // M5 rejection that had already failed. Live price now invalidates it: its extreme taken out, or
    // half an ATR given back from its close.
+   if(tfi == 1 && !MBM5EvidenceLive(dir))   // package 44
+      return false;
    double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    if(px > 0.0)
    {

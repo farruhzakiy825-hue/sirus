@@ -1,5 +1,27 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 44-paket: dalillar jonli narx bilan yangilanadi (eskirgan dalil bilan qaror yo'q) (2026-10-19)
+
+Keng tekshiruvda 13:34 dagi xatoning ildizi topildi: dalil funksiyalari narx teskari ketgandan keyin ham "haqiqiy"
+qolardi.
+- **M5 shami dalili** (trigger, tasdiq, "bosim qaytdi" ketma-ketligi) endi quyidagi hollarda tugaydi:
+  - shakllanayotgan M1 shami unga qarshi displacement bersa;
+  - M5 bar yopilgandan keyin qarshi M1 push shami yopilsa;
+  - push shamida narx tananing o'rtasidan orqaga qaytsa.
+
+  Avval bu dalil butun keyingi M5 bar davomida amal qilardi.
+- **Yangi hodisalar** (sweep, soxta yorib o'tish, MSS, reclaim va boshqalar) avval faqat yoshiga qarab "yangi"
+  hisoblanardi. Endi:
+  - sweep / soxta yorib o'tishning chekkasi olinsa, hodisa bekor bo'ladi;
+  - boshqa hodisalarda narx darajadan 0.25 ATR orqaga qaytsa, bekor bo'ladi;
+  - muvaffaqiyatsiz MSS / reclaim hisoblanmaydi.
+- **TEZKOR ZARBA** 3 soniyadan eski bo'lsa (yoki momentum yo'q bo'lsa), SmartFill uni hisobga olmaydi. Avval bir
+  necha daqiqa oldingi hukm bilan kutishni o'tkazib yuborardi.
+- **M1 momentum**: narx displacement shamining yopilishidan 0.25 ATR qaytgan bo'lsa, momentum hisoblanmaydi.
+
+Bular kirish, grid va hakamning hammasida ishlatiladigan umumiy funksiyalar. Hech qanday yangi to'siq qo'shilmadi:
+dalil faqat yangi va haqiqiy bo'lganda hisoblanadi.
+
 ## 43-paket: burilish kirishlari pichoq tutmaydi — oxirgi M1 sham o'z tomonida bo'lishi shart (2026-10-19)
 
 **Jonli holat (13:34):** 13:30 dagi yuqoriga otilishdan keyin barcha M1 shamlar pastga ketdi. Lokal ▼, mikro ▼,

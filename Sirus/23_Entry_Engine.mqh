@@ -129,6 +129,7 @@ input bool   SmartFillMomentumSkip    = true;   // Smart fill momentum skip (on/
 #define MB_EO_WAIT           3
 #define MB_EO_WAIT_LOCATION  4
 int      G_MB_ENTRY_OUTCOME     = MB_EO_EXECUTE;
+datetime G_MB_ENTRY_OUTCOME_TIME = 0;   // package 44: when the outcome was written (EXECUTE FAST goes stale)
 int      G_MB_ENTRY_OUTCOME_DIR = 0;
 string   G_MB_ENTRY_RECHECK     = "";   // what re-opens a WAIT (IX.2)
 // The better-location plan (WAIT-FOR-LOCATION): side, price, expiry and what the price is.
@@ -224,7 +225,9 @@ string MBEntryOutcomeName(const int o)
 // Package 15: the last final judgement was EXECUTE FAST this way (SmartFill reads it).
 bool MBEntryFastFor(const int dir)
 {
-   return (dir != 0 && G_MB_ENTRY_OUTCOME == MB_EO_EXECUTE_FAST && G_MB_ENTRY_OUTCOME_DIR == dir);
+   // Package 44: an EXECUTE FAST is a moment - SmartFill used to skip its wait on one written minutes ago.
+   return (dir != 0 && G_MB_ENTRY_OUTCOME == MB_EO_EXECUTE_FAST && G_MB_ENTRY_OUTCOME_DIR == dir &&
+           (TimeCurrent() - G_MB_ENTRY_OUTCOME_TIME <= 3 || MBMomentumNow(dir)));
 }
 
 // Package 15 (IX.2): what a WAIT is waiting for, from the judge's own reason.
@@ -373,6 +376,8 @@ bool MBCandleTriggerNow(const int tfi, const int dir, const double price_in)
       double atr5 = G_MB_ATR[1] * _Point;
       if(atr5 > 0.0 && dir * (price - G_MB_LAST[1].close) < -0.5 * atr5)
          return false;
+      if(!MBM5EvidenceLive(dir))   // package 44: the M1 flow has turned on it
+         return false;
    }
    int it = G_MB_LAST[tfi].intent;
    // Stage 17 (B1): a push candle on thin volume is not a trigger.
@@ -413,6 +418,23 @@ bool MBFreshTriggerEvent(const int dir, string &what)
             ty != MB_EV_REJECTION && ty != MB_EV_COMP_RELEASE)
             continue;
          if(MBEventAgeBars(G_MB_EV[idx]) > MBFreshLimit(tfi)) continue;
+         // PACKAGE 44: age alone kept an event "fresh" after price had undone it. A sweep / fake break whose
+         // extreme is taken out, any other event price is 0.25 ATR back through, or a break that failed, is
+         // not a trigger any more.
+         {
+            double ebid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+            double eatr = G_MB_ATR[tfi] * _Point;
+            if(ebid > 0.0)
+            {
+               if(ty == MB_EV_LIQ_SWEEP || ty == MB_EV_FAKE_BREAK)
+               {
+                  if(G_MB_EV[idx].extreme > 0.0 && dir * (ebid - G_MB_EV[idx].extreme) < 0.0) continue;
+               }
+               else if(eatr > 0.0 && G_MB_EV[idx].level > 0.0 && dir * (ebid - G_MB_EV[idx].level) < -0.25 * eatr)
+                  continue;
+            }
+            if((ty == MB_EV_MSS || ty == MB_EV_RECLAIM) && MBBreakFailed(idx)) continue;
+         }
          what = StringFormat("%s %s", MBTFName(tfi), MBEventName(ty));
          G_MB_FTE_TIME = G_MB_EV[idx].time;
          return true;
@@ -590,7 +612,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(trig_live) trig += StringFormat("%slive early displacement", (StringLen(trig) > 0 ? ", " : ""));
    if(trig_event) trig += StringFormat("%s%s", (StringLen(trig) > 0 ? ", " : ""), ev_what);
    // STAGE 15 (A3): M5 sequence "pressure resumes after a one-candle pause" is a trigger this way.
-   bool trig_seq = EnableCandleDirectionLink && G_MB_SEQ_STORY[1] == 1 && G_MB_SEQ_DIR[1] == dir;
+   bool trig_seq = EnableCandleDirectionLink && G_MB_SEQ_STORY[1] == 1 && G_MB_SEQ_DIR[1] == dir && MBM5EvidenceLive(dir);   // package 44
    if(trig_seq) trig += StringFormat("%sM5 pressure resumes", (StringLen(trig) > 0 ? ", " : ""));
    bool seq_against = EnableCandleDirectionLink && G_MB_SEQ_STORY[1] == 2 && G_MB_SEQ_DIR[1] == -dir;
    bool trig_ok = trig_m1 || trig_m5 || trig_live || trig_event || trig_seq;
@@ -997,6 +1019,7 @@ bool MBEntryJudgeAllows(const int dir, string &why)
    if(!G_MB_JUDGE_PROBE)
    {
       G_MB_ENTRY_OUTCOME = outcome;
+      G_MB_ENTRY_OUTCOME_TIME = TimeCurrent();
       G_MB_ENTRY_OUTCOME_DIR = dir;
       G_MB_ENTRY_RECHECK = recheck;
    }
@@ -1634,8 +1657,11 @@ bool MBMomentumNow(const int dir)
    string w = "";
    if(MBLiveSweepFresh(dir, w) && (TimeCurrent() - G_MB_LSW_TIME) <= 30)
       return true;
+   // Package 44: and price has not given it back (a quarter ATR(M1) from its close).
+   double mbid = SymbolInfoDouble(_Symbol, SYMBOL_BID), matr = G_MB_ATR[0] * _Point;
    return (G_MB_LAST[0].intent == MB_CI_DISPLACEMENT && G_MB_LAST[0].dir == dir &&
-           G_MB_LAST[0].time == iTime(_Symbol, PERIOD_M1, 1) && (TimeCurrent() - iTime(_Symbol, PERIOD_M1, 0)) <= 20);
+           G_MB_LAST[0].time == iTime(_Symbol, PERIOD_M1, 1) && (TimeCurrent() - iTime(_Symbol, PERIOD_M1, 0)) <= 20 &&
+           !(mbid > 0.0 && matr > 0.0 && dir * (mbid - G_MB_LAST[0].close) < -0.25 * matr));
 }
 
 // Cashback tempo is on: rebate mode with the tempo switch.
