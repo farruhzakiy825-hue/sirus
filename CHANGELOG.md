@@ -1,5 +1,24 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 35-paket: YADRO — tasdiqlangan katta TF burilishi trendga qarshi kirishga ruxsat beradi (2026-10-19)
+
+**Jonli holat (12:39):** katta TF likvidligi ovlandi (KEY pastki SWEEP @ 4163.7), M1 darajadan qaytdi, M5 yuqoriga
+burildi. YADRO esa har BUY'ni rad etdi: H1 DN va H1 + M15 shamlari hali pastga itarayotgan edi. Bu holatda bot 9
+daqiqa jim turdi, rad etishlarning 96% i yo'nalish sababli bo'ldi.
+
+Avvalgi hakamda bunga javob bor edi, YADRO'ga ham qo'shildi. Shart: H1 / H4 / KEY likvidligining **tasdiqlangan**
+burilishi (sweep + displacement / MSS / reclaim) kirish tomoniga, eng yangi qarshi H1 / H4 yorib o'tishdan keyin
+bo'lishi kerak. Bunda:
+- "H1 + M15 hali itaryapti" degan rad etish qo'llanmaydi;
+- burilishning o'zi joy hisoblanadi.
+
+Lekin baribir talab qilinadi:
+- yopilgan burilish shami yoki sweep;
+- M5 yoki lokal oyoq shu tomonga burilgan bo'lishi;
+- V1, zonalar, TP uchun joy va mikro nazorat.
+
+Tasdiqlanmagan sweep bilan avvalgidek kirilmaydi.
+
 ## 34-paket: tezlik — YADRO maslahatchisi, savat chiziqlari, himoyalar o'lchagichi (2026-10-19)
 
 - **Eski zanjir maslahatchisi har tikda to'liq ishlardi**, savat ochiq bo'lsa ham, va YADRO'ning ustiga qo'shimcha

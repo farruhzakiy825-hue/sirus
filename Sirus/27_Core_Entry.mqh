@@ -170,18 +170,37 @@ bool CoreSideOk(const int d, string &why, int &rank)
    string rsw = "";
    bool swept = reversal && MBLiveSweepFresh(d, rsw);
 
+   // PACKAGE 35 (live 12:39): a KEY sell-side sweep at 4163.7 was answered (M1 rejection, M5 turned up),
+   // and YADRO refused every BUY because H1 was DN with H1 + M15 pressure still down. The arbiter it
+   // replaced had the answer to that: a CONFIRMED H1 / H4 / KEY liquidity reversal toward the side after
+   // the newest H1 / H4 break against it (sweep + displacement / MSS / reclaim) - the market has already
+   // turned where the big money was. With it, the "still pushing" refusal stands aside and the reversal
+   // is the side's location; the closed turn trigger and M5 / local turn are still required.
+   datetime rv_since = 0;
+   for(int tfi = 3; tfi <= 4; tfi++)
+   {
+      int le = MBLastStructureEvent(tfi);
+      if(le >= 0 && G_MB_EV[le].dir == -d)
+         rv_since = MathMax(rv_since, G_MB_EV[le].time + PeriodSeconds(MBEventTF(tfi)));
+   }
+   string rv_what = "";
+   datetime rv_t = 0;
+   bool htf_rev = MBReversalAfter(d, 3, 4, true, rv_since, rv_what, rv_t);
+
    // 1. DIRECTION
    string loc = "";
    if(counter)
    {
-      bool push = (MBPressureSide(3) == -d && MBPressureSide(2) == -d);
+      bool push = (MBPressureSide(3) == -d && MBPressureSide(2) == -d) && !htf_rev;
       if(push)
       {
          why = StringFormat("core direction: %s against H4 %s / H1 %s and H1 + M15 still push against it", side,
                             MBArbStateTxt(h4), MBArbStateTxt(h1));
          return false;
       }
-      if(!MBArbiterAtOwnLocation(d, px, loc))
+      if(htf_rev)
+         loc = "HTF reversal " + rv_what;
+      else if(!MBArbiterAtOwnLocation(d, px, loc))
       {
          why = StringFormat("core direction: %s against H4 %s / H1 %s - only at its own location (sweep / holding level)", side,
                             MBArbStateTxt(h4), MBArbStateTxt(h1));
@@ -195,7 +214,7 @@ bool CoreSideOk(const int d, string &why, int &rank)
    }
    // PACKAGE 33: one of H1 / H4 against while H1 AND M15 candle pressure still push against it - the
    // arbiter's DENY: buying into a live H1 pullback. A turn with its proof is checked at the trigger.
-   if(!counter && !reversal && (MBSign(h1) == -d || MBSign(h4) == -d) && MBPressureSide(3) == -d && MBPressureSide(2) == -d)
+   if(!counter && !reversal && !htf_rev && (MBSign(h1) == -d || MBSign(h4) == -d) && MBPressureSide(3) == -d && MBPressureSide(2) == -d)
    {
       why = StringFormat("core direction: %s with %s against and H1 + M15 still pushing against it", side,
                          (MBSign(h1) == -d ? "H1" : "H4"));
@@ -243,7 +262,7 @@ bool CoreSideOk(const int d, string &why, int &rank)
    }
    // 3. TRIGGER (a turn is taken only on proof: a closed turn candle or a sweep, never the forming candle)
    bool strong = MBHasStrongTriggerNow(d);
-   bool trig = (counter || reversal) ? (strong || swept) : (strong || MBHasTriggerNow(d));
+   bool trig = (counter || reversal || htf_rev) ? (strong || swept) : (strong || MBHasTriggerNow(d));
    if(!trig)
    {
       why = StringFormat("core trigger: no %s trigger now%s", side,
