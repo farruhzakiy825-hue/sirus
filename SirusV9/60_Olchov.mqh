@@ -456,14 +456,14 @@ void V9OlInit()
    V9OlPoolRebuild();
 }
 
-void V9OlSave(const bool final)
+void V9OlSave(const bool atEnd)
 {
    if(MQLInfoInteger(MQL_OPTIMIZATION) != 0)
       return;
    bool tester = V9OlTester();
-   if(tester && !final)
+   if(tester && !atEnd)
       return;
-   if(!final && TimeCurrent() - g_olSaved < OL_SAVE_SEC)
+   if(!atEnd && TimeCurrent() - g_olSaved < OL_SAVE_SEC)
       return;
    g_olSaved = TimeCurrent();
    if(V9OlWrite(V9OlFile(tester)))

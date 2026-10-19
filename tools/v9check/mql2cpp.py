@@ -11,6 +11,11 @@ def inline(path):
             res.append(line)
     return "\n".join(res)
 s=inline(os.path.join(root,main))
+# MQL5 da kalit so'z, C++ da esa oddiy nom bo'lgan so'zlar: nom sifatida ishlatilsa MetaEditor xato beradi.
+_code=re.sub(r'//[^\n]*','',s); _code=re.sub(r'"(\\.|[^"\\])*"','""',_code)
+_bad=[w for w in ['final','override','interface','delete','new','this','template','typename','operator','virtual','union','sizeof','sinput','export','group','namespace','using','dynamic_cast'] if re.search(r'\b'+w+r'\b',_code.replace('input group',''))]
+if _bad:
+    sys.exit('MQL5 KALIT SO\'ZI NOM SIFATIDA: '+', '.join(_bad))
 s=re.sub(r'^\s*#property.*$','',s,flags=re.M)
 s=re.sub(r'^\s*input\s+group.*$','',s,flags=re.M)
 s=re.sub(r'^(\s*)input\s+','\\1const ',s,flags=re.M)
