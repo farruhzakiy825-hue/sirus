@@ -1,5 +1,60 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## V9 — 1-bosqich: KO'ZLAR (savdo qilmaydi)
+
+Fundamentdan qayta qurishning birinchi bosqichi. V8 ga tegilmadi va u muzlatildi.
+
+**Nima bu:**
+- `SirusV9.mq5` va `SirusV9/` papkasi (8 fayl).
+- Robot faqat bozorni o'qiydi va chartga chizadi. Unda **order yuboradigan kod umuman yo'q**.
+
+**Nima ko'rsatadi:**
+- **M5 oyog'i:**
+  - ORIGIN, HIMOYA (o'lim chizig'i) va MAQSAD (keyingi likvidlik);
+  - oltin zona (38–62%) va chuqur zona (62–79%), HIMOYA dan o'lchanadi;
+  - bosqich: TUG'ILDI / YANGI / RIVOJ / KECH / TUGADI;
+  - qaytish foizi, turtkilar soni, burilish bosqichi.
+- **H1 va H4 oyog'i:** katta rasm.
+- **Xarita:**
+  - H1/H4 holati;
+  - premium/discount;
+  - M5 oyog'i IMPULS, KORREKSIYA yoki QARSHI ekani;
+  - "katta oyoq kech" ogohlantirishi.
+- **Devorlar:** H1/H4 supply va demand zonalari.
+- **Likvidlik:**
+  - M5–H4 swinglari, PDH/PDL, o'tgan hafta high/low, Osiyo sessiyasi;
+  - sinf (1–5) va holat (yangi / sweep / olindi).
+- **Qadam (M1):** sham niyati, bosim, shakllanayotgan displacement, jonli sweep.
+- **Oxirgi muhim hodisa:** BOS, MSS, sweep, SOXTA.
+
+**Asosiy qoidalar** (POYDEVOR.md, V8_XAZINA.md):
+- Bitta swing qoidasi.
+- Break 2 ta yopilish ichida qaytarib olinsa — SOXTA, eski oyoq tiklanadi.
+- HIMOYA dan ATR × 0.15 narida yopilish — oyoq SINDI, teskari oyoq MSS bilan tug'iladi.
+- Har TF har yangi barda tarixdan qayta quriladi: restartda holat yo'qolmaydi va kelajakka qarash yo'q.
+
+**Tekshiruv:**
+- MetaEditor bu yerda yo'q. Shuning uchun kod C++ kompilyatori orqali tekshirildi: xato ham, ogohlantirish ham yo'q.
+- Sintetik bozorda (6 seed, narx sakrashlari bilan) ~590 ming tick ishlatildi: 0 ta qoida buzilishi, xotira xatosi yo'q.
+- Qo'lda tuzilgan ssenariylar ham to'g'ri o'tdi: ko'tarilish oyog'i, MSS va SOXTA tiklanishi.
+
+**O'rnatish:**
+1. `SirusV9.mq5` faylini va `SirusV9` papkasini `MQL5/Experts/` ga nusxalang.
+2. `SirusV9.mq5` ni MetaEditor da compile qiling.
+3. XAUUSDm M5 chartiga qo'ying. Chart sozlamasida "Chart shift" yoqilgan bo'lsin, shunda o'ngdagi yozuvlar ko'rinadi.
+
+**Siz nimani tekshirasiz:**
+- Oyoqni, HIMOYA ni va MAQSAD ni o'zingiz ko'rgandek ko'ryaptimi?
+- Qayerda noto'g'ri desangiz, skrinshot yuboring.
+
+**Hali yo'q (keyingi bosqichlar):**
+- Charchash bosimi
+- Zona roli dvigateli
+- Rejim (diapazon / siqilish)
+- O'lchov (60)
+- Shartnoma (70)
+- Xavfsizlik va ijro (80/90)
+
 ## 50-paket: "kech + global bias'ga qarshi" kirish yo'q — tester dalili bilan (2026-10-19)
 
 **Dalil:** tester, 10–17 sentyabr 2026, 431 savat.

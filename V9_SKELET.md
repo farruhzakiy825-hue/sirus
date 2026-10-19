@@ -195,3 +195,16 @@ Olinmaydi: skaner, redirect, navbat, legacy/deep paketlar, 15 lot sozlagich, ikk
 - **Re-entry** hodisaga bog'langan: "Re-entry oralig'i (sekund)" sozlamasi olib tashlanadi. Kirish va chiqish uchun alohida CTrade obyektlari. Restart kaliti POSITION_IDENTIFIER.
 - **Normal rejimda bitta qulf / trailing egasi** — Shartnoma.
 - **Ochiq qarorlar** (3-bosqich): `V8_XAZINA.md` §7.
+
+---
+
+## 8. Egasining qarorlari (qat'iy)
+
+- **Stop doim 50%.** Basket SL = balansning 50% i. Bu oxirgi to'r va o'zgarmaydi.
+- **Minimal balansga moslashish majburiy.**
+  - $100 lik hisob — faqat cashback rejimi.
+  - Cent hisob — $50 dan.
+  - Live hisob hozir ~$300.
+  - Lot, zina uzunligi va shartnoma byudjeti 3-bosqichda shu balanslarga moslab hisoblanadi: "kattaroq lot + qisqaroq zina", pog'ona hech qachon kichraymaydi.
+  - Tester minimal $3000 — natijalar balans foizida o'lchanadi, $ da emas.
+
