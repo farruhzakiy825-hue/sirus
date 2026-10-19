@@ -656,6 +656,8 @@ void MBCostSlipRecord(const double slip_pts);   // 20e - called by SlippageRecor
 void MBExpectationEvaluate(const int dir, const datetime opened);   // 24 - called earlier in the same file
 bool MBAdverseSlowing(const int dir, string &why);   // 24 - read by the grid rescue guarantee (13)
 bool MBGridPauseConfirm(const int dir, string &why);   // 24 - read by the grid rescue guarantee (13)
+bool MBCandleOpposes(const int tfi, const int dir);    // 17 - read by the grid rescue guarantee (13)
+int  MBLiveDir();                                       // 17 - the forming M1 candle's displacement (read by 13)
 void MBNoteCloseReason(const string why);   // 20d - called by CloseSirusBasket (12)
 void MBMissedNote(const int dir, const string reason);   // 20d - called by the first-entry engine (14)
 bool MBLocalBasketExit(const double profit, string &why);   // stage 16 smart exit - read by the basket exit check above its definition

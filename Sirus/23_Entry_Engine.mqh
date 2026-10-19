@@ -371,6 +371,16 @@ bool MBCandleTriggerNow(const int tfi, const int dir, const double price_in)
       return false;
    if(tfi == 0 && G_MB_LIVE_FAILED == dir)
       return false;
+   // Package 45: an M1 push candle given back by half an ATR(M1) is no trigger (M5 and the wick types had
+   // their invalidation; M1 push candles had none).
+   if(tfi == 0)
+   {
+      int it0 = G_MB_LAST[0].intent;
+      double atr1 = G_MB_ATR[0] * _Point;
+      if((it0 == MB_CI_DISPLACEMENT || it0 == MB_CI_CONTINUATION || it0 == MB_CI_BREAKOUT) && atr1 > 0.0 &&
+         G_MB_LAST[0].close > 0.0 && dir * (price - G_MB_LAST[0].close) < -0.5 * atr1)
+         return false;
+   }
    if(tfi == 1)
    {
       double atr5 = G_MB_ATR[1] * _Point;

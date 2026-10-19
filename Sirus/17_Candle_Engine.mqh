@@ -681,6 +681,9 @@ bool MBCandleConfirms(const int tfi, const int dir)
    return true;
 }
 
+// Package 45: G_MB_LIVE_DIR for files included before this one (13).
+int MBLiveDir() { return G_MB_LIVE_DIR; }
+
 // The last closed candle on tfi is still pushing against dir.
 bool MBCandleOpposes(const int tfi, const int dir)
 {

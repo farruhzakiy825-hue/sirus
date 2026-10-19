@@ -111,10 +111,14 @@ int MBMcSide(const int d)
    int lc = 0, lq = 0;
    double le = 0.0;
    if(MBLqSweepFor(d, 1, 3600, lt, lc, le, lq)) p += (lc >= 3) ? 20 : 12;
-   else if(G_MB_LSW_DIR == d && TimeCurrent() - G_MB_LSW_TIME <= 600) p += 12;
+   else
+   {
+      string mc_sw = "";
+      if(MBLiveSweepFresh(d, mc_sw)) p += 12;   // package 45: a sweep still holding, not any sweep of the last 10 min
+   }
    p += MathMin(20, G_LX_PRESS[MBLxK(-d)] / 4);                       // the other side failing
    if(G_MB_LIVE_DIR == d) p += 8;
-   if(G_MB_LAST[1].intent == MB_CI_DISPLACEMENT && G_MB_LAST[1].dir == d) p += 15;
+   if(G_MB_LAST[1].intent == MB_CI_DISPLACEMENT && G_MB_LAST[1].dir == d && MBCandleConfirms(1, d)) p += 15;   // package 45: while the M1 flow has not undone it
    else if(G_MB_LAST[0].intent == MB_CI_DISPLACEMENT && G_MB_LAST[0].dir == d) p += 8;
    if(G_MB_TREND[0] == d) p += 10;
    if(G_MB_TREND[1] == d) p += 10;

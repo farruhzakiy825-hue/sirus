@@ -1775,11 +1775,19 @@ void GridRescueState()
       return;
    int dir = (direction == POSITION_TYPE_BUY) ? 1 : -1;
    double px = SymbolInfoDouble(_Symbol, (dir > 0 ? SYMBOL_ASK : SYMBOL_BID));
-   double step = (G_NEXT_GRID_DISTANCE > 0.0) ? G_NEXT_GRID_DISTANCE : GridDistanceForNextOrder(EffectiveGridOrders(orders));
+   // Package 45: G_NEXT_GRID_DISTANCE is written only when the grid reaches its distance check - a soft
+   // hold returning earlier left the previous (smaller) rung's distance and inflated the step count.
+   double step = GridDistanceForNextOrder(EffectiveGridOrders(orders));
    if(step <= 0.0 || last_price <= 0.0 || px <= 0.0 || _Point <= 0.0)
       return;
    G_GRID_ADVERSE_STEPS = dir * (last_price - px) / _Point / step;
    if(!EnableGridRescueGuarantee)
+      return;
+   // PACKAGE 45 (no knife): "slowing" read closed M5 bodies and an hour-old sweep, so the rescue stepped
+   // over every soft hold while a new M1 bar was breaking down against the basket - a bigger rung filled
+   // mid-candle. Neither tier switches on while the forming M1 candle displaces against the basket or the
+   // last closed M1 candle pushed against it; that lasts one M1 bar at most, so the rescue cannot freeze.
+   if(MBLiveDir() == -dir || MBCandleOpposes(0, dir))
       return;
    // OWNER RULE: a rung is NEVER added without confirmation. Deep (GridRescueForceSteps) only widens
    // what counts as one - the move against the basket has at least paused (no displacement against,

@@ -4657,6 +4657,7 @@ void UpdateFirstEntryEngine(const string source)
          G_FUNNEL_GATE_BLOCK++;
          G_FUNNEL_LAST_GATE = reason;
       }
+      G_SF_ACTIVE = false;   // package 45: an arm from before a refusal must not fire on the next ready tick
       G_ENTRY_STATUS = "ENTRY: WAIT | reason=" + CoreStripAdvice(reason);
       G_ENTRY_REASON = CoreStripAdvice(reason);   // package 29: the old chain's advice stays in the Trace
       G_ENTRY_DETAIL = StringFormat("ENTRY DETAIL: attempts=%d success=%d fails=%d deferred=%d | positions=%d",

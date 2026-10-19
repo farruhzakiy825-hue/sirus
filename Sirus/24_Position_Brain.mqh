@@ -948,6 +948,10 @@ bool MBGridPauseConfirm(const int dir, string &why)
    double e2 = (dir > 0) ? iLow(_Symbol, PERIOD_M1, 2) : iHigh(_Symbol, PERIOD_M1, 2);
    if(e1 <= 0.0 || e2 <= 0.0 || dir * (e1 - e2) < 0.0)
       return false;   // the last bar still made a new extreme against the basket
+   // Package 45: and the forming bar has not already gone past it.
+   double e0 = (dir > 0) ? iLow(_Symbol, PERIOD_M1, 0) : iHigh(_Symbol, PERIOD_M1, 0);
+   if(e0 > 0.0 && dir * (e0 - e1) < 0.0)
+      return false;
    why = "qarshi harakat to'xtadi (oxirgi M1 yangi ekstremum qilmadi)";
    return true;
 }
@@ -1042,7 +1046,9 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
       return true;
 
    // Against: a fresh displacement or a genuine break the other way on M1 / M5.
-   bool against = (G_MB_LAST[0].intent == MB_CI_DISPLACEMENT && G_MB_LAST[0].dir == -dir) ||
+   // Package 45: on M1 any push candle against (displacement, continuation, breakout) - a grind of
+   // continuation bars against the basket was not "against" and the rung went into a falling tape.
+   bool against = MBCandleOpposes(0, dir) ||
                   (G_MB_LAST[1].intent == MB_CI_DISPLACEMENT && G_MB_LAST[1].dir == -dir) ||
                   (G_MB_LIVE_DIR == -dir);
    string against_what = against ? "displacement against the basket" : "";
@@ -1090,7 +1096,17 @@ bool MBGridAllows(const int dir, const int orders, string &reason)
                    (G_MB_LIVE_DIR == dir);
    string ev_what = "";
    if(!response)
+   {
       response = MBFreshTriggerEvent(dir, ev_what);
+      // Package 45: an event from before the basket's last order answered the move that order was for,
+      // not the one this rung is for.
+      if(response && G_MB_FTE_TIME > 0)
+      {
+         int gb_o = 0; double gb_v = 0.0, gb_a = 0.0, gb_p = 0.0, gb_lp = 0.0, gb_ll = 0.0; long gb_d = -1; datetime gb_t = 0;
+         if(GetSirusBasketStats(gb_o, gb_v, gb_a, gb_p, gb_d, gb_lp, gb_ll, gb_t) && gb_t > 0 && G_MB_FTE_TIME < gb_t)
+            response = false;
+      }
+   }
 
    // Stage 16 (E2/E3): the response must come AT a structure - a zone or FVG on the basket's side.
    double atr5 = G_MB_ATR[1] * _Point;

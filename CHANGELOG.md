@@ -1,5 +1,37 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 45-paket: keng tekshiruv — grid va kirishdagi "pichoq tutish" yo'llari yopildi (2026-10-19)
+
+Uch mustaqil tekshiruv (kirish, grid/savat, dalil funksiyalari) bir xil turdagi kamchiliklarni topdi. Yangi to'siq
+qo'shilmadi: mavjud qoidalar yangi dalilga va bir-biriga moslashtirildi.
+
+**Grid (eng katta pul ta'siri):**
+- **Qutqarish kafolati pichoq tutardi.** U "harakat sekinlashdi" degan xulosani yopilgan M5 tanalari va bir soat oldingi
+  sweep'dan chiqarardi. Natijada yangi M1 bar qarshi tomonga sinayotgan paytda ham katta pog'ona qo'shilardi. Endi
+  shakllanayotgan M1 qarshi displacement bersa yoki oxirgi M1 qarshi push shami bo'lsa, qutqarish yoqilmaydi. Bu ko'pi
+  bilan bitta M1 bar davom etadi, grid muzlab qolmaydi.
+- **Grid "javobi"** sifatida savatning oxirgi orderidan oldingi hodisa endi hisoblanmaydi. Hodisalar narx bilan bekor
+  bo'ladi (44-paket).
+- **"Qarshi" tekshiruvi** endi M1 dagi har qanday qarshi push shamini (continuation, breakout) hisoblaydi. Avval
+  faqat displacement hisoblanardi, shuning uchun sekin tushayotgan narxga pog'ona qo'shilardi.
+- **Pauza tasdig'i** endi shakllanayotgan barni ham tekshiradi.
+- **Qutqarishdagi qadam hisobi** eskirgan (kichikroq) masofaga bo'linib, qutqarishni erta yoqardi. Tuzatildi.
+- **M1 push shami trigger sifatida:** narx yarim ATR(M1) orqaga qaytsa, endi trigger hisoblanmaydi.
+
+**Kirish (YADRO):**
+- **Oddiy kirishda vaqt qoidasi** (kelishilgan 2-holat): oxirgi yopilgan M1 qarshi push shami bo'lsa, faqat undan
+  yangi trigger hisoblanadi (jonli sham yoki jonli sweep). Eski hodisa yoki oldingi M5 shami hisobga olinmaydi.
+- **Cashback'da lokal oyoq yolg'iz o'zi ham "qarshi"** hisoblanadi, agar M5 shu tomonda bo'lmasa.
+- **HTF burilishi** M5 undan keyin qarshi tomonga sinsa, endi lokal qatlam va bosim qoidalarini bekor qilmaydi (avval
+  soatlab bekor qilib turardi).
+- **Burilish dalili** endi trigger sham bo'lishi kerak, shunchaki shu rangdagi sham (doji) yetmaydi.
+- **Ikkala tomon o'tsa**, lokal qatlam (yo'nalish qatlami) HTF'dan og'irroq tortadi.
+- **Order turi** o'tgan yo'liga qarab yoziladi (trendga qarshi / burilish). Grid, lot va o'rganish to'g'ri turni
+  ko'radi.
+- **SmartFill:** rad etilgan tikdan keyin eski "qurollanish" bekor qilinadi.
+
+**Mikro nazorat:** M5 displacement va sweep ulushi endi faqat hali haqiqiy bo'lsa qo'shiladi.
+
 ## 44-paket: dalillar jonli narx bilan yangilanadi (eskirgan dalil bilan qaror yo'q) (2026-10-19)
 
 Keng tekshiruvda 13:34 dagi xatoning ildizi topildi: dalil funksiyalari narx teskari ketgandan keyin ham "haqiqiy"

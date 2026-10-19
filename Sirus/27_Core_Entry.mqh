@@ -73,6 +73,7 @@ input bool   CoreUseH1PushRule        = true;    // YADRO filter: one of H1/H4 a
 input bool   CoreUseLocalLayer        = true;    // YADRO filter: local layer against / strict in normal mode
 
 string G_CORE_WHY[2];      // 0 = SELL, 1 = BUY: why that side was refused / taken this tick
+int    G_CORE_ROUTE[2];    // package 45: how the side passed - 0 plain, 1 counter-trend, 2 turn after a run, 3 HTF / brain turn
 // PACKAGE 41: deadlock watch - since when BOTH sides are refused by the core's own setup rules (not safety,
 // not an open basket) and what refuses each. Diagnosis only: nothing is relaxed by it.
 datetime G_CORE_BOTH_SINCE = 0;
@@ -210,6 +211,14 @@ bool CoreSideOk(const int d, string &why, int &rank)
    string rv_what = "";
    datetime rv_t = 0;
    bool htf_rev = MBReversalAfter(d, 3, 4, true, rv_since, rv_what, rv_t);
+   // Package 45: an HTF reversal stays "relevant" for hours; once M5 has broken against the side after it,
+   // the market below has answered it - it no longer overrides the local layer or the push rules.
+   if(htf_rev)
+   {
+      int le5 = MBLastStructureEvent(1);
+      if(le5 >= 0 && G_MB_EV[le5].dir == -d && G_MB_EV[le5].time > rv_t)
+         htf_rev = false;
+   }
    // PACKAGE 37 (live 13:05 - deadlock): after an H1 sell-side sweep the brain's global bias turned to
    // TRANSITION_UP, M5 turned up, the local leg went up - and both sides stood refused: BUY because H1
    // was still DN with H1 + M15 candle pressure down, SELL because it was against the global bias with
@@ -230,7 +239,10 @@ bool CoreSideOk(const int d, string &why, int &rank)
    int  m5 = MBM5StructDir(), lc = MBLayerLocal();
    bool strict_local  = (CoreUseLocalLayer && !cashback);
    bool local_with    = !strict_local ? (m5 == d || lc == d) : ((m5 == d && lc != -d) || (lc == d && m5 != -d));
-   bool local_against = cashback ? (m5 == -d && lc == -d) : (m5 == -d || lc == -d);
+   // Package 45: MBLayerLocal() is the M5 structure whenever that is set, so "m5 and lc against" was only
+   // m5; the local leg alone against (M5 unset after a spike) never counted. Cashback: the leg against
+   // unless M5 is with the side - the mirror of "M5 OR the leg" for local_with.
+   bool local_against = cashback ? (lc == -d && m5 != d) : (m5 == -d || lc == -d);
    bool local_turn    = local_with && (!EnableMicroControl || CoreLocalTurnControl <= 0 || MBControlOf(d) >= CoreLocalTurnControl);
    bool via_local = false;
 
@@ -332,7 +344,17 @@ bool CoreSideOk(const int d, string &why, int &rank)
       // Package 38: a cashback local turn takes its M1 candle - a CLOSED trigger candle, never the forming one.
       trig = (strong || swept || (via_local && cashback && MBCandleTriggerNow(0, d, px)));
    else
+   {
       trig = (strong || MBHasTriggerNow(d));
+      // Package 45 (timing, owner's case 2): the last closed M1 candle pushed against the side - only a
+      // trigger newer than it counts (the forming candle displacing this way, or a live sweep); older
+      // events and the previous M5 candle are what that candle has just answered.
+      if(trig && MBCandleOpposes(0, d))
+      {
+         string nsw = "";
+         trig = (G_MB_LIVE_DIR == d || MBLiveSweepFresh(d, nsw));
+      }
+   }
    if(!trig)
    {
       why = StringFormat("core trigger: no %s trigger now%s", side,
@@ -348,7 +370,7 @@ bool CoreSideOk(const int d, string &why, int &rank)
    // reclaim is its own candle and needs only the forming candle not against it.
    if(counter || reversal || ((htf_rev || brain_turn) && (MBSign(h1) == -d || MBSign(h4) == -d)))
    {
-      bool m1_own = (G_MB_LAST[0].dir == d) || swept;
+      bool m1_own = MBCandleTriggerNow(0, d, px) || swept;   // package 45: a trigger candle, not any candle of the colour
       if(!m1_own || G_MB_LIVE_DIR == -d)
       {
          why = StringFormat("core trigger: %s turn - %s; waiting for the M1 candle that turns its way", side,
@@ -423,10 +445,13 @@ bool CoreSideOk(const int d, string &why, int &rank)
       }
    }
 
-   rank = (with_htf ? 4 : 0) + (MBBiasAlign(d) > 0 ? 2 : 0) + (strong ? 1 : 0) + (G_MB_LIVE_DIR == d ? 1 : 0) - (counter ? 3 : 0)
+   // Package 45: the local layer is the direction layer - it outweighs the HTF terms when both sides pass.
+   rank = (lc == d ? 4 : 0) + (m5 == d ? 3 : 0)
+          + (with_htf ? 4 : 0) + (MBBiasAlign(d) > 0 ? 2 : 0) + (strong ? 1 : 0) + (G_MB_LIVE_DIR == d ? 1 : 0) - (counter ? 3 : 0)
           + (reversal ? 3 : 0)
           + ((EnableMicroControl && G_MC_TURN == MC_TURN_REVERSAL && d == -G_MC_PRIMARY) ? 2 : 0)    // the micro turn is this side's
           - ((EnableMicroControl && (G_MC_TURN == MC_TURN_REVERSAL || G_MC_TURN == MC_TURN_EXHAUST) && d == G_MC_PRIMARY) ? 2 : 0);
+   G_CORE_ROUTE[(d > 0) ? 1 : 0] = reversal ? 2 : (counter ? 1 : (((htf_rev || brain_turn) && (MBSign(h1) == -d || MBSign(h4) == -d)) ? 3 : 0));
    why = StringFormat("%s%s%s%s · control %d%%", (with_htf ? "with H1+H4" : (counter ? "counter at " + loc : "HTF neutral")),
                       (reversal ? StringFormat(" · turn after a %.1f ATR run%s", rev_ext, (swept ? " (" + rsw + ")" : "")) : ""),
                       (strong ? " · closed trigger" : " · trigger"), (G_MB_LIVE_DIR == d ? " · live candle" : ""), ctrl);
@@ -560,7 +585,20 @@ bool CoreEntryCanRun(string &reason)
    bool same = (det_dir == d && det_type != OPP_TYPE_NONE);
    bool counter = (MBSign(G_MB_TF_STATE[3]) == -d && MBSign(G_MB_TF_STATE[4]) == -d);
    string sw = "";
-   if(!same)
+   // Package 45: the type follows the route the side passed by - the grid's failed-turn depth boost, the
+   // Bayes lot and the learning read it; a turn written as a momentum scalp got the trend treatment.
+   int route = G_CORE_ROUTE[k];
+   if(route == 1)
+   {
+      G_PENALTY_RAW = same ? G_PENALTY_RAW : 0;
+      G_OPP_TYPE = MBLiveSweepFresh(d, sw) ? OPP_TYPE_SWEEP_REJECTION : OPP_TYPE_NEAR_ZONE_REACTION;
+   }
+   else if(route == 2 || route == 3)
+   {
+      G_PENALTY_RAW = same ? G_PENALTY_RAW : 0;
+      G_OPP_TYPE = MBLiveSweepFresh(d, sw) ? OPP_TYPE_SWEEP_REJECTION : OPP_TYPE_EXHAUSTION_REVERSAL;
+   }
+   else if(!same)
    {
       G_PENALTY_RAW = 0;
       if(counter)
