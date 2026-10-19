@@ -51,6 +51,8 @@ input int    CoreTipBars              = 8;   // YADRO: stretched run lookback, M
 input bool   CoreReversalEntry        = true;   // YADRO: reversal entry after a stretched run
 // CoreMinControl: 31-PAKET: mikro nazorat (BUY% / SELL%) shu foizdan past bo'lsa - qarshi tomon boshqaryapti, oddiy kirish yo'q (burilish kirishiga yopilgan burilish shami yetadi)
 input int    CoreMinControl           = 35;   // YADRO: min micro control share for the side, %
+// CoreLocalTurnControl: 38-PAKET: lokal oyoq katta TF ga qarshi burilganda (lokal burilish savdosi) mikro nazorat kamida shu foiz bo'lsin
+input int    CoreLocalTurnControl     = 60;   // YADRO: micro control for a local turn against H1/H4, %
 
 string G_CORE_WHY[2];      // 0 = SELL, 1 = BUY: why that side was refused / taken this tick
 
@@ -196,8 +198,27 @@ bool CoreSideOk(const int d, string &why, int &rank)
    // location; a closed turn trigger is still required.
    bool brain_turn = (MBBiasAlign(d) >= 1 && (MBM5StructDir() == d || MBLayerLocal() == d));
 
+   // PACKAGE 38 (owner): three layers, three jobs. H1 / H4 decide the RISK (which side can cost a grid),
+   // the LOCAL layer (M5 structure + the local leg) decides the DIRECTION, the MICRO layer (M1 candles,
+   // micro control) decides the MOMENT. The TP is small, so the local turns are traded too - but the
+   // micro layer never picks a side on its own: a micro move against the local leg is waited out and the
+   // entry goes on the M1 candle that turns back. Cashback (small TP): the local layer is M5 OR the local
+   // leg. Normal mode (larger TP): both, or one with the other neutral.
+   bool cashback = RebateModeOn();
+   int  m5 = MBM5StructDir(), lc = MBLayerLocal();
+   bool local_with    = cashback ? (m5 == d || lc == d) : ((m5 == d && lc != -d) || (lc == d && m5 != -d));
+   bool local_against = cashback ? (m5 == -d && lc == -d) : (m5 == -d || lc == -d);
+   bool local_turn    = local_with && (!EnableMicroControl || CoreLocalTurnControl <= 0 || MBControlOf(d) >= CoreLocalTurnControl);
+   bool via_local = false;
+
    // 1. DIRECTION
    string loc = "";
+   if(local_against && !reversal && !htf_rev)
+   {
+      why = StringFormat("core direction: the local layer is against %s (M5 %s, local leg %s) - waiting for it to turn", side,
+                         (m5 > 0 ? "up" : (m5 < 0 ? "down" : "flat")), (lc > 0 ? "up" : (lc < 0 ? "down" : "flat")));
+      return false;
+   }
    if(counter)
    {
       bool push = (MBPressureSide(3) == -d && MBPressureSide(2) == -d) && !htf_rev && !brain_turn;
@@ -211,15 +232,21 @@ bool CoreSideOk(const int d, string &why, int &rank)
          loc = "HTF reversal " + rv_what;
       else if(brain_turn)
          loc = "brain turning " + MBBiasName(G_MB_BIAS);
+      else if(local_turn)
+      {
+         loc = StringFormat("local turn (M5 %s, local %s, control %d%%)", (m5 == d ? "with" : "flat"), (lc == d ? "with" : "flat"),
+                            MBControlOf(d));
+         via_local = true;
+      }
       else if(!MBArbiterAtOwnLocation(d, px, loc))
       {
-         why = StringFormat("core direction: %s against H4 %s / H1 %s - only at its own location (sweep / holding level)", side,
-                            MBArbStateTxt(h4), MBArbStateTxt(h1));
+         why = StringFormat("core direction: %s against H4 %s / H1 %s - needs its own location or a local turn with micro control %d%%+", side,
+                            MBArbStateTxt(h4), MBArbStateTxt(h1), CoreLocalTurnControl);
          return false;
       }
-      if(MBM5StructDir() != d && MBLayerLocal() != d)
+      if(!local_with)
       {
-         why = StringFormat("core direction: counter-trend %s at %s - M5 / local leg not turned yet", side, loc);
+         why = StringFormat("core direction: counter-trend %s at %s - the local layer (M5 / local leg) not turned yet", side, loc);
          return false;
       }
    }
@@ -276,7 +303,14 @@ bool CoreSideOk(const int d, string &why, int &rank)
    // A side let through against H1 / H4 (by a reversal or the brain's turn) needs a closed turn; an
    // ordinary with-trend / neutral entry any trigger.
    bool against_htf = (MBSign(h1) == -d || MBSign(h4) == -d);
-   bool trig = (counter || reversal || ((htf_rev || brain_turn) && against_htf)) ? (strong || swept) : (strong || MBHasTriggerNow(d));
+   bool trig;
+   if(reversal)
+      trig = (strong || swept);                                   // a turn after a stretched run: real proof only
+   else if(counter || ((htf_rev || brain_turn) && against_htf))
+      // Package 38: a cashback local turn takes its M1 candle - a CLOSED trigger candle, never the forming one.
+      trig = (strong || swept || (via_local && cashback && MBCandleTriggerNow(0, d, px)));
+   else
+      trig = (strong || MBHasTriggerNow(d));
    if(!trig)
    {
       why = StringFormat("core trigger: no %s trigger now%s", side,

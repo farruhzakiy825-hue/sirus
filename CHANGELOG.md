@@ -1,5 +1,36 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 38-paket: YADRO — uch qatlam uyg'unligi: katta TF xavf, lokal yo'nalish, mikro vaqt (2026-10-19)
+
+Egasi bilan kelishilgan tartib:
+
+| Qatlam | Vazifa |
+|---|---|
+| H1 / H4 | **Xavf**: qaysi tomon grid bilan qimmatga tushishi mumkin |
+| Lokal (M5 struktura + lokal oyoq) | **Yo'nalish** |
+| Mikro (M1 shamlar, mikro nazorat) | **Vaqt**: mikro burilishlar shu yerda ushlanadi |
+
+1. **Hammasi bir tomonda:** shu tomonga yurgan har yopilgan M1 shamida kirish, TP dan keyin darhol qayta kirish.
+2. **Mikro lokalga qarshi qaytdi:** qarshi kirilmaydi. Mikro lokal tomonga qaytgan shamda kiriladi.
+3. **Lokal katta TF'ga qarshi burildi** ("lokal burilish" savdosi). Lokal tomonga kirish mumkin, agar:
+   - mikro nazorat 60%+ bo'lsa;
+   - H1 + M15 sham bosimi hozir qarshi itarmayotgan bo'lsa (itarsa — tasdiqlangan HTF burilish yoki miya burilishi
+     kerak);
+   - TP uchun joy va zonalar tekshiruvdan o'tsa.
+
+   Cashback rejimida yopilgan M1 trigger shami yetadi. Oddiy rejimda kuchli yopilgan burilish shami kerak.
+4. **Mikro hamma narsaga qarshi:** kirilmaydi. Istisno — cho'zilgan yugurishdan keyin sweep yoki yopilgan burilish
+   shami bilan burilish.
+
+**Lokal qatlam rejimga qarab:**
+- **Cashback (TP kichik):** M5 struktura YOKI lokal oyoq yetarli.
+- **Oddiy rejim (TP kattaroq):** ikkalasi ham kerak, yoki biri shu tomonda va ikkinchisi neytral bo'lsin. Ikkisi bir
+  biriga zid bo'lsa, oddiy rejim aniqlik kutadi.
+
+**Lokal qatlam qarshi bo'lsa:** o'sha tomonga kirilmaydi, lokal burilguncha kutiladi. Istisno — tasdiqlangan burilish.
+
+Kalit: `CoreLocalTurnControl = 60`.
+
 ## 37-paket: YADRO — "boshi berk ko'cha" (ikki tomon birdan to'silishi) yechildi (2026-10-19)
 
 **Jonli holat (13:05):** H1 pastki likvidligi sweep qilindi (4165.5), global bias TRANSITION_UP ga o'tdi, M5 va lokal
