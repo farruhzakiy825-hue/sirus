@@ -569,6 +569,20 @@ string CorePanelText()
    return StringFormat("YADRO  BUY: %s  ·  SELL: %s", b, s);
 }
 
+// PACKAGE 39 (owner rule: immediate re-entry after a TP): SmartFill held every entry up to 8 s for a
+// 120-point pullback - also the re-entry right after a TP in a move that is still paying, where the
+// pullback rarely comes and the wait costs the next candle. A re-entry the same way within two minutes of a
+// profitable exit, not chasing (within 1 ATR(M5) of the exit) and with the control not turned against it,
+// goes at once.
+bool CoreFastReentry(const int dir)
+{
+   if(!CoreEntryOn() || dir == 0 || G_RE_KIND != RE_PROFIT || G_RE_DIR != dir || G_RE_TIME <= 0)
+      return false;
+   if(TimeCurrent() - G_RE_TIME > 120)
+      return false;
+   return MBReentryFastOk(dir);
+}
+
 // Package 36: one panel line per side - the two reasons no longer share one line (it was cut off and the
 // SELL half never showed). Ready sides read "tayyor: ...".
 string CorePanelSide(const int k)

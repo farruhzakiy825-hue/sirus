@@ -460,7 +460,8 @@ string MBProfShortText();
 bool   CoreEntryOn();                          // 27 - YADRO decides the first entry (read by 14, 25)
 bool   CoreEntryCanRun(string &reason);        // 27 - the YADRO decision (called by 14)
 string CorePanelText();                        // 27 - panel line
-string CorePanelSide(const int k);             // 27 - panel line per side (1 = BUY, 0 = SELL)
+string CorePanelSide(const int k);
+bool   CoreFastReentry(const int dir);         // 27 - the re-entry right after a TP the same way (SmartFill skips its wait)             // 27 - panel line per side (1 = BUY, 0 = SELL)
 string CoreStripAdvice(const string why);      // 27 - a decision text without the old chain's advice
 string CoreReasonUz(const string why);         // 27 - panel "Sabab" for a YADRO refusal
 void MBShadowOnDecision(const bool ready, const string reason);

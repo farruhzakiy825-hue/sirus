@@ -4785,7 +4785,7 @@ void UpdateFirstEntryEngine(const string source)
 
       // Stage 14 (C4): a momentum moment does not wait for a pullback it will not get.
       // Package 15: neither does the judge's EXECUTE FAST.
-      bool sf_momentum = MBMomentumNow(sf_dir_now) || MBEntryFastFor(sf_dir_now);
+      bool sf_momentum = MBMomentumNow(sf_dir_now) || MBEntryFastFor(sf_dir_now) || CoreFastReentry(sf_dir_now);   // package 39
       if(sf_momentum)
       {
          G_SF_ACTIVE = false;

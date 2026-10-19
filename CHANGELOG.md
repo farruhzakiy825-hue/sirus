@@ -1,5 +1,15 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 39-paket: TP dan keyingi qayta kirish SmartFill'da kutmaydi (2026-10-19)
+
+- Avval SmartFill har bir kirishni (TP dan keyingi qayta kirishni ham) 8 soniyagacha ushlab turardi. U 120 punktlik
+  pullback kutardi. Pul to'layotgan harakatda bunday pullback kam bo'ladi, kutish esa keyingi shamni yo'qotardi.
+- Endi qayta kirish darhol yuboriladi, agar uch shart bajarilsa:
+  - foydali chiqishdan keyin 2 daqiqa ichida, o'sha tomonga;
+  - quvish emas (chiqish narxidan 1 ATR(M5) ichida);
+  - mikro nazorat qarshi tomonga o'tmagan.
+- Boshqa kirishlarda SmartFill avvalgidek ishlaydi. Momentum yoki tezkor zarba bo'lsa, u kutmaydi.
+
 ## 38-paket: YADRO — uch qatlam uyg'unligi: katta TF xavf, lokal yo'nalish, mikro vaqt (2026-10-19)
 
 Egasi bilan kelishilgan tartib:
