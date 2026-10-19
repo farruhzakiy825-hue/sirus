@@ -110,6 +110,7 @@ void OnTick()
    V9OlNow();
    if(m1New)
       V9OlStep();
+   V9OlTick();
    V9OlSave(false);
 
    double ms = (double)(GetMicrosecondCount() - t0) / 1000.0;

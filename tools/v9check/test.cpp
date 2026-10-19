@@ -45,10 +45,9 @@ void checkInvariants(){
   for(int i=0;i<g_npool;i++){ CHECK(g_pool[i].cls>=1&&g_pool[i].cls<=5,"pool cls"); CHECK(g_pool[i].side==1||g_pool[i].side==-1,"pool side"); }
   for(int z=0;z<g_nzone;z++) CHECK(g_zone[z].lo<g_zone[z].hi, "zone lo<hi");
   // O'LCHOV
-  { int open=0; for(int i=0;i<OL_VMAX;i++) if(g_vt[i].on){ open++; CHECK(g_vt[i].base>0&&g_vt[i].base<1,"vt base range"); CHECK(g_vt[i].cell>=0&&g_vt[i].cell<OL_CELLS,"vt cell"); 
-      int sd=g_vt[i].side; CHECK(sd*(g_vt[i].tpLvl-g_vt[i].stLvl)>0,"vt tp/stop order"); }
-    CHECK(open<OL_VMAX,"vt ring full");
-    for(int m=0;m<OL_MODES;m++) for(int c=0;c<OL_CELLS;c++){ int r=g_olTp[m][c]+g_olSt[m][c]; CHECK(r+g_olTo[m][c]<=g_olN[m][c],"ol counts exceed opened"); CHECK(g_olBase[m][c]<=r+1e-9 && g_olBase[m][c]>=0,"ol base sum"); } }
+  { int open=0; for(int i=0;i<OL_VMAX;i++) if(g_vt[i].on){ open++; CHECK(g_vt[i].base>0&&g_vt[i].base<1,"vt base range"); CHECK(g_vt[i].cell>=0&&g_vt[i].cell<OL_CELLS,"vt cell");
+      CHECK(g_vt[i].bin>=0&&g_vt[i].bin<OL_BINS,"vt bin"); int sd=g_vt[i].side; CHECK(sd*(g_vt[i].tpLvl-g_vt[i].stLvl)>0,"vt tp/stop order"); }
+    CHECK(open<OL_VMAX,"vt ring full"); }
   CHECK((int)g_objs.size()<400, "too many objects");
 }
 
@@ -114,11 +113,11 @@ int main(int argc,char**argv){
   std::mt19937 rng(seed); std::normal_distribution<double> N(0,1);
   // 30 days of M1 with regime-switching drift
   double p=4100; datetime t0=1700006400; // a Monday-ish midnight
-  int days= argc>4?atoi(argv[4]):30; double drift=0; int regimeLeft=0;
+  int days= argc>4?atoi(argv[4]):30; bool noDrift = argc>5 && atoi(argv[5])==1; double drift=0; int regimeLeft=0;
   OnInit();
   long ticks=0; double maxms=0;
   for(int i=0;i<days*1440;i++){
-    if(regimeLeft--<=0){ regimeLeft=60+rng()%600; double r=(rng()%100)/100.0; drift = (r<0.35)?0.0:((r<0.67)?0.06:-0.06); }
+    if(regimeLeft--<=0){ regimeLeft=60+rng()%600; double r=(rng()%100)/100.0; drift = (r<0.35)?0.0:((r<0.67)?0.06:-0.06); if(noDrift) drift=0.0; }
     double vol=0.55*(1+ (regimeLeft%3));
     if(gapP>0 && (rng()%100000)/100000.0<gapP) p += ((rng()%2)?1.0:-1.0)*(5.0+(double)(rng()%20));
     double o=p, c=p+drift+N(rng)*vol; double h=std::max(o,c)+std::fabs(N(rng))*0.35, l=std::min(o,c)-std::fabs(N(rng))*0.35;
@@ -131,11 +130,13 @@ int main(int argc,char**argv){
   for(int tfi=0;tfi<V9_TF_N;tfi++) if(g_lv[tfi].ok) printf("%s: %s\n",V9TFName(tfi).c_str(),V9LegShort(tfi).c_str());
   // print panel
   for(auto& o: g_objs) if(o.first.rfind("SV9_pn_",0)==0) printf("PANEL %s\n",o.second.text.c_str());
-  { long tot=g_olTotal; int tp0=0; for(int c=0;c<OL_CELLS;c++) tp0+=g_olTp[0][c];
-    V9OlSave(true); V9OlInit(); int tp1=0; for(int c=0;c<OL_CELLS;c++) tp1+=g_olTp[0][c];
-    printf("olchov: total=%ld reloaded=%lld tp0=%d tp1=%d\n", tot, (long long)g_olTotal, tp0, tp1); CHECK(tot==g_olTotal && tp0==tp1, "olchov file roundtrip"); }
-  // best/worst cells (kichik TP)
-  for(int c=0;c<OL_CELLS;c++){ int n; double p,pb,z; if(V9OlStat(0,c,n,p,pb,z) && n>=200 && fabs(z)>=3) printf("cell %3d n=%5d p=%.3f base=%.3f z=%+.1f %s\n",c,n,p,pb,z,V9OlCellText(c).c_str()); }
+  { long tot=g_olTotal; long tp0=0; for(int c=0;c<OL_CELLS;c++) for(int k=0;k<OL_BINS;k++) tp0+=g_olBt[0][c][k];
+    long pn=0; for(int k=0;k<OL_BINS;k++) pn+=g_poolN[0][k]+g_poolN[1][k]; CHECK(pn==tot,"pool sum == total");
+    V9OlSave(true); V9OlInit(); long tp1=0; for(int c=0;c<OL_CELLS;c++) for(int k=0;k<OL_BINS;k++) tp1+=g_olBt[0][c][k];
+    printf("olchov: total=%ld reloaded=%lld tp0=%ld tp1=%ld\n", tot, (long long)g_olTotal, tp0, tp1); CHECK(tot==g_olTotal && tp0==tp1, "olchov file roundtrip"); }
+  { int sig=0, cnt=0; double zs=0, zz=0;
+    for(int m=0;m<OL_MODES;m++) for(int c=0;c<OL_CELLS;c++){ int n; double p,pe,z; if(V9OlStat(m,c,n,p,pe,z) && n>=100){ cnt++; zs+=z; zz+=z*z; if(fabs(z)>=3){ sig++; if(sig<=8) printf("cell m%d %3d n=%5d p=%.3f exp=%.3f z=%+.1f %s\n",m,c,n,p,pe,z,V9OlCellText(c).c_str()); } } }
+    printf("zstat: cells(n>=100)=%d |z|>=3: %d  mean z=%.2f  sd z=%.2f\n", cnt, sig, cnt?zs/cnt:0, cnt?sqrt(zz/cnt-(zs/cnt)*(zs/cnt)):0); }
   if(argc>3) dumpJson(argv[3]);
   if(fails) printf("FAILS=%d\n",fails);
   return fails?1:0;

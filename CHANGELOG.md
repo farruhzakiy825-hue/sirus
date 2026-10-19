@@ -7,39 +7,38 @@
 Robot hali ham savdo qilmaydi. Endi u o'zini o'zi o'lchaydi.
 
 **Qanday ishlaydi:**
-- Har yopilgan M1 shamida xayoliy BUY va SELL ochiladi. Har biri ikki xil TP bilan:
+- Har yopilgan M1 shamida xayoliy BUY va SELL ochiladi, ikki xil TP bilan:
   - kichik TP = cashback formulasi (spread × 0.6 + 80 p);
   - o'rta TP = ATR(M15).
-- Stop = oyoqning o'lim chizig'i, ATR(M5) × 0.15 narida:
-  - oyoq bilan kirilgan savdoda — HIMOYA;
-  - oyoqqa qarshi kirilgan savdoda — EKSTREMUM.
-- Natija 720 ta katakning biriga yoziladi. Katak quyidagilardan tuziladi:
-  - tomon;
-  - oyoq bilan yoki qarshi;
-  - M5 bosqich;
-  - qaytish zonasi;
-  - H1 xaritasi;
-  - M1 qadam.
+- Stop — oyoqning o'lim chizig'i, ATR(M5) × 0.15 narida:
+  - oyoq bilan kirilsa: HIMOYA;
+  - oyoqqa qarshi kirilsa: EKSTREMUM.
+- Natija 720 katakning biriga yoziladi. Katak quyidagilardan tuziladi: tomon, oyoq bilan yoki qarshi, M5 bosqich, qaytish zonasi, H1 xaritasi, M1 qadam.
 
-**Tasodif bilan solishtirish:**
-- TP masofasi a, stop masofasi b bo'lsa, tasodifiy kirish TP ga b/(a+b) ehtimol bilan yetadi.
-- Ustunlik = haqiqiy TP ulushi − shu tasodifiy ulush.
-- Baho: z ≥ 2 — **ustunlik bor**, z ≤ −2 — **salbiy**, 30 natijadan kam bo'lsa — **noma'lum**.
-- Bir barda TP ham, stop ham tegsa — stop deb hisoblanadi (ehtiyotkor hisob).
+**Halol o'lchov uchun uchta qoida.** Har biri sintetik tasodifiy bozorda topilgan xatodan keyin qo'shildi:
+1. **Natija har tickda aniqlanadi.** Shamning high/low i bo'yicha emas: bitta shamda TP ham, stop ham tegsa, qaysi biri avval ekani shamdan ko'rinmaydi.
+2. **"Kutilgan" ulush nazariy formuladan olinmaydi.** b/(a+b) formulasi narx ticklar orasida sakramaydi deb hisoblaydi va yolg'on salbiylik beradi. Buning o'rniga xuddi shu masofali barcha xayoliy savdolarning haqiqiy natijasi olinadi. Savol shunday bo'ladi: "oyoq holatini bilish faqat masofani bilishdan ko'proq narsa beradimi?"
+3. **Bir vaqtda har tomon va har TP turida faqat bitta xayoliy savdo ochiq bo'ladi.** Har daqiqada ustma-ust ochilgan savdolar bitta harakat bilan birga hal bo'ladi va z ni yolg'on katta qiladi.
+
+**Nazorat testi:**
+- Toza tasodifiy bozorda 4 seed sinab ko'rildi.
+- Bironta ham katak "ustunlik" yoki "salbiy" demadi, z ning tarqalishi ≈ 1.
+- Demak O'lchov yolg'on signal bermaydi.
+
+**Baho:**
+- z ≥ 2 — **ustunlik bor**;
+- z ≤ −2 — **salbiy**;
+- 30 natijadan kam — **noma'lum**.
 
 **Fayllar** (umumiy papka `Common/Files`):
-- `SirusV9_Olchov_<symbol>.bin` va `.csv` — live jadval.
+- `SirusV9_Olchov_<symbol>.bin` va `.csv` — live jadval;
 - `SirusV9_Olchov_TESTER_<symbol>.*` — tester jadvali.
-- Qoidalar:
-  - live tester jadvalini faqat o'qiydi;
-  - tester o'zini qayta yuklamaydi, shuning uchun bitta davr ikki marta sanalmaydi;
-  - optimizatsiya paytida fayl yozilmaydi.
 
-**O'lchov faqat ko'rsatadi.** U 3-bosqichda Shartnomaga faqat blok qo'sha oladi, vetolarni hech qachon yumshatmaydi.
+Live tester jadvalini faqat o'qiydi. Tester o'zini qayta yuklamaydi, shuning uchun bitta davr ikki marta sanalmaydi.
 
-**Sintetik tasodifiy bozordagi tekshiruv:**
-- Kichik TP da: TP 96%, tasodifiy kirish 97% — ya'ni ustunlik yo'q. Tasodifiy narxda shunday bo'lishi kerak edi.
-- O'lchagich "neytral" dedi, demak to'g'ri ishlaydi.
+**Tez to'ldirish yo'li:** V9 ni testerda bir necha oylik tarix bo'yicha bir marta yuritish. Robot savdo qilmaydi, faqat jadvalni to'ldiradi va live uni o'qiydi. Bu oylab kutish emas: tester tarixni bir necha soatda o'tadi.
+
+**O'lchov faqat ko'rsatadi.** 3-bosqichda u Shartnomaga faqat blok qo'sha oladi, vetolarni hech qachon yumshatmaydi.
 
 ### Premium dashboard
 
