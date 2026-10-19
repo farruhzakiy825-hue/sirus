@@ -54,6 +54,13 @@ int      G_PT_CLEAN[2][PT_CELLS];
 int      G_PT_ADV[2][PT_CELLS];
 double   G_PT_SECS[2][PT_CELLS];       // summed seconds to TP (TP results only)
 long     G_PT_TOTAL = 0;               // results filed, all cells
+// Package 49: a tester run's table, read-only on the live chart. The live chart used to save its own small
+// table over the file the tester had just filled (same name, every 30 minutes) - the tester's month was lost.
+// The tester now writes its own file; the live chart adds it to what it shows and decides on, never saves it.
+int      G_PTT_N[2][PT_CELLS];
+int      G_PTT_CLEAN[2][PT_CELLS];
+int      G_PTT_ADV[2][PT_CELLS];
+long     G_PTT_TOTAL = 0;
 
 bool     G_PTV_ON[PT_MAXV];
 int      G_PTV_DIR[PT_MAXV];
@@ -130,7 +137,12 @@ void PTFile(const int side, const int cell, const int outcome, const bool clean,
 
 string PTFileName(const string ext)
 {
-   return StringFormat("Sirus_PTable_%s_%I64d.%s", _Symbol, MagicNumber, ext);
+   return StringFormat("Sirus_PTable_%s%s_%I64d.%s", (MQLInfoInteger(MQL_TESTER) ? "TESTER_" : ""), _Symbol, MagicNumber, ext);
+}
+
+string PTTesterFileName()
+{
+   return StringFormat("Sirus_PTable_TESTER_%s_%I64d.bin", _Symbol, MagicNumber);
 }
 
 void PTSave()
@@ -184,6 +196,31 @@ void PTLoad()
 {
    if(!EnableProbTable)
       return;
+   // Package 49: on the live chart, the tester's table beside its own (read-only).
+   if(!MQLInfoInteger(MQL_TESTER))
+   {
+      int ht = FileOpen(PTTesterFileName(), FILE_READ | FILE_BIN | FILE_COMMON);
+      if(ht != INVALID_HANDLE)
+      {
+         int tver = FileReadInteger(ht), tcells = FileReadInteger(ht);
+         if(tver == 48 && tcells == PT_CELLS)
+         {
+            G_PTT_TOTAL = 0;
+            for(int s = 0; s < 2; s++)
+               for(int c = 0; c < PT_CELLS; c++)
+               {
+                  G_PTT_N[s][c]     = FileReadInteger(ht);
+                  FileReadInteger(ht);                       // TP count (the panel uses clean TP and adverse)
+                  G_PTT_CLEAN[s][c] = FileReadInteger(ht);
+                  G_PTT_ADV[s][c]   = FileReadInteger(ht);
+                  FileReadDouble(ht);
+                  G_PTT_TOTAL += G_PTT_N[s][c];
+               }
+            PrintFormat("[SIRUS PTABLE] tester table: %I64d results from %s", G_PTT_TOTAL, PTTesterFileName());
+         }
+         FileClose(ht);
+      }
+   }
    int h = FileOpen(PTFileName("bin"), FILE_READ | FILE_BIN | FILE_COMMON);
    if(h == INVALID_HANDLE)
       return;
@@ -281,16 +318,16 @@ string PTSideText(const int k)
    int c = G_PT_CELL_NOW[k];
    if(c < 0)
       return "-";
-   int n = G_PT_N[k][c];
+   int n = G_PT_N[k][c] + G_PTT_N[k][c];                // package 49: live + tester
+   int cl = G_PT_CLEAN[k][c] + G_PTT_CLEAN[k][c], ad = G_PT_ADV[k][c] + G_PTT_ADV[k][c];
    if(n < MathMax(1, PTMinSamples))
       return StringFormat("o'rganilmoqda (%d/%d)", n, MathMax(1, PTMinSamples));
-   return StringFormat("toza TP %d/%d (%.0f%%) · grid %.0f%%", G_PT_CLEAN[k][c], n, 100.0 * G_PT_CLEAN[k][c] / n,
-                       100.0 * G_PT_ADV[k][c] / n);
+   return StringFormat("toza TP %d/%d (%.0f%%) · grid %.0f%%", cl, n, 100.0 * cl / n, 100.0 * ad / n);
 }
 
 string PTPanelText()
 {
    if(!EnableProbTable)
       return "";
-   return StringFormat("EHTIMOL  BUY: %s  ·  SELL: %s  ·  jadval %I64d", PTSideText(1), PTSideText(0), G_PT_TOTAL);
+   return StringFormat("EHTIMOL  BUY: %s  ·  SELL: %s  ·  jadval %I64d", PTSideText(1), PTSideText(0), G_PT_TOTAL + G_PTT_TOTAL);
 }

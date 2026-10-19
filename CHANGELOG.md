@@ -1,5 +1,12 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 49-paket: tester jadvalini jonli bot ustidan yozib yubormaydi (2026-10-19)
+
+- Tester va jonli grafik jadvalni bitta faylga yozardi. Jonli bot har 30 daqiqada o'zining kichik jadvalini saqlab,
+  tester to'ldirgan faylning ustidan yozib yuborardi. Natijada testerning bir haftalik natijasi yo'qoldi.
+- Endi tester o'z fayliga yozadi: `Sirus_PTable_TESTER_<symbol>_<magic>.bin / .csv`. Jonli bot uni faqat o'qiydi,
+  o'z natijalariga qo'shib ko'rsatadi va hech qachon ustidan yozmaydi.
+
 ## 48-paket: Ehtimol jadvali oddiy va cashback rejimini alohida saqlaydi (2026-10-19)
 
 - Oddiy rejim va cashback rejimining TP'lari har xil. Birinchi tester sinovi oddiy rejimda o'tgan edi, keyingisi
