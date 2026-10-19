@@ -152,6 +152,13 @@ bool CoreSideOk(const int d, string &why, int &rank)
    bool htf_against = (MBSign(h1) == -d && MBSign(h4) == -d && (MathAbs(h1) >= 2 || MathAbs(h4) >= 2));
    bool counter = htf_against || (d * G_MB_BIAS <= -3);
    string w = "", u = "";
+   // The other way's run is stretched - this side is the turn (package 30). Worked out first: it is the
+   // proof the direction question accepts in place of a turned local leg; the trigger question below
+   // still demands a closed turn candle or a sweep for it.
+   double rev_ext = 0.0;
+   bool reversal = CoreReversalEntry && CoreStretched(-d, CoreTipLegATR, rev_ext);
+   string rsw = "";
+   bool swept = reversal && MBLiveSweepFresh(d, rsw);
 
    // 1. DIRECTION
    string loc = "";
@@ -175,6 +182,16 @@ bool CoreSideOk(const int d, string &why, int &rank)
          why = StringFormat("core direction: counter-trend %s at %s - M5 / local leg not turned yet", side, loc);
          return false;
       }
+   }
+   // PACKAGE 32 (global vs local): against the global bias the entry needs the market to have turned its
+   // way underneath - M5 structure or the local leg - the V0 local-trading rule; inside an H1 + H4 trend
+   // too (an M15 pullback is bought once M5 / local turns back, not while it still falls). A turn after a
+   // stretched run carries its own proof (checked at the trigger).
+   if(MBBiasAlign(d) < 0 && !reversal && MBM5StructDir() != d && MBLayerLocal() != d)
+   {
+      why = StringFormat("core direction: %s against the global bias (%s) - M5 structure / local leg not turned its way", side,
+                         MBBiasName(G_MB_BIAS));
+      return false;
    }
    if(MBVetoReversal && MBVetoReversalCheck(d, w))
    {
@@ -205,14 +222,7 @@ bool CoreSideOk(const int d, string &why, int &rank)
       why = StringFormat("core place: %s at the tip of a %.1f ATR(M5) run - no chasing, waiting for a pullback or the turn", side, ext);
       return false;
    }
-   // PACKAGE 30: the other way's run is stretched - this side is the turn. Taken only on proof: a closed
-   // turn candle or a sweep of the run's extreme, never on the forming candle alone.
-   double rev_ext = 0.0;
-   bool reversal = CoreReversalEntry && CoreStretched(-d, CoreTipLegATR, rev_ext);
-   string rsw = "";
-   bool swept = reversal && MBLiveSweepFresh(d, rsw);
-
-   // 3. TRIGGER
+   // 3. TRIGGER (a turn is taken only on proof: a closed turn candle or a sweep, never the forming candle)
    bool strong = MBHasStrongTriggerNow(d);
    bool trig = (counter || reversal) ? (strong || swept) : (strong || MBHasTriggerNow(d));
    if(!trig)
@@ -249,6 +259,29 @@ bool CoreSideOk(const int d, string &why, int &rank)
    {
       why = "core room: " + w;
       return false;
+   }
+   // PACKAGE 32 (zones): not into the other side's fresh higher-timeframe zone - inside it or right at it -
+   // until an M15 close takes it out (20g) ...
+   if(EnableHTFZones && MBHTFZoneBlocks(d, w))
+   {
+      why = "core room: " + w;
+      return false;
+   }
+   // ... and not into a strong fresh supply / demand zone (20i) right in front when this side's own zone
+   // here is weaker - the judge's BLOCK verdict - unless the live candle is breaking it now.
+   double atr5 = G_MB_ATR[1] * _Point;
+   if(EnableZoneConflictBlock && atr5 > 0.0 && G_MB_LIVE_DIR != d)
+   {
+      int zo = ZIOpposingAhead(d, px, ZoneConflictBlockATR * atr5, ZoneConflictBlockScore);
+      if(zo >= 0)
+      {
+         int zw = ZIOwnZoneAt(d, px, 0.3 * atr5, ZIMinScore);
+         if(!(zw >= 0 && G_ZI_SCORE[zw] >= G_ZI_SCORE[zo]))
+         {
+            why = "core room: strong fresh zone right in front - " + ZIDescribe(zo);
+            return false;
+         }
+      }
    }
 
    rank = (with_htf ? 4 : 0) + (MBBiasAlign(d) > 0 ? 2 : 0) + (strong ? 1 : 0) + (G_MB_LIVE_DIR == d ? 1 : 0) - (counter ? 3 : 0)

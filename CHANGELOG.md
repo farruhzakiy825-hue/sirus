@@ -1,5 +1,17 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## 32-paket: YADRO — global/lokal va zonalar qayta tekshirildi (2026-10-19)
+
+- **Global va lokal:** global bias'ga qarshi kirish endi faqat M5 struktura yoki lokal oyoq shu tomonga burilgan bo'lsa
+  ochiladi. Bu eski V0 "lokal savdo" qoidasi. H1 + H4 trendi ichidagi M15 pullback ham shunga kiradi: M15 hali tushib
+  turganda BUY yo'q, M5 yoki lokal oyoq qaytgach ochiladi. Cho'zilgan yugurishdan keyingi burilish bundan mustasno:
+  uning dalili yopilgan burilish shami yoki sweep.
+- **Katta TF zonalari (20g):** qarama-qarshi tomonning yangi H1/H4 zonasi ichida yoki uning qoq oldida kirish yo'q.
+  M15 sham uni yopilish bilan olib tashlagunicha kutiladi.
+- **Zona intellekti (20i):** kuchli (85+) yangi qarama-qarshi RBR/DBR/RBD/DBD zona 0.35 ATR(M5) ichida bo'lsa va bu
+  tomonning shu yerdagi zonasi kuchsizroq bo'lsa, kirish yo'q. Bu hakamning BLOCK hukmi. Faqat jonli sham uni hozir
+  yorib o'tayotgan bo'lsa, istisno.
+
 ## 31-paket: YADRO mikro nazoratni ham o'qiydi (2026-10-19)
 
 YADRO shamlarni avvaldan o'qiydi: trigger shamlar (hajm tekshiruvi, rejection'ning davomi bilan), jonli sham, M1/M5
