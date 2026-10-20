@@ -8,7 +8,7 @@
 //| Mantiq: POYDEVOR.md, saboqlar: V8_XAZINA.md.                     |
 //+------------------------------------------------------------------+
 #property copyright   "SIRUS BY ZAKIY"
-#property version     "9.03"
+#property version     "9.04"
 #property description "SIRUS V9 - ko'zlar + o'lchov + soya savdo (kirardim) + ko'z jurnali. Order yubormaydi."
 
 input group "SIRUS V9 ▸ Ko'rinish"
@@ -60,15 +60,17 @@ int OnInit()
    g_ticks = 0;
    g_msEma = 0.0;
    g_msBar = 0.0;
+   V9TesterFilesReset();
    V9OlInit();
    V9SoyaInit();
-   PrintFormat("[SIRUS V9] %s: 2-bosqich (ko'zlar + o'lchov) ishga tushdi - savdo qilmaydi, faqat kuzatadi", _Symbol);
+   PrintFormat("[SIRUS V9] %s: ko'zlar + o'lchov + soya savdo (CB / N / Q) ishga tushdi - savdo qilmaydi, faqat kuzatadi", _Symbol);
    return INIT_SUCCEEDED;
 }
 
 void OnDeinit(const int reason)
 {
    V9OlSave(true);
+   V9SyPrintSummary();
    V9PanelClear();
    ChartRedraw(0);
 }

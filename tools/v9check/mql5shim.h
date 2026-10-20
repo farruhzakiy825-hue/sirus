@@ -133,6 +133,7 @@ static FILE* g_fh[16];
 inline int FileOpen(const string& n, int flags){ string p="files_"+n; FILE* f=fopen(p.c_str(), ((flags&FILE_WRITE)&&(flags&FILE_READ))?"a+b":((flags&FILE_WRITE)?"wb":"rb")); if(!f) return INVALID_HANDLE; for(int i=0;i<16;i++) if(!g_fh[i]){ g_fh[i]=f; return i; } fclose(f); return INVALID_HANDLE; }
 inline void FileClose(int h){ if(h>=0&&g_fh[h]){ fclose(g_fh[h]); g_fh[h]=nullptr; } }
 inline bool FileIsExist(const string& n, int){ string p="files_"+n; FILE* f=fopen(p.c_str(),"rb"); if(f){ fclose(f); return true;} return false; }
+inline bool FileDelete(const string& n, int){ string p="files_"+n; return remove(p.c_str())==0; }
 inline uint FileWriteInteger(int h, int v, int){ return (uint)fwrite(&v,4,1,g_fh[h])*4; }
 inline uint FileWriteLong(int h, long long v){ return (uint)fwrite(&v,8,1,g_fh[h])*8; }
 inline uint FileWriteDouble(int h, double v){ return (uint)fwrite(&v,8,1,g_fh[h])*8; }

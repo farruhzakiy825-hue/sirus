@@ -673,11 +673,11 @@ void V9PanelDraw(const double ms, const double msBar)
 
       // --- SOYA SAVDO (kirish qoidasi kuzatuvda: robot shu yerda kirardi, order yubormaydi)
       V9Section("P_s7", "SOYA SAVDO · KIRARDIM", x, w);
-      for(int m = 0; m < 2; m++)
+      for(int m = 0; m < SY_M; m++)
       {
-         string sid = (m == 0) ? "P_sc" : "P_sn";
+         string sid = StringFormat("P_sy%d", m);
          int sd = g_sy[m].on ? g_sy[m].dir : 0;
-         V9UIText(sid + "_n", (m == 0) ? "CB" : "N", x, g_py, V9Gold(), InpFontSize, V9F_BRAND, ANCHOR_LEFT_UPPER, false);
+         V9UIText(sid + "_n", V9SyModeName(m), x, g_py, V9Gold(), InpFontSize, V9F_BRAND, ANCHOR_LEFT_UPPER, false);
          V9UIText(sid + "_t", V9Fit(V9SyNowText(m), V9F_TEXT, InpFontSize, w - 34), x + 34, g_py, g_sy[m].on ? V9DirClr(sd) : V9Muted(),
                   InpFontSize, V9F_TEXT, ANCHOR_LEFT_UPPER, false);
          g_py += V9Row(InpFontSize);

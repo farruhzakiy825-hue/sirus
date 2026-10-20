@@ -1,3 +1,4 @@
+#include <cstring>
 #include <array>
 #include "v9.cpp"
 #include <random>
@@ -45,6 +46,8 @@ void checkInvariants(){
   for(int i=0;i<g_npool;i++){ CHECK(g_pool[i].cls>=1&&g_pool[i].cls<=5,"pool cls"); CHECK(g_pool[i].side==1||g_pool[i].side==-1,"pool side"); }
   for(int z=0;z<g_nzone;z++) CHECK(g_zone[z].lo<g_zone[z].hi, "zone lo<hi");
   // SOYA
+  if(g_sy[SY_Q].on){ int d=g_sy[SY_Q].dir; CHECK(d*(g_sy[SY_Q].tpLvl-g_sy[SY_Q].entry)>-1.0,"Q tp side");
+     CHECK(d*(V9Bid()-g_sy[SY_Q].stLvl)>0.0,"Q open beyond its stop"); CHECK(TimeCurrent()-g_sy[SY_Q].t < SY_Q_TIMEOUT_MIN*60+120,"Q timeout missed"); }
   for(int m=0;m<2;m++) if(g_sy[m].on){ CHECK(g_sy[m].dir==1||g_sy[m].dir==-1,"soya dir"); CHECK(g_sy[m].dir*(g_sy[m].tpLvl-g_sy[m].entry)>-1.0,"soya tp side");
      CHECK(g_lv[V9_M5].ok && g_lv[V9_M5].dir==g_sy[m].dir && g_lv[V9_M5].bornT==g_sy[m].legBornT, "soya open on a dead leg"); }
   // O'LCHOV
@@ -117,7 +120,10 @@ int main(int argc,char**argv){
   // 30 days of M1 with regime-switching drift
   double p=4100; datetime t0=1700006400; // a Monday-ish midnight
   int days= argc>4?atoi(argv[4]):30; bool noDrift = argc>5 && atoi(argv[5])==1; double drift=0; int regimeLeft=0;
+  g_isTester = (argc>6 && atoi(argv[6])==1) ? 1 : 0;
+  if(g_isTester){ FILE* junk=fopen("files_SirusV9_TESTER_Soya_XAUUSD.csv","w"); if(junk){ fputs("OLD RUN\n",junk); fclose(junk); } }
   OnInit();
+  if(g_isTester) CHECK(!FileIsExist("SirusV9_TESTER_Soya_XAUUSD.csv",0), "tester: old soya file not deleted at OnInit");
   long ticks=0; double maxms=0;
   for(int i=0;i<days*1440;i++){
     if(regimeLeft--<=0){ regimeLeft=60+rng()%600; double r=(rng()%100)/100.0; drift = (r<0.35)?0.0:((r<0.67)?0.06:-0.06); if(noDrift) drift=0.0; }
@@ -136,12 +142,18 @@ int main(int argc,char**argv){
   { long tot=g_olTotal; long tp0=0; for(int c=0;c<OL_CELLS;c++) for(int k=0;k<OL_BINS;k++) tp0+=g_olBt[0][c][k];
     long pn=0; for(int k=0;k<OL_BINS;k++) pn+=g_poolN[0][k]+g_poolN[1][k]; CHECK(pn==tot,"pool sum == total");
     V9OlSave(true); V9OlInit(); long tp1=0; for(int c=0;c<OL_CELLS;c++) for(int k=0;k<OL_BINS;k++) tp1+=g_olBt[0][c][k];
-    printf("olchov: total=%ld reloaded=%lld tp0=%ld tp1=%ld\n", tot, (long long)g_olTotal, tp0, tp1); CHECK(tot==g_olTotal && tp0==tp1, "olchov file roundtrip"); }
+    printf("olchov: total=%ld reloaded=%lld tp0=%ld tp1=%ld\n", tot, (long long)g_olTotal, tp0, tp1); if(!g_isTester) CHECK(tot==g_olTotal && tp0==tp1, "olchov file roundtrip"); }
   { int sig=0, cnt=0; double zs=0, zz=0;
     for(int m=0;m<OL_MODES;m++) for(int c=0;c<OL_CELLS;c++){ int n; double p,pe,z; if(V9OlStat(m,c,n,p,pe,z) && n>=100){ cnt++; zs+=z; zz+=z*z; if(fabs(z)>=3){ sig++; if(sig<=8) printf("cell m%d %3d n=%5d p=%.3f exp=%.3f z=%+.1f %s\n",m,c,n,p,pe,z,V9OlCellText(c).c_str()); } } }
     printf("zstat: cells(n>=100)=%d |z|>=3: %d  mean z=%.2f  sd z=%.2f\n", cnt, sig, cnt?zs/cnt:0, cnt?sqrt(zz/cnt-(zs/cnt)*(zs/cnt)):0); }
-  printf("soya: CB kirish=%d TP=%d SINDI=%d pts=%.0f | N kirish=%d TP=%d SINDI=%d pts=%.0f | id=%d\n", g_syIn[0],g_syTp[0],g_sySd[0],g_syPts[0],g_syIn[1],g_syTp[1],g_sySd[1],g_syPts[1],g_sySeq);
-  if(argc>3) dumpJson(argv[3]);
+  for(int m=0;m<SY_M;m++) printf("soya %-2s: kirish=%d TP=%d boshqa=%d pts=%.0f\n", V9SyModeName(m).c_str(), g_syAllIn[m],g_syAllTp[m],g_syAllSd[m],g_syAllPts[m]);
+  printf("soya id=%d\n", g_sySeq);
+  if(g_isTester){ FILE* f=fopen("files_SirusV9_TESTER_Soya_XAUUSD.csv","r"); CHECK(f!=nullptr,"tester: soya file missing");
+    if(f){ char ln[512]; long nl=0; bool old=false; while(fgets(ln,512,f)){ nl++; if(strstr(ln,"OLD RUN")) old=true; } fclose(f);
+      long ev=0; for(int m=0;m<SY_M;m++) ev+=g_syAllIn[m]+g_syAllTp[m]+g_syAllSd[m];
+      printf("tester soya file: %ld lines (events %ld)\n", nl, ev); CHECK(!old && nl==ev+1,"tester: one soya file for whole run"); }
+    OnDeinit(0); }
+  if(argc>3 && strcmp(argv[3],"-")!=0) dumpJson(argv[3]);
   if(fails) printf("FAILS=%d\n",fails);
   return fails?1:0;
 }

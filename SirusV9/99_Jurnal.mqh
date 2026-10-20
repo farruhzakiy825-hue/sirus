@@ -4,6 +4,7 @@
 //| qatorga yozadi - egasi chart oldida o'tirmasa ham keyin tekshirib|
 //| bo'ladi. Fayl: Common\Files\SirusV9_Kozlar_<symbol>_<sana>.csv   |
 //| (soya savdolar: SirusV9_Soya_<symbol>_<sana>.csv, 70_Soya).      |
+//| Testerda sanasiz bitta fayl: SirusV9_TESTER_Kozlar_<symbol>.csv. |
 //| Faqat o'qiydi, hech narsa o'zgartirmaydi.                        |
 //+------------------------------------------------------------------+
 
@@ -44,7 +45,7 @@ string V9JrHeader()
    string h = "vaqt;narx;spread;m5_yon;m5_bosqich;m5_yurgan_pct;m5_uzunlik_atr;m5_qaytish_pct;m5_zona;m5_origin;m5_himoya;";
    h = h + "m5_maqsad;m5_maqsad_nomi;m5_turtki;m5_tugildi;m5_tugilish;m5_tasdiq;burilish;teskari_belgi;xarita;";
    h = h + "h1_holat;h4_holat;h1_yon;h1_bosqich;h1_himoya;range_pct;katta_kech;devor_tepa;devor_past;hovuz_tepa;hovuz_past;";
-   h = h + "qadam;qadam_sabab;bosim;oxirgi_hodisa;soya_cb;soya_n;olchov_buy;olchov_sell";
+   h = h + "qadam;qadam_sabab;bosim;oxirgi_hodisa;soya_cb;soya_n;soya_q;olchov_buy;olchov_sell";
    return h;
 }
 
@@ -80,7 +81,7 @@ void V9JrKoz()
    L = L + V9ZoneText(V9ZoneNearest(1)) + ";" + V9ZoneText(V9ZoneNearest(-1)) + ";";
    L = L + V9JrPoolSide(1) + ";" + V9JrPoolSide(-1) + ";";
    L = L + V9JrDir(g_qd.dir) + ";" + g_qd.why + ";" + V9JrDir(g_qd.pressure) + ";";
-   L = L + V9JrLastEvent() + ";" + V9SyNowText(SY_CB) + ";" + V9SyNowText(SY_N) + ";";
+   L = L + V9JrLastEvent() + ";" + V9SyNowText(SY_CB) + ";" + V9SyNowText(SY_N) + ";" + V9SyNowText(SY_Q) + ";";
    L = L + V9OlVerdictName(V9OlVerdict(0, g_olCellNow[1])) + ";" + V9OlVerdictName(V9OlVerdict(0, g_olCellNow[0]));
    V9FileAppend(V9DailyFile("Kozlar"), V9JrHeader(), V9Ascii(L));
 }

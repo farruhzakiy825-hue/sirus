@@ -1,5 +1,27 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## V9.04 — Q: QAYTISH O'RIMI (soya) + TESTERGA TAYYOR
+
+**Uchinchi soya rejim — Q (`SirusV9/70_Soya.mqh`).** Kechagi jonli ma'lumotda kirish imkoniyatlarining ko'pi "oyoq KECH / TUGADI" deb yopilgan edi. Q shu joyni kuzatadi: oyoq o'z ishini qilib bo'lgan joyda, oyoqqa QARSHI kichik cashback o'rimi. Order yuborilmaydi.
+
+Kirish shartlari (hammasi bajarilishi kerak):
+- oyoq TUGADI yoki KECH va maqsadning kamida 80% ini yurgan;
+- ekstremumda teskari belgi bor (sweep / displacement / ichki break, `counter >= 1`);
+- narx hali ekstremum yonida (qaytish 38% dan kam);
+- H1 kuchli bo'lib oyoq bilan bir tomonda bo'lmasin;
+- TP gacha teskari tomonda devor yo'q;
+- qadam (M1) teskari tomonga;
+- O'lchov katagi "salbiy" emas.
+
+TP — kichik (cashback formulasi). Stop — ekstremumdan ATR(M5) × 0.15 narida (yaqin stop, egasining "tezis o'lsa kichik zarar" g'oyasi shu yerda o'lchanadi). Chiqish: **TP**, **STOP** yoki **VAQT** (120 daqiqada hech biri bo'lmasa). Oyoq almashishi Q uchun chiqish emas.
+
+Panelda uchinchi qator "Q", Ko'z jurnalida yangi `soya_q` ustuni. Soya jurnalida 7-ustun endi `himoya_yoki_stop` (Q uchun stop darajasi).
+
+**Tester:**
+- testerda jurnal fayllari sanasiz bitta faylga yoziladi: `SirusV9_TESTER_Kozlar_<symbol>.csv`, `SirusV9_TESTER_Soya_<symbol>.csv`;
+- har sinov boshida eski tester fayllari o'chiriladi;
+- sinov tugaganda Jurnal (Journal) oynasiga har rejim bo'yicha xulosa chiqadi: kirishlar, TP, TP siz chiqishlar, jami punkt.
+
 ## V9 — SOYA SAVDO + KO'Z JURNALI (order yuborilmaydi)
 
 Robot endi kechasi o'zi ma'lumot yig'adi. Ertalab faqat fayllarni yuborasiz.

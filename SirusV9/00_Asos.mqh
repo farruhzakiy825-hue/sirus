@@ -173,8 +173,24 @@ string V9DailyFile(const string kind)
 {
    MqlDateTime t;
    TimeToStruct(TimeCurrent(), t);
-   string pre = (MQLInfoInteger(MQL_TESTER) != 0) ? "SirusV9_TESTER_" : "SirusV9_";
-   return pre + kind + "_" + _Symbol + StringFormat("_%04d-%02d-%02d.csv", t.year, t.mon, t.day);
+   // Tester: butun sinov bitta faylga (har kunlik fayl o'rniga) - yuborish va tahlil oson.
+   if(MQLInfoInteger(MQL_TESTER) != 0)
+      return "SirusV9_TESTER_" + kind + "_" + _Symbol + ".csv";
+   return "SirusV9_" + kind + "_" + _Symbol + StringFormat("_%04d-%02d-%02d.csv", t.year, t.mon, t.day);
+}
+
+//--- Tester boshida: oldingi sinovning jurnal fayllari o'chiriladi (yangi sinov toza fayldan boshlanadi).
+void V9TesterFilesReset()
+{
+   if(MQLInfoInteger(MQL_TESTER) == 0)
+      return;
+   string kinds[2] = {"Kozlar", "Soya"};
+   for(int i = 0; i < 2; i++)
+   {
+      string f = V9DailyFile(kinds[i]);
+      if(FileIsExist(f, FILE_COMMON))
+         FileDelete(f, FILE_COMMON);
+   }
 }
 
 string V9TimeStr(const datetime t)
