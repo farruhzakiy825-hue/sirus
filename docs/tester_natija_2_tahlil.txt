@@ -1,0 +1,65 @@
+=== SOYA T (R da) ===
+davr: 2025-09-01 .. 2026-10-16; topish < 2026-06-01 <= tasdiqlash
+A_S: n= 984 yutgan=40% jami=  -48.7R o'rtacha=-0.050R t=-1.5 maxDD=-56.2R | MFE>=2R 10% >=5R 1%
+     topish:      n= 627 o'rtacha=-0.028R t=-0.7 boot_p=0.751 -
+     tasdiqlash:  n= 357 o'rtacha=-0.087R t=-1.7 boot_p=0.957 -
+A_X: n=1088 yutgan=36% jami=  -31.7R o'rtacha=-0.029R t=-1.6 maxDD=-34.7R | MFE>=2R 4% >=5R 0%
+     topish:      n= 693 o'rtacha=-0.008R t=-0.3 boot_p=0.635 -
+     tasdiqlash:  n= 395 o'rtacha=-0.066R t=-2.5 boot_p=0.994 -
+B_S: n= 593 yutgan=33% jami=  -21.0R o'rtacha=-0.035R t=-0.5 maxDD=-81.2R | MFE>=2R 24% >=5R 7%
+     topish:      n= 388 o'rtacha=+0.045R t=+0.5 boot_p=0.319 -
+     tasdiqlash:  n= 205 o'rtacha=-0.187R t=-1.9 boot_p=0.967 -
+B_X: n= 708 yutgan=34% jami=   +5.1R o'rtacha=+0.007R t=+0.1 maxDD=-51.1R | MFE>=2R 18% >=5R 4%
+     topish:      n= 471 o'rtacha=+0.032R t=+0.5 boot_p=0.306 -
+     tasdiqlash:  n= 237 o'rtacha=-0.043R t=-0.5 boot_p=0.703 -
+C_S: n= 410 yutgan=34% jami=  -25.0R o'rtacha=-0.061R t=-0.8 maxDD=-66.3R | MFE>=2R 25% >=5R 4%
+     topish:      n= 278 o'rtacha=-0.187R t=-2.1 boot_p=0.977 -
+     tasdiqlash:  n= 132 o'rtacha=+0.204R t=+1.3 boot_p=0.102 -
+C_X: n= 484 yutgan=37% jami=   -9.5R o'rtacha=-0.020R t=-0.4 maxDD=-29.5R | MFE>=2R 12% >=5R 1%
+     topish:      n= 320 o'rtacha=-0.024R t=-0.4 boot_p=0.674 -
+     tasdiqlash:  n= 164 o'rtacha=-0.011R t=-0.1 boot_p=0.555 -
+D_S: n= 263 yutgan=39% jami=  -12.8R o'rtacha=-0.049R t=-0.7 maxDD=-20.7R | MFE>=2R 9% >=5R 1%
+     topish:      n= 172 o'rtacha=-0.034R t=-0.3 boot_p=0.654 -
+     tasdiqlash:  n=  91 o'rtacha=-0.076R t=-0.8 boot_p=0.785 -
+D_X: n= 266 yutgan=37% jami=  -18.3R o'rtacha=-0.069R t=-2.0 maxDD=-21.5R | MFE>=2R 3% >=5R 0%
+     topish:      n= 175 o'rtacha=-0.075R t=-1.8 boot_p=0.965 -
+     tasdiqlash:  n=  91 o'rtacha=-0.057R t=-0.9 boot_p=0.820 -
+E_S: n= 680 yutgan=40% jami=  -45.4R o'rtacha=-0.067R t=-1.8 maxDD=-48.3R | MFE>=2R 10% >=5R 1%
+     topish:      n= 437 o'rtacha=-0.061R t=-1.3 boot_p=0.908 -
+     tasdiqlash:  n= 243 o'rtacha=-0.077R t=-1.3 boot_p=0.905 -
+E_X: n= 732 yutgan=36% jami=  -37.3R o'rtacha=-0.051R t=-2.5 maxDD=-38.3R | MFE>=2R 4% >=5R 0%
+     topish:      n= 474 o'rtacha=-0.036R t=-1.4 boot_p=0.909 -
+     tasdiqlash:  n= 258 o'rtacha=-0.078R t=-2.4 boot_p=0.990 -
+MEZONDAN O'TGANLAR: yo'q
+=== O'LCHOV ===
+kichik: natija=203432 kataklar(n>=30)=374 z o'rtacha=+0.16 sd=1.19 |z|>=2: 32 (tasodifda ~17)
+   tomon-oyoq: oyoq bilan z=+4.7 · oyoqqa qarshi z=-3.3
+   bosqich: KECH z=-0.3 · RIVOJ z=-1.8 · TUG'ILDI z=+0.4 · TUGADI z=+1.4 · YANGI z=+0.1
+   zona: chuqur z=+3.0 · himoya oldi z=-0.2 · oltin z=-1.4 · yurish/sayoz z=-0.2
+   H1: H1 bilan z=+1.5 · H1 qarshi z=-1.4
+   qadam: qadam bilan z=-0.3 · qadam neytral z=-0.5 · qadam qarshi z=+0.7
+orta: natija=25348 kataklar(n>=30)=162 z o'rtacha=-0.02 sd=1.05 |z|>=2: 8 (tasodifda ~7)
+   tomon-oyoq: oyoq bilan z=+1.8 · oyoqqa qarshi z=-1.2
+   bosqich: KECH z=-0.1 · RIVOJ z=-0.4 · TUG'ILDI z=-0.2 · TUGADI z=+0.7 · YANGI z=-0.4
+   zona: chuqur z=-0.2 · himoya oldi z=-0.7 · oltin z=-0.8 · yurish/sayoz z=+0.7
+   H1: H1 bilan z=+1.3 · H1 qarshi z=-1.2
+   qadam: qadam bilan z=-0.3 · qadam neytral z=+0.4 · qadam qarshi z=+0.2
+=== OYOQLAR (har oyoq bitta namuna) ===
+oyoqlar: 1922; eng uzoq yetgan bosqich: {'KECH': 375, 'TUGADI': 951, "TUG'ILDI": 454, 'RIVOJ': 128, 'YANGI': 14}
+vaqt ulushi: {'KECH': '43%', "TUG'ILDI": '5%', 'TUGADI': '37%', 'RIVOJ': '14%', 'YANGI': '2%'}
+tug'ilganda uzunlik ATR(M15) median: 3.94
+   tug'ilish          + 30m n=1895 o'rtacha=+0.09$ t=+0.3 yo'nalishda=49%
+   birinchi YANGI     + 30m n= 224 o'rtacha=-0.15$ t=-0.2 yo'nalishda=51%
+   birinchi RIVOJ     + 30m n= 703 o'rtacha=+0.65$ t=+1.6 yo'nalishda=48%
+   birinchi KECH      + 30m n=1090 o'rtacha=+0.19$ t=+0.6 yo'nalishda=50%
+   birinchi TUGADI    + 30m n= 940 o'rtacha=+0.38$ t=+0.7 yo'nalishda=48%
+   tug'ilish          + 60m n=1863 o'rtacha=-0.10$ t=-0.3 yo'nalishda=49%
+   birinchi YANGI     + 60m n= 220 o'rtacha=-0.80$ t=-0.9 yo'nalishda=46%
+   birinchi RIVOJ     + 60m n= 693 o'rtacha=+0.33$ t=+0.6 yo'nalishda=50%
+   birinchi KECH      + 60m n=1075 o'rtacha=+0.61$ t=+1.2 yo'nalishda=53%
+   birinchi TUGADI    + 60m n= 929 o'rtacha=+0.09$ t=+0.1 yo'nalishda=47%
+   tug'ilish          +240m n=1815 o'rtacha=-0.52$ t=-0.7 yo'nalishda=49%
+   birinchi YANGI     +240m n= 215 o'rtacha=-0.01$ t=-0.0 yo'nalishda=47%
+   birinchi RIVOJ     +240m n= 668 o'rtacha=+0.28$ t=+0.2 yo'nalishda=49%
+   birinchi KECH      +240m n=1056 o'rtacha=-0.48$ t=-0.5 yo'nalishda=50%
+   birinchi TUGADI    +240m n= 909 o'rtacha=+0.00$ t=+0.0 yo'nalishda=49%
