@@ -25,6 +25,7 @@ template<class T> struct MqlArray {
 template<class T> int ArrayResize(MqlArray<T>& a, int n){ a.v.resize(n); return n; }
 template<class T> int ArraySize(const MqlArray<T>& a){ return (int)a.v.size(); }
 template<class T> bool ArraySetAsSeries(MqlArray<T>&, bool){ return true; }
+template<class T> bool ArraySort(MqlArray<T>& a){ std::sort(a.v.begin(), a.v.end()); return true; }
 enum ENUM_TIMEFRAMES { PERIOD_CURRENT=0, PERIOD_M1=1, PERIOD_M5=5, PERIOD_M15=15, PERIOD_H1=60, PERIOD_H4=240, PERIOD_D1=1440, PERIOD_W1=10080 };
 enum { SYMBOL_BID=1, SYMBOL_ASK=2 };
 enum { INIT_SUCCEEDED=0 };
@@ -55,8 +56,9 @@ template<class A> A MathAbs(A a){ return a<0?-a:a; }
 inline double MathRound(double x){ return std::round(x); }
 
 // ---- synthetic market (filled by the test) ----
-struct SimBar { datetime t; double o,h,l,c; };
+struct SimBar { datetime t; double o,h,l,c; long long v; };
 extern std::map<int, std::vector<SimBar>> g_sim;   // tf minutes -> bars (closed + forming as last)
+extern std::map<int, std::vector<SimBar>> g_simE;  // EURUSD (G gipotezasi uchun)
 extern datetime g_simNow; extern double g_simBid, g_simAsk;
 extern int g_digits; extern double g_point;
 #define _Symbol string("XAUUSD")
@@ -64,11 +66,12 @@ extern int g_digits; extern double g_point;
 #define _Point g_point
 inline int PeriodSeconds(ENUM_TIMEFRAMES tf=PERIOD_CURRENT){ if(tf==PERIOD_CURRENT) tf=PERIOD_M5; return (int)tf*60; }
 inline std::vector<SimBar>& SimTf(ENUM_TIMEFRAMES tf){ if(tf==PERIOD_CURRENT) tf=PERIOD_M5; return g_sim[(int)tf]; }
+inline std::vector<SimBar>& SimTfS(const string& sym, ENUM_TIMEFRAMES tf){ if(sym.rfind("EURUSD",0)==0){ if(tf==PERIOD_CURRENT) tf=PERIOD_M5; return g_simE[(int)tf]; } return SimTf(tf); }
 // series index s: 0 = forming (last element)
-inline int CopyRates(const string&, ENUM_TIMEFRAMES tf, int start, int count, MqlArray<MqlRates>& r){
-  auto& v = SimTf(tf); int n=(int)v.size(); int newest = n-1-start; if(newest<0) return -1;
+inline int CopyRates(const string& sym, ENUM_TIMEFRAMES tf, int start, int count, MqlArray<MqlRates>& r){
+  auto& v = SimTfS(sym, tf); int n=(int)v.size(); int newest = n-1-start; if(newest<0) return -1;
   int oldest = std::max(0, newest-count+1); r.v.clear();
-  for(int i=oldest;i<=newest;i++){ MqlRates x{v[i].t,v[i].o,v[i].h,v[i].l,v[i].c,0,0,0}; r.v.push_back(x); }
+  for(int i=oldest;i<=newest;i++){ MqlRates x{v[i].t,v[i].o,v[i].h,v[i].l,v[i].c,v[i].v,0,0}; r.v.push_back(x); }
   return (int)r.v.size();
 }
 inline int CopyRates(const string&, ENUM_TIMEFRAMES tf, datetime from, datetime to, MqlArray<MqlRates>& r){
@@ -120,6 +123,8 @@ inline bool TextSetFont(const string& f, int sz){ g_tfont=f; g_tsize = sz<0? -sz
 inline int Utf8Len(const string& t){ int n=0; for(unsigned char c: t) if((c&0xC0)!=0x80) n++; return n; }
 inline bool TextGetSize(const string& t, uint& w, uint& h){ double k = (g_tfont.find("Consolas")!=string::npos)?0.62:0.56; w=(uint)(Utf8Len(t)*g_tsize/10.0*1.333*k); h=(uint)(g_tsize/10.0*1.333); return true; }
 inline int StringLen(const string& t){ return Utf8Len(t); }
+inline bool SymbolSelect(const string&, bool){ return true; }
+inline int StringFind(const string& s, const string& f, int start=0){ auto p=s.find(f,(size_t)start); return p==std::string::npos? -1 : (int)p; }
 inline string StringSubstr(const string& t, int start, int len=-1){ // utf8-aware
   std::vector<size_t> idx; for(size_t i=0;i<t.size();i++) if(((unsigned char)t[i]&0xC0)!=0x80) idx.push_back(i); idx.push_back(t.size());
   int n=(int)idx.size()-1; if(start>=n) return ""; int e = (len<0)? n : std::min(n,start+len); return t.substr(idx[start], idx[e]-idx[start]); }

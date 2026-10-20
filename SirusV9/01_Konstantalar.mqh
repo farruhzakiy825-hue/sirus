@@ -98,21 +98,27 @@
 #define OL_BINS               20      // kutilgan natija: masofa nisbati b/(a+b) shuncha bo'lakka bo'linadi
 #define OL_SAVE_SEC           1800    // live: 30 daqiqada bir saqlash
 
-//--- 70 SOYA T (trailing). Qiymatlar docs/GIPOTEZALAR.md da OLDINDAN yozilgan - natijaga qarab o'zgartirilmaydi.
-#define T_HYP                 5       // A asos, B erta, C sweep, D sessiya, E kuchli
-#define T_EXIT                2       // 0 = tuzilma (M5 HIMOYA), 1 = ATR (chandelier)
-#define T_STOP_BUF_ATR5       0.15    // stop HIMOYA / origin dan ATR(M5) x 0.15 narida (SINDI qoidasi)
-#define T_CHAND_ATR5          3.0     // chandelier: eng yaxshi narxdan ATR(M5) x 3
-#define T_MIN_R_SPREAD        3.0     // boshlang'ich xavf kamida 3 spread (aks holda xarajat R ni yeydi)
+//--- 70 SOYA T (trailing). Qiymatlar docs/GIPOTEZALAR.md (A) va docs/GIPOTEZALAR_2.md (F, G, H) da
+//--- OLDINDAN yozilgan - natijaga qarab o'zgartirilmaydi.
+#define T_HYP                 4       // 0 A asos (nazorat), 1 F faollik, 2 G dollar, 3 H portlash
+#define T_EXIT                2       // 0 = tuzilma (HIMOYA), 1 = ATR (chandelier)
+#define T_STOP_BUF_ATR5       0.15    // A: stop HIMOYA / origin dan ATR(M5) x 0.15 narida (SINDI qoidasi)
+#define T_STOP_BUF_ATR1       0.25    // F, G, H: M1 tuzilma stopi ATR(M1) x 0.25 narida
+#define T_CHAND_ATR           3.0     // chandelier: eng yaxshi narxdan o'z TF ATR i x 3 (A: M5, F/G/H: M1)
+#define T_MIN_R_SPREAD        3.0     // A: boshlang'ich xavf kamida 3 spread
+#define T_SCALP_R_SPREAD      10.0    // F, G, H: xavf kamida 10 spread (spread <= xavfning 10%)
 #define T_GAP_ATR5            0.5     // narx stopdan ATR(M5) x 0.5 dan ko'p sakrasa - tick narxida yopiladi (gap)
 #define T_SLIP_ATR5           0.05    // stop / trail yopilishida zararga sirpanish ATR(M5) x 0.05 (ehtiyot)
-#define T_B_PB_MIN            0.38    // B: M5 qaytishi kamida oltin zonagacha yetgan
-#define T_C_SWEEP_S           3600    // C: hovuz sweepidan keyin shuncha sekund ichida
-#define T_C_MIN_CLS           3       // C: hovuz sinfi >= 3 (H1, PDH/PDL, Osiyo, H4, PW)
-#define T_LON_FROM_MIN        420     // D: London 07:00-10:00 UTC
-#define T_LON_TO_MIN          600
-#define T_NY_FROM_MIN         750     // D: Nyu-York 12:30-15:30 UTC
-#define T_NY_TO_MIN           930
+#define T_F_VOL_N             30      // F: tick hajmi oldingi 30 M1 bar medianasi bilan solishtiriladi
+#define T_F_VOL_K             3.0     // F: bar tick hajmi >= mediana x 3
+#define T_F_BODY_ATR1         1.0     // F: bar tanasi >= ATR(M1) x 1
+#define T_CLOSE_POS           0.75    // F, G: yopilish bar diapazonining shu tomondagi 25% ida
+#define T_G_BODY_ATR          1.0     // G: EURUSD M1 tanasi >= o'z ATR(M1) x 1
+#define T_G_XAU_MAX_ATR1      0.30    // G: oltin shu daqiqada o'sha tomonga ATR(M1) x 0.3 dan ko'p yurmagan
+#define T_G_STOP_ATR1         2.0     // G: boshlang'ich stop kirishdan ATR(M1) x 2
+#define T_H_RANGE_ATR1        4.0     // H: portlash shami diapazoni >= oldingi ATR(M1) x 4
+#define T_H_BODY              0.50    // H: portlash tanasi >= diapazon x 0.5
+#define T_H_WAIT_BARS         10      // H: portlashdan keyin 10 M1 bar ichida qaytish + break
 
 //--- 95 PANEL
 #define V9_DRAW_MS            250     // chizish oralig'i

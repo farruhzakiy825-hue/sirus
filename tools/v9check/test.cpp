@@ -2,7 +2,7 @@
 #include <array>
 #include "v9.cpp"
 #include <random>
-std::map<int, std::vector<SimBar>> g_sim; datetime g_simNow=0; double g_simBid=0, g_simAsk=0;
+std::map<int, std::vector<SimBar>> g_sim; std::map<int, std::vector<SimBar>> g_simE; datetime g_simNow=0; double g_simBid=0, g_simAsk=0;
 int g_isTester=0; double g_chartMax=0, g_chartMin=0; int g_digits=3; double g_point=0.001; ulong g_us=0; std::map<string,SimObj> g_objs;
 static const int TFS[7]={1,5,15,60,240,1440,10080};
 static int fails=0;
@@ -11,8 +11,14 @@ static int fails=0;
 void simTick(datetime t, double p){
   g_simNow=t; g_simBid=p; g_simAsk=p+0.24;
   for(int tf: TFS){ auto& v=g_sim[tf]; datetime b = t - (t % (tf*60));
-    if(v.empty() || v.back().t!=b) v.push_back(SimBar{b,p,p,p,p});
-    else { auto& x=v.back(); x.h=std::max(x.h,p); x.l=std::min(x.l,p); x.c=p; } }
+    if(v.empty() || v.back().t!=b) v.push_back(SimBar{b,p,p,p,p,1});
+    else { auto& x=v.back(); x.h=std::max(x.h,p); x.l=std::min(x.l,p); x.c=p; x.v++; } }
+}
+// EURUSD: oltindan mustaqil tasodifiy yurish (G uchun null).
+void simTickE(datetime t, double p){
+  for(int tf: TFS){ auto& v=g_simE[tf]; datetime b = t - (t % (tf*60));
+    if(v.empty() || v.back().t!=b) v.push_back(SimBar{b,p,p,p,p,1});
+    else { auto& x=v.back(); x.h=std::max(x.h,p); x.l=std::min(x.l,p); x.c=p; x.v++; } }
 }
 
 void updChart(){ auto& v=g_sim[5]; int n=(int)v.size(); if(n<2) return; double hi=-1e18, lo=1e18; for(int i=std::max(0,n-110);i<n;i++){ hi=std::max(hi,v[i].h); lo=std::min(lo,v[i].l);} g_chartMax=hi; g_chartMin=lo; }
@@ -118,7 +124,7 @@ int main(int argc,char**argv){
   int seed = argc>1?atoi(argv[1]):42; double gapP = argc>2?atof(argv[2]):0.0;
   std::mt19937 rng(seed); std::normal_distribution<double> N(0,1);
   // 30 days of M1 with regime-switching drift
-  double p=4100; datetime t0=1700006400; // a Monday-ish midnight
+  double p=4100, pe=1.1000; datetime t0=1700006400; // a Monday-ish midnight
   int days= argc>4?atoi(argv[4]):30; bool noDrift = argc>5 && atoi(argv[5])==1; double drift=0; int regimeLeft=0;
   g_isTester = (argc>6 && atoi(argv[6])==1) ? 1 : 0;
   if(g_isTester){ FILE* junk=fopen("files_SirusV9_TESTER_Soya_XAUUSD.csv","w"); if(junk){ fputs("OLD RUN\n",junk); fclose(junk); } }
@@ -132,7 +138,10 @@ int main(int argc,char**argv){
     double o=p, c=p+drift+N(rng)*vol; double h=std::max(o,c)+std::fabs(N(rng))*0.35, l=std::min(o,c)-std::fabs(N(rng))*0.35;
     datetime t=t0+(datetime)i*60;
     double path[4]={o, (rng()%2)?h:l, 0, c}; path[2]=(path[1]==h)?l:h;
-    for(int k=0;k<4;k++){ simTick(t+k*15, path[k]); if(i>=13*1440){ g_us+=1000; ulong a=g_us; updChart(); OnTick(); (void)a; ticks++; checkInvariants(); } }
+    double eo=pe, ec=pe+N(rng)*0.00012; double eh=std::max(eo,ec)+std::fabs(N(rng))*0.00004, el=std::min(eo,ec)-std::fabs(N(rng))*0.00004;
+    double epath[4]={eo,(rng()%2)?eh:el,0,ec}; epath[2]=(epath[1]==eh)?el:eh; pe=ec;
+    int reps = (rng()%100<3) ? 5 : 1;   // ba'zan tick portlashi (F uchun)
+    for(int k=0;k<4;k++) for(int rr=0;rr<reps;rr++){ simTickE(t+k*15+rr, epath[k]); simTick(t+k*15+rr, path[k]); if(i>=13*1440){ g_us+=1000; ulong a=g_us; updChart(); OnTick(); (void)a; ticks++; checkInvariants(); } }
     p=c;
   }
   printf("ticks=%ld fails=%d pools=%d zones=%d objs=%zu\n",ticks,fails,g_npool,g_nzone,g_objs.size());

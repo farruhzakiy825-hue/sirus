@@ -4,7 +4,7 @@
 python3 tahlil.py <Soya.csv> <Kozlar.csv> <Olchov.csv>
 
 1. Soya savdo:
-   - T (V9.05+, trailing): har gipoteza x chiqish bo'yicha R, t, bootstrap, MFE; topish (2/3) va tasdiqlash (1/3) davrlari,
+   - T (V9.05+, trailing; V9.06 dan A + F/G/H): har gipoteza x chiqish bo'yicha R, t, bootstrap, MFE; topish (2/3) va tasdiqlash (1/3) davrlari,
      docs/GIPOTEZALAR.md dagi mezon bilan;
    - eski CB / N / Q (V9.04): TP ulushi va zararsizlik uchun kerakli ulush.
 2. O'lchov: kataklar z taqsimoti (tasodifda sd ~ 1, |z|>=2 ~ 4.6%) va har o'lchov bo'yicha alohida.
@@ -88,7 +88,9 @@ def soya_t(path):
         ok1 = ok2 = False
         if len(disc) >= 2:
             m1, t1_ = mean_t(disc)
-            ok1 = len(disc) >= 60 and m1 > 0 and t1_ >= 2.6
+            # Chegara: A-E (GIPOTEZALAR.md, 10 qator) t >= 2.6; F-H (GIPOTEZALAR_2.md, 6 qator) t >= 2.4.
+            thr = 2.4 if k[0] in "FGH" else 2.6
+            ok1 = len(disc) >= 60 and m1 > 0 and t1_ >= thr
             print(f"     topish:      n={len(disc):4d} o'rtacha={m1:+.3f}R t={t1_:+.1f} boot_p={boot_p(disc):.3f} {'O`TDI' if ok1 else '-'}")
         if len(conf) >= 2:
             m2, t2 = mean_t(conf)

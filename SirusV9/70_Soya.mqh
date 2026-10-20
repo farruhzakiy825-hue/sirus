@@ -4,21 +4,22 @@
 //| deydi, chartga chizadi va jurnalga yozadi - ORDER YUBORILMAYDI.  |
 //|                                                                  |
 //| Maqsad: qaysi kirishda haqiqiy ustunlik borligini TOPISH.        |
-//| Kirish gipotezalari va chiqish qoidalari docs/GIPOTEZALAR.md da  |
-//| OLDINDAN yozilgan; natijaga qarab o'zgartirilmaydi.              |
+//| Gipotezalar va sonlar natijadan OLDIN yozilgan:                  |
+//|   A - docs/GIPOTEZALAR.md (3 sinovda o'tmadi; nazorat guruhi)    |
+//|   F, G, H - docs/GIPOTEZALAR_2.md (scalp, YANGI turdagi ma'lumot)|
 //|                                                                  |
-//| Kirishlar (har biri alohida hisob):                              |
-//|   A asos    - M5 oyog'i tug'ildi (nazorat guruhi)                |
-//|   B erta    - M5 qaytishi oltin zonadan chuqur + M1 MSS M5 tomon |
-//|   C sweep   - sinf >= 3 hovuz sweep bo'ldi + M1 MSS teskari      |
-//|   D sessiya - London / NY ochilishidagi birinchi M5 tug'ilish    |
-//|   E kuchli  - M5 oyog'i kuchli sham bilan tug'ildi               |
+//| Kirishlar:                                                       |
+//|   A asos     - M5 oyog'i tug'ildi                                |
+//|   F faollik  - M1 bar: tick hajmi 3x + kuchli tana -> shu tomon  |
+//|   G dollar   - EURUSD M1 da kuchli sham, oltin hali qimirlamagan |
+//|                -> oltin EURUSD tomoniga (dollarga teskari)       |
+//|   H portlash - M1 portlash shami (>= 4 ATR), birinchi qaytishdan |
+//|                keyin portlash tomoniga break                     |
 //| Chiqishlar (har kirish ikkalasi bilan alohida o'lchanadi):       |
-//|   S tuzilma - stop M5 HIMOYA bilan suriladi (oyoq SINDI = chiqish)|
-//|   X ATR     - stop eng yaxshi narxdan ATR(M5) x 3 (chandelier)   |
+//|   S tuzilma - stop HIMOYA bilan suriladi (A: M5, F/G/H: M1)      |
+//|   X ATR     - stop eng yaxshi narxdan ATR x 3 (A: M5, F/G/H: M1) |
 //| Natija R da: R = kirishdan boshlang'ich stopgacha (spread bilan).|
-//| MFE / MAE ham yoziladi: boshqa chiqishlarni keyin tekshirsa      |
-//| bo'ladi. TP yo'q - harakat qancha cho'zilsa, shuncha oladi.      |
+//| MFE / MAE ham yoziladi. TP yo'q.                                 |
 //+------------------------------------------------------------------+
 
 // 95_Panel dagi chizish yordamchilari (u bu fayldan keyin ulanadi).
@@ -29,10 +30,16 @@ color  V9Green();
 color  V9Red();
 color  V9Muted();
 
+#define TH_A   0
+#define TH_F   1
+#define TH_G   2
+#define TH_H   3
+
 struct STrade
 {
    bool     on;
    int      dir;
+   int      tfx;        // chiqish shkalasi: V9_M5 (A) yoki V9_M1 (F, G, H)
    double   entry;      // BUY: ask, SELL: bid
    double   stop;       // chiqish narxi tomonida: BUY - bid darajasi, SELL - ask darajasi
    double   stop0;
@@ -57,24 +64,32 @@ int      g_tSeq = 0;
 datetime g_tBornSeen[V9_TF_N];
 int      g_tDirSeen[V9_TF_N];
 bool     g_tInit[V9_TF_N];
-int      g_tSessDay[2];            // D: shu sessiyada bugun signal bo'ldimi (yil kuni)
+
+// G: dollar (EURUSD)
+string   g_eurSym = "";
+bool     g_eurOk = false;
+
+// H: portlash holati
+int      g_hDir = 0;               // kutilayotgan portlash tomoni, 0 = yo'q
+int      g_hLeft = 0;              // necha M1 bar kutish qoldi
+bool     g_hPull = false;          // birinchi qaytish bari bo'ldimi
+double   g_hTrig = 0.0;            // qaytish barining portlash tomondagi uchi (break darajasi)
+double   g_hStop = 0.0;            // qaytish barining narigi uchi (bid darajasi)
 
 string V9THypId(const int h)
 {
-   if(h == 0) return "A";
-   if(h == 1) return "B";
-   if(h == 2) return "C";
-   if(h == 3) return "D";
-   return "E";
+   if(h == TH_A) return "A";
+   if(h == TH_F) return "F";
+   if(h == TH_G) return "G";
+   return "H";
 }
 
 string V9THypName(const int h)
 {
-   if(h == 0) return "asos";
-   if(h == 1) return "erta";
-   if(h == 2) return "sweep";
-   if(h == 3) return "sessiya";
-   return "kuchli";
+   if(h == TH_A) return "asos";
+   if(h == TH_F) return "faollik";
+   if(h == TH_G) return "dollar";
+   return "portlash";
 }
 
 string V9TExitId(const int x)
@@ -157,40 +172,6 @@ bool V9TFreshBirth(const int tfi)
    return (g_leg[tfi].bornT == g_bar[tfi][n - 1].tc);
 }
 
-//--- D: hozir qaysi sessiya ochilishi. 0 London, 1 Nyu-York, -1 hech biri.
-int V9TSession()
-{
-   datetime utc = TimeCurrent() - V9ServerOffsetSec();
-   MqlDateTime u;
-   TimeToStruct(utc, u);
-   int mins = u.hour * 60 + u.min;
-   if(mins >= T_LON_FROM_MIN && mins < T_LON_TO_MIN)
-      return 0;
-   if(mins >= T_NY_FROM_MIN && mins < T_NY_TO_MIN)
-      return 1;
-   return -1;
-}
-
-//--- C: `dir` savdosi uchun yaqinda sweep bo'lgan katta hovuz (narigi tomonda). -1 yo'q.
-int V9TSweptPool(const int dir, const double m1Origin)
-{
-   int side = -dir;
-   datetime now = TimeCurrent();
-   int best = -1;
-   for(int i = 0; i < g_npool; i++)
-   {
-      if(g_pool[i].side != side || g_pool[i].cls < T_C_MIN_CLS || g_pool[i].status != PST_SWEPT)
-         continue;
-      if(now - g_pool[i].statusT > T_C_SWEEP_S)
-         continue;
-      if(side * (m1Origin - g_pool[i].price) <= 0.0)   // M1 oyog'i sweep nuqtasidan boshlangan bo'lishi kerak
-         continue;
-      if(best < 0 || g_pool[i].cls > g_pool[best].cls)
-         best = i;
-   }
-   return best;
-}
-
 //--- Gipoteza h ning bo'sh joylarida savdo ochadi. stopPx: BUY uchun bid, SELL uchun ask darajasi.
 void V9TOpen(const int h, const int dir, const double stopPx, const string why)
 {
@@ -198,11 +179,12 @@ void V9TOpen(const int h, const int dir, const double stopPx, const string why)
    double s = ask - bid;
    double entry = (dir > 0) ? ask : bid;
    double r0 = dir * (entry - stopPx);
+   double minK = (h == TH_A) ? T_MIN_R_SPREAD : T_SCALP_R_SPREAD;
    g_tSig[h]++;
    string tm = V9TimeStr(TimeCurrent());
-   if(r0 <= 0.0 || r0 < T_MIN_R_SPREAD * s)
+   if(r0 <= 0.0 || r0 < minK * s)
    {
-      g_tWait[h] = StringSubstr(tm, 11, 5) + " signal o'tkazildi: xavf " + V9Px(r0) + " < 3 spread";
+      g_tWait[h] = StringSubstr(tm, 11, 5) + StringFormat(" o'tkazildi: xavf %s < %.0f spread", V9Px(r0), minK);
       return;
    }
    int opened = 0;
@@ -212,6 +194,7 @@ void V9TOpen(const int h, const int dir, const double stopPx, const string why)
          continue;
       g_t[h][x].on = true;
       g_t[h][x].dir = dir;
+      g_t[h][x].tfx = (h == TH_A) ? V9_M5 : V9_M1;
       g_t[h][x].entry = entry;
       g_t[h][x].stop = stopPx;
       g_t[h][x].stop0 = stopPx;
@@ -231,7 +214,7 @@ void V9TOpen(const int h, const int dir, const double stopPx, const string why)
                    StringFormat("%s;%s;%s;KIRISH;%s;%s;%s;%s;;;;;%s", tm, V9THypId(h), V9TExitId(x), (dir > 0 ? "BUY" : "SELL"),
                                 V9Px(entry), V9Px(stopPx), V9Px(r0), why));
    }
-   g_tWait[h] = (opened > 0) ? "" : StringSubstr(tm, 11, 5) + " signal o'tkazildi: ikkala chiqish ham band";
+   g_tWait[h] = (opened > 0) ? "" : StringSubstr(tm, 11, 5) + " o'tkazildi: ikkala chiqish ham band";
 }
 
 void V9TClose(const int h, const int x, const double fill, const string kind)
@@ -251,73 +234,200 @@ void V9TClose(const int h, const int x, const double fill, const string kind)
    g_t[h][x].on = false;
 }
 
+//--- Bar yopilish joyi 0..1 (0 = low, 1 = high). Diapazon 0 bo'lsa 0.5.
+double V9TClosePos(const double h, const double l, const double c)
+{
+   double rg = h - l;
+   return (rg > 0.0) ? (c - l) / rg : 0.5;
+}
+
+//--- F: oxirgi yopilgan M1 bar - tick hajmi portlashi + kuchli tana. Yo'nalish yoki 0.
+int V9TFaollik(double &volK)
+{
+   volK = 0.0;
+   int n = g_nbar[V9_M1];
+   if(n < T_F_VOL_N + 2)
+      return 0;
+   int k = n - 1;
+   double v[];
+   ArrayResize(v, T_F_VOL_N);
+   for(int i = 0; i < T_F_VOL_N; i++)
+      v[i] = g_bar[V9_M1][k - 1 - i].vol;
+   ArraySort(v);
+   double med = 0.5 * (v[T_F_VOL_N / 2 - 1] + v[T_F_VOL_N / 2]);
+   if(med <= 0.0)
+      return 0;
+   volK = g_bar[V9_M1][k].vol / med;
+   if(volK < T_F_VOL_K)
+      return 0;
+   double o = g_bar[V9_M1][k].o, c = g_bar[V9_M1][k].c;
+   double atr1 = g_bar[V9_M1][k - 1].atr;   // shu bargacha bo'lgan ATR (bar o'zini o'lchamaydi)
+   if(atr1 <= 0.0 || MathAbs(c - o) < T_F_BODY_ATR1 * atr1)
+      return 0;
+   double pos = V9TClosePos(g_bar[V9_M1][k].h, g_bar[V9_M1][k].l, c);
+   if(c > o && pos >= T_CLOSE_POS)
+      return 1;
+   if(c < o && pos <= 1.0 - T_CLOSE_POS)
+      return -1;
+   return 0;
+}
+
+//--- G: oltinning oxirgi yopilgan M1 bari bilan bir vaqtdagi EURUSD bari kuchli bo'lsa - uning yo'nalishi.
+int V9TDollar(string &why)
+{
+   why = "";
+   if(!g_eurOk)
+      return 0;
+   int n = g_nbar[V9_M1];
+   if(n < 2)
+      return 0;
+   datetime T = g_bar[V9_M1][n - 1].t;
+   if(TimeCurrent() < T + 60)
+      return 0;
+   MqlRates e[];
+   ArraySetAsSeries(e, false);
+   int got = CopyRates(g_eurSym, PERIOD_M1, 0, 24, e);
+   if(got < 17)
+      return 0;
+   int j = -1;
+   for(int i = got - 1; i >= 0; i--)
+      if(e[i].time == T)
+      {
+         j = i;
+         break;
+      }
+   if(j < 15)
+      return 0;
+   // EURUSD ATR(M1): oldingi 14 bar (shu barsiz).
+   double sum = 0.0;
+   for(int i = j - 14; i < j; i++)
+   {
+      double x = e[i].high - e[i].low;
+      x = MathMax(x, MathAbs(e[i].high - e[i - 1].close));
+      x = MathMax(x, MathAbs(e[i].low - e[i - 1].close));
+      sum += x;
+   }
+   double atrE = sum / 14.0;
+   double body = e[j].close - e[j].open;
+   if(atrE <= 0.0 || MathAbs(body) < T_G_BODY_ATR * atrE)
+      return 0;
+   double pos = V9TClosePos(e[j].high, e[j].low, e[j].close);
+   int d = 0;
+   if(body > 0.0 && pos >= T_CLOSE_POS) d = 1;
+   if(body < 0.0 && pos <= 1.0 - T_CLOSE_POS) d = -1;
+   if(d == 0)
+      return 0;
+   // Oltin shu daqiqada hali o'sha tomonga yurmagan bo'lishi kerak.
+   double atr1 = g_bar[V9_M1][n - 2].atr;
+   double xm = d * (g_bar[V9_M1][n - 1].c - g_bar[V9_M1][n - 1].o);
+   if(atr1 <= 0.0 || xm > T_G_XAU_MAX_ATR1 * atr1)
+      return 0;
+   why = StringFormat("%s M1 %.1f ATR, oltin %.1f ATR", g_eurSym, MathAbs(body) / atrE, xm / atr1);
+   return d;
+}
+
+//--- H: M1 yopilganda portlash holatini yuritadi (break tickda tekshiriladi).
+void V9TPortlashBar()
+{
+   int n = g_nbar[V9_M1];
+   if(n < 3)
+      return;
+   int k = n - 1;
+   double o = g_bar[V9_M1][k].o, c = g_bar[V9_M1][k].c, hi = g_bar[V9_M1][k].h, lo = g_bar[V9_M1][k].l;
+   double atrPrev = g_bar[V9_M1][k - 1].atr;
+   // Kutilayotgan portlash: birinchi teskari yopilgan bar - qaytish.
+   if(g_hDir != 0)
+   {
+      g_hLeft--;
+      if(!g_hPull && g_hDir * (c - o) < 0.0)
+      {
+         g_hPull = true;
+         g_hTrig = (g_hDir > 0) ? hi : lo;
+         g_hStop = (g_hDir > 0) ? lo - T_STOP_BUF_ATR1 * atrPrev : hi + T_STOP_BUF_ATR1 * atrPrev;
+      }
+      if(g_hLeft <= 0)
+         g_hDir = 0;
+   }
+   // Yangi portlash (eskisining o'rnini egallaydi).
+   double rg = hi - lo;
+   if(atrPrev > 0.0 && rg >= T_H_RANGE_ATR1 * atrPrev && MathAbs(c - o) >= T_H_BODY * rg)
+   {
+      g_hDir = (c > o) ? 1 : -1;
+      g_hLeft = T_H_WAIT_BARS;
+      g_hPull = false;
+   }
+}
+
 //--- Yangi bar yopilganda: kirish signallari. Oyoq ko'rinishi (g_lv) hisoblangandan keyin chaqiriladi.
 void V9TSignals(const bool m1New, const bool m5New)
 {
    bool b5 = m5New && V9TFreshBirth(V9_M5);
-   bool b1 = m1New && V9TFreshBirth(V9_M1);
    double atr5 = V9Atr(V9_M5);
-   if(atr5 <= 0.0 || V9Bid() <= 0.0)
+   double atr1 = V9Atr(V9_M1);
+   if(atr5 <= 0.0 || atr1 <= 0.0 || V9Bid() <= 0.0)
       return;
    double s = V9Spread();
-   double buf = T_STOP_BUF_ATR5 * atr5;
 
    if(b5)
    {
-      int d = g_leg[V9_M5].dir;
-      double stop = g_leg[V9_M5].origin - d * buf + ((d < 0) ? s : 0.0);
-      string bt = (g_leg[V9_M5].birthType == EV_MSS) ? "MSS" : "birinchi BOS";
       // A: har M5 tug'ilish (nazorat guruhi).
-      V9TOpen(0, d, stop, "M5 " + bt);
-      // D: London / NY ochilishidagi birinchi M5 tug'ilish.
-      int sess = V9TSession();
-      if(sess >= 0)
-      {
-         MqlDateTime dt;
-         TimeToStruct(TimeCurrent(), dt);
-         if(g_tSessDay[sess] != dt.day_of_year)
-         {
-            g_tSessDay[sess] = dt.day_of_year;
-            string sn = (sess == 0) ? "London" : "Nyu-York";
-            V9TOpen(3, d, stop, sn + " ochilishi + M5 " + bt);
-         }
-      }
-      // E: kuchli sham bilan tug'ilish (tana >= ATR x 0.8).
-      if(g_leg[V9_M5].birthQ == Q_STRONG)
-         V9TOpen(4, d, stop, "kuchli M5 " + bt);
+      int d = g_leg[V9_M5].dir;
+      double stop = g_leg[V9_M5].origin - d * T_STOP_BUF_ATR5 * atr5 + ((d < 0) ? s : 0.0);
+      string bt = (g_leg[V9_M5].birthType == EV_MSS) ? "MSS" : "birinchi BOS";
+      V9TOpen(TH_A, d, stop, "M5 " + bt);
    }
 
-   if(b1 && g_leg[V9_M1].birthType == EV_MSS)
+   if(!m1New)
+      return;
+   int n = g_nbar[V9_M1];
+   if(n < 2)
+      return;
+   int k = n - 1;
+
+   // F: tick hajmi portlashi + kuchli tana -> shu tomonga. Stop bar narigi uchidan narida.
+   double volK = 0.0;
+   int df = V9TFaollik(volK);
+   if(df != 0)
    {
-      int d1 = g_leg[V9_M1].dir;
-      double o1 = g_leg[V9_M1].origin;
-      double stop1 = o1 - d1 * buf + ((d1 < 0) ? s : 0.0);
-      // B: M5 oyog'i ichida chuqur qaytish tugadi - M1 M5 tomonga burildi.
-      if(g_lv[V9_M5].ok && g_lv[V9_M5].confirmed && g_lv[V9_M5].dir == d1)
-      {
-         int st = g_lv[V9_M5].stage;
-         double span = d1 * (g_lv[V9_M5].ext - g_lv[V9_M5].himoya);
-         if((st == STG_YANGI || st == STG_RIVOJ || st == STG_KECH) && span > 0.0)
-         {
-            double depth = d1 * (g_lv[V9_M5].ext - o1) / span;
-            if(depth >= T_B_PB_MIN && depth <= 1.0)
-               V9TOpen(1, d1, stop1, StringFormat("M5 qaytishi %.0f%% + M1 MSS", depth * 100.0));
-         }
-      }
-      // C: katta hovuz sweepidan keyin M1 teskari burildi.
-      int pi = V9TSweptPool(d1, o1);
-      if(pi >= 0)
-         V9TOpen(2, d1, stop1, "sweep " + V9PoolName(pi) + " + M1 MSS");
+      double stopF = (df > 0) ? g_bar[V9_M1][k].l - T_STOP_BUF_ATR1 * atr1 : g_bar[V9_M1][k].h + T_STOP_BUF_ATR1 * atr1 + s;
+      V9TOpen(TH_F, df, stopF, StringFormat("tick hajmi x%.1f + kuchli M1", volK));
    }
+
+   // G: EURUSD harakati, oltin hali ergashmagan -> oltin EURUSD tomoniga. Stop ATR(M1) x 2.
+   string gw = "";
+   int dg = V9TDollar(gw);
+   if(dg != 0)
+   {
+      double stopG = (dg > 0) ? V9Bid() - T_G_STOP_ATR1 * atr1 : V9Ask() + T_G_STOP_ATR1 * atr1;
+      V9TOpen(TH_G, dg, stopG, gw);
+   }
+
+   // H: holat M1 yopilishida yangilanadi; kirish V9TManage dagi break tekshiruvida.
+   V9TPortlashBar();
 }
 
-//--- Har tickda: ochiq savdolarni yuritadi (MFE / MAE, trailing, stop).
+//--- H: qaytish barining uchi tickda buzildimi.
+void V9TPortlashTick()
+{
+   if(g_hDir == 0 || !g_hPull)
+      return;
+   int d = g_hDir;
+   double px = (d > 0) ? V9Ask() : V9Bid();
+   if(d * (px - g_hTrig) <= 0.0)
+      return;
+   double stop = g_hStop + ((d < 0) ? V9Spread() : 0.0);
+   g_hDir = 0;
+   V9TOpen(TH_H, d, stop, "M1 portlash + qaytish + break");
+}
+
+//--- Har tickda: H break, keyin ochiq savdolarni yuritadi (MFE / MAE, trailing, stop).
 void V9TManage()
 {
    double bid = V9Bid(), ask = V9Ask();
    double atr5 = V9Atr(V9_M5);
    if(bid <= 0.0 || atr5 <= 0.0)
       return;
+   V9TPortlashTick();
    for(int h = 0; h < T_HYP; h++)
    {
       for(int x = 0; x < T_EXIT; x++)
@@ -325,6 +435,8 @@ void V9TManage()
          if(!g_t[h][x].on)
             continue;
          int d = g_t[h][x].dir;
+         int tf = g_t[h][x].tfx;
+         double atrX = V9Atr(tf);
          double px = (d > 0) ? bid : ask;   // shu tickda yopilsa qaysi narx
          // Stop avval tekshiriladi: o'tgan tickda qo'yilgan stopga shu tick yetdimi.
          if(d * (px - g_t[h][x].stop) <= 0.0)
@@ -339,14 +451,19 @@ void V9TManage()
          double fav = d * (px - g_t[h][x].entry) / g_t[h][x].r0;
          g_t[h][x].mfe = MathMax(g_t[h][x].mfe, fav);
          g_t[h][x].mae = MathMax(g_t[h][x].mae, -fav);
+         if(atrX <= 0.0)
+            continue;
          double ns = g_t[h][x].stop;
          if(x == 1)
          {
             g_t[h][x].best = (d > 0) ? MathMax(g_t[h][x].best, bid) : MathMin(g_t[h][x].best, ask);
-            ns = g_t[h][x].best - d * T_CHAND_ATR5 * atr5;
+            ns = g_t[h][x].best - d * T_CHAND_ATR * atrX;
          }
-         else if(g_leg[V9_M5].dir == d && g_leg[V9_M5].confirmed)
-            ns = g_leg[V9_M5].himoya - d * T_STOP_BUF_ATR5 * atr5 + ((d < 0) ? g_t[h][x].sEntry : 0.0);
+         else if(g_leg[tf].dir == d && g_leg[tf].confirmed)
+         {
+            double buf = (tf == V9_M5) ? T_STOP_BUF_ATR5 * atr5 : T_STOP_BUF_ATR1 * atrX;
+            ns = g_leg[tf].himoya - d * buf + ((d < 0) ? g_t[h][x].sEntry : 0.0);
+         }
          // Stop faqat oldinga suriladi va hozirgi narxdan o'tib ketmaydi.
          if(d * (ns - g_t[h][x].stop) > 0.0 && d * (px - ns) > 0.0)
             g_t[h][x].stop = ns;
@@ -375,8 +492,17 @@ void V9SoyaInit()
       g_tDirSeen[tfi] = 0;
       g_tInit[tfi] = false;
    }
-   g_tSessDay[0] = -1;
-   g_tSessDay[1] = -1;
+   g_hDir = 0;
+   g_hPull = false;
+   // G: dollar o'lchovi uchun EURUSD (shu brokerdagi qo'shimcha bilan: XAUUSDm -> EURUSDm).
+   string suffix = (StringFind(_Symbol, "XAUUSD") == 0) ? StringSubstr(_Symbol, 6) : "";
+   g_eurSym = "EURUSD" + suffix;
+   g_eurOk = SymbolSelect(g_eurSym, true);
+   if(!g_eurOk)
+   {
+      g_tWait[TH_G] = g_eurSym + " topilmadi - G ishlamaydi";
+      PrintFormat("[SIRUS V9 SOYA T] %s topilmadi: G (dollar) gipotezasi ishlamaydi", g_eurSym);
+   }
 }
 
 //--- Panel: ochiq savdo(lar) yoki oxirgi signal holati.
@@ -399,6 +525,8 @@ string V9TNowText(const int h)
       int dd = g_t[h][0].on ? g_t[h][0].dir : g_t[h][1].dir;
       return V9Arrow(dd) + " " + s;
    }
+   if(h == TH_H && g_hDir != 0)
+      return V9Arrow(g_hDir) + (g_hPull ? " portlash: break kutilmoqda" : " portlash: qaytish kutilmoqda");
    if(g_tWait[h] != "")
       return g_tWait[h];
    return "kutmoqda";

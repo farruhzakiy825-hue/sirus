@@ -1,5 +1,29 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## V9.06 — SCALP 2-RAUND: F / G / H (yangi turdagi ma'lumot)
+
+1-raund (A–E, M1/M5 narx tuzilmasi) uch sinovda o'tmadi, 3-sinov real ticksda (`docs/TESTER_NATIJA_3.md`). Egasi qarori: scalp uchun oxirgi raund, faqat robot ishlatmagan ma'lumot bilan. Gipotezalar va mezon natijadan oldin `docs/GIPOTEZALAR_2.md` da yozildi.
+
+**Soya T (`SirusV9/70_Soya.mqh`).**
+- A (nazorat) qoldi, B–E olib tashlandi.
+- Yangi kirishlar:
+  - **F faollik:** M1 bar tick hajmi 30 bar medianasidan 3 barobar va kuchli tana bo'lsa, shu tomonga.
+  - **G dollar:** EURUSD'da kuchli M1 sham bor, oltin hali ergashmagan bo'lsa, oltinda EURUSD tomoniga.
+  - **H portlash:** ≥ 4 ATR(M1) sham, birinchi qaytish, keyin break bo'lsa, portlash tomoniga.
+- F / G / H chiqishlari M1 shkalasida: M1 HIMOYA va ATR(M1) × 3 chandelier.
+- Xarajat filtri: xavf kamida 10 spread.
+
+**Asos:**
+- `SBar.vol` — bar tick hajmi.
+- EURUSD shu brokerdagi qo'shimcha bilan avtomatik topiladi: XAUUSDm → EURUSDm. Topilmasa, Journal'ga yoziladi.
+
+**Tekshiruv:**
+- Tasodifiy bozorda A ~0. F / G / H −0.1…−0.3R: bu xarajat (scalp'da R kichik), kelajakni ko'rish yo'q.
+- Break kirishlari qo'pol tick modelida yomonlashadi. Shu sababli bu raund **faqat real ticks** bilan sinaladi.
+- `tahlil.py`: F–H uchun chegara t ≥ 2.4 (6 qator).
+
+**Tester yo'riqnomasi:** 2 yil, real ticks.
+
 ## V9.05 — SOYA T: TRAILING + OLDINDAN YOZILGAN GIPOTEZALAR
 
 1-tester natijasi (`docs/TESTER_NATIJA_1.md`): mayda TP'li keshbek rejimi matematik jihatdan foyda bera olmaydi. Uning uchun yo'nalishni ~76% aniqlikda topish kerak edi. Egasi qarori: **sent hisob + oddiy rejim + trailing**. CB / N / Q soya rejimlari olib tashlandi.

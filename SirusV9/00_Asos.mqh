@@ -44,6 +44,7 @@ struct SBar
    double   l;
    double   c;
    double   atr;   // shu bargacha (shu bar bilan) ATR - hodisa o'z vaqtidagi ATR bilan o'lchanadi
+   double   vol;   // tick hajmi (shu bar ichidagi ticklar soni)
 };
 
 SBar     g_bar[V9_TF_N][V9_BARS_MAX];
@@ -86,6 +87,7 @@ bool V9LoadBars(const int tfi)
       g_bar[tfi][i].l   = r[i].low;
       g_bar[tfi][i].c   = r[i].close;
       g_bar[tfi][i].atr = sum / (double)cnt;
+      g_bar[tfi][i].vol = (double)r[i].tick_volume;
    }
    g_nbar[tfi] = got;
    return true;
