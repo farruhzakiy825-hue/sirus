@@ -408,12 +408,14 @@ void V9OlWriteCsv(const bool tester)
          int tpc = (int)MathRound(p * n);
          string verdict = V9OlVerdictName(V9OlVerdict(m, c));
          string side = (c >= OL_CELLS / 2) ? "BUY" : "SELL";
+         string ct = V9OlCellText(c);
+         StringReplace(ct, "·", "|");   // ANSI CSV: "·" Excel da buzilib chiqardi
          int own = 0;
          for(int k = 0; k < OL_BINS; k++)
             own += g_olBn[m][c][k];
          double theo = (own > 0) ? g_olBase[m][c] / own : 0.0;
          FileWriteString(h, StringFormat("%s;%s;%s;%d;%d;%d;%.3f;%.3f;%+.3f;%.2f;%s;%.3f\r\n",
-                                         (m == 0 ? "kichik" : "orta"), side, V9OlCellText(c), n, tpc, g_olTo[m][c],
+                                         (m == 0 ? "kichik" : "orta"), side, ct, n, tpc, g_olTo[m][c],
                                          p, pe, p - pe, z, verdict, theo));
       }
    FileClose(h);
