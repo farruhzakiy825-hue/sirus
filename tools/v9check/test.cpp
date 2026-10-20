@@ -46,10 +46,10 @@ void checkInvariants(){
   for(int i=0;i<g_npool;i++){ CHECK(g_pool[i].cls>=1&&g_pool[i].cls<=5,"pool cls"); CHECK(g_pool[i].side==1||g_pool[i].side==-1,"pool side"); }
   for(int z=0;z<g_nzone;z++) CHECK(g_zone[z].lo<g_zone[z].hi, "zone lo<hi");
   // SOYA
-  if(g_sy[SY_Q].on){ int d=g_sy[SY_Q].dir; CHECK(d*(g_sy[SY_Q].tpLvl-g_sy[SY_Q].entry)>-1.0,"Q tp side");
-     CHECK(d*(V9Bid()-g_sy[SY_Q].stLvl)>0.0,"Q open beyond its stop"); CHECK(TimeCurrent()-g_sy[SY_Q].t < SY_Q_TIMEOUT_MIN*60+120,"Q timeout missed"); }
-  for(int m=0;m<2;m++) if(g_sy[m].on){ CHECK(g_sy[m].dir==1||g_sy[m].dir==-1,"soya dir"); CHECK(g_sy[m].dir*(g_sy[m].tpLvl-g_sy[m].entry)>-1.0,"soya tp side");
-     CHECK(g_lv[V9_M5].ok && g_lv[V9_M5].dir==g_sy[m].dir && g_lv[V9_M5].bornT==g_sy[m].legBornT, "soya open on a dead leg"); }
+  for(int h=0;h<T_HYP;h++) for(int x=0;x<T_EXIT;x++) if(g_t[h][x].on){ const STrade& T=g_t[h][x]; int d=T.dir; double px=d>0?V9Bid():V9Ask();
+     CHECK(d==1||d==-1,"T dir"); CHECK(T.r0>0.0,"T risk>0"); CHECK(d*(T.entry-T.stop0)>0.0,"T stop0 behind entry");
+     CHECK(d*(T.stop-T.stop0)>=-1e-9,"T stop moved backwards"); CHECK(d*(px-T.stop)>0.0,"T open beyond its stop");
+     CHECK(T.mfe>=0.0 && T.mae>=0.0,"T mfe/mae"); }
   // O'LCHOV
   { int open=0; for(int i=0;i<OL_VMAX;i++) if(g_vt[i].on){ open++; CHECK(g_vt[i].base>0&&g_vt[i].base<1,"vt base range"); CHECK(g_vt[i].cell>=0&&g_vt[i].cell<OL_CELLS,"vt cell");
       CHECK(g_vt[i].bin>=0&&g_vt[i].bin<OL_BINS,"vt bin"); int sd=g_vt[i].side; CHECK(sd*(g_vt[i].tpLvl-g_vt[i].stLvl)>0,"vt tp/stop order"); }
@@ -146,11 +146,11 @@ int main(int argc,char**argv){
   { int sig=0, cnt=0; double zs=0, zz=0;
     for(int m=0;m<OL_MODES;m++) for(int c=0;c<OL_CELLS;c++){ int n; double p,pe,z; if(V9OlStat(m,c,n,p,pe,z) && n>=100){ cnt++; zs+=z; zz+=z*z; if(fabs(z)>=3){ sig++; if(sig<=8) printf("cell m%d %3d n=%5d p=%.3f exp=%.3f z=%+.1f %s\n",m,c,n,p,pe,z,V9OlCellText(c).c_str()); } } }
     printf("zstat: cells(n>=100)=%d |z|>=3: %d  mean z=%.2f  sd z=%.2f\n", cnt, sig, cnt?zs/cnt:0, cnt?sqrt(zz/cnt-(zs/cnt)*(zs/cnt)):0); }
-  for(int m=0;m<SY_M;m++) printf("soya %-2s: kirish=%d TP=%d boshqa=%d pts=%.0f\n", V9SyModeName(m).c_str(), g_syAllIn[m],g_syAllTp[m],g_syAllSd[m],g_syAllPts[m]);
-  printf("soya id=%d\n", g_sySeq);
+  for(int h=0;h<T_HYP;h++) for(int x=0;x<T_EXIT;x++) printf("soya T %s_%s %-8s: signal=%d kirish=%d yopildi=%d yutgan=%d R=%+.1f\n", V9THypId(h).c_str(), V9TExitId(x).c_str(), V9THypName(h).c_str(), g_tSig[h], g_tIn[h][x], g_tN[h][x], g_tWin[h][x], g_tR[h][x]);
+  printf("soya id=%d\n", g_tSeq);
   if(g_isTester){ FILE* f=fopen("files_SirusV9_TESTER_Soya_XAUUSD.csv","r"); CHECK(f!=nullptr,"tester: soya file missing");
     if(f){ char ln[512]; long nl=0; bool old=false; while(fgets(ln,512,f)){ nl++; if(strstr(ln,"OLD RUN")) old=true; } fclose(f);
-      long ev=0; for(int m=0;m<SY_M;m++) ev+=g_syAllIn[m]+g_syAllTp[m]+g_syAllSd[m];
+      long ev=0; for(int h=0;h<T_HYP;h++) for(int x=0;x<T_EXIT;x++) ev+=g_tIn[h][x]+g_tN[h][x];
       printf("tester soya file: %ld lines (events %ld)\n", nl, ev); CHECK(!old && nl==ev+1,"tester: one soya file for whole run"); }
     OnDeinit(0); }
   if(argc>3 && strcmp(argv[3],"-")!=0) dumpJson(argv[3]);

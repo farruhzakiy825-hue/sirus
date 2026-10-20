@@ -98,6 +98,22 @@
 #define OL_BINS               20      // kutilgan natija: masofa nisbati b/(a+b) shuncha bo'lakka bo'linadi
 #define OL_SAVE_SEC           1800    // live: 30 daqiqada bir saqlash
 
+//--- 70 SOYA T (trailing). Qiymatlar docs/GIPOTEZALAR.md da OLDINDAN yozilgan - natijaga qarab o'zgartirilmaydi.
+#define T_HYP                 5       // A asos, B erta, C sweep, D sessiya, E kuchli
+#define T_EXIT                2       // 0 = tuzilma (M5 HIMOYA), 1 = ATR (chandelier)
+#define T_STOP_BUF_ATR5       0.15    // stop HIMOYA / origin dan ATR(M5) x 0.15 narida (SINDI qoidasi)
+#define T_CHAND_ATR5          3.0     // chandelier: eng yaxshi narxdan ATR(M5) x 3
+#define T_MIN_R_SPREAD        3.0     // boshlang'ich xavf kamida 3 spread (aks holda xarajat R ni yeydi)
+#define T_GAP_ATR5            0.5     // narx stopdan ATR(M5) x 0.5 dan ko'p sakrasa - tick narxida yopiladi (gap)
+#define T_SLIP_ATR5           0.05    // stop / trail yopilishida zararga sirpanish ATR(M5) x 0.05 (ehtiyot)
+#define T_B_PB_MIN            0.38    // B: M5 qaytishi kamida oltin zonagacha yetgan
+#define T_C_SWEEP_S           3600    // C: hovuz sweepidan keyin shuncha sekund ichida
+#define T_C_MIN_CLS           3       // C: hovuz sinfi >= 3 (H1, PDH/PDL, Osiyo, H4, PW)
+#define T_LON_FROM_MIN        420     // D: London 07:00-10:00 UTC
+#define T_LON_TO_MIN          600
+#define T_NY_FROM_MIN         750     // D: Nyu-York 12:30-15:30 UTC
+#define T_NY_TO_MIN           930
+
 //--- 95 PANEL
 #define V9_DRAW_MS            250     // chizish oralig'i
 #define V9_OBJ                "SV9_"  // obyekt prefiksi

@@ -1,37 +1,27 @@
 ﻿//+------------------------------------------------------------------+
 //| SirusV9 - 70_Soya                                                |
-//| SOYA SAVDO: Shartnomaning kirish qoidasi (POYDEVOR 4, birinchi   |
-//| variant) KUZATUV rejimida. Robot "shu yerda kirardim" deydi,     |
-//| chartga chizadi va jurnalga yozadi - ORDER YUBORILMAYDI.         |
+//| SOYA T: trailing savdo KUZATUVda. Robot "shu yerda kirardim"     |
+//| deydi, chartga chizadi va jurnalga yozadi - ORDER YUBORILMAYDI.  |
 //|                                                                  |
-//| Uch xil kirish alohida kuzatiladi:                               |
-//|   CB (cashback): oyoq yo'nalishida, kichik TP, sayoz / oltin     |
-//|                  zona, IMPULS yoki KORREKSIYA (QARSHI emas).     |
-//|                  Chiqish: TP yoki oyoq SINDI.                    |
-//|   N  (oddiy):    oyoq yo'nalishida, TP = ATR(M15) (MAQSADgacha   |
-//|                  yo'lning 80% idan oshmaydi), faqat oltin zona   |
-//|                  va IMPULS. Chiqish: TP yoki oyoq SINDI.         |
-//|   Q  (cashback qaytish o'rimi): oyoq TUGADI yoki maqsadga 80%+   |
-//|                  yetgan, ekstremumda teskari belgi bor (sweep /  |
-//|                  soxta break / SOXTA) va qadam teskari tomonga - |
-//|                  oyoqqa QARSHI kichik TP. Stop ekstremumdan sal  |
-//|                  narida (yaqin). Chiqish: TP, STOP yoki 120 daq. |
-//| Kirish shartlariga O'lchov katagi "salbiy" bo'lmasligi ham       |
-//| kiradi. TP dan keyin shartlar hali bajarilsa - darhol qayta.     |
-//| Grid va lot bu yerda yo'q (3-bosqich qarorlari).                 |
+//| Maqsad: qaysi kirishda haqiqiy ustunlik borligini TOPISH.        |
+//| Kirish gipotezalari va chiqish qoidalari docs/GIPOTEZALAR.md da  |
+//| OLDINDAN yozilgan; natijaga qarab o'zgartirilmaydi.              |
+//|                                                                  |
+//| Kirishlar (har biri alohida hisob):                              |
+//|   A asos    - M5 oyog'i tug'ildi (nazorat guruhi)                |
+//|   B erta    - M5 qaytishi oltin zonadan chuqur + M1 MSS M5 tomon |
+//|   C sweep   - sinf >= 3 hovuz sweep bo'ldi + M1 MSS teskari      |
+//|   D sessiya - London / NY ochilishidagi birinchi M5 tug'ilish    |
+//|   E kuchli  - M5 oyog'i kuchli sham bilan tug'ildi               |
+//| Chiqishlar (har kirish ikkalasi bilan alohida o'lchanadi):       |
+//|   S tuzilma - stop M5 HIMOYA bilan suriladi (oyoq SINDI = chiqish)|
+//|   X ATR     - stop eng yaxshi narxdan ATR(M5) x 3 (chandelier)   |
+//| Natija R da: R = kirishdan boshlang'ich stopgacha (spread bilan).|
+//| MFE / MAE ham yoziladi: boshqa chiqishlarni keyin tekshirsa      |
+//| bo'ladi. TP yo'q - harakat qancha cho'zilsa, shuncha oladi.      |
 //+------------------------------------------------------------------+
 
-#define SY_CB   0
-#define SY_N    1
-#define SY_Q    2
-#define SY_M    3
-
-#define SY_Q_PROGRESS     0.80    // Q: KECH oyoq maqsadning kamida shuncha qismini yurgan bo'lsin
-#define SY_Q_MAX_PB       0.38    // Q: narx hali ekstremum yonida (qaytish <= 38%)
-#define SY_Q_MAX_RISK     1.00    // Q: kirishdan stopgacha ATR(M5) x shundan oshmasin (zarar kichik bo'lsin)
-#define SY_Q_TIMEOUT_MIN  120     // Q: shuncha daqiqada TP ham, stop ham bo'lmasa - bozor narxida yopiladi
-
-// 95_Panel dagi chizish yordamchilari (u bu fayldan keyin ulanadi va soya bo'limini o'qiydi).
+// 95_Panel dagi chizish yordamchilari (u bu fayldan keyin ulanadi).
 string V9ObjName(const string id);
 void   V9ChartText(const string id, const datetime t, const double price, const string text, const color clr);
 void   V9ChartDel(const string id);
@@ -39,170 +29,72 @@ color  V9Green();
 color  V9Red();
 color  V9Muted();
 
-struct SShadow
+struct STrade
 {
    bool     on;
    int      dir;
    double   entry;      // BUY: ask, SELL: bid
-   double   tpLvl;      // bid darajasi
-   double   stLvl;      // bid darajasi (faqat Q; CB / N oyoq SINDI bilan chiqadi)
-   double   tpPts;
+   double   stop;       // chiqish narxi tomonida: BUY - bid darajasi, SELL - ask darajasi
+   double   stop0;
+   double   r0;         // boshlang'ich xavf (narx), spread bilan
+   double   sEntry;     // kirishdagi spread
+   double   best;       // eng yaxshi chiqish narxi (BUY max bid, SELL min ask)
+   double   mfe;        // R da
+   double   mae;        // R da
    datetime t;
-   datetime legBornT;   // qaysi oyoq ichida ochildi
-   double   himoya;
-   string   why;
    int      id;
+   string   why;
 };
 
-SShadow g_sy[SY_M];
-string  g_syWait[SY_M];        // hozir nega kirmayapti (birinchi bajarilmagan shart)
-int     g_syDay = -1;
-int     g_syIn[SY_M];          // bugun
-int     g_syTp[SY_M];
-int     g_sySd[SY_M];          // TP siz chiqishlar (SINDI / STOP / VAQT)
-double  g_syPts[SY_M];
-int     g_syAllIn[SY_M];       // ishga tushgandan beri (tester xulosasi uchun)
-int     g_syAllTp[SY_M];
-int     g_syAllSd[SY_M];
-double  g_syAllPts[SY_M];
-int     g_sySeq = 0;
+STrade   g_t[T_HYP][T_EXIT];
+string   g_tWait[T_HYP];           // oxirgi signal nima bo'ldi
+int      g_tSig[T_HYP];            // signallar (o'tkazilganlari bilan)
+int      g_tIn[T_HYP][T_EXIT];     // kirishlar
+int      g_tN[T_HYP][T_EXIT];      // yopilgan
+int      g_tWin[T_HYP][T_EXIT];
+double   g_tR[T_HYP][T_EXIT];      // jami R
+int      g_tSeq = 0;
+datetime g_tBornSeen[V9_TF_N];
+int      g_tDirSeen[V9_TF_N];
+bool     g_tInit[V9_TF_N];
+int      g_tSessDay[2];            // D: shu sessiyada bugun signal bo'ldimi (yil kuni)
 
-string V9SyModeName(const int m)
+string V9THypId(const int h)
 {
-   if(m == SY_CB) return "CB";
-   if(m == SY_N)  return "N";
-   return "Q";
+   if(h == 0) return "A";
+   if(h == 1) return "B";
+   if(h == 2) return "C";
+   if(h == 3) return "D";
+   return "E";
 }
 
-string V9SyFile()
+string V9THypName(const int h)
+{
+   if(h == 0) return "asos";
+   if(h == 1) return "erta";
+   if(h == 2) return "sweep";
+   if(h == 3) return "sessiya";
+   return "kuchli";
+}
+
+string V9TExitId(const int x)
+{
+   return (x == 0) ? "S" : "X";
+}
+
+string V9TFile()
 {
    return V9DailyFile("Soya");
 }
 
-string V9SyHeader()
+string V9THeader()
 {
-   return "vaqt;rejim;hodisa;tomon;narx;tp;himoya_yoki_stop;natija_punkt;daqiqa;sabab";
+   return "vaqt;gipoteza;chiqish;hodisa;tomon;narx;stop;xavf_narx;natija_R;mfe_R;mae_R;daqiqa;sabab";
 }
 
-void V9SyDayCheck()
+void V9TDrawEntry(const int h, const int id, const int dir, const datetime t, const double price)
 {
-   MqlDateTime t;
-   TimeToStruct(TimeCurrent(), t);
-   if(t.day_of_year == g_syDay)
-      return;
-   g_syDay = t.day_of_year;
-   for(int m = 0; m < SY_M; m++)
-   {
-      g_syIn[m] = 0;
-      g_syTp[m] = 0;
-      g_sySd[m] = 0;
-      g_syPts[m] = 0.0;
-   }
-}
-
-//--- Oldinda TP gacha qarama-qarshi devor bormi (narx uning ichida bo'lsa ham). true = joy bor.
-bool V9SyRoom(const int dir, const double tp, string &why)
-{
-   int wz = V9ZoneNearest(dir);
-   if(wz < 0)
-      return true;
-   double bid = V9Bid();
-   double edge = (dir > 0) ? g_zone[wz].lo : g_zone[wz].hi;
-   double room = dir * (edge - bid);
-   if(room > tp + V9Spread())
-      return true;
-   why = "oldinda devor: " + V9TFName(g_zone[wz].tfi) + ((dir > 0) ? " supply" : " demand");
-   return false;
-}
-
-//--- CB va N: oyoq yo'nalishida. true = kirardi; aks holda why = birinchi bajarilmagan shart.
-bool V9SyCanEnterWith(const int m, int &dir, double &tpPts, string &why)
-{
-   dir = 0;
-   tpPts = 0.0;
-   why = "";
-   if(!g_lv[V9_M5].ok)                       { why = "M5 oyog'i yo'q"; return false; }
-   int d = g_lv[V9_M5].dir;
-   if(!g_lv[V9_M5].confirmed)                { why = "oyoq tasdiqlanmagan (2 sham kutilmoqda)"; return false; }
-   int st = g_lv[V9_M5].stage;
-   if(st != STG_YANGI && st != STG_RIVOJ)    { why = "oyoq " + V9StageName(st) + " - yangi da'vo yo'q"; return false; }
-   int rel = g_lv[V9_M5].mapRel;
-   if(rel == MAP_REL_QARSHI)                 { why = "xarita QARSHI (H1 va H4)"; return false; }
-   if(m == SY_N && rel != MAP_REL_IMPULS)    { why = "oddiy rejim faqat IMPULS da"; return false; }
-   if(g_bigLate)                             { why = "katta oyoq (H1) kech"; return false; }
-   int z = g_lv[V9_M5].zone;
-   if(m == SY_CB && z != PBZ_SAYOZ && z != PBZ_OLTIN) { why = "joy emas: " + V9ZoneName(z); return false; }
-   if(m == SY_N && z != PBZ_OLTIN)           { why = "joy emas: " + V9ZoneName(z) + " (oltin zona kerak)"; return false; }
-
-   double bid = V9Bid(), s = V9Spread();
-   double atr15 = V9Atr(V9_M15);
-   if(bid <= 0.0 || atr15 <= 0.0)            { why = "narx / ATR yo'q"; return false; }
-   double tp = 0.0;
-   if(m == SY_CB)
-      tp = V9OlTp(0, s);
-   else
-   {
-      if(g_lv[V9_M5].targetIdx < 0)          { why = "MAQSAD yo'q"; return false; }
-      double toT = d * (g_lv[V9_M5].target - bid);
-      tp = MathMin(atr15, 0.8 * toT);
-      if(tp < 3.0 * s)                       { why = "MAQSADgacha joy kam"; return false; }
-   }
-   if(!V9SyRoom(d, tp, why))
-      return false;
-   if(g_qd.dir != d)                         { why = "qadam: payt emas (" + g_qd.why + ")"; return false; }
-   int cell = g_olCellNow[(d > 0) ? 1 : 0];
-   if(V9OlVerdict((m == SY_CB) ? 0 : 1, cell) == -1) { why = "O'lchov: shu holat salbiy"; return false; }
-
-   dir = d;
-   tpPts = tp / _Point;
-   string zt = (z == PBZ_OLTIN) ? "oltin zona" : "sayoz qaytish";
-   string rt = (rel == MAP_REL_IMPULS) ? "IMPULS" : ((rel == MAP_REL_KORREK) ? "KORREKSIYA" : "H1 neytral");
-   why = zt + " + " + g_qd.why + " + " + rt;
-   return true;
-}
-
-//--- Q: oyoq tugagan / maqsadga yetgan joyda, oyoqqa QARSHI kichik o'rim. Stop ekstremumdan sal narida.
-bool V9SyCanEnterQ(int &dir, double &tpPts, double &stLvl, string &why)
-{
-   dir = 0;
-   tpPts = 0.0;
-   stLvl = 0.0;
-   why = "";
-   if(!g_lv[V9_M5].ok)                       { why = "M5 oyog'i yo'q"; return false; }
-   int d = g_lv[V9_M5].dir;
-   int st = g_lv[V9_M5].stage;
-   bool spent = (st == STG_TUGADI) || (st == STG_KECH && g_lv[V9_M5].progress >= SY_Q_PROGRESS);
-   if(!spent)                                { why = "oyoq hali tugamagan (" + V9StageName(st) + ")"; return false; }
-   if(g_lv[V9_M5].counter < 1)               { why = "ekstremumda teskari belgi yo'q (sweep / soxta break)"; return false; }
-   if(g_lv[V9_M5].pullback > SY_Q_MAX_PB)    { why = "narx ekstremumdan uzoqlashgan"; return false; }
-   // Kuchli H1 oyoq bilan bir tomonda bo'lsa, unga qarshi o'rim qilinmaydi (H1 hali bosmoqda).
-   if(g_lv[V9_M5].mapRel == MAP_REL_IMPULS && MathAbs(g_mapState[V9_H1]) == 3)
-                                             { why = "H1 kuchli, oyoq bilan bir tomonda"; return false; }
-   int q = -d;
-   double bid = V9Bid(), ask = V9Ask(), s = V9Spread();
-   double atr5 = V9Atr(V9_M5);
-   if(bid <= 0.0 || atr5 <= 0.0)             { why = "narx / ATR yo'q"; return false; }
-   double tp = V9OlTp(0, s);
-   if(!V9SyRoom(q, tp, why))
-      return false;
-   if(g_qd.dir != q)                         { why = "qadam: teskari payt emas (" + g_qd.why + ")"; return false; }
-   int cell = g_olCellNow[(q > 0) ? 1 : 0];
-   if(V9OlVerdict(0, cell) == -1)            { why = "O'lchov: shu holat salbiy"; return false; }
-   // Stop: ekstremumdan ATR(M5) x 0.15 narida. BUY stopi bid da, SELL stopi ask da (bid = ask - spread).
-   double ext = g_lv[V9_M5].ext;
-   double stop = ext - q * V9_SINDI_BUF_ATR * atr5;
-   stLvl = (q > 0) ? stop : stop - (ask - bid);
-   if(q * (bid - stLvl) <= 0.0)              { why = "narx stop chizig'ida"; return false; }
-   if(q * (bid - stLvl) > SY_Q_MAX_RISK * atr5) { why = "stop uzoq (ekstremumdan ATR(M5) dan ko'p)"; return false; }
-   dir = q;
-   tpPts = tp / _Point;
-   why = "oyoq " + V9StageName(st) + " + teskari belgi " + IntegerToString(g_lv[V9_M5].counter) + "/3 + " + g_qd.why;
-   return true;
-}
-
-void V9SyDrawEntry(const int m, const int id, const int dir, const datetime t, const double price)
-{
-   string name = V9ObjName(StringFormat("SY_%d_e", id));
+   string name = V9ObjName(StringFormat("TY_%d_e", id));
    if(ObjectFind(0, name) < 0)
    {
       ObjectCreate(0, name, OBJ_ARROW, 0, t, price);
@@ -211,14 +103,14 @@ void V9SyDrawEntry(const int m, const int id, const int dir, const datetime t, c
    }
    ObjectSetInteger(0, name, OBJPROP_ARROWCODE, (dir > 0) ? 233 : 234);
    ObjectSetInteger(0, name, OBJPROP_COLOR, (dir > 0) ? V9Green() : V9Red());
-   ObjectSetInteger(0, name, OBJPROP_WIDTH, (m == SY_N) ? 2 : 1);
+   ObjectSetInteger(0, name, OBJPROP_WIDTH, 1);
    ObjectSetInteger(0, name, OBJPROP_ANCHOR, (dir > 0) ? ANCHOR_TOP : ANCHOR_BOTTOM);
-   V9ChartText(StringFormat("SY_%d_l", id), t, price, " " + V9SyModeName(m), V9Muted());
+   V9ChartText(StringFormat("TY_%d_l", id), t, price, " " + V9THypId(h), V9Muted());
 }
 
-void V9SyDrawExit(const int id, const datetime t0, const double p0, const datetime t1, const double p1, const bool tp)
+void V9TDrawExit(const int id, const datetime t0, const double p0, const datetime t1, const double p1, const bool win)
 {
-   string ln = V9ObjName(StringFormat("SY_%d_x", id));
+   string ln = V9ObjName(StringFormat("TY_%d_x", id));
    if(ObjectFind(0, ln) < 0)
    {
       ObjectCreate(0, ln, OBJ_TREND, 0, t0, p0, t1, p1);
@@ -227,169 +119,318 @@ void V9SyDrawExit(const int id, const datetime t0, const double p0, const dateti
       ObjectSetInteger(0, ln, OBJPROP_RAY_RIGHT, false);
       ObjectSetInteger(0, ln, OBJPROP_STYLE, STYLE_DOT);
    }
-   ObjectSetInteger(0, ln, OBJPROP_COLOR, tp ? V9Green() : V9Red());
-   string mk = V9ObjName(StringFormat("SY_%d_r", id));
+   ObjectSetInteger(0, ln, OBJPROP_COLOR, win ? V9Green() : V9Red());
+   string mk = V9ObjName(StringFormat("TY_%d_r", id));
    if(ObjectFind(0, mk) < 0)
    {
       ObjectCreate(0, mk, OBJ_ARROW, 0, t1, p1);
       ObjectSetInteger(0, mk, OBJPROP_SELECTABLE, false);
       ObjectSetInteger(0, mk, OBJPROP_HIDDEN, true);
    }
-   ObjectSetInteger(0, mk, OBJPROP_ARROWCODE, tp ? 252 : 251);   // Wingdings: ✓ / ✗
-   ObjectSetInteger(0, mk, OBJPROP_COLOR, tp ? V9Green() : V9Red());
-   // Chart tozaligi: eng eski belgilar o'chadi (oxirgi 40 ta soya savdo qoladi).
+   ObjectSetInteger(0, mk, OBJPROP_ARROWCODE, win ? 252 : 251);   // Wingdings: ✓ / ✗
+   ObjectSetInteger(0, mk, OBJPROP_COLOR, win ? V9Green() : V9Red());
+   // Chart tozaligi: oxirgi 40 ta soya savdo qoladi.
    int old = id - 40;
    if(old >= 0)
    {
-      V9ChartDel(StringFormat("SY_%d_e", old));
-      V9ChartDel(StringFormat("SY_%d_l", old));
-      V9ChartDel(StringFormat("SY_%d_x", old));
-      V9ChartDel(StringFormat("SY_%d_r", old));
+      V9ChartDel(StringFormat("TY_%d_e", old));
+      V9ChartDel(StringFormat("TY_%d_l", old));
+      V9ChartDel(StringFormat("TY_%d_x", old));
+      V9ChartDel(StringFormat("TY_%d_r", old));
    }
 }
 
-//--- Yopish. kind: "TP", "SINDI" (oyoq tugadi), "STOP" (Q stopi), "VAQT" (Q vaqti tugadi).
-void V9SyClose(const int m, const string kind)
+//--- Shu yopilgan barda yangi oyoq tug'ildimi (SOXTA tiklanishi emas). Har yangi barda BIR marta chaqiriladi.
+//--- Birinchi chaqiruv faqat eslab qoladi: ishga tushganda eski oyoq "yangi" deb olinmaydi.
+bool V9TFreshBirth(const int tfi)
 {
-   int d = g_sy[m].dir;
-   double bid = V9Bid(), ask = V9Ask();
-   bool tp = (kind == "TP");
-   // TP va STOP broker orderi kabi o'z darajasida yopiladi; SINDI va VAQT bozor narxida.
-   double exitPx = (d > 0) ? bid : ask;
-   if(tp)
-      exitPx = (d > 0) ? g_sy[m].tpLvl : g_sy[m].tpLvl + (ask - bid);
-   else if(kind == "STOP")
-      exitPx = (d > 0) ? g_sy[m].stLvl : g_sy[m].stLvl + (ask - bid);
-   double pts = d * (exitPx - g_sy[m].entry) / _Point;
-   int mins = (int)((TimeCurrent() - g_sy[m].t) / 60);
-   if(tp) { g_syTp[m]++; g_syAllTp[m]++; }
-   else   { g_sySd[m]++; g_syAllSd[m]++; }
-   g_syPts[m] += pts;
-   g_syAllPts[m] += pts;
-   V9SyDrawExit(g_sy[m].id, g_sy[m].t, g_sy[m].entry, TimeCurrent(), exitPx, tp);
-   double ref = (m == SY_Q) ? g_sy[m].stLvl : g_sy[m].himoya;
-   V9FileAppend(V9SyFile(), V9SyHeader(),
-                StringFormat("%s;%s;%s;%s;%s;%s;%s;%.0f;%d;%s", V9TimeStr(TimeCurrent()), V9SyModeName(m), kind,
-                             (d > 0 ? "BUY" : "SELL"), V9Px(exitPx), V9Px(g_sy[m].tpLvl), V9Px(ref), pts, mins, g_sy[m].why));
-   g_sy[m].on = false;
+   int n = g_nbar[tfi];
+   if(n <= 0)
+      return false;
+   bool changed = (g_leg[tfi].bornT != g_tBornSeen[tfi] || g_leg[tfi].dir != g_tDirSeen[tfi]);
+   bool first = !g_tInit[tfi];
+   g_tInit[tfi] = true;
+   g_tBornSeen[tfi] = g_leg[tfi].bornT;
+   g_tDirSeen[tfi] = g_leg[tfi].dir;
+   if(first || !changed || g_leg[tfi].dir == 0)
+      return false;
+   return (g_leg[tfi].bornT == g_bar[tfi][n - 1].tc);
 }
 
-void V9SyOpen(const int m, const int dir, const double tpPts, const double stLvl, const string why)
+//--- D: hozir qaysi sessiya ochilishi. 0 London, 1 Nyu-York, -1 hech biri.
+int V9TSession()
 {
-   double bid = V9Bid(), ask = V9Ask();
-   double entry = (dir > 0) ? ask : bid;
-   g_sy[m].on = true;
-   g_sy[m].dir = dir;
-   g_sy[m].entry = entry;
-   g_sy[m].tpPts = tpPts;
-   g_sy[m].tpLvl = (dir > 0) ? entry + tpPts * _Point : entry - tpPts * _Point - (ask - bid);
-   g_sy[m].stLvl = stLvl;
-   g_sy[m].t = TimeCurrent();
-   g_sy[m].legBornT = g_lv[V9_M5].bornT;
-   g_sy[m].himoya = g_lv[V9_M5].himoya;
-   g_sy[m].why = why;
-   g_sy[m].id = g_sySeq;
-   g_sySeq++;
-   g_syIn[m]++;
-   g_syAllIn[m]++;
-   V9SyDrawEntry(m, g_sy[m].id, dir, g_sy[m].t, entry);
-   double ref = (m == SY_Q) ? stLvl : g_sy[m].himoya;
-   V9FileAppend(V9SyFile(), V9SyHeader(),
-                StringFormat("%s;%s;KIRISH;%s;%s;%s;%s;;;%s", V9TimeStr(g_sy[m].t), V9SyModeName(m), (dir > 0 ? "BUY" : "SELL"),
-                             V9Px(entry), V9Px(g_sy[m].tpLvl), V9Px(ref), why));
+   datetime utc = TimeCurrent() - V9ServerOffsetSec();
+   MqlDateTime u;
+   TimeToStruct(utc, u);
+   int mins = u.hour * 60 + u.min;
+   if(mins >= T_LON_FROM_MIN && mins < T_LON_TO_MIN)
+      return 0;
+   if(mins >= T_NY_FROM_MIN && mins < T_NY_TO_MIN)
+      return 1;
+   return -1;
 }
 
-//--- Har tickda: ochiq soya savdolarni yuritadi, keyin yangi kirishni tekshiradi.
-void V9SoyaTick()
+//--- C: `dir` savdosi uchun yaqinda sweep bo'lgan katta hovuz (narigi tomonda). -1 yo'q.
+int V9TSweptPool(const int dir, const double m1Origin)
 {
-   V9SyDayCheck();
-   double bid = V9Bid();
-   if(bid <= 0.0)
-      return;
-   for(int m = 0; m < SY_M; m++)
+   int side = -dir;
+   datetime now = TimeCurrent();
+   int best = -1;
+   for(int i = 0; i < g_npool; i++)
    {
-      if(g_sy[m].on)
-      {
-         int d = g_sy[m].dir;
-         bool tpHit = (d > 0) ? (bid >= g_sy[m].tpLvl) : (bid <= g_sy[m].tpLvl);
-         if(m == SY_Q)
-         {
-            bool stHit = (d > 0) ? (bid <= g_sy[m].stLvl) : (bid >= g_sy[m].stLvl);
-            if(stHit)
-               V9SyClose(m, "STOP");
-            else if(tpHit)
-               V9SyClose(m, "TP");
-            else if(TimeCurrent() - g_sy[m].t >= SY_Q_TIMEOUT_MIN * 60)
-               V9SyClose(m, "VAQT");
-            else
-               continue;
-         }
-         else
-         {
-            // SINDI: shu savdo ochilgan oyoq tugadi (teskari oyoq tug'ildi yoki boshqa oyoq boshlandi).
-            bool legEnd = (!g_lv[V9_M5].ok || g_lv[V9_M5].dir != d || g_lv[V9_M5].bornT != g_sy[m].legBornT);
-            if(tpHit)
-               V9SyClose(m, "TP");
-            else if(legEnd)
-               V9SyClose(m, "SINDI");
-            else
-               continue;
-         }
-      }
-      int dir = 0;
-      double tpPts = 0.0, stLvl = 0.0;
-      string why = "";
-      bool ok = (m == SY_Q) ? V9SyCanEnterQ(dir, tpPts, stLvl, why) : V9SyCanEnterWith(m, dir, tpPts, why);
-      if(!ok)
-      {
-         g_syWait[m] = why;
+      if(g_pool[i].side != side || g_pool[i].cls < T_C_MIN_CLS || g_pool[i].status != PST_SWEPT)
          continue;
+      if(now - g_pool[i].statusT > T_C_SWEEP_S)
+         continue;
+      if(side * (m1Origin - g_pool[i].price) <= 0.0)   // M1 oyog'i sweep nuqtasidan boshlangan bo'lishi kerak
+         continue;
+      if(best < 0 || g_pool[i].cls > g_pool[best].cls)
+         best = i;
+   }
+   return best;
+}
+
+//--- Gipoteza h ning bo'sh joylarida savdo ochadi. stopPx: BUY uchun bid, SELL uchun ask darajasi.
+void V9TOpen(const int h, const int dir, const double stopPx, const string why)
+{
+   double bid = V9Bid(), ask = V9Ask();
+   double s = ask - bid;
+   double entry = (dir > 0) ? ask : bid;
+   double r0 = dir * (entry - stopPx);
+   g_tSig[h]++;
+   string tm = V9TimeStr(TimeCurrent());
+   if(r0 <= 0.0 || r0 < T_MIN_R_SPREAD * s)
+   {
+      g_tWait[h] = StringSubstr(tm, 11, 5) + " signal o'tkazildi: xavf " + V9Px(r0) + " < 3 spread";
+      return;
+   }
+   int opened = 0;
+   for(int x = 0; x < T_EXIT; x++)
+   {
+      if(g_t[h][x].on)
+         continue;
+      g_t[h][x].on = true;
+      g_t[h][x].dir = dir;
+      g_t[h][x].entry = entry;
+      g_t[h][x].stop = stopPx;
+      g_t[h][x].stop0 = stopPx;
+      g_t[h][x].r0 = r0;
+      g_t[h][x].sEntry = s;
+      g_t[h][x].best = (dir > 0) ? bid : ask;
+      g_t[h][x].mfe = 0.0;
+      g_t[h][x].mae = 0.0;
+      g_t[h][x].t = TimeCurrent();
+      g_t[h][x].id = g_tSeq;
+      g_t[h][x].why = why;
+      g_tSeq++;
+      g_tIn[h][x]++;
+      opened++;
+      V9TDrawEntry(h, g_t[h][x].id, dir, g_t[h][x].t, entry);
+      V9FileAppend(V9TFile(), V9THeader(),
+                   StringFormat("%s;%s;%s;KIRISH;%s;%s;%s;%s;;;;;%s", tm, V9THypId(h), V9TExitId(x), (dir > 0 ? "BUY" : "SELL"),
+                                V9Px(entry), V9Px(stopPx), V9Px(r0), why));
+   }
+   g_tWait[h] = (opened > 0) ? "" : StringSubstr(tm, 11, 5) + " signal o'tkazildi: ikkala chiqish ham band";
+}
+
+void V9TClose(const int h, const int x, const double fill, const string kind)
+{
+   int d = g_t[h][x].dir;
+   double r = d * (fill - g_t[h][x].entry) / g_t[h][x].r0;
+   int mins = (int)((TimeCurrent() - g_t[h][x].t) / 60);
+   g_tN[h][x]++;
+   if(r > 0.0)
+      g_tWin[h][x]++;
+   g_tR[h][x] += r;
+   V9TDrawExit(g_t[h][x].id, g_t[h][x].t, g_t[h][x].entry, TimeCurrent(), fill, r > 0.0);
+   V9FileAppend(V9TFile(), V9THeader(),
+                StringFormat("%s;%s;%s;%s;%s;%s;%s;%s;%.3f;%.3f;%.3f;%d;%s", V9TimeStr(TimeCurrent()), V9THypId(h), V9TExitId(x), kind,
+                             (d > 0 ? "BUY" : "SELL"), V9Px(fill), V9Px(g_t[h][x].stop), V9Px(g_t[h][x].r0), r,
+                             g_t[h][x].mfe, g_t[h][x].mae, mins, g_t[h][x].why));
+   g_t[h][x].on = false;
+}
+
+//--- Yangi bar yopilganda: kirish signallari. Oyoq ko'rinishi (g_lv) hisoblangandan keyin chaqiriladi.
+void V9TSignals(const bool m1New, const bool m5New)
+{
+   bool b5 = m5New && V9TFreshBirth(V9_M5);
+   bool b1 = m1New && V9TFreshBirth(V9_M1);
+   double atr5 = V9Atr(V9_M5);
+   if(atr5 <= 0.0 || V9Bid() <= 0.0)
+      return;
+   double s = V9Spread();
+   double buf = T_STOP_BUF_ATR5 * atr5;
+
+   if(b5)
+   {
+      int d = g_leg[V9_M5].dir;
+      double stop = g_leg[V9_M5].origin - d * buf + ((d < 0) ? s : 0.0);
+      string bt = (g_leg[V9_M5].birthType == EV_MSS) ? "MSS" : "birinchi BOS";
+      // A: har M5 tug'ilish (nazorat guruhi).
+      V9TOpen(0, d, stop, "M5 " + bt);
+      // D: London / NY ochilishidagi birinchi M5 tug'ilish.
+      int sess = V9TSession();
+      if(sess >= 0)
+      {
+         MqlDateTime dt;
+         TimeToStruct(TimeCurrent(), dt);
+         if(g_tSessDay[sess] != dt.day_of_year)
+         {
+            g_tSessDay[sess] = dt.day_of_year;
+            string sn = (sess == 0) ? "London" : "Nyu-York";
+            V9TOpen(3, d, stop, sn + " ochilishi + M5 " + bt);
+         }
       }
-      g_syWait[m] = "";
-      V9SyOpen(m, dir, tpPts, stLvl, why);
+      // E: kuchli sham bilan tug'ilish (tana >= ATR x 0.8).
+      if(g_leg[V9_M5].birthQ == Q_STRONG)
+         V9TOpen(4, d, stop, "kuchli M5 " + bt);
+   }
+
+   if(b1 && g_leg[V9_M1].birthType == EV_MSS)
+   {
+      int d1 = g_leg[V9_M1].dir;
+      double o1 = g_leg[V9_M1].origin;
+      double stop1 = o1 - d1 * buf + ((d1 < 0) ? s : 0.0);
+      // B: M5 oyog'i ichida chuqur qaytish tugadi - M1 M5 tomonga burildi.
+      if(g_lv[V9_M5].ok && g_lv[V9_M5].confirmed && g_lv[V9_M5].dir == d1)
+      {
+         int st = g_lv[V9_M5].stage;
+         double span = d1 * (g_lv[V9_M5].ext - g_lv[V9_M5].himoya);
+         if((st == STG_YANGI || st == STG_RIVOJ || st == STG_KECH) && span > 0.0)
+         {
+            double depth = d1 * (g_lv[V9_M5].ext - o1) / span;
+            if(depth >= T_B_PB_MIN && depth <= 1.0)
+               V9TOpen(1, d1, stop1, StringFormat("M5 qaytishi %.0f%% + M1 MSS", depth * 100.0));
+         }
+      }
+      // C: katta hovuz sweepidan keyin M1 teskari burildi.
+      int pi = V9TSweptPool(d1, o1);
+      if(pi >= 0)
+         V9TOpen(2, d1, stop1, "sweep " + V9PoolName(pi) + " + M1 MSS");
+   }
+}
+
+//--- Har tickda: ochiq savdolarni yuritadi (MFE / MAE, trailing, stop).
+void V9TManage()
+{
+   double bid = V9Bid(), ask = V9Ask();
+   double atr5 = V9Atr(V9_M5);
+   if(bid <= 0.0 || atr5 <= 0.0)
+      return;
+   for(int h = 0; h < T_HYP; h++)
+   {
+      for(int x = 0; x < T_EXIT; x++)
+      {
+         if(!g_t[h][x].on)
+            continue;
+         int d = g_t[h][x].dir;
+         double px = (d > 0) ? bid : ask;   // shu tickda yopilsa qaysi narx
+         // Stop avval tekshiriladi: o'tgan tickda qo'yilgan stopga shu tick yetdimi.
+         if(d * (px - g_t[h][x].stop) <= 0.0)
+         {
+            // Stop narxi va zararga kichik sirpanish; gap bo'lsa - bozor narxida.
+            double fill = g_t[h][x].stop - d * T_SLIP_ATR5 * atr5;
+            if(d * (g_t[h][x].stop - px) > T_GAP_ATR5 * atr5)
+               fill = px;
+            V9TClose(h, x, fill, (d * (g_t[h][x].stop - g_t[h][x].stop0) > 0.0) ? "TRAIL" : "STOP");
+            continue;
+         }
+         double fav = d * (px - g_t[h][x].entry) / g_t[h][x].r0;
+         g_t[h][x].mfe = MathMax(g_t[h][x].mfe, fav);
+         g_t[h][x].mae = MathMax(g_t[h][x].mae, -fav);
+         double ns = g_t[h][x].stop;
+         if(x == 1)
+         {
+            g_t[h][x].best = (d > 0) ? MathMax(g_t[h][x].best, bid) : MathMin(g_t[h][x].best, ask);
+            ns = g_t[h][x].best - d * T_CHAND_ATR5 * atr5;
+         }
+         else if(g_leg[V9_M5].dir == d && g_leg[V9_M5].confirmed)
+            ns = g_leg[V9_M5].himoya - d * T_STOP_BUF_ATR5 * atr5 + ((d < 0) ? g_t[h][x].sEntry : 0.0);
+         // Stop faqat oldinga suriladi va hozirgi narxdan o'tib ketmaydi.
+         if(d * (ns - g_t[h][x].stop) > 0.0 && d * (px - ns) > 0.0)
+            g_t[h][x].stop = ns;
+      }
    }
 }
 
 void V9SoyaInit()
 {
-   for(int m = 0; m < SY_M; m++)
+   for(int h = 0; h < T_HYP; h++)
    {
-      g_sy[m].on = false;
-      g_syWait[m] = "";
-      g_syIn[m] = 0;
-      g_syTp[m] = 0;
-      g_sySd[m] = 0;
-      g_syPts[m] = 0.0;
-      g_syAllIn[m] = 0;
-      g_syAllTp[m] = 0;
-      g_syAllSd[m] = 0;
-      g_syAllPts[m] = 0.0;
+      g_tWait[h] = "";
+      g_tSig[h] = 0;
+      for(int x = 0; x < T_EXIT; x++)
+      {
+         g_t[h][x].on = false;
+         g_tIn[h][x] = 0;
+         g_tN[h][x] = 0;
+         g_tWin[h][x] = 0;
+         g_tR[h][x] = 0.0;
+      }
    }
-   g_syDay = -1;
+   for(int tfi = 0; tfi < V9_TF_N; tfi++)
+   {
+      g_tBornSeen[tfi] = 0;
+      g_tDirSeen[tfi] = 0;
+      g_tInit[tfi] = false;
+   }
+   g_tSessDay[0] = -1;
+   g_tSessDay[1] = -1;
 }
 
-//--- Panel uchun: ochiq soya savdo yoki nega kutmoqda.
-string V9SyNowText(const int m)
+//--- Panel: ochiq savdo(lar) yoki oxirgi signal holati.
+string V9TNowText(const int h)
 {
-   if(g_sy[m].on)
+   string s = "";
+   for(int x = 0; x < T_EXIT; x++)
    {
-      int d = g_sy[m].dir;
+      if(!g_t[h][x].on)
+         continue;
+      int d = g_t[h][x].dir;
       double px = (d > 0) ? V9Bid() : V9Ask();
-      double pts = d * (px - g_sy[m].entry) / _Point;
-      return StringFormat("%s %s · TP %.0f p · hozir %+.0f p", (d > 0 ? "BUY" : "SELL"), V9Px(g_sy[m].entry), g_sy[m].tpPts, pts);
+      double r = d * (px - g_t[h][x].entry) / g_t[h][x].r0;
+      if(s != "")
+         s = s + " · ";
+      s = s + V9TExitId(x) + StringFormat(" %+.1fR", r);
    }
-   return "kutmoqda: " + g_syWait[m];
+   if(s != "")
+   {
+      int dd = g_t[h][0].on ? g_t[h][0].dir : g_t[h][1].dir;
+      return V9Arrow(dd) + " " + s;
+   }
+   if(g_tWait[h] != "")
+      return g_tWait[h];
+   return "kutmoqda";
 }
 
-string V9SyStatText(const int m)
+//--- Ko'z jurnali uchun: ochiq savdolar qisqacha.
+string V9TOpenText()
 {
-   return StringFormat("bugun %d kirish · %d TP · %d boshqa", g_syIn[m], g_syTp[m], g_sySd[m]);
+   string s = "";
+   for(int h = 0; h < T_HYP; h++)
+      for(int x = 0; x < T_EXIT; x++)
+      {
+         if(!g_t[h][x].on)
+            continue;
+         int d = g_t[h][x].dir;
+         double px = (d > 0) ? V9Bid() : V9Ask();
+         if(s != "")
+            s = s + " ";
+         s = s + V9THypId(h) + "_" + V9TExitId(x) + StringFormat("%+.1fR", d * (px - g_t[h][x].entry) / g_t[h][x].r0);
+      }
+   return (s == "") ? "-" : s;
 }
 
-//--- Ishga tushgandan beri (tester oxirida jurnalga).
+//--- Ishga tushgandan beri (tester oxirida Journal ga).
 void V9SyPrintSummary()
 {
-   for(int m = 0; m < SY_M; m++)
-      PrintFormat("[SIRUS V9 SOYA] %s: %d kirish, %d TP, %d TP siz (SINDI/STOP/VAQT), jami %+.0f punkt",
-                  V9SyModeName(m), g_syAllIn[m], g_syAllTp[m], g_syAllSd[m], g_syAllPts[m]);
+   for(int h = 0; h < T_HYP; h++)
+      for(int x = 0; x < T_EXIT; x++)
+      {
+         int n = g_tN[h][x];
+         PrintFormat("[SIRUS V9 SOYA T] %s %s / %s: signal %d, savdo %d, yutgan %d, jami %+.1fR, savdo boshiga %+.2fR",
+                     V9THypId(h), V9THypName(h), (x == 0) ? "tuzilma" : "ATR", g_tSig[h], n, g_tWin[h][x], g_tR[h][x],
+                     (n > 0) ? g_tR[h][x] / n : 0.0);
+      }
 }

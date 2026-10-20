@@ -3,7 +3,10 @@
 
 python3 tahlil.py <Soya.csv> <Kozlar.csv> <Olchov.csv>
 
-1. Soya savdo: har rejim bo'yicha TP ulushi, o'rtacha yutuq / zarar, zararsizlik uchun kerakli TP ulushi.
+1. Soya savdo:
+   - T (V9.05+, trailing): har gipoteza x chiqish bo'yicha R, t, bootstrap, MFE; topish (2/3) va tasdiqlash (1/3) davrlari,
+     docs/GIPOTEZALAR.md dagi mezon bilan;
+   - eski CB / N / Q (V9.04): TP ulushi va zararsizlik uchun kerakli ulush.
 2. O'lchov: kataklar z taqsimoti (tasodifda sd ~ 1, |z|>=2 ~ 4.6%) va har o'lchov bo'yicha alohida.
 3. Oyoqlar: har oyoq BITTA namuna (M5 qatorlari bir-birini qoplaydi - ularni alohida sanash t ni sun'iy oshiradi).
    Oyoq yo'nalishida keyingi 30 / 60 / 240 daqiqadagi narx o'zgarishi.
@@ -30,7 +33,77 @@ def mean_t(v):
     return m, (m / (sd / math.sqrt(n)) if sd > 0 else 0.0)
 
 
+def boot_p(v, iters=2000, seed=7):
+    """Qayta tanlashda o'rtacha <= 0 chiqish ulushi (bir tomonli p)."""
+    import random
+    rnd = random.Random(seed)
+    n = len(v)
+    bad = 0
+    for _ in range(iters):
+        if sum(v[rnd.randrange(n)] for _ in range(n)) <= 0.0:
+            bad += 1
+    return bad / iters
+
+
+def maxdd(v):
+    eq = pk = dd = 0.0
+    for x in v:
+        eq += x
+        pk = max(pk, eq)
+        dd = min(dd, eq - pk)
+    return dd
+
+
+def soya_t(path):
+    print("=== SOYA T (R da) ===")
+    R = read(path)
+    ex = [r for r in R if r["hodisa"] != "KIRISH"]
+    if not ex:
+        print("yopilgan savdo yo'q")
+        return
+    times = sorted(r["vaqt"] for r in R)
+    t0 = dt.datetime.strptime(times[0], "%Y-%m-%d %H:%M:%S")
+    t1 = dt.datetime.strptime(times[-1], "%Y-%m-%d %H:%M:%S")
+    cut = t0 + (t1 - t0) * 2 / 3
+    print(f"davr: {t0:%Y-%m-%d} .. {t1:%Y-%m-%d}; topish < {cut:%Y-%m-%d} <= tasdiqlash")
+    # Kirish vaqti = chiqish vaqti - daqiqa.
+    for r in ex:
+        r["_t"] = dt.datetime.strptime(r["vaqt"], "%Y-%m-%d %H:%M:%S") - dt.timedelta(minutes=int(r["daqiqa"]))
+        r["_r"] = float(r["natija_R"])
+        r["_mfe"] = float(r["mfe_R"])
+    keys = sorted(set((r["gipoteza"], r["chiqish"]) for r in ex))
+    passed = []
+    for k in keys:
+        v = [r for r in ex if (r["gipoteza"], r["chiqish"]) == k]
+        v.sort(key=lambda r: r["_t"])
+        allr = [r["_r"] for r in v]
+        disc = [r["_r"] for r in v if r["_t"] < cut]
+        conf = [r["_r"] for r in v if r["_t"] >= cut]
+        line = f"{k[0]}_{k[1]}: n={len(allr):4d} yutgan={sum(x > 0 for x in allr) / len(allr):.0%} jami={sum(allr):+7.1f}R"
+        if len(allr) >= 2:
+            m, t = mean_t(allr)
+            line += f" o'rtacha={m:+.3f}R t={t:+.1f} maxDD={maxdd(allr):.1f}R"
+        line += f" | MFE>=2R {sum(r['_mfe'] >= 2 for r in v) / len(v):.0%} >=5R {sum(r['_mfe'] >= 5 for r in v) / len(v):.0%}"
+        print(line)
+        ok1 = ok2 = False
+        if len(disc) >= 2:
+            m1, t1_ = mean_t(disc)
+            ok1 = len(disc) >= 60 and m1 > 0 and t1_ >= 2.6
+            print(f"     topish:      n={len(disc):4d} o'rtacha={m1:+.3f}R t={t1_:+.1f} boot_p={boot_p(disc):.3f} {'O`TDI' if ok1 else '-'}")
+        if len(conf) >= 2:
+            m2, t2 = mean_t(conf)
+            ok2 = len(conf) >= 25 and m2 > 0 and t2 >= 1.65
+            print(f"     tasdiqlash:  n={len(conf):4d} o'rtacha={m2:+.3f}R t={t2:+.1f} boot_p={boot_p(conf):.3f} {'O`TDI' if ok2 else '-'}")
+        if ok1 and ok2:
+            passed.append(f"{k[0]}_{k[1]}")
+    print("MEZONDAN O'TGANLAR:", ", ".join(passed) if passed else "yo'q")
+
+
 def soya(path):
+    head = open(path, encoding="latin-1").readline()
+    if "gipoteza" in head:
+        soya_t(path)
+        return
     print("=== SOYA SAVDO (punkt) ===")
     rows = list(csv.reader(open(path, encoding="latin-1"), delimiter=";"))[1:]
     tr = collections.defaultdict(list)

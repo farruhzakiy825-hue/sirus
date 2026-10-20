@@ -671,18 +671,23 @@ void V9PanelDraw(const double ms, const double msBar)
       V9Line("P_qd", V9Arrow(g_qd.dir) + "  " + g_qd.why, V9DirClr(g_qd.dir),
              (g_qd.pressure != 0) ? "bosim " + V9Arrow(g_qd.pressure) : "bosim —", V9DirClr(g_qd.pressure), x, w, false);
 
-      // --- SOYA SAVDO (kirish qoidasi kuzatuvda: robot shu yerda kirardi, order yubormaydi)
-      V9Section("P_s7", "SOYA SAVDO · KIRARDIM", x, w);
-      for(int m = 0; m < SY_M; m++)
+      // --- SOYA T (trailing kuzatuvda: robot shu yerda kirardi, order yubormaydi). S = tuzilma, X = ATR chiqishi.
+      V9Section("P_s7", "SOYA T · TRAILING", x, w);
+      for(int h = 0; h < T_HYP; h++)
       {
-         string sid = StringFormat("P_sy%d", m);
-         int sd = g_sy[m].on ? g_sy[m].dir : 0;
-         V9UIText(sid + "_n", V9SyModeName(m), x, g_py, V9Gold(), InpFontSize, V9F_BRAND, ANCHOR_LEFT_UPPER, false);
-         V9UIText(sid + "_t", V9Fit(V9SyNowText(m), V9F_TEXT, InpFontSize, w - 34), x + 34, g_py, g_sy[m].on ? V9DirClr(sd) : V9Muted(),
+         string sid = StringFormat("P_ty%d", h);
+         bool op = g_t[h][0].on || g_t[h][1].on;
+         int sd = g_t[h][0].on ? g_t[h][0].dir : (g_t[h][1].on ? g_t[h][1].dir : 0);
+         double tot = g_tR[h][0] + g_tR[h][1];
+         V9UIText(sid + "_n", V9THypId(h), x, g_py, V9Gold(), InpFontSize, V9F_BRAND, ANCHOR_LEFT_UPPER, false);
+         V9UIText(sid + "_m", V9THypName(h), x + 16, g_py, V9Muted(), InpFontSize, V9F_TEXT, ANCHOR_LEFT_UPPER, false);
+         // Bitta qator: holat chapda, natija o'ngda (savdolar soni · S tuzilma R · X ATR R).
+         string stat = StringFormat("%d · S%+.1f X%+.1f", g_tN[h][0] + g_tN[h][1], g_tR[h][0], g_tR[h][1]);
+         int rw = V9TextW(stat, V9F_MONO, InpFontSize) + 10;
+         V9UIText(sid + "_t", V9Fit(V9TNowText(h), V9F_TEXT, InpFontSize, w - 80 - rw), x + 80, g_py, op ? V9DirClr(sd) : V9Muted(),
                   InpFontSize, V9F_TEXT, ANCHOR_LEFT_UPPER, false);
+         V9UIText(sid + "_r", stat, x + w, g_py, (tot >= 0.0) ? V9Green() : V9Red(), InpFontSize, V9F_MONO, ANCHOR_RIGHT_UPPER, false);
          g_py += V9Row(InpFontSize);
-         V9Line(sid + "_s", V9SyStatText(m), V9Muted(), StringFormat("%+.0f p", g_syPts[m]),
-                (g_syPts[m] >= 0.0) ? V9Green() : V9Red(), x + 34, w - 34, false);
       }
 
       // --- O'LCHOV

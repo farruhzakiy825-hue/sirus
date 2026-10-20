@@ -1,5 +1,34 @@
 ﻿# CHANGELOG — Sirus Brain V8
 
+## V9.05 — SOYA T: TRAILING + OLDINDAN YOZILGAN GIPOTEZALAR
+
+1-tester natijasi (`docs/TESTER_NATIJA_1.md`): mayda TP'li keshbek rejimi matematik jihatdan foyda bera olmaydi. Uning uchun yo'nalishni ~76% aniqlikda topish kerak edi. Egasi qarori: **sent hisob + oddiy rejim + trailing**. CB / N / Q soya rejimlari olib tashlandi.
+
+**Soya T (`SirusV9/70_Soya.mqh`, qayta yozildi).** Order yuborilmaydi.
+- TP yo'q, trailing stop.
+- 5 kirish gipotezasi:
+  - A asos (nazorat);
+  - B erta: M5 qaytishi tubida M1 MSS;
+  - C sweep: katta hovuz sweepidan keyin M1 MSS;
+  - D sessiya: London / NY ochilishi;
+  - E kuchli tug'ilish.
+- 2 chiqish:
+  - S: M5 HIMOYA bo'ylab tuzilma trailing;
+  - X: ATR(M5) × 3 chandelier.
+- Har juft alohida hisoblanadi.
+- Natija R da. MFE / MAE yoziladi: keyin boshqa chiqishlarni ham hisoblasa bo'ladi.
+- Stop yopilishida sirpanish (ATR(M5) × 0.05), gapda haqiqiy narx, boshlang'ich xavf kamida 3 spread.
+- Barcha sonlar `01_Konstantalar.mqh` da (T_*). Ular `docs/GIPOTEZALAR.md` da natijadan **oldin** qayd etilgan.
+
+**Tahlil (`tools/v9check/tahlil.py`).**
+- Har juft: o'rtacha R, t, bootstrap, eng katta pasayish, MFE.
+- Topish (2/3) va tasdiqlash (1/3) davrlari, oldindan yozilgan mezon bilan.
+- Oxirida "mezondan o'tganlar" ro'yxati chiqadi.
+
+**Tekshiruv.** Tasodifiy bozorda (trendsiz, 4 × 75 kun) har juftning o'rtachasi 0 atrofida (−0.02R … +0.1R, shovqin ichida). Ya'ni kelajakni ko'rish yo'q.
+
+**Panel:** "SOYA T · TRAILING" — har gipoteza bitta qatorda. **Ko'z jurnali:** `soya_t_ochiq` ustuni. Tester yo'riqnomasi 12 oyga yangilandi.
+
 ## V9.04 — Q: QAYTISH O'RIMI (soya) + TESTERGA TAYYOR
 
 **Uchinchi soya rejim — Q (`SirusV9/70_Soya.mqh`).** Kechagi jonli ma'lumotda kirish imkoniyatlarining ko'pi "oyoq KECH / TUGADI" deb yopilgan edi. Q shu joyni kuzatadi: oyoq o'z ishini qilib bo'lgan joyda, oyoqqa QARSHI kichik cashback o'rimi. Order yuborilmaydi.
